@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HC Agency — Hệ thống quản trị</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+--bg1:#ffffff;--bg2:#f5f4f0;--bg3:#eeedeb;
+--tx1:#1a1a1a;--tx2:#6b6a66;--tx3:#9c9a92;
+--bd1:rgba(0,0,0,0.08);--bd2:rgba(0,0,0,0.15);
+--green:#1D9E75;--green-bg:#E1F5EE;--green-tx:#085041;
+--red:#E24B4A;--red-bg:#FCEBEB;--red-tx:#791F1F;
+--amber:#BA7517;--amber-bg:#FAEEDA;--amber-tx:#633806;
+--blue:#378ADD;--blue-bg:#E6F1FB;--blue-tx:#0C447C;
+--purple:#534AB7;--purple-bg:#EEEDFE;--purple-tx:#3C3489;
+--coral:#D85A30;--coral-bg:#FAECE7;--coral-tx:#712B13;
+--pink:#D4537E;--pink-bg:#FBEAF0;--pink-tx:#72243E;
+--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-tx:#085041;
+--radius:8px;--radius-lg:12px;
+}
+@media(prefers-color-scheme:dark){
+:root{
+--bg1:#1a1a1a;--bg2:#252523;--bg3:#2f2f2c;
+--tx1:#e8e6df;--tx2:#9c9a92;--tx3:#6b6a66;
+--bd1:rgba(255,255,255,0.08);--bd2:rgba(255,255,255,0.15);
+--green-bg:#04342C;--green-tx:#9FE1CB;
+--red-bg:#501313;--red-tx:#F7C1C1;
+--amber-bg:#412402;--amber-tx:#FAC775;
+--blue-bg:#042C53;--blue-tx:#B5D4F4;
+--purple-bg:#26215C;--purple-tx:#CECBF6;
+--coral-bg:#4A1B0C;--coral-tx:#F5C4B3;
+--pink-bg:#4B1528;--pink-tx:#F4C0D1;
+--teal-bg:#04342C;--teal-tx:#9FE1CB;
+}
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--tx1);min-height:100vh;}
+.app{display:grid;grid-template-columns:180px 1fr;min-height:100vh;}
+@media(max-width:768px){.app{grid-template-columns:1fr;}.sidebar{display:none;}}
+.sidebar{background:var(--bg2);border-right:1px solid var(--bd1);padding:16px 0;position:sticky;top:0;height:100vh;}
+.logo{padding:8px 20px 20px;border-bottom:1px solid var(--bd1);margin-bottom:8px;}
+.logo h1{font-size:18px;font-weight:600;color:var(--tx1);}
+.logo span{font-size:11px;color:var(--tx3);}
+.logo .live{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-left:4px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:13px;color:var(--tx2);cursor:pointer;transition:all .15s;border-left:3px solid transparent;}
+.nav-item:hover{background:var(--bd1);color:var(--tx1);}
+.nav-item.active{background:var(--blue-bg);color:var(--blue-tx);font-weight:500;border-left-color:var(--blue);}
+.nav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.main{padding:24px 28px;overflow-y:auto;}
+.page-title{font-size:20px;font-weight:600;color:var(--tx1);margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--tx3);margin-bottom:16px;}
+.kpi-grid{display:grid;gap:10px;margin-bottom:16px;}
+.kpi-4{grid-template-columns:repeat(4,1fr);}
+.kpi-3{grid-template-columns:repeat(3,1fr);}
+@media(max-width:768px){.kpi-4,.kpi-3{grid-template-columns:repeat(2,1fr);}}
+.kpi{background:var(--bg2);border-radius:var(--radius);padding:14px 16px;}
+.kpi-label{font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px;}
+.kpi-value{font-size:22px;font-weight:600;margin-top:2px;}
+.kpi-note{font-size:11px;color:var(--tx3);margin-top:2px;}
+.section-title{font-size:14px;font-weight:600;color:var(--tx1);margin:20px 0 8px;}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;padding:8px 10px;font-size:11px;font-weight:500;color:var(--tx3);border-bottom:1px solid var(--bd2);text-transform:uppercase;letter-spacing:.3px;}
+td{padding:8px 10px;border-bottom:1px solid var(--bd1);font-size:13px;color:var(--tx1);}
+tr:hover td{background:var(--bg2);}
+.mono{font-family:'SF Mono',Monaco,Consolas,monospace;font-size:12px;}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;}
+.b-green{background:var(--green-bg);color:var(--green-tx);}
+.b-red{background:var(--red-bg);color:var(--red-tx);}
+.b-amber{background:var(--amber-bg);color:var(--amber-tx);}
+.b-blue{background:var(--blue-bg);color:var(--blue-tx);}
+.b-purple{background:var(--purple-bg);color:var(--purple-tx);}
+.b-coral{background:var(--coral-bg);color:var(--coral-tx);}
+.b-pink{background:var(--pink-bg);color:var(--pink-tx);}
+.b-gray{background:var(--bg3);color:var(--tx3);}
+.bar-track{height:6px;border-radius:3px;background:var(--bd1);width:100%;}
+.bar-fill{height:6px;border-radius:3px;}
+.alert{padding:10px 14px;border-left:3px solid;border-radius:0 var(--radius) var(--radius) 0;font-size:12px;margin-bottom:6px;}
+.alert-warn{border-color:var(--amber);background:var(--amber-bg);color:var(--amber-tx);}
+.alert-danger{border-color:var(--red);background:var(--red-bg);color:var(--red-tx);}
+.alert-info{border-color:var(--blue);background:var(--blue-bg);color:var(--blue-tx);}
+.avatar{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;}
+.staff-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;}
+@media(max-width:768px){.staff-cards{grid-template-columns:repeat(2,1fr);}}
+.staff-card{background:var(--bg2);border-radius:var(--radius-lg);padding:12px 14px;cursor:pointer;border:2px solid transparent;transition:all .15s;}
+.staff-card:hover{border-color:var(--bd2);}
+.staff-card.active{border-color:var(--blue);background:var(--blue-bg);}
+.staff-card-name{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;margin-bottom:4px;}
+.staff-card-value{font-size:20px;font-weight:600;margin-bottom:2px;}
+.staff-card-sub{font-size:11px;color:var(--tx3);}
+.detail-panel{background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);padding:16px;margin-top:10px;}
+.kh-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd1);}
+.kh-row:last-child{border-bottom:none;}
+.kh-name{font-weight:500;font-size:13px;}
+.kh-tk{font-size:11px;color:var(--tx3);}
+.kh-val{font-family:'SF Mono',Monaco,monospace;font-size:13px;font-weight:600;}
+.day-btns{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+.day-btn{padding:6px 12px;font-size:12px;cursor:pointer;border-radius:var(--radius);border:1px solid var(--bd2);background:var(--bg1);color:var(--tx2);font-family:'SF Mono',Monaco,monospace;transition:all .12s;}
+.day-btn:hover{background:var(--bg2);}
+.day-btn.active{background:var(--blue-bg);color:var(--blue-tx);border-color:var(--blue);}
+.total-bar{margin-top:12px;padding:12px 16px;background:var(--bg2);border-radius:var(--radius);display:flex;justify-content:space-between;align-items:center;font-size:14px;}
+.total-bar span:last-child{font-weight:600;font-size:18px;}
+.loading{text-align:center;padding:40px;color:var(--tx3);font-size:14px;}
+.loading::after{content:'';display:inline-block;width:16px;height:16px;border:2px solid var(--bd2);border-top-color:var(--blue);border-radius:50%;animation:spin .6s linear infinite;margin-left:8px;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.error-box{padding:16px;background:var(--red-bg);color:var(--red-tx);border-radius:var(--radius);margin:20px 0;font-size:13px;}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="sidebar">
+<div class="logo"><h1>HC Agency <span class="live"></span></h1><span>Hệ thống quản trị quảng cáo</span></div>
+<div class="nav-item active" onclick="pg(0)"><div class="nav-dot" style="background:var(--purple);"></div>Tổng quan</div>
+<div class="nav-item" onclick="pg(1)"><div class="nav-dot" style="background:var(--teal);"></div>Doanh số hôm nay</div>
+<div class="nav-item" onclick="pg(2)"><div class="nav-dot" style="background:var(--green);"></div>Nhân sự</div>
+<div class="nav-item" onclick="pg(3)"><div class="nav-dot" style="background:var(--blue);"></div>Khách hàng</div>
+<div class="nav-item" onclick="pg(4)"><div class="nav-dot" style="background:var(--coral);"></div>Thu chi</div>
+</div>
+<div class="main" id="page"><div class="loading">Đang kết nối Supabase</div></div>
+</div>
+
+<script>
+// ── SUPABASE CONFIG ──
+const SUPABASE_URL = 'https://eqsnohwymgmdvbqwflas.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxc25vaHd5bWdtZHZicXdmbGFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzU1NzUsImV4cCI6MjA5MTIxMTU3NX0.0cv-j9zJUfVAj9LBG8VFHNO0Jke4JjehBKSzDVd1nA0';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── COLOR MAP ──
+const COLORS = {
+  purple: {c:'var(--purple)',bg:'var(--purple-bg)',tx:'var(--purple-tx)'},
+  teal:   {c:'var(--teal)',bg:'var(--teal-bg)',tx:'var(--teal-tx)'},
+  coral:  {c:'var(--coral)',bg:'var(--coral-bg)',tx:'var(--coral-tx)'},
+  pink:   {c:'var(--pink)',bg:'var(--pink-bg)',tx:'var(--pink-tx)'},
+  blue:   {c:'var(--blue)',bg:'var(--blue-bg)',tx:'var(--blue-tx)'},
+  green:  {c:'var(--green)',bg:'var(--green-bg)',tx:'var(--green-tx)'},
+};
+function sc(code){return COLORS[code]||COLORS.blue;}
+
+// ── CACHE ──
+let staffList=[], clientList=[], dailyData=[], salaryData=[], txnData=[], monthlyRevData=[], staffClientMap={}, staffAdMap={};
+let curPage=0, cDay=null, cStaff=null, availableDates=[];
+
+// ── FORMAT ──
+function fm(n){if(!n)return'—';if(n>=1e6)return(n/1e6).toFixed(1)+'tr';if(n>=1e3)return Math.round(n/1e3).toLocaleString('vi-VN')+'K';return n.toLocaleString('vi-VN');}
+function ff(n){if(!n)return'—';return n.toLocaleString('vi-VN');}
+function fdate(d){var p=d.split('-');return parseInt(p[2])+'/'+parseInt(p[1]);}
+
+// ── LOAD ALL DATA ──
+async function loadAll(){
+  try{
+    const [s,c,ds,sal,txn,mr,scl,saa] = await Promise.all([
+      sb.from('staff').select('*').eq('is_active',true).order('monthly_budget',{ascending:false}),
+      sb.from('client').select('*').order('name'),
+      sb.from('daily_spend').select('*, ad_account(id,account_name,client_id, client(name))').order('report_date'),
+      sb.from('salary').select('*, staff(short_name)').order('month',{ascending:false}),
+      sb.from('transaction').select('*, client(name), staff(short_name)').order('txn_date',{ascending:false}),
+      sb.from('monthly_revenue').select('*, staff(short_name,code)').order('month'),
+      sb.from('staff_client').select('*, client(name)'),
+      sb.from('staff_ad_account').select('*, ad_account(id,account_name,client_id)')
+    ]);
+
+    if(s.error) throw s.error;
+    staffList=s.data||[];
+    clientList=c.data||[];
+    dailyData=ds.data||[];
+    salaryData=sal.data||[];
+    txnData=txn.data||[];
+    monthlyRevData=mr.data||[];
+
+    // Build staff→client mapping
+    (scl.data||[]).forEach(r=>{
+      if(!staffClientMap[r.staff_id])staffClientMap[r.staff_id]={};
+      if(!staffClientMap[r.staff_id][r.month])staffClientMap[r.staff_id][r.month]=[];
+      staffClientMap[r.staff_id][r.month].push(r);
+    });
+
+    // Build staff→ad_account mapping
+    (saa.data||[]).forEach(r=>{
+      if(!staffAdMap[r.ad_account_id])staffAdMap[r.ad_account_id]=[];
+      staffAdMap[r.ad_account_id].push(r);
+    });
+
+    // Get available dates
+    var dateSet=new Set();
+    dailyData.forEach(d=>dateSet.add(d.report_date));
+    availableDates=Array.from(dateSet).sort();
+    if(availableDates.length)cDay=availableDates.length-1;
+
+    render();
+  }catch(e){
+    document.getElementById('page').innerHTML='<div class="error-box">Lỗi kết nối: '+e.message+'<br><br>Kiểm tra lại Supabase URL, API Key và RLS policies.</div>';
+  }
+}
+
+// ── GET STAFF FOR AD ACCOUNT + DATE ──
+function getStaffForAd(adAccountId, date){
+  var month=date.substring(0,7);
+  var matches=(staffAdMap[adAccountId]||[]).filter(r=>r.month===month);
+  return matches.length?matches[0].staff_id:null;
+}
+
+// ── AGGREGATE DAILY DATA BY STAFF ──
+function getDailyByStaff(date){
+  var result={};
+  staffList.forEach(s=>{result[s.id]={staff:s,total:0,clients:[]};});
+  dailyData.filter(d=>d.report_date===date).forEach(d=>{
+    var staffId=getStaffForAd(d.ad_account_id,date);
+    if(staffId && result[staffId]){
+      result[staffId].total+=d.spend_amount;
+      result[staffId].clients.push({
+        name:d.ad_account?.client?.name||'—',
+        account:d.ad_account?.account_name||'—',
+        amount:d.spend_amount
+      });
+    }
+  });
+  return result;
+}
+
+// ── NAV ──
+function pg(i){curPage=i;cStaff=null;document.querySelectorAll('.nav-item').forEach((n,j)=>n.classList.toggle('active',j===i));render();}
+function render(){
+  var el=document.getElementById('page');
+  if(curPage===0)el.innerHTML=pOverview();
+  else if(curPage===1){el.innerHTML=pDaily();bindDaily();}
+  else if(curPage===2)el.innerHTML=pStaff();
+  else if(curPage===3)el.innerHTML=pClients();
+  else if(curPage===4)el.innerHTML=pFinance();
+}
+
+// ── PAGE: TỔNG QUAN ──
+function pOverview(){
+  // Calc totals
+  var totDS=0, staffTotals={};
+  staffList.forEach(s=>{staffTotals[s.id]=0;});
+  dailyData.forEach(d=>{
+    var sid=getStaffForAd(d.ad_account_id,d.report_date);
+    if(sid){staffTotals[sid]=(staffTotals[sid]||0)+d.spend_amount;totDS+=d.spend_amount;}
+  });
+
+  // Get finance for current month
+  var curMonth=availableDates.length?availableDates[0].substring(0,7):'2026-04';
+  var income=0,expense=0;
+  txnData.forEach(t=>{
+    if(t.month===curMonth){
+      if(t.txn_type==='income')income+=t.amount;
+      else expense+=t.amount;
+    }
+  });
+  var profit=income-expense;
+  var margin=income>0?Math.round(profit/income*100):0;
+  var numDays=availableDates.length||1;
+
+  var h='<div class="page-title">Tổng quan</div><div class="page-sub">Tháng '+parseInt(curMonth.split('-')[1])+'/'+curMonth.split('-')[0]+' — '+numDays+' ngày</div>';
+
+  h+='<div class="kpi-grid kpi-4">';
+  h+='<div class="kpi"><div class="kpi-label">Doanh thu</div><div class="kpi-value" style="color:var(--green);">'+fm(income)+'</div><div class="kpi-note">Phí dịch vụ Facebook</div></div>';
+  h+='<div class="kpi"><div class="kpi-label">Chi phí</div><div class="kpi-value" style="color:var(--red);">'+fm(expense)+'</div><div class="kpi-note">Lương + mặt bằng</div></div>';
+  h+='<div class="kpi"><div class="kpi-label">Lợi nhuận</div><div class="kpi-value" style="color:var(--green);">'+fm(profit)+'</div><div class="kpi-note">Biên LN '+margin+'%</div></div>';
+  h+='<div class="kpi"><div class="kpi-label">Tổng doanh số QC</div><div class="kpi-value">'+fm(totDS)+'</div><div class="kpi-note">'+staffList.length+' nhân sự × '+numDays+' ngày</div></div></div>';
+
+  // Staff table
+  h+='<div class="section-title">Doanh số theo nhân sự</div>';
+  h+='<table><tr><th></th><th>Nhân sự</th><th>Budget/tháng</th><th>Đã chi ('+numDays+' ngày)</th><th>Tiến độ</th><th>TB/ngày</th></tr>';
+  staffList.forEach(s=>{
+    var col=sc(s.color_code);
+    var spent=staffTotals[s.id]||0;
+    var pct=s.monthly_budget>0?Math.round(spent/s.monthly_budget*100):0;
+    var avg=Math.round(spent/numDays);
+    h+='<tr><td><div class="avatar" style="background:'+col.bg+';color:'+col.tx+';">'+s.avatar_initials+'</div></td>';
+    h+='<td style="font-weight:500;">'+s.short_name+'</td>';
+    h+='<td class="mono">'+fm(s.monthly_budget)+'</td>';
+    h+='<td class="mono">'+fm(spent)+'</td>';
+    h+='<td><div class="bar-track" style="width:100px;display:inline-block;vertical-align:middle;"><div class="bar-fill" style="width:'+Math.min(pct,100)+'%;background:'+col.c+';"></div></div> <span style="font-size:11px;color:var(--tx3);">'+pct+'%</span></td>';
+    h+='<td class="mono">'+fm(avg)+'</td></tr>';
+  });
+  h+='</table>';
+
+  // Daily table
+  h+='<div class="section-title">Doanh số '+numDays+' ngày</div>';
+  h+='<table><tr><th>Ngày</th>';
+  staffList.forEach(s=>{var col=sc(s.color_code);h+='<th style="text-align:right;color:'+col.tx+';">'+s.short_name+'</th>';});
+  h+='<th style="text-align:right;">Tổng</th></tr>';
+  availableDates.forEach(date=>{
+    var byStaff=getDailyByStaff(date);
+    var dayTotal=0;
+    h+='<tr><td>'+fdate(date)+'</td>';
+    staffList.forEach(s=>{
+      var v=byStaff[s.id]?byStaff[s.id].total:0;
+      dayTotal+=v;
+      h+='<td class="mono" style="text-align:right;">'+fm(v)+'</td>';
+    });
+    h+='<td class="mono" style="text-align:right;font-weight:600;">'+fm(dayTotal)+'</td></tr>';
+  });
+  h+='</table>';
+  return h;
+}
+
+// ── PAGE: DOANH SỐ HÔM NAY ──
+function pDaily(){
+  var h='<div class="page-title">Doanh số hôm nay</div><div class="page-sub">Chọn ngày → bấm vào ô nhân sự để xem chi tiết từng khách hàng</div>';
+  h+='<div class="day-btns">';
+  availableDates.forEach((d,i)=>{
+    h+='<button class="day-btn'+(i===cDay?' active':'')+'" onclick="pickDay('+i+')">'+fdate(d)+'</button>';
+  });
+  h+='</div><div class="staff-cards" id="scards"></div><div id="sdetail"></div><div class="total-bar" id="tbar"></div>';
+  return h;
+}
+function bindDaily(){renderDayContent();}
+function pickDay(i){cDay=i;cStaff=null;document.querySelectorAll('.day-btn').forEach((b,j)=>b.classList.toggle('active',j===i));renderDayContent();}
+function pickStaff(id){cStaff=(cStaff===id)?null:id;renderDayContent();}
+
+function renderDayContent(){
+  if(!availableDates.length)return;
+  var date=availableDates[cDay];
+  var byStaff=getDailyByStaff(date);
+  var gt=0,sh='';
+
+  staffList.forEach(s=>{
+    var col=sc(s.color_code);
+    var data=byStaff[s.id];
+    var t=data?data.total:0;
+    gt+=t;
+    var ac=data?data.clients.filter(c=>c.amount>0).length:0;
+    var totalClients=data?data.clients.length:0;
+    sh+='<div class="staff-card'+(cStaff===s.id?' active':'')+'" onclick="pickStaff(\''+s.id+'\')">';
+    sh+='<div class="staff-card-name"><div class="avatar" style="background:'+col.bg+';color:'+col.tx+';">'+s.avatar_initials+'</div>'+s.short_name+'</div>';
+    sh+='<div class="staff-card-value" style="color:'+col.c+';">'+fm(t)+'</div>';
+    sh+='<div class="staff-card-sub">'+ac+'/'+totalClients+' KH đang chạy</div></div>';
+  });
+  document.getElementById('scards').innerHTML=sh;
+
+  // Detail panel
+  var dh='';
+  if(cStaff){
+    var s=staffList.find(x=>x.id===cStaff);
+    var col=sc(s.color_code);
+    var data=byStaff[s.id];
+    dh+='<div class="detail-panel"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><span style="font-size:16px;font-weight:600;">'+s.short_name+' — Ngày '+fdate(date)+'</span><span style="font-size:18px;font-weight:600;color:'+col.c+';">'+ff(data.total)+' VNĐ</span></div>';
+    data.clients.sort((a,b)=>b.amount-a.amount).forEach(kh=>{
+      dh+='<div class="kh-row"><div><div class="kh-name">'+kh.name+'</div><div class="kh-tk">'+kh.account+'</div></div>';
+      if(kh.amount>0){
+        var pct=Math.round(kh.amount/data.total*100);
+        dh+='<div style="text-align:right;"><div class="kh-val" style="color:'+col.c+';">'+ff(kh.amount)+'</div><div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;"><div class="bar-track" style="width:80px;"><div class="bar-fill" style="width:'+pct+'%;background:'+col.c+';"></div></div><span style="font-size:11px;color:var(--tx3);">'+pct+'%</span></div></div>';
+      } else {
+        dh+='<span class="badge b-amber">Không chạy</span>';
+      }
+      dh+='</div>';
+    });
+    dh+='</div>';
+  }
+  document.getElementById('sdetail').innerHTML=dh;
+  document.getElementById('tbar').innerHTML='<span style="color:var(--tx2);">Tổng doanh số ngày '+fdate(date)+'</span><span>'+ff(gt)+' VNĐ</span>';
+}
+
+// ── PAGE: NHÂN SỰ ──
+function pStaff(){
+  var numDays=availableDates.length||1;
+  var staffTotals={};
+  staffList.forEach(s=>{staffTotals[s.id]=0;});
+  dailyData.forEach(d=>{
+    var sid=getStaffForAd(d.ad_account_id,d.report_date);
+    if(sid)staffTotals[sid]=(staffTotals[sid]||0)+d.spend_amount;
+  });
+
+  var h='<div class="page-title">Nhân sự</div><div class="page-sub">'+staffList.length+' Ads Specialist — HC Agency</div>';
+  h+='<table><tr><th></th><th>Họ tên</th><th>Budget/tháng</th><th>DS ('+numDays+' ngày)</th><th>Lương gần nhất</th></tr>';
+  staffList.forEach(s=>{
+    var col=sc(s.color_code);
+    var sal=salaryData.find(x=>x.staff_id===s.id);
+    h+='<tr><td><div class="avatar" style="background:'+col.bg+';color:'+col.tx+';">'+s.avatar_initials+'</div></td>';
+    h+='<td style="font-weight:500;">'+s.full_name+'</td>';
+    h+='<td class="mono">'+fm(s.monthly_budget)+'</td>';
+    h+='<td class="mono" style="color:'+col.c+';font-weight:500;">'+fm(staffTotals[s.id])+'</td>';
+    h+='<td class="mono">'+(sal?fm(sal.total):'—')+'</td></tr>';
+  });
+  h+='</table>';
+
+  // Historical revenue
+  var months=new Set();
+  monthlyRevData.forEach(r=>months.add(r.month));
+  var sortedMonths=Array.from(months).sort();
+  if(sortedMonths.length){
+    h+='<div class="section-title">Doanh số lịch sử</div>';
+    h+='<table><tr><th>Tháng</th>';
+    staffList.forEach(s=>h+='<th style="text-align:right;">'+s.short_name+'</th>');
+    h+='<th style="text-align:right;">Tổng</th></tr>';
+    sortedMonths.forEach(m=>{
+      var total=0;
+      h+='<tr><td>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</td>';
+      staffList.forEach(s=>{
+        var rev=monthlyRevData.find(r=>r.staff_id===s.id&&r.month===m);
+        var v=rev?rev.total_spend:0;
+        total+=v;
+        h+='<td class="mono" style="text-align:right;">'+fm(v)+'</td>';
+      });
+      h+='<td class="mono" style="text-align:right;font-weight:600;">'+fm(total)+'</td></tr>';
+    });
+    h+='</table>';
+  }
+
+  // Staff → Clients
+  var curMonth=availableDates.length?availableDates[0].substring(0,7):'2026-04';
+  h+='<div class="section-title">Khách hàng theo nhân sự — T'+parseInt(curMonth.split('-')[1])+'/'+curMonth.split('-')[0]+'</div>';
+  staffList.forEach(s=>{
+    var col=sc(s.color_code);
+    var clients=(staffClientMap[s.id]&&staffClientMap[s.id][curMonth])||[];
+    h+='<div style="margin:10px 0 4px;display:flex;align-items:center;gap:6px;"><div class="avatar" style="background:'+col.bg+';color:'+col.tx+';width:22px;height:22px;font-size:9px;">'+s.avatar_initials+'</div><span style="font-weight:500;font-size:13px;">'+s.short_name+'</span></div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:4px;">';
+    clients.forEach(sc2=>{h+='<span class="badge" style="background:'+col.bg+';color:'+col.tx+';">'+(sc2.client?sc2.client.name:'—')+'</span>';});
+    if(!clients.length)h+='<span style="font-size:12px;color:var(--tx3);">Chưa phân công</span>';
+    h+='</div>';
+  });
+  return h;
+}
+
+// ── PAGE: KHÁCH HÀNG ──
+function pClients(){
+  var h='<div class="page-title">Danh sách khách hàng</div><div class="page-sub">Tổng '+clientList.length+' khách hàng</div>';
+  h+='<table><tr><th>#</th><th>Khách hàng</th><th>Liên hệ</th><th>Thanh toán</th><th>Phí DV</th><th>Tình trạng</th></tr>';
+  clientList.forEach((c,i)=>{
+    var stBadge=c.status==='active'?'b-green':(c.status==='paused'?'b-amber':'b-red');
+    var stText=c.status==='active'?'Active':(c.status==='paused'?'Tạm dừng':'Dừng');
+    h+='<tr><td>'+(i+1)+'</td>';
+    h+='<td style="font-weight:500;">'+c.name+'</td>';
+    h+='<td style="font-size:12px;color:var(--tx2);">'+(c.contact_person||'—')+'</td>';
+    h+='<td>'+(c.payment_status==='paid'?'<span class="badge b-green">Đã TT</span>':'<span class="badge b-gray">Chưa</span>')+'</td>';
+    h+='<td class="mono">'+(c.service_fee?fm(c.service_fee):'—')+'</td>';
+    h+='<td><span class="badge '+stBadge+'">'+stText+'</span></td></tr>';
+  });
+  h+='</table>';
+
+  // Salary summary
+  var latestMonth=salaryData.length?salaryData[0].month:null;
+  if(latestMonth){
+    var monthSalaries=salaryData.filter(s=>s.month===latestMonth);
+    var totalSal=0;
+    h+='<div class="section-title">Chi phí lương — T'+parseInt(latestMonth.split('-')[1])+'/'+latestMonth.split('-')[0]+'</div>';
+    h+='<table><tr><th>Nhân sự</th><th style="text-align:right;">Lương</th></tr>';
+    monthSalaries.forEach(s=>{
+      totalSal+=s.total;
+      h+='<tr><td>'+(s.staff?s.staff.short_name:'—')+'</td><td class="mono" style="text-align:right;">'+ff(s.total)+'</td></tr>';
+    });
+    h+='<tr style="font-weight:600;background:var(--bg2);"><td>Tổng lương</td><td class="mono" style="text-align:right;">'+ff(totalSal)+'</td></tr></table>';
+  }
+  return h;
+}
+
+// ── PAGE: THU CHI ──
+function pFinance(){
+  var curMonth=availableDates.length?availableDates[0].substring(0,7):'2026-04';
+  var monthTxns=txnData.filter(t=>t.month===curMonth);
+  var income=0,expense=0;
+  monthTxns.forEach(t=>{if(t.txn_type==='income')income+=t.amount;else expense+=t.amount;});
+  var profit=income-expense;
+  var margin=income>0?(profit/income*100).toFixed(1):0;
+
+  var h='<div class="page-title">Thu chi</div><div class="page-sub">Tháng '+parseInt(curMonth.split('-')[1])+'/'+curMonth.split('-')[0]+'</div>';
+  h+='<div class="kpi-grid kpi-3">';
+  h+='<div class="kpi"><div class="kpi-label">Doanh thu</div><div class="kpi-value" style="color:var(--green);">'+ff(income)+'</div><div class="kpi-note">Phí DV Facebook</div></div>';
+  h+='<div class="kpi"><div class="kpi-label">Chi phí</div><div class="kpi-value" style="color:var(--red);">'+ff(expense)+'</div><div class="kpi-note">Lương + VP</div></div>';
+  h+='<div class="kpi"><div class="kpi-label">Lợi nhuận ròng</div><div class="kpi-value" style="color:var(--green);">'+ff(profit)+'</div><div class="kpi-note">Biên LN '+margin+'%</div></div></div>';
+
+  h+='<div class="section-title">Chi tiết giao dịch</div>';
+  h+='<table><tr><th>Ngày</th><th>Loại</th><th>Khách hàng / Nhân viên</th><th>Phân loại</th><th style="text-align:right;">Số tiền</th></tr>';
+  monthTxns.forEach(t=>{
+    var name=t.client?t.client.name:(t.staff?t.staff.short_name:(t.note||'—'));
+    var catMap={service_fee:'Phí DV Facebook',salary:'Lương nhân viên',rent:'Chi phí vận hành',other:'Khác'};
+    h+='<tr><td>'+fdate(t.txn_date)+'</td>';
+    h+='<td><span class="badge '+(t.txn_type==='income'?'b-green':'b-red')+'">'+(t.txn_type==='income'?'Thu':'Chi')+'</span></td>';
+    h+='<td>'+name+'</td>';
+    h+='<td style="font-size:12px;color:var(--tx2);">'+(catMap[t.category]||t.category)+'</td>';
+    h+='<td class="mono" style="text-align:right;color:'+(t.txn_type==='income'?'var(--green)':'var(--red)')+';font-weight:500;">'+(t.txn_type==='income'?'+':'-')+ff(t.amount)+'</td></tr>';
+  });
+  h+='</table>';
+
+  // Cost breakdown
+  var salTotal=0,rentTotal=0,otherTotal=0;
+  monthTxns.filter(t=>t.txn_type==='expense').forEach(t=>{
+    if(t.category==='salary')salTotal+=t.amount;
+    else if(t.category==='rent')rentTotal+=t.amount;
+    else otherTotal+=t.amount;
+  });
+  h+='<div class="section-title">Cơ cấu chi phí</div>';
+  h+='<table><tr><th>Khoản mục</th><th style="text-align:right;">Số tiền</th><th style="text-align:right;">Tỷ trọng</th></tr>';
+  if(salTotal)h+='<tr><td>Lương nhân viên</td><td class="mono" style="text-align:right;">'+ff(salTotal)+'</td><td style="text-align:right;">'+(expense>0?Math.round(salTotal/expense*100):0)+'%</td></tr>';
+  if(rentTotal)h+='<tr><td>Mặt bằng / văn phòng</td><td class="mono" style="text-align:right;">'+ff(rentTotal)+'</td><td style="text-align:right;">'+(expense>0?Math.round(rentTotal/expense*100):0)+'%</td></tr>';
+  if(otherTotal)h+='<tr><td>Khác</td><td class="mono" style="text-align:right;">'+ff(otherTotal)+'</td><td style="text-align:right;">'+(expense>0?Math.round(otherTotal/expense*100):0)+'%</td></tr>';
+  h+='<tr style="font-weight:600;background:var(--bg2);"><td>Tổng chi phí</td><td class="mono" style="text-align:right;">'+ff(expense)+'</td><td style="text-align:right;">100%</td></tr></table>';
+
+  // Monthly finance
+  var allMonths=new Set();
+  txnData.forEach(t=>allMonths.add(t.month));
+  var sortedM=Array.from(allMonths).sort();
+  if(sortedM.length>1){
+    h+='<div class="section-title">Thu chi theo tháng</div>';
+    h+='<table><tr><th>Tháng</th><th style="text-align:right;">Doanh thu</th><th style="text-align:right;">Chi phí</th><th style="text-align:right;">Lợi nhuận</th><th style="text-align:right;">Biên LN</th></tr>';
+    sortedM.forEach(m=>{
+      var mi=0,me=0;
+      txnData.filter(t=>t.month===m).forEach(t=>{if(t.txn_type==='income')mi+=t.amount;else me+=t.amount;});
+      var mp=mi-me;
+      var mm=mi>0?(mp/mi*100).toFixed(1):0;
+      h+='<tr><td>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</td>';
+      h+='<td class="mono" style="text-align:right;">'+ff(mi)+'</td>';
+      h+='<td class="mono" style="text-align:right;">'+ff(me)+'</td>';
+      h+='<td class="mono" style="text-align:right;color:var(--green);">'+ff(mp)+'</td>';
+      h+='<td style="text-align:right;">'+mm+'%</td></tr>';
+    });
+    h+='</table>';
+  }
+  return h;
+}
+
+// ── INIT ──
+loadAll();
+</script>
+</body>
+</html>
