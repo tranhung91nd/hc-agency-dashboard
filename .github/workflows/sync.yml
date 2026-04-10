@@ -2,9 +2,9 @@ name: HC Agency - Auto Sync
 
 on:
   schedule:
-    # 7h sáng VN (0:00 UTC) → sync ngày hôm qua
+    # 7h sáng VN (0:00 UTC) → sync chi tiêu ngày hôm qua (lần 1)
     - cron: '0 0 * * *'
-    # 23h đêm VN (16:00 UTC) → sync ngày hôm nay
+    # 23h đêm VN (16:00 UTC) → sync chi tiêu ngày hôm qua (lần 2, chốt lại)
     - cron: '0 16 * * *'
   workflow_dispatch:
     # Cho phép chạy thủ công từ GitHub Actions tab
