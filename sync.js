@@ -47,6 +47,34 @@ async function main() {
 
   console.log(`[HC Sync] ${adAccounts.length} TK (${normal.length} riêng + ${shared.length} chung)`);
 
+  // ═══ Cập nhật spend_cap & amount_spent từ Meta ═══
+  for (let b = 0; b < adAccounts.length; b += 50) {
+    const chunk = adAccounts.slice(b, b + 50);
+    const batchReqs = chunk.map(a => ({
+      method: 'GET',
+      relative_url: `${a.fb_account_id}?fields=spend_cap,amount_spent,account_status`
+    }));
+    try {
+      const resp = await fetch('https://graph.facebook.com/v25.0/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `batch=${encodeURIComponent(JSON.stringify(batchReqs))}&access_token=${META_TOKEN}&include_headers=false`
+      });
+      const results = await resp.json();
+      for (let j = 0; j < results.length; j++) {
+        try {
+          const body = JSON.parse(results[j].body || '{}');
+          await sb.from('ad_account').update({
+            spend_cap: parseInt(body.spend_cap) || 0,
+            amount_spent: parseInt(body.amount_spent) || 0,
+            account_status: body.account_status || 1
+          }).eq('fb_account_id', chunk[j].fb_account_id);
+        } catch (e) {}
+      }
+    } catch (e) { console.error('Batch account update error:', e.message); }
+  }
+  console.log(`[HC Sync] Đã cập nhật spend_cap/amount_spent`);
+
   // ═══ BATCH API: 50 TK thường / batch ═══
   for (let b = 0; b < normal.length; b += 50) {
     const chunk = normal.slice(b, b + 50);
