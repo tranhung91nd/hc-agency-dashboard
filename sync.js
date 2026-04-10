@@ -19,21 +19,10 @@ function vnDate(offset) {
   return v.getFullYear() + '-' + ('0' + (v.getMonth() + 1)).slice(-2) + '-' + ('0' + v.getDate()).slice(-2);
 }
 
-const today = vnDate(0);
 const yesterday = vnDate(-86400000);
+const syncDate = yesterday;
 
-// Determine which date to sync based on VN hour
-const vnHour = (() => {
-  const d = new Date();
-  const u = d.getTime() + d.getTimezoneOffset() * 60000 + 25200000;
-  return new Date(u).getHours();
-})();
-
-// 7h sáng → sync ngày hôm qua (dữ liệu đã chốt)
-// 23h đêm → sync ngày hôm nay (dữ liệu gần cuối ngày)
-const syncDate = vnHour < 12 ? yesterday : today;
-
-console.log(`[HC Sync] VN time: ${vnHour}h | Sync date: ${syncDate}`);
+console.log(`[HC Sync] Sync ngày hôm qua: ${syncDate}`);
 
 async function main() {
   let saved = 0, errors = 0;
