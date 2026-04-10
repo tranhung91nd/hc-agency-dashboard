@@ -1,0 +1,30 @@
+name: HC Agency - Auto Sync
+
+on:
+  schedule:
+    # 7h sáng VN (0:00 UTC) → sync ngày hôm qua
+    - cron: '0 0 * * *'
+    # 23h đêm VN (16:00 UTC) → sync ngày hôm nay
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+    # Cho phép chạy thủ công từ GitHub Actions tab
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install @supabase/supabase-js
+
+      - name: Run sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          META_TOKEN: ${{ secrets.META_TOKEN }}
+        run: node sync.js
