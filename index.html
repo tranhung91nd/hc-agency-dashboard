@@ -613,6 +613,16 @@ h+='<td><span class="pq '+(a.is_shared?'pq-s':'pq-r')+'" onclick="toggleShared(\
 // Expandable assignment panel
 if(expandedAd===a.id){
 h+='<tr><td colspan="8" style="padding:4px 0;"><div class="assign-panel">';
+// Manual spend input section
+var curSpend=dailyData.filter(function(dd){return dd.ad_account_id===a.id&&dd.report_date===adViewDate;}).reduce(function(t,dd){return t+dd.spend_amount;},0);
+var isExternal=!a.fb_account_id;
+h+='<div style="padding:12px 18px;border-bottom:1px solid var(--bd1);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">';
+h+='<span style="font-size:12px;color:var(--tx2);">Chi tiêu ngày '+fd(adViewDate)+':</span>';
+h+='<span style="font-size:16px;font-weight:600;color:var(--teal);">'+ff(curSpend)+'</span>';
+if(isExternal){h+='<span class="badge b-amber" style="font-size:10px;">TK ngoài BM</span>';}
+h+='<div style="display:flex;gap:6px;align-items:center;margin-left:auto;">';
+h+='<input type="number" id="manual-spend-'+a.id+'" placeholder="Nhập số tiền" class="fi" style="width:140px;font-size:12px;text-align:right;" value="">';
+h+='<button class="btn btn-green btn-sm" onclick="saveManualSpend(\''+a.id+'\')">Lưu</button></div></div>';
 if(a.is_shared){
 // Shared account: 2 tabs
 var mySpends=dailyData.filter(function(dd){return dd.ad_account_id===a.id&&dd.report_date===adViewDate&&dd.staff_id;});
@@ -730,6 +740,15 @@ function clearFilters(){document.getElementById('filter-staff').value='';documen
 function sortAd(col){if(adSortCol===col)adSortDir=adSortDir==='desc'?'asc':'desc';else{adSortCol=col;adSortDir=col==='spend'?'desc':'asc';}var el=document.getElementById('ac');if(el)el.innerHTML=rat();}
 function toggleCheckAll(v){document.querySelectorAll('.ad-check').forEach(function(c){c.checked=v;});}
 function toggleAddTk(){var f=document.getElementById('add-tk-form');if(f)f.style.display=f.style.display==='none'?'block':'none';}
+async function saveManualSpend(adId){
+if(!needAuth())return;
+var el=document.getElementById('manual-spend-'+adId);
+var amount=parseInt(el.value)||0;
+if(!el.value.trim()){toast('Nhập số tiền',false);return;}
+await sb2.from('daily_spend').delete().eq('ad_account_id',adId).eq('report_date',adViewDate).is('staff_id',null);
+var r=await sb2.from('daily_spend').insert({ad_account_id:adId,report_date:adViewDate,spend_amount:amount});
+if(!r.error){toast('Đã lưu chi tiêu: '+ff(amount),true);await loadAll();var elAc=document.getElementById('ac');if(elAc)elAc.innerHTML=rat();}
+else toast('Lỗi: '+r.error.message,false);}
 async function saveNewTk(btn){
 if(!needAuth())return;
 btn.disabled=true;
