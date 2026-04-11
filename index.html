@@ -123,6 +123,7 @@ table{width:100%;border-collapse:collapse;min-width:500px;}th{text-align:left;pa
 <div class="nav-item" data-page="2" onclick="pg(2)"><div class="nav-dot" style="background:var(--green);"></div>Nhân sự</div>
 <div class="nav-item" data-page="3" onclick="pg(3)"><div class="nav-dot" style="background:var(--blue);"></div>Khách hàng</div>
 <div class="nav-item" data-page="4" onclick="pg(4)"><div class="nav-dot" style="background:var(--coral);"></div>Thu chi</div>
+<div class="nav-item" data-page="6" onclick="pg(6)"><div class="nav-dot" id="alert-dot" style="background:var(--red);"></div>Cảnh báo</div>
 <div class="nav-sep"></div><div class="nav-label">Quản lý</div>
 <div class="nav-item" data-page="5" onclick="pg(5)"><div class="nav-dot" style="background:var(--amber);"></div>Admin</div>
 </div>
@@ -146,7 +147,7 @@ var sb2=supabase.createClient(SB_URL,SB_KEY);
 var META_TOKEN='EAANvdDJlt7oBRLy4VILybPsIicSow1ZBkCwN4cf2K8150rAUH1UPjVAjJAKiortcjiZAQmDLjzZBzMX18XGu6NXrF2towUPiTFb5sIqxdZAqEzAPjk4OMZCD5HO0vmR5FGZCrmZAYHPeE0sacZC6iGHAlgGJnC7KV3vZACUHjuEB30u6lsTltsOMZCcwTgcKijfnIe0AZDZD';
 var CL={purple:{c:'var(--purple)',bg:'var(--purple-bg)',tx:'var(--purple-tx)'},teal:{c:'var(--teal)',bg:'var(--teal-bg)',tx:'var(--teal-tx)'},coral:{c:'var(--coral)',bg:'var(--coral-bg)',tx:'var(--coral-tx)'},pink:{c:'var(--pink)',bg:'var(--pink-bg)',tx:'var(--pink-tx)'},blue:{c:'var(--blue)',bg:'var(--blue-bg)',tx:'var(--blue-tx)'},green:{c:'var(--green)',bg:'var(--green-bg)',tx:'var(--green-tx)'},amber:{c:'var(--amber)',bg:'var(--amber-bg)',tx:'var(--amber-tx)'}};
 function sc(c){return CL[c]||CL.blue;}
-var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[];
+var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[];
 var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',rptMonth='',spendTab=0;
 function fm(n){if(!n)return'—';if(n>=1e6)return(n/1e6).toFixed(1)+'tr';if(n>=1e3)return Math.round(n/1e3).toLocaleString('vi-VN')+'K';return n.toLocaleString('vi-VN');}
 function ff(n){if(!n)return'—';return n.toLocaleString('vi-VN');}
@@ -163,7 +164,7 @@ function toggleSidebar(){document.getElementById('sidebar').classList.toggle('op
 
 // ═══ LOAD ALL DATA ═══
 async function loadAll(){try{
-var[s,c,aa,ds,sal,tx,mr,sc2,asgn]=await Promise.all([
+var[s,c,aa,ds,sal,tx,mr,sc2,asgn,cmess]=await Promise.all([
 sb2.from('staff').select('*').order('monthly_budget',{ascending:false}),
 sb2.from('client').select('*').order('name'),
 sb2.from('ad_account').select('*,client(name)').order('account_name'),
@@ -172,15 +173,16 @@ sb2.from('salary').select('*,staff(short_name)').order('month',{ascending:false}
 sb2.from('transaction').select('*,client(name),staff(short_name)').order('txn_date',{ascending:false}),
 sb2.from('monthly_revenue').select('*,staff(short_name,code)').order('month'),
 sb2.from('staff_client').select('*,client(name)'),
-sb2.from('assignment').select('*').order('start_date',{ascending:false})
+sb2.from('assignment').select('*').order('start_date',{ascending:false}),
+sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,client(name))').order('report_date',{ascending:false}).limit(5000)
 ]);
 var errs=[];
-[['staff',s],['client',c],['ad_account',aa],['daily_spend',ds],['salary',sal],['transaction',tx],['monthly_revenue',mr],['staff_client',sc2],['assignment',asgn]].forEach(function(pair){if(pair[1].error)errs.push(pair[0]+': '+pair[1].error.message);});
+[['staff',s],['client',c],['ad_account',aa],['daily_spend',ds],['salary',sal],['transaction',tx],['monthly_revenue',mr],['staff_client',sc2],['assignment',asgn],['campaign_daily_mess',cmess]].forEach(function(pair){if(pair[1].error)errs.push(pair[0]+': '+pair[1].error.message);});
 if(errs.length)throw new Error(errs.join('; '));
 allStaff=s.data||[];staffList=allStaff.filter(function(x){return x.is_active;});
 clientList=c.data||[];adList=aa.data||[];dailyData=ds.data||[];
 salaryData=sal.data||[];txnData=tx.data||[];monthlyRevData=mr.data||[];
-scData=sc2.data||[];assignData=asgn.data||[];
+scData=sc2.data||[];assignData=asgn.data||[];campaignMessData=cmess.data||[];
 var ds2=new Set();dailyData.forEach(function(d){ds2.add(d.report_date);});
 dates=Array.from(ds2).sort();if(dates.length)cDay=dates.length-1;
 if(!finMonth)finMonth=lm();if(!adViewDate)adViewDate=td();if(!rptMonth)rptMonth=lm();
@@ -205,7 +207,8 @@ if(sid&&r[sid]){r[sid].t+=d.spend_amount;r[sid].cl.push({n:d.ad_account&&d.ad_ac
 
 // ═══ NAVIGATION ═══
 function pg(i){curPage=i;cStaff=null;document.querySelectorAll('.nav-item[data-page]').forEach(function(n){n.classList.toggle('active',parseInt(n.dataset.page)===i);});if(window.innerWidth<=768){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show');}render();}
-function render(){var el=document.getElementById('page');if(curPage===0)el.innerHTML=p0();else if(curPage===1)el.innerHTML=p1();else if(curPage===2)el.innerHTML=p2();else if(curPage===3)el.innerHTML=p3();else if(curPage===4)el.innerHTML=p4();else if(curPage===5)el.innerHTML=p5();}
+function render(){var el=document.getElementById('page');if(curPage===0)el.innerHTML=p0();else if(curPage===1)el.innerHTML=p1();else if(curPage===2)el.innerHTML=p2();else if(curPage===3)el.innerHTML=p3();else if(curPage===4)el.innerHTML=p4();else if(curPage===5)el.innerHTML=p5();else if(curPage===6)el.innerHTML=p6();
+var adot=document.getElementById('alert-dot');if(adot){var ac=getMessAlerts().length;adot.style.background=ac?'var(--red)':'var(--green)';adot.style.animation=ac?'pulse 2s infinite':'none';}}
 
 // ═══ P0: TỔNG QUAN ═══
 function p0(){
@@ -228,7 +231,29 @@ var avgDay=Math.round(tot/nd);var forecast=avgDay*30;
 var daysInMonth=new Date(parseInt(cm.split('-')[0]),parseInt(cm.split('-')[1]),0).getDate();
 var pctTime=Math.round((nd/daysInMonth)*100);
 
-var h='<div class="page-title">Tổng quan</div><div class="page-sub">Tháng '+parseInt(cm.split('-')[1])+'/'+cm.split('-')[0]+' — '+nd+' ngày dữ liệu</div>';
+var h='';
+// Mess alert banner
+var messAlerts=getMessAlerts();
+if(messAlerts.length){
+var d1=fd(vnDateStr(-86400000)),d3=fd(vnDateStr(-259200000));
+h+='<div style="border:1px solid var(--red);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:18px;">';
+h+='<div style="background:var(--red-bg);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="var b=document.getElementById(\'mess-alert-body\');b.style.display=b.style.display===\'none\'?\'block\':\'none\'">';
+h+='<div style="display:flex;align-items:center;gap:10px;"><div style="width:30px;height:30px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></div>';
+h+='<div><div style="font-size:14px;font-weight:600;color:var(--red-tx);">Cảnh báo giá mess vượt ngưỡng</div><div style="font-size:11px;color:var(--red-tx);opacity:.8;margin-top:1px;">TB 3 ngày ('+d3+' – '+d1+') · Bấm để xem chi tiết</div></div></div>';
+h+='<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:22px;font-weight:700;color:var(--red);">'+messAlerts.length+'</span><span style="font-size:12px;color:var(--red-tx);">chiến dịch</span></div></div>';
+h+='<div id="mess-alert-body" style="background:var(--bg1);border-top:1px solid var(--bd1);">';
+h+='<div style="display:grid;grid-template-columns:1fr 120px 100px 80px 70px;gap:6px;padding:6px 18px;font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--bd2);background:var(--bg2);">'+
+'<span>Chiến dịch</span><span style="text-align:right">Giá mess TB</span><span style="text-align:right">Ngưỡng</span><span>Nhân sự</span><span></span></div>';
+messAlerts.forEach(function(al){
+var sCol=al.staff?sc(al.staff.color_code):{bg:'var(--bg3)',tx:'var(--tx3)'};
+h+='<div style="display:grid;grid-template-columns:1fr 120px 100px 80px 70px;gap:6px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--bd1);font-size:12px;">';
+h+='<div><div style="font-weight:500;font-size:13px;">'+esc(al.campaign_name)+'</div><div style="font-size:11px;color:var(--tx3);">'+esc(al.client_name)+' · '+esc(al.account_name)+'</div></div>';
+h+='<div style="text-align:right;font-weight:600;color:var(--red);font-variant-numeric:tabular-nums;">'+(al.cost_per_mess===Infinity?'∞':ff(al.cost_per_mess))+'đ</div>';
+h+='<div style="text-align:right;font-size:11px;color:var(--tx3);font-variant-numeric:tabular-nums;">'+ff(al.max_cost)+'đ</div>';
+h+='<div><span style="font-size:11px;padding:2px 8px;border-radius:8px;background:'+sCol.bg+';color:'+sCol.tx+';">'+(al.staff?esc(al.staff.short_name):'—')+'</span></div>';
+h+='<div><button class="btn btn-sm" style="padding:3px 10px;font-size:10px;background:var(--red-bg);color:var(--red-tx);border:none;border-radius:6px;cursor:pointer;" onclick="pg(6)">Chi tiết</button></div></div>';});
+h+='</div></div>';}
+h+='<div class="page-title">Tổng quan</div><div class="page-sub">Tháng '+parseInt(cm.split('-')[1])+'/'+cm.split('-')[0]+' — '+nd+' ngày dữ liệu</div>';
 // KPI cards
 h+='<div class="kpi-grid kpi-4">';
 h+='<div class="kpi"><div class="kpi-label">Doanh thu</div><div class="kpi-value" style="color:var(--green);">'+fm(inc)+'</div><div class="kpi-note">Phí dịch vụ</div>'+(prevInc?'<div style="font-size:11px;margin-top:3px;color:'+(inc>=prevInc?'var(--green)':'var(--red)')+';">'+(inc>=prevInc?'↑':'↓')+Math.abs(Math.round((inc-prevInc)/prevInc*100))+'% vs T'+(pm.getMonth()+1)+'</div>':'')+'</div>';
@@ -851,6 +876,96 @@ if(!needAuth())return;if(!confirm('Xóa phân công này?'))return;
 var r=await sb2.from('assignment').delete().eq('id',id);
 if(!r.error){toast('Đã xóa!',true);await loadAll();pg(5);}else toast('Lỗi',false);}
 
+// ═══ MESS ALERTS ═══
+function getMessAlerts(){
+var today=td();
+var d1=vnDateStr(-86400000),d2=vnDateStr(-172800000),d3=vnDateStr(-259200000);
+var threeDays=[d3,d2,d1];
+var camps={};
+campaignMessData.forEach(function(r){
+if(threeDays.indexOf(r.report_date)<0)return;
+var key=r.ad_account_id+'|'+r.campaign_id;
+if(!camps[key])camps[key]={aid:r.ad_account_id,cid:r.campaign_id,name:r.campaign_name,days:0,spend:0,mess:0,ad:r.ad_account};
+if(r.spend>0)camps[key].days++;
+camps[key].spend+=r.spend||0;
+camps[key].mess+=r.mess_count||0;});
+var alerts=[];
+Object.keys(camps).forEach(function(k){
+var c=camps[k];
+if(c.days<3)return;
+if(!c.ad||!c.ad.max_mess_cost)return;
+var costPerMess=c.mess>0?Math.round(c.spend/c.mess):Infinity;
+if(costPerMess>c.ad.max_mess_cost){
+var acc=adList.find(function(a){return a.id===c.aid;});
+var ca=acc?getAssign(acc.id,today):[];
+var staffId=ca.length?ca[0].staff_id:null;
+var staff=staffId?allStaff.find(function(s){return s.id===staffId;}):null;
+alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_mess:costPerMess,max_cost:c.ad.max_mess_cost,spend_3d:c.spend,mess_3d:c.mess,staff:staff,days:c.days});}});
+alerts.sort(function(a,b){return b.cost_per_mess-a.cost_per_mess;});
+return alerts;}
+
+async function syncCampaignMess(btn){
+if(btn){btn.disabled=true;btn.textContent='Đang quét...';}
+var d1=vnDateStr(-86400000),d3=vnDateStr(-259200000);
+var mapped=adList.filter(function(a){return a.fb_account_id&&a.max_mess_cost;});
+if(!mapped.length){toast('Chưa có TK nào đặt giá mess tối đa',false);if(btn){btn.disabled=false;btn.textContent='Quét giá mess';}return;}
+var saved=0,errors=0;
+for(var i=0;i<mapped.length;i++){
+var a=mapped[i];
+try{
+var url='https://graph.facebook.com/v25.0/'+a.fb_account_id+'/insights?level=campaign&fields=campaign_id,campaign_name,spend,actions&time_range={"since":"'+d3+'","until":"'+d1+'"}&time_increment=1&limit=500&access_token='+META_TOKEN;
+var resp=await fetch(url);var data=await resp.json();
+if(data.error){errors++;continue;}
+var rows=data.data||[];
+for(var j=0;j<rows.length;j++){
+var r=rows[j];
+var spend=Math.round(parseFloat(r.spend||0));
+var messCount=0;
+if(r.actions){r.actions.forEach(function(act){
+if(act.action_type&&(act.action_type.indexOf('messaging_conversation_started')>=0||act.action_type==='onsite_conversion.messaging_conversation_started_7d'))messCount+=parseInt(act.value)||0;});}
+var upsert=await sb2.from('campaign_daily_mess').upsert({ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount},{onConflict:'ad_account_id,campaign_id,report_date'});
+if(!upsert.error)saved++;else errors++;}
+}catch(e){errors++;}}
+if(btn){btn.disabled=false;btn.textContent='Quét giá mess';}
+toast('Quét xong: '+saved+' dòng'+(errors?' · '+errors+' lỗi':''),!errors);
+await loadAll();}
+
+// ═══ P6: CẢNH BÁO GIÁ MESS ═══
+function p6(){
+var alerts=getMessAlerts();
+var d1=fd(vnDateStr(-86400000)),d3=fd(vnDateStr(-259200000));
+var h='<div class="page-title">Cảnh báo giá mess</div><div class="page-sub">Giá mess trung bình 3 ngày ('+d3+' – '+d1+') · Chiến dịch chạy đủ 3 ngày trở lên</div>';
+h+='<div style="display:flex;gap:8px;margin-bottom:16px;"><button class="btn btn-primary" onclick="syncCampaignMess(this)">Quét giá mess</button><button class="btn btn-ghost" onclick="pg(5)">Đặt ngưỡng (Admin)</button></div>';
+// KPI
+var tkWithThreshold=adList.filter(function(a){return a.max_mess_cost;}).length;
+var allCamps=new Set();campaignMessData.forEach(function(r){allCamps.add(r.campaign_id);});
+h+='<div class="kpi-grid kpi-4">';
+h+='<div class="kpi"><div class="kpi-label">Chiến dịch vượt ngưỡng</div><div class="kpi-value" style="color:'+(alerts.length?'var(--red)':'var(--green)')+';">'+alerts.length+'</div><div class="kpi-note">Cần xử lý</div></div>';
+h+='<div class="kpi"><div class="kpi-label">TK đã đặt ngưỡng</div><div class="kpi-value">'+tkWithThreshold+'</div><div class="kpi-note">/ '+adList.length+' tài khoản</div></div>';
+h+='<div class="kpi"><div class="kpi-label">Chiến dịch đang theo dõi</div><div class="kpi-value">'+allCamps.size+'</div><div class="kpi-note">Có dữ liệu mess</div></div>';
+h+='<div class="kpi"><div class="kpi-label">Lần quét gần nhất</div><div class="kpi-value" style="font-size:14px;">'+(campaignMessData.length?campaignMessData[0].report_date:'Chưa quét')+'</div></div></div>';
+if(!alerts.length){
+h+='<div style="text-align:center;padding:40px;color:var(--tx3);"><div style="font-size:36px;margin-bottom:8px;">✓</div><div style="font-size:15px;font-weight:500;color:var(--green);">Không có chiến dịch nào vượt ngưỡng</div><div style="font-size:12px;margin-top:4px;">Tất cả chiến dịch đang trong mức cho phép</div></div>';
+return h;}
+// Group by client
+var byClient={};alerts.forEach(function(al){var k=al.client_name||'Chưa phân loại';if(!byClient[k])byClient[k]=[];byClient[k].push(al);});
+Object.keys(byClient).sort().forEach(function(cname){
+var items=byClient[cname];
+h+='<div class="section-title" style="display:flex;align-items:center;gap:8px;">'+esc(cname)+' <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--red-bg);color:var(--red-tx);font-weight:500;">'+items.length+' chiến dịch</span></div>';
+h+='<div class="table-wrap"><table><thead><tr><th>Chiến dịch</th><th>Tài khoản QC</th><th style="text-align:right;">Chi tiêu 3 ngày</th><th style="text-align:right;">Số mess</th><th style="text-align:right;">Giá mess TB</th><th style="text-align:right;">Ngưỡng</th><th>Nhân sự</th></tr></thead><tbody>';
+items.forEach(function(al){
+var sCol=al.staff?sc(al.staff.color_code):{bg:'var(--bg3)',tx:'var(--tx3)'};
+h+='<tr style="background:var(--red-bg);">';
+h+='<td style="font-weight:500;">'+esc(al.campaign_name)+'</td>';
+h+='<td style="font-size:12px;color:var(--tx2);">'+esc(al.account_name)+'</td>';
+h+='<td class="mono" style="text-align:right;">'+ff(al.spend_3d)+'</td>';
+h+='<td class="mono" style="text-align:right;">'+(al.mess_3d||'0')+'</td>';
+h+='<td class="mono" style="text-align:right;font-weight:600;color:var(--red);">'+(al.cost_per_mess===Infinity?'∞':ff(al.cost_per_mess))+'</td>';
+h+='<td class="mono" style="text-align:right;color:var(--tx3);">'+ff(al.max_cost)+'</td>';
+h+='<td><span style="font-size:11px;padding:2px 8px;border-radius:8px;background:'+sCol.bg+';color:'+sCol.tx+';">'+(al.staff?esc(al.staff.short_name):'—')+'</span></td></tr>';});
+h+='</tbody></table></div>';});
+return h;}
+
 // ═══ META SYNC ═══
 async function doMetaSync2(btn){
 if(!needAuth())return;
@@ -1020,6 +1135,10 @@ cArr.forEach(function(c){if(c.spend>0||c.fee>0)summary+=c.name+': chi tiêu '+ff
 if(tkAlerts.length){summary+='\n== CẢNH BÁO NGÂN SÁCH TK ==\n';tkAlerts.sort(function(a,b){return b.pct-a.pct;}).forEach(function(a){summary+=a.name+': đã chi '+ff(a.spent)+'/'+ff(a.cap)+' ('+a.pct+'%)\n';});}
 summary+='\n== TÀI CHÍNH ==\nDoanh thu phí DV: '+ff(inc)+'\nChi phí (lương+VH): '+ff(exp)+'\nLợi nhuận: '+ff(inc-exp)+'\n';
 summary+='Tổng TK: '+adList.length+' ('+adList.filter(function(a){return a.account_status===1;}).length+' hoạt động)\n';
+var messAlerts=getMessAlerts();
+if(messAlerts.length){summary+='\n== CẢNH BÁO GIÁ MESS (TB 3 ngày) ==\n';
+messAlerts.forEach(function(al){summary+=al.campaign_name+' ('+al.client_name+'): giá mess '+ff(al.cost_per_mess)+'đ, ngưỡng '+ff(al.max_cost)+'đ, NV '+(al.staff?al.staff.short_name:'—')+', spend 3 ngày '+ff(al.spend_3d)+', '+al.mess_3d+' mess\n';});}
+else{summary+='\n== GIÁ MESS ==\nKhông có chiến dịch nào vượt ngưỡng giá mess.\n';}
 return summary;}
 
 function addAIMsg(role,html){
@@ -1155,6 +1274,8 @@ showSyncBar('Đang đồng bộ dữ liệu hôm nay ('+fd(today)+')...');
 var r2=await syncOneDate(today,mapped);
 var totalSaved=r1.saved+r2.saved,totalErrors=r1.errors+r2.errors;
 localStorage.setItem('hc_last_sync',String(Date.now()));
+showSyncBar('Đang quét giá mess chiến dịch...');
+await syncCampaignMess();
 showSyncBar('✓ Đồng bộ xong: '+totalSaved+' OK'+(totalErrors?', '+totalErrors+' lỗi':''),true);
 await loadAll();
 setTimeout(hideSyncBar,3000);
