@@ -99,6 +99,17 @@ table{width:100%;border-collapse:collapse;min-width:500px;}th{text-align:left;pa
 .login-err{color:var(--red);font-size:12px;margin-top:8px;}
 .logout-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--green-bg);color:var(--green-tx);border-radius:var(--radius);margin-bottom:16px;font-size:13px;}
 .sync-bar{position:fixed;top:0;left:0;right:0;z-index:200;background:var(--blue);color:#fff;padding:6px 20px;font-size:12px;display:flex;align-items:center;gap:8px;transition:transform .3s;}.sync-bar.hidden{transform:translateY(-100%);}.sync-bar .spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0;}.sync-bar.done{background:var(--green);}
+.ai-fab{position:fixed;bottom:20px;right:20px;width:52px;height:52px;border-radius:50%;background:var(--teal);color:#fff;border:none;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 2px 12px rgba(15,110,86,.3);z-index:300;transition:transform .15s;display:flex;align-items:center;justify-content:center;}.ai-fab:hover{transform:scale(1.08);}
+.ai-panel{position:fixed;bottom:80px;right:20px;width:400px;max-height:560px;background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);box-shadow:0 4px 24px rgba(0,0,0,.12);z-index:300;display:none;flex-direction:column;overflow:hidden;}
+.ai-panel.open{display:flex;}
+.ai-header{background:var(--teal);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}.ai-header-info{display:flex;align-items:center;gap:10px;}.ai-avatar{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;}
+.ai-msgs{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;background:var(--bg3);}
+.ai-msg{display:flex;gap:8px;}.ai-msg-bot .ai-dot{width:24px;height:24px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;margin-top:2px;}
+.ai-bubble{border-radius:0 12px 12px 12px;padding:10px 14px;max-width:85%;font-size:13px;line-height:1.6;background:var(--bg1);border:1px solid var(--bd1);}.ai-msg-user{justify-content:flex-end;}.ai-msg-user .ai-bubble{background:var(--blue-bg);color:var(--blue-tx);border:none;border-radius:12px 0 12px 12px;}
+.ai-input-bar{padding:10px 14px;border-top:1px solid var(--bd1);display:flex;gap:8px;background:var(--bg1);flex-shrink:0;}.ai-input-bar input{flex:1;padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--radius);background:var(--bg2);color:var(--tx1);font-size:13px;font-family:inherit;outline:none;}.ai-input-bar input:focus{border-color:var(--teal);}.ai-send{background:var(--teal);color:#fff;border:none;padding:6px 14px;border-radius:var(--radius);font-size:13px;cursor:pointer;white-space:nowrap;font-family:inherit;}.ai-send:disabled{opacity:.5;}
+.ai-quick{padding:6px 14px;background:var(--bg2);border-top:1px solid var(--bd1);display:flex;gap:4px;flex-wrap:wrap;flex-shrink:0;}.ai-qbtn{font-size:11px;padding:3px 10px;border-radius:12px;background:var(--bg1);border:1px solid var(--bd1);color:var(--tx2);cursor:pointer;font-family:inherit;}.ai-qbtn:hover{background:var(--bd1);}
+.ai-typing{display:flex;gap:4px;padding:4px 0;}.ai-typing span{width:6px;height:6px;border-radius:50%;background:var(--tx3);animation:blink 1.2s infinite;}.ai-typing span:nth-child(2){animation-delay:.2s;}.ai-typing span:nth-child(3){animation-delay:.4s;}@keyframes blink{0%,100%{opacity:.3;}50%{opacity:1;}}
+@media(max-width:480px){.ai-panel{width:calc(100vw - 16px);right:8px;bottom:72px;max-height:70vh;}}
 </style>
 </head>
 <body>
@@ -116,6 +127,13 @@ table{width:100%;border-collapse:collapse;min-width:500px;}th{text-align:left;pa
 <div class="nav-item" data-page="5" onclick="pg(5)"><div class="nav-dot" style="background:var(--amber);"></div>Admin</div>
 </div>
 <div class="main" id="page"><div class="loading">Đang kết nối Supabase</div></div>
+</div>
+<button class="ai-fab" onclick="toggleAI()" title="AI Phân tích">AI</button>
+<div class="ai-panel" id="ai-panel">
+<div class="ai-header"><div class="ai-header-info"><div class="ai-avatar">AI</div><div><div style="font-weight:500;font-size:14px;">HC Agency AI</div><select id="ai-model" onchange="onModelChange()" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:2px 6px;font-size:11px;font-family:inherit;outline:none;cursor:pointer;"><optgroup label="OpenAI"><option value="gpt-4o-mini">GPT-4o mini (rẻ nhất)</option><option value="gpt-4o">GPT-4o (mạnh hơn)</option><option value="gpt-4.1-mini">GPT-4.1 mini</option><option value="gpt-4.1">GPT-4.1 (mới nhất)</option></optgroup><optgroup label="Anthropic Claude"><option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (rẻ)</option><option value="claude-sonnet-4-6">Claude Sonnet 4.6</option></optgroup></select></div></div><span style="font-size:18px;cursor:pointer;opacity:.7;" onclick="toggleAI()">×</span></div>
+<div class="ai-msgs" id="ai-msgs"></div>
+<div class="ai-input-bar"><input type="text" id="ai-input" placeholder="Hỏi thêm về dữ liệu..." onkeydown="if(event.key==='Enter')sendAI()"><button class="ai-send" id="ai-send-btn" onclick="sendAI()">Gửi</button></div>
+<div class="ai-quick"><button class="ai-qbtn" onclick="askAI('KH nào sắp hết ngân sách?')">Sắp hết ngân sách?</button><button class="ai-qbtn" onclick="askAI('Ai chưa thanh toán phí DV?')">Chưa thanh toán?</button><button class="ai-qbtn" onclick="askAI('So sánh hiệu suất nhân viên')">So sánh NV</button><button class="ai-qbtn" onclick="askAI('Dự báo chi tiêu cuối tháng')">Dự báo</button></div>
 </div>
 <div id="sync-bar" class="sync-bar hidden"><div class="spin"></div><span id="sync-text">Đang đồng bộ...</span></div>
 <div id="toast-container"></div>
@@ -939,6 +957,109 @@ salaryData.slice(0,20).forEach(function(s){h+='<tr><td>T'+parseInt(s.month.split
 h+='</table></div>';return h;}
 async function svsl(btn){if(!needAuth())return;btn.disabled=true;var m=document.getElementById('slm').value,si=document.getElementById('sls').value,b=parseInt(document.getElementById('slb').value)||0,x=parseInt(document.getElementById('slx').value)||0,n=document.getElementById('sln').value;if(!b){toast('Nhập lương',false);btn.disabled=false;return;}var r=await sb2.from('salary').upsert({staff_id:si,month:m,base_salary:b,bonus:x,total:b+x,note:n},{onConflict:'staff_id,month'});btn.disabled=false;if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã lưu!',true);document.getElementById('slb').value='';document.getElementById('slx').value='0';document.getElementById('sln').value='';await loadAll();pg(5);}}
 async function dlsl(btn,id){if(!needAuth())return;if(!confirm('Xóa?'))return;btn.disabled=true;var r=await sb2.from('salary').delete().eq('id',id);if(r.error){toast('Lỗi',false);btn.disabled=false;}else{toast('Đã xóa!',true);await loadAll();pg(5);}}
+
+// ═══ AI CHAT (Multi-model: OpenAI + Claude) ═══
+var OPENAI_KEY='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';
+var CLAUDE_KEY='';
+var aiMessages=[];var aiOpen=false;var aiInitDone=false;
+
+function getAIModel(){return document.getElementById('ai-model').value;}
+function isClaude(m){return m.indexOf('claude')===0;}
+
+function toggleAI(){aiOpen=!aiOpen;document.getElementById('ai-panel').classList.toggle('open',aiOpen);if(aiOpen&&!aiInitDone){aiInitDone=true;autoAnalyze();}}
+
+// Reset chat khi đổi model
+function onModelChange(){aiMessages=[];aiInitDone=false;document.getElementById('ai-msgs').innerHTML='';
+var m=getAIModel();if(isClaude(m)&&!CLAUDE_KEY){CLAUDE_KEY=prompt('Nhập Anthropic API key (sk-ant-...):')||'';if(!CLAUDE_KEY){document.getElementById('ai-model').value='gpt-4o-mini';return;}}
+aiInitDone=true;autoAnalyze();}
+
+function getDataSummary(){
+var cm=lm();var nd=dates.filter(function(d){return d.substring(0,7)===cm;}).length||1;
+var dim=new Date(parseInt(cm.split('-')[0]),parseInt(cm.split('-')[1]),0).getDate();
+// Staff spend
+var st={};staffList.forEach(function(s){st[s.id]={name:s.short_name,budget:s.monthly_budget,spend:0};});
+dailyData.filter(function(d){return d.report_date.substring(0,7)===cm;}).forEach(function(d){
+var sid=gsfa(d.ad_account_id,d.report_date,d.staff_id);if(sid&&st[sid])st[sid].spend+=d.spend_amount;});
+// Client spend
+var cs={};clientList.forEach(function(c){cs[c.id]={name:c.name,fee:c.service_fee||0,payment:c.payment_status,status:c.status,spend:0,tkCount:0};});
+adList.forEach(function(a){if(a.client_id&&cs[a.client_id])cs[a.client_id].tkCount++;});
+dailyData.filter(function(d){return d.report_date.substring(0,7)===cm;}).forEach(function(d){
+var cid=d.matched_client_id||null;
+if(!cid){var aa=adList.find(function(a){return a.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
+if(cid&&cs[cid])cs[cid].spend+=d.spend_amount;});
+// Ad accounts with spend_cap
+var tkAlerts=[];adList.forEach(function(a){if(a.spend_cap&&a.amount_spent){var pct=Math.round(a.amount_spent/a.spend_cap*100);if(pct>=80)tkAlerts.push({name:a.account_name,spent:a.amount_spent,cap:a.spend_cap,pct:pct});}});
+// Finance
+var inc=0,exp=0;txnData.forEach(function(t){if(t.month===cm){if(t.txn_type==='income')inc+=t.amount;else exp+=t.amount;}});
+var summary='Dữ liệu HC Agency — T'+parseInt(cm.split('-')[1])+'/'+cm.split('-')[0]+' ('+nd+' ngày có data, tháng '+dim+' ngày):\n';
+summary+='\n== NHÂN SỰ ==\n';
+Object.keys(st).forEach(function(id){var s=st[id];summary+=s.name+': chi '+ff(s.spend)+', ngân sách '+ff(s.budget)+', đạt '+Math.round(s.spend/(s.budget||1)*100)+'%, TB/ngày '+ff(Math.round(s.spend/nd))+'\n';});
+summary+='\n== KHÁCH HÀNG ('+clientList.length+') ==\n';
+var cArr=Object.keys(cs).map(function(id){return cs[id];}).sort(function(a,b){return b.spend-a.spend;});
+cArr.forEach(function(c){if(c.spend>0||c.fee>0)summary+=c.name+': chi tiêu '+ff(c.spend)+', phí DV '+ff(c.fee)+', TT: '+(c.payment==='paid'?'đã':'chưa')+', '+c.tkCount+' TK, '+c.status+'\n';});
+if(tkAlerts.length){summary+='\n== CẢNH BÁO NGÂN SÁCH TK ==\n';tkAlerts.sort(function(a,b){return b.pct-a.pct;}).forEach(function(a){summary+=a.name+': đã chi '+ff(a.spent)+'/'+ff(a.cap)+' ('+a.pct+'%)\n';});}
+summary+='\n== TÀI CHÍNH ==\nDoanh thu phí DV: '+ff(inc)+'\nChi phí (lương+VH): '+ff(exp)+'\nLợi nhuận: '+ff(inc-exp)+'\n';
+summary+='Tổng TK: '+adList.length+' ('+adList.filter(function(a){return a.account_status===1;}).length+' hoạt động)\n';
+return summary;}
+
+function addAIMsg(role,html){
+var msgs=document.getElementById('ai-msgs');
+var div=document.createElement('div');
+div.className='ai-msg ai-msg-'+role;
+if(role==='bot'){div.innerHTML='<div class="ai-dot">AI</div><div class="ai-bubble">'+html+'</div>';}
+else{div.innerHTML='<div class="ai-bubble">'+esc(html)+'</div>';}
+msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;}
+
+function addTyping(){
+var msgs=document.getElementById('ai-msgs');
+var div=document.createElement('div');div.className='ai-msg ai-msg-bot';div.id='ai-typing';
+div.innerHTML='<div class="ai-dot">AI</div><div class="ai-bubble"><div class="ai-typing"><span></span><span></span><span></span></div></div>';
+msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;}
+function removeTyping(){var t=document.getElementById('ai-typing');if(t)t.remove();}
+
+async function callGPT(userMsg){
+var systemPrompt='Bạn là trợ lý phân tích quảng cáo của HC Agency. Trả lời bằng tiếng Việt, ngắn gọn, dùng emoji cho dễ đọc. Khi phân tích, hãy đưa ra nhận xét cụ thể, số liệu rõ ràng, và gợi ý hành động. Dữ liệu hiện tại:\n\n'+getDataSummary();
+if(!aiMessages.length){aiMessages=[{role:'system',content:systemPrompt}];}
+aiMessages.push({role:'user',content:userMsg});
+var model=getAIModel();
+try{
+if(isClaude(model)){
+// Anthropic Claude API
+var claudeMsgs=aiMessages.filter(function(m){return m.role!=='system';});
+var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':CLAUDE_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:model,system:systemPrompt,messages:claudeMsgs,max_tokens:1500})});
+var data=await resp.json();
+if(data.error){return'⚠ Lỗi: '+(data.error.message||JSON.stringify(data.error));}
+var reply=data.content[0].text;
+aiMessages.push({role:'assistant',content:reply});
+return reply;
+}else{
+// OpenAI API
+var resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},body:JSON.stringify({model:model,messages:aiMessages,max_tokens:1500,temperature:0.7})});
+var data=await resp.json();
+if(data.error){return'⚠ Lỗi: '+data.error.message;}
+var reply=data.choices[0].message.content;
+aiMessages.push({role:'assistant',content:reply});
+return reply;
+}
+}catch(e){return'⚠ Lỗi kết nối: '+e.message;}}
+
+function formatAIReply(text){
+return esc(text).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>').replace(/• /g,'<span style="color:var(--teal);">•</span> ');}
+
+async function autoAnalyze(){
+addTyping();
+var reply=await callGPT('Phân tích tổng quan tình hình quảng cáo tháng này. Tập trung vào: 1) Cảnh báo TK sắp hết ngân sách, 2) KH chưa thanh toán phí DV, 3) Top KH chi tiêu cao nhất, 4) Nhận xét hiệu suất nhân viên. Trình bày ngắn gọn.');
+removeTyping();addAIMsg('bot',formatAIReply(reply));}
+
+async function sendAI(){
+var input=document.getElementById('ai-input');var msg=input.value.trim();if(!msg)return;
+input.value='';addAIMsg('user',msg);
+document.getElementById('ai-send-btn').disabled=true;
+addTyping();var reply=await callGPT(msg);removeTyping();
+addAIMsg('bot',formatAIReply(reply));
+document.getElementById('ai-send-btn').disabled=false;}
+
+function askAI(q){document.getElementById('ai-input').value=q;sendAI();}
 
 // ═══ AUTO SYNC ON PAGE LOAD ═══
 function showSyncBar(msg,done){var bar=document.getElementById('sync-bar');var txt=document.getElementById('sync-text');if(!bar)return;bar.classList.remove('hidden');if(done)bar.classList.add('done');else bar.classList.remove('done');txt.textContent=msg;}
