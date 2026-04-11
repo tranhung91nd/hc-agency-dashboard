@@ -535,8 +535,17 @@ h+='<div style="display:flex;justify-content:space-between;align-items:center;fl
 h+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">';
 h+='<input type="date" id="ad-view-date" value="'+adViewDate+'" onchange="adViewDate=this.value;sat(1);" class="fi" style="width:140px;">';
 h+='<input type="text" id="search-ad" placeholder="Tìm tài khoản, khách hàng..." oninput="filterAdTable()" class="fi" style="width:200px;"></div>';
-h+='<div style="display:flex;gap:6px;"><button class="btn btn-green btn-sm" onclick="doMetaSync2(this)">Đồng bộ ngày '+fd(adViewDate)+'</button>';
+h+='<div style="display:flex;gap:6px;"><button class="btn btn-ghost btn-sm" onclick="toggleAddTk()">+ Thêm TK</button><button class="btn btn-green btn-sm" onclick="doMetaSync2(this)">Đồng bộ ngày '+fd(adViewDate)+'</button>';
 h+='<button class="btn btn-primary btn-sm" onclick="loadMetaAndSync()">Cập nhật Meta</button></div></div>';
+// Add TK form (hidden by default)
+h+='<div id="add-tk-form" style="display:none;margin-bottom:12px;"><div class="form-card" style="margin-bottom:0;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-weight:500;font-size:14px;">Thêm tài khoản quảng cáo</span><span style="font-size:18px;cursor:pointer;color:var(--tx3);" onclick="toggleAddTk()">×</span></div>';
+h+='<div class="form-row"><div class="form-group"><label>Tên tài khoản</label><input type="text" id="new-tk-name" placeholder="VD: TK NBNB - 1234"></div><div class="form-group"><label>FB Account ID (bỏ trống = TK ngoài)</label><input type="text" id="new-tk-fbid" placeholder="act_123456789"></div></div>';
+h+='<div class="form-row"><div class="form-group"><label>Khách hàng</label><select id="new-tk-client"><option value="">— Chọn KH —</option>';
+clientList.forEach(function(c2){h+='<option value="'+c2.id+'">'+esc(c2.name)+'</option>';});
+h+='</select></div><div class="form-group"><label>Nhân sự phụ trách</label><select id="new-tk-staff"><option value="">— Chọn NV —</option>';
+staffList.forEach(function(s2){h+='<option value="'+s2.id+'">'+esc(s2.short_name)+'</option>';});
+h+='</select></div><div class="form-group"><label>Loại</label><select id="new-tk-shared"><option value="false">Riêng (1 NV)</option><option value="true">Dùng chung (nhiều NV)</option></select></div></div>';
+h+='<div style="display:flex;gap:8px;align-items:center;"><button class="btn btn-primary" onclick="saveNewTk(this)">+ Thêm TK</button><span style="font-size:11px;color:var(--tx3);">Bỏ trống FB ID = tài khoản ngoài BM, nhập doanh số thủ công</span></div></div></div>';
 // Filter bar
 h+='<div class="filter-bar">';
 h+='<select id="filter-staff" onchange="filterAdTable()" class="fi" style="width:120px;"><option value="">Tất cả nhân viên</option>';
@@ -720,7 +729,25 @@ if(ce)ce.innerHTML=chips.map(function(c){return'<span class="chip">'+c+' <span c
 function clearFilters(){document.getElementById('filter-staff').value='';document.getElementById('filter-client').value='';document.getElementById('filter-status').value='';filterAdTable();}
 function sortAd(col){if(adSortCol===col)adSortDir=adSortDir==='desc'?'asc':'desc';else{adSortCol=col;adSortDir=col==='spend'?'desc':'asc';}var el=document.getElementById('ac');if(el)el.innerHTML=rat();}
 function toggleCheckAll(v){document.querySelectorAll('.ad-check').forEach(function(c){c.checked=v;});}
-async function quickAssignStaff(adId,staffId){
+function toggleAddTk(){var f=document.getElementById('add-tk-form');if(f)f.style.display=f.style.display==='none'?'block':'none';}
+async function saveNewTk(btn){
+if(!needAuth())return;
+btn.disabled=true;
+var name=document.getElementById('new-tk-name').value.trim();
+var fbid=document.getElementById('new-tk-fbid').value.trim()||null;
+var clientId=document.getElementById('new-tk-client').value||null;
+var staffId=document.getElementById('new-tk-staff').value||null;
+var isShared=document.getElementById('new-tk-shared').value==='true';
+if(!name){toast('Nhập tên tài khoản',false);btn.disabled=false;return;}
+var ins={account_name:name,fb_account_id:fbid,client_id:clientId,is_shared:isShared,account_status:1};
+var r=await sb2.from('ad_account').insert(ins).select('id').single();
+btn.disabled=false;
+if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+if(staffId&&r.data){
+await sb2.from('assignment').insert({ad_account_id:r.data.id,staff_id:staffId,client_id:clientId,start_date:td(),end_date:null});}
+toast('Đã thêm TK: '+name,true);
+document.getElementById('new-tk-name').value='';document.getElementById('new-tk-fbid').value='';
+toggleAddTk();await loadAll();pg(5);}async function quickAssignStaff(adId,staffId){
 if(!needAuth())return;
 if(!staffId){toast('Chưa chọn NV',false);return;}
 var existing=assignData.find(function(a){return a.ad_account_id===adId&&a.start_date<=adViewDate&&(!a.end_date||a.end_date>=adViewDate);});
