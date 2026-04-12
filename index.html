@@ -125,7 +125,7 @@ table{width:100%;border-collapse:collapse;min-width:500px;}th{text-align:left;pa
 <div class="sidebar" id="sidebar">
 <div class="logo"><h1>HC Agency <span class="live"></span></h1><span>Hệ thống quản trị quảng cáo</span></div>
 <div class="nav-item active" data-page="0" onclick="pg(0)"><div class="nav-dot" style="background:var(--purple);"></div>Tổng quan</div>
-<div class="nav-item" data-page="1" onclick="pg(1)"><div class="nav-dot" style="background:var(--teal);"></div>Tài khoản quảng cáo</div>
+<div class="nav-item" data-page="1" onclick="pg(1)"><div class="nav-dot" style="background:var(--teal);"></div>Chi tiêu QC</div>
 <div class="nav-item" data-page="2" onclick="pg(2)"><div class="nav-dot" style="background:var(--green);"></div>Nhân sự</div>
 <div class="nav-item" data-page="3" onclick="pg(3)"><div class="nav-dot" style="background:var(--blue);"></div>Khách hàng</div>
 <div class="nav-item" data-page="4" onclick="pg(4)"><div class="nav-dot" style="background:var(--coral);"></div>Thu chi</div>
@@ -301,25 +301,17 @@ var dim=new Date(parseInt(ms.split('-')[0]),parseInt(ms.split('-')[1]),0).getDat
 var allMonths=new Set();dates.forEach(function(d){allMonths.add(d.substring(0,7));});
 var monthList=Array.from(allMonths).sort().reverse();
 
-var h='<div class="page-title">Tài khoản quảng cáo</div>';
-h+='<div class="page-sub">Gộp toàn bộ dữ liệu tài khoản quảng cáo vào một cụm gồm 3 tab: tài khoản quảng cáo, chi tiêu theo nhân sự và chi tiêu theo khách hàng</div>';
-h+='<div class="admin-tabs">';
-h+='<div class="admin-tab'+(spendTab===0?' active':'')+'" onclick="spendTab=0;render();">Tài khoản quảng cáo</div>';
-h+='<div class="admin-tab'+(spendTab===1?' active':'')+'" onclick="spendTab=1;render();">Chi tiêu theo nhân sự</div>';
-h+='<div class="admin-tab'+(spendTab===2?' active':'')+'" onclick="spendTab=2;render();">Chi tiêu theo khách hàng</div>';
-h+='</div>';
-
-if(spendTab===0){
-h+=a1();
-return h;
-}
-
+var h='<div class="page-title">Chi tiêu QC theo ngày</div>';
 h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">';
 h+='<div style="display:flex;gap:8px;align-items:center;"><span style="font-size:12px;color:var(--tx3);">Tháng:</span><select class="fi" onchange="rptMonth=this.value;render();" style="width:130px;">';
 monthList.forEach(function(m){h+='<option value="'+m+'"'+(m===ms?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
 h+='</select></div><div style="font-size:12px;color:var(--tx3);">'+nd+' ngày có dữ liệu · '+dim+' ngày trong tháng</div></div>';
+// Tabs
+h+='<div style="display:flex;border-bottom:1px solid var(--bd2);margin-bottom:16px;">';
+h+='<div style="padding:10px 24px;font-size:13px;cursor:pointer;border-bottom:2px solid '+(spendTab===0?'var(--teal)':'transparent')+';color:'+(spendTab===0?'var(--teal)':'var(--tx3)')+';font-weight:'+(spendTab===0?'500':'400')+';" onclick="spendTab=0;render();">Theo nhân sự</div>';
+h+='<div style="padding:10px 24px;font-size:13px;cursor:pointer;border-bottom:2px solid '+(spendTab===1?'var(--teal)':'transparent')+';color:'+(spendTab===1?'var(--teal)':'var(--tx3)')+';font-weight:'+(spendTab===1?'500':'400')+';" onclick="spendTab=1;render();">Theo khách hàng</div></div>';
 
-if(spendTab===1) h+=p1Staff(ms,mDates,nd,dim);
+if(spendTab===0) h+=p1Staff(ms,mDates,nd,dim);
 else h+=p1Client(ms,mDates,nd,dim);
 return h;}
 
@@ -585,10 +577,9 @@ mt.forEach(function(t){var nm=esc(t.client?t.client.name:(t.staff?t.staff.short_
 h+='</table></div>';return h;}
 function p5(){
 if(!authUser)return pLogin();
-if(adminTab>4)adminTab=0;
-var tabs=['Tổng quan','Nhân sự','Khách hàng','Thu chi','Lương'];
+var tabs=['Tổng quan','Tài khoản QC','Nhân sự','Khách hàng','Thu chi','Lương'];
 var h='<div class="logout-bar"><span>Đăng nhập: '+esc(authUser.email)+'</span><button class="btn btn-ghost btn-sm" onclick="doLogout()">Đăng xuất</button></div>';
-h+='<div class="page-title">Admin</div><div class="page-sub">Quản lý dữ liệu hệ thống. Tab Tài khoản QC đã được chuyển ra menu riêng để tránh trùng lặp.</div><div class="admin-tabs">';
+h+='<div class="page-title">Admin</div><div class="page-sub">Quản lý dữ liệu</div><div class="admin-tabs">';
 tabs.forEach(function(t,i){h+='<div class="admin-tab'+(adminTab===i?' active':'')+'" onclick="sat('+i+')">'+t+'</div>';});
 h+='</div><div id="ac">'+rat()+'</div>';return h;}
 function pLogin(){return'<div class="login-box"><h2>Đăng nhập Admin</h2><p>Nhập email và mật khẩu để truy cập quản lý</p><div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="admin@example.com"></div><div class="form-group"><label>Mật khẩu</label><input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key===\'Enter\')doLogin(this)"></div><button class="btn btn-primary" onclick="doLogin(this)">Đăng nhập</button><div class="login-err" id="login-err"></div></div>';}
@@ -596,7 +587,7 @@ async function doLogin(btn){btn.disabled=true;var email=document.getElementById(
 async function doLogout(){await sb2.auth.signOut();authUser=null;toast('Đã đăng xuất',true);render();}
 async function checkAuth(){var{data}=await sb2.auth.getSession();if(data.session)authUser=data.session.user;}
 function sat(i){adminTab=i;expandedAd=null;render();}
-function rat(){if(adminTab===0)return a0();if(adminTab===1)return a2();if(adminTab===2)return a3();if(adminTab===3)return a4();if(adminTab===4)return a5();return'';}
+function rat(){if(adminTab===0)return a0();if(adminTab===1)return a1();if(adminTab===2)return a2();if(adminTab===3)return a3();if(adminTab===4)return a4();if(adminTab===5)return a5();return'';}
 
 // ═══ A0: TỔNG QUAN ADMIN ═══
 function a0(){
@@ -651,7 +642,7 @@ h+='<div class="sum-card"><div class="sum-label">Dùng chung</div><div class="su
 // Toolbar
 h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">';
 h+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">';
-h+='<input type="date" id="ad-view-date" value="'+adViewDate+'" onchange="adViewDate=this.value;render();" class="fi" style="width:140px;">';
+h+='<input type="date" id="ad-view-date" value="'+adViewDate+'" onchange="adViewDate=this.value;sat(1);" class="fi" style="width:140px;">';
 h+='<input type="text" id="search-ad" placeholder="Tìm tài khoản, khách hàng..." oninput="filterAdTable()" class="fi" style="width:200px;"></div>';
 h+='<div style="display:flex;gap:6px;"><button class="btn btn-ghost btn-sm" onclick="toggleAddTk()">+ Thêm TK</button><button class="btn btn-green btn-sm" onclick="doMetaSync2(this)">Đồng bộ ngày '+fd(adViewDate)+'</button>';
 h+='<button class="btn btn-primary btn-sm" onclick="loadMetaAndSync()">Cập nhật Meta</button></div></div>';
