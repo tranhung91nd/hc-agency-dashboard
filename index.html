@@ -940,10 +940,18 @@ function getMessAlerts(){
 var today=td();
 var d1=vnDateStr(-86400000),d2=vnDateStr(-172800000),d3=vnDateStr(-259200000);
 var threeDays=[d3,d2,d1];
+// Tìm status mới nhất của mỗi campaign
+var latestStatus={};
+campaignMessData.forEach(function(r){
+var key=r.ad_account_id+'|'+r.campaign_id;
+if(!latestStatus[key]||r.report_date>latestStatus[key].date){latestStatus[key]={date:r.report_date,status:r.campaign_status||'ACTIVE'};}});
 var camps={};
 campaignMessData.forEach(function(r){
 if(threeDays.indexOf(r.report_date)<0)return;
 var key=r.ad_account_id+'|'+r.campaign_id;
+// Chỉ tính campaign đang ACTIVE
+var st=latestStatus[key];
+if(st&&st.status!=='ACTIVE')return;
 if(!camps[key])camps[key]={aid:r.ad_account_id,cid:r.campaign_id,name:r.campaign_name,days:0,spend:0,mess:0,ad:r.ad_account};
 if(r.spend>0)camps[key].days++;
 camps[key].spend+=r.spend||0;
@@ -972,6 +980,12 @@ var saved=0,errors=0;
 for(var i=0;i<mapped.length;i++){
 var a=mapped[i];
 try{
+// 1. Lấy danh sách campaign đang ACTIVE
+var activeIds=new Set();
+var campUrl='https://graph.facebook.com/v25.0/'+a.fb_account_id+'/campaigns?fields=id,effective_status&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=500&access_token='+META_TOKEN;
+var campResp=await fetch(campUrl);var campData=await campResp.json();
+if(campData.data)(campData.data).forEach(function(c){activeIds.add(c.id);});
+// 2. Lấy insights cho 3 ngày
 var url='https://graph.facebook.com/v25.0/'+a.fb_account_id+'/insights?level=campaign&fields=campaign_id,campaign_name,spend,actions&time_range={"since":"'+d3+'","until":"'+d1+'"}&time_increment=1&limit=500&access_token='+META_TOKEN;
 var resp=await fetch(url);var data=await resp.json();
 if(data.error){errors++;continue;}
@@ -982,7 +996,8 @@ var spend=Math.round(parseFloat(r.spend||0));
 var messCount=0;
 if(r.actions){r.actions.forEach(function(act){
 if(act.action_type&&(act.action_type.indexOf('messaging_conversation_started')>=0||act.action_type==='onsite_conversion.messaging_conversation_started_7d'))messCount+=parseInt(act.value)||0;});}
-var upsert=await sb2.from('campaign_daily_mess').upsert({ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount},{onConflict:'ad_account_id,campaign_id,report_date'});
+var status=activeIds.has(r.campaign_id)?'ACTIVE':'PAUSED';
+var upsert=await sb2.from('campaign_daily_mess').upsert({ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount,campaign_status:status},{onConflict:'ad_account_id,campaign_id,report_date'});
 if(!upsert.error)saved++;else errors++;}
 }catch(e){errors++;}}
 if(btn){btn.disabled=false;btn.textContent='Quét giá mess';}
@@ -993,7 +1008,7 @@ await loadAll();}
 function p6(){
 var alerts=getMessAlerts();
 var d1=fd(vnDateStr(-86400000)),d3=fd(vnDateStr(-259200000));
-var h='<div class="page-title">Cảnh báo giá mess</div><div class="page-sub">Giá mess trung bình 3 ngày ('+d3+' – '+d1+') · Chiến dịch chạy đủ 3 ngày trở lên</div>';
+var h='<div class="page-title">Cảnh báo giá mess</div><div class="page-sub">Giá mess trung bình 3 ngày ('+d3+' – '+d1+') · Chỉ chiến dịch đang hoạt động, chạy đủ 3 ngày trở lên</div>';
 h+='<div style="display:flex;gap:8px;margin-bottom:16px;"><button class="btn btn-primary" onclick="syncCampaignMess(this)">Quét giá mess</button><button class="btn btn-ghost" onclick="pg(5)">Đặt ngưỡng (Admin)</button></div>';
 // KPI
 var tkWithThreshold=adList.filter(function(a){return a.max_mess_cost;}).length;
