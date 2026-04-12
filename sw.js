@@ -1,18 +1,6 @@
-var CACHE_NAME = 'hc-agency-v1';
-var URLS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/icon-192.png',
-  '/icon-512.png',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
-];
+var CACHE_NAME = 'hc-agency-v2';
 
 self.addEventListener('install', function(e) {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then(function(cache) {
-      return cache.addAll(URLS_TO_CACHE);
-    })
-  );
   self.skipWaiting();
 });
 
@@ -30,10 +18,11 @@ self.addEventListener('activate', function(e) {
 
 self.addEventListener('fetch', function(e) {
   if (e.request.method !== 'GET') return;
-  if (e.request.url.indexOf('supabase.co') >= 0 ||
-      e.request.url.indexOf('graph.facebook.com') >= 0 ||
-      e.request.url.indexOf('api.openai.com') >= 0 ||
-      e.request.url.indexOf('api.anthropic.com') >= 0) {
+  var url = e.request.url;
+  if (url.indexOf('supabase.co') >= 0 ||
+      url.indexOf('graph.facebook.com') >= 0 ||
+      url.indexOf('api.openai.com') >= 0 ||
+      url.indexOf('api.anthropic.com') >= 0) {
     return;
   }
   e.respondWith(
