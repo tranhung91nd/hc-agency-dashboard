@@ -148,7 +148,7 @@ var META_TOKEN='EAANvdDJlt7oBRLy4VILybPsIicSow1ZBkCwN4cf2K8150rAUH1UPjVAjJAKiort
 var CL={purple:{c:'var(--purple)',bg:'var(--purple-bg)',tx:'var(--purple-tx)'},teal:{c:'var(--teal)',bg:'var(--teal-bg)',tx:'var(--teal-tx)'},coral:{c:'var(--coral)',bg:'var(--coral-bg)',tx:'var(--coral-tx)'},pink:{c:'var(--pink)',bg:'var(--pink-bg)',tx:'var(--pink-tx)'},blue:{c:'var(--blue)',bg:'var(--blue-bg)',tx:'var(--blue-tx)'},green:{c:'var(--green)',bg:'var(--green-bg)',tx:'var(--green-tx)'},amber:{c:'var(--amber)',bg:'var(--amber-bg)',tx:'var(--amber-tx)'}};
 function sc(c){return CL[c]||CL.blue;}
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',rptMonth='',spendTab=0;
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',rptMonth='',spendTab=0,clientMonth='';
 function fm(n){if(!n)return'—';if(n>=1e6)return(n/1e6).toFixed(1)+'tr';if(n>=1e3)return Math.round(n/1e3).toLocaleString('vi-VN')+'K';return n.toLocaleString('vi-VN');}
 function ff(n){if(!n)return'—';return n.toLocaleString('vi-VN');}
 function fd(d){var p=d.split('-');return parseInt(p[2])+'/'+parseInt(p[1]);}
@@ -185,7 +185,7 @@ salaryData=sal.data||[];txnData=tx.data||[];monthlyRevData=mr.data||[];
 scData=sc2.data||[];assignData=asgn.data||[];campaignMessData=cmess.data||[];
 var ds2=new Set();dailyData.forEach(function(d){ds2.add(d.report_date);});
 dates=Array.from(ds2).sort();if(dates.length)cDay=dates.length-1;
-if(!finMonth)finMonth=lm();if(!adViewDate)adViewDate=td();if(!rptMonth)rptMonth=lm();
+if(!finMonth)finMonth=lm();if(!adViewDate)adViewDate=td();if(!rptMonth)rptMonth=lm();if(!clientMonth)clientMonth=lm();
 render();}catch(e){document.getElementById('page').innerHTML='<div class="error-box">Lỗi: '+esc(e.message)+'</div>';}}
 
 // ═══ ASSIGNMENT LOOKUP ═══
@@ -470,11 +470,45 @@ sm.forEach(function(m){var tt=0;h+='<tr><td>T'+parseInt(m.split('-')[1])+'/'+m.s
 return h;}
 
 // ═══ P3: KHÁCH HÀNG ═══
-function p3(){var h='<div class="page-title">Khách hàng</div><div class="page-sub">Tổng '+clientList.length+'</div>';
-h+='<div class="table-wrap"><table><tr><th>#</th><th>Khách hàng</th><th>Liên hệ</th><th>Thanh toán</th><th>Phí dịch vụ</th><th>Trạng thái</th></tr>';
-clientList.forEach(function(c,i){var sb3=c.status==='active'?'b-green':(c.status==='paused'?'b-amber':'b-red'),st2=c.status==='active'?'Đang hoạt động':(c.status==='paused'?'Tạm dừng':'Dừng');
-h+='<tr><td>'+(i+1)+'</td><td style="font-weight:500;">'+esc(c.name)+'</td><td style="font-size:12px;color:var(--tx2);">'+esc(c.contact_person||'—')+'</td><td>'+(c.payment_status==='paid'?'<span class="badge b-green">Đã thanh toán</span>':'<span class="badge b-gray">Chưa</span>')+'</td><td class="mono">'+(c.service_fee?fm(c.service_fee):'—')+'</td><td><span class="badge '+sb3+'">'+st2+'</span></td></tr>';});
-h+='</table></div>';return h;}
+function p3(){
+var ms=clientMonth||lm();
+var allMonths=new Set();dates.forEach(function(d){allMonths.add(d.substring(0,7));});
+var monthList=Array.from(allMonths).sort().reverse();
+var nd=dates.filter(function(d){return d.substring(0,7)===ms;}).length||1;
+// Calculate spend per client for selected month
+var cs={};clientList.forEach(function(c){cs[c.id]={c:c,spend:0};});
+dailyData.filter(function(d){return d.report_date.substring(0,7)===ms;}).forEach(function(d){
+var cid=d.matched_client_id||null;
+if(!cid){var aa=adList.find(function(a){return a.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
+if(cid&&cs[cid])cs[cid].spend+=d.spend_amount;});
+// Sort by spend desc, then name
+var rows=clientList.map(function(c){return{c:c,spend:cs[c.id]?cs[c.id].spend:0};});
+rows.sort(function(a,b){return b.spend-a.spend||a.c.name.localeCompare(b.c.name);});
+var maxSpend=Math.max.apply(null,rows.map(function(r){return r.spend;}))||1;
+var totalSpend=rows.reduce(function(t,r){return t+r.spend;},0);
+var totalFee=rows.reduce(function(t,r){return t+(r.c.service_fee||0);},0);
+var h='<div class="page-title">Khách hàng</div><div class="page-sub">Tổng '+clientList.length+'</div>';
+// Month filter
+h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;"><span style="font-size:12px;color:var(--tx3);">Tháng:</span><select class="fi" style="width:140px;" onchange="clientMonth=this.value;render();">';
+monthList.forEach(function(m){h+='<option value="'+m+'"'+(m===ms?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
+h+='</select><span style="font-size:12px;color:var(--tx3);margin-left:8px;">'+nd+' ngày dữ liệu</span></div>';
+// Table
+h+='<div class="table-wrap"><table><thead><tr><th style="width:30px;">#</th><th>Khách hàng</th><th>Liên hệ</th><th>Thanh toán</th><th style="text-align:right;color:var(--teal);font-weight:500;">Chi tiêu T'+parseInt(ms.split('-')[1])+'</th><th style="text-align:right;">Phí dịch vụ</th><th>Trạng thái</th></tr></thead><tbody>';
+rows.forEach(function(row,i){
+var c=row.c,sp=row.spend;
+var sb3=c.status==='active'?'b-green':(c.status==='paused'?'b-amber':'b-red');
+var st2=c.status==='active'?'Đang hoạt động':(c.status==='paused'?'Tạm dừng':'Dừng');
+var pct=maxSpend>0?Math.round(sp/maxSpend*100):0;
+h+='<tr><td style="color:var(--tx3);">'+(i+1)+'</td>';
+h+='<td style="font-weight:500;">'+esc(c.name)+'</td>';
+h+='<td style="font-size:12px;color:var(--tx2);">'+esc(c.contact_person||'—')+'</td>';
+h+='<td>'+(c.payment_status==='paid'?'<span class="badge b-green">Đã thanh toán</span>':'<span class="badge b-gray">Chưa</span>')+'</td>';
+h+='<td style="text-align:right;">'+(sp?'<div style="font-weight:500;font-variant-numeric:tabular-nums;color:var(--teal);">'+fm(sp)+'</div><div class="bar-track" style="width:80px;margin-left:auto;margin-top:3px;"><div class="bar-fill" style="width:'+pct+'%;background:var(--teal);"></div></div>':'<span style="color:var(--tx3);">—</span>')+'</td>';
+h+='<td class="mono" style="text-align:right;">'+(c.service_fee?fm(c.service_fee):'—')+'</td>';
+h+='<td><span class="badge '+sb3+'">'+st2+'</span></td></tr>';});
+// Footer
+h+='</tbody><tfoot><tr style="background:var(--bg2);font-weight:600;border-top:1px solid var(--bd2);"><td></td><td>Tổng '+clientList.length+' KH</td><td></td><td></td><td class="mono" style="text-align:right;color:var(--teal);font-size:15px;">'+fm(totalSpend)+'</td><td class="mono" style="text-align:right;">'+fm(totalFee)+'</td><td></td></tr></tfoot></table></div>';
+return h;}
 
 // ═══ P4: THU CHI ═══
 function p4(){var am=new Set();txnData.forEach(function(t){am.add(t.month);});var sm=Array.from(am).sort().reverse();
