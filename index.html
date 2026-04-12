@@ -343,8 +343,9 @@ staffList.forEach(function(s){h+='<td class="mono" style="text-align:right;">'+f
 h+='<td class="mono" style="text-align:right;font-size:15px;color:var(--teal-tx);">'+ff(gt)+'</td></tr></tfoot></table></div>';
 // Stats grid
 var totalBudget=0;staffList.forEach(function(s){totalBudget+=s.monthly_budget;});
-h+='<div style="margin-top:16px;border:1px solid var(--bd1);border-radius:var(--radius-lg);overflow:hidden;">';
-h+='<div style="display:grid;grid-template-columns:180px repeat('+staffList.length+',1fr) 1fr;font-size:11px;color:var(--tx3);border-bottom:1px solid var(--bd1);">';
+h+='<div style="margin-top:16px;border:1px solid var(--bd1);border-radius:var(--radius-lg);overflow:hidden;"><div style="overflow-x:auto;">';
+var gridCols='140px repeat('+staffList.length+',minmax(90px,1fr)) minmax(90px,1fr)';
+h+='<div style="display:grid;grid-template-columns:'+gridCols+';font-size:11px;color:var(--tx3);border-bottom:1px solid var(--bd1);min-width:fit-content;">';
 h+='<div style="padding:8px 14px;background:var(--bg2);"></div>';
 staffList.forEach(function(s){h+='<div style="padding:8px 14px;text-align:right;font-weight:500;">'+esc(s.short_name)+'</div>';});
 h+='<div style="padding:8px 14px;text-align:right;font-weight:500;">Tổng</div></div>';
@@ -359,7 +360,7 @@ var rows=[
 {l:'Tỷ trọng đóng góp',fn:function(s){return gt>0?(stTotals[s.id]/gt*100).toFixed(2)+'%':'—';},t:'100%',pct:true}
 ];
 rows.forEach(function(row){
-h+='<div style="display:grid;grid-template-columns:180px repeat('+staffList.length+',1fr) 1fr;font-size:12px;border-bottom:1px solid var(--bd1);'+(row.hl?'background:var(--blue-bg);':'')+'">';
+h+='<div style="display:grid;grid-template-columns:140px repeat('+staffList.length+',minmax(90px,1fr)) minmax(90px,1fr);font-size:12px;border-bottom:1px solid var(--bd1);min-width:fit-content;'+(row.hl?'background:var(--blue-bg);':'')+'">';
 h+='<div style="padding:8px 14px;font-weight:500;color:var(--tx2);background:'+(row.hl?'var(--blue-bg)':'var(--bg2)')+';">'+row.l+'</div>';
 staffList.forEach(function(s){
 var v=row.fn(s);var st='padding:8px 14px;text-align:right;font-variant-numeric:tabular-nums;';
@@ -369,14 +370,14 @@ else h+='<div style="'+st+'">'+(row.num?v:ff(v))+'</div>';});
 var ts='padding:8px 14px;text-align:right;font-variant-numeric:tabular-nums;font-weight:500;';
 if(row.hl)ts+='color:var(--blue-tx);';
 h+='<div style="'+ts+'">'+(row.pct||row.num?row.t:ff(row.t))+'</div></div>';});
-h+='</div>';
+h+='</div></div>';
 // Contribution bar
 h+='<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin:12px 0 4px;">';
 staffList.forEach(function(s){var p=gt>0?Math.round(stTotals[s.id]/gt*100):0;h+='<div style="width:'+p+'%;background:'+sc(s.color_code).c+';"></div>';});
-h+='</div><div style="display:flex;gap:12px;font-size:11px;color:var(--tx3);">';
+h+='</div><div style="display:flex;flex-wrap:wrap;gap:8px 12px;font-size:11px;color:var(--tx3);">';
 staffList.forEach(function(s){var p=gt>0?Math.round(stTotals[s.id]/gt*100):0;h+='<span><span style="width:8px;height:8px;border-radius:50%;background:'+sc(s.color_code).c+';display:inline-block;margin-right:3px;"></span>'+esc(s.short_name)+' '+p+'%</span>';});
 h+='</div>';
-if(maxDay||minDay){h+='<div style="display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--tx3);">';
+if(maxDay||minDay){h+='<div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:8px;font-size:11px;color:var(--tx3);">';
 if(maxDay)h+='<span><span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:3px;"></span>Cao nhất: '+maxDay.day+'/'+parseInt(ms.split('-')[1])+' ('+fm(maxDay.total)+')</span>';
 if(minDay)h+='<span><span style="width:6px;height:6px;border-radius:50%;background:var(--amber);display:inline-block;margin-right:3px;"></span>Thấp nhất: '+minDay.day+'/'+parseInt(ms.split('-')[1])+' ('+fm(minDay.total)+')</span>';
 h+='</div>';}
