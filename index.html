@@ -16,7 +16,8 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{--bg1:#ffffff;--bg2:#f5f4f0;--bg3:#eeedeb;--tx1:#1a1a1a;--tx2:#6b6a66;--tx3:#9c9a92;--bd1:rgba(0,0,0,0.08);--bd2:rgba(0,0,0,0.15);--green:#1D9E75;--green-bg:#E1F5EE;--green-tx:#085041;--red:#E24B4A;--red-bg:#FCEBEB;--red-tx:#791F1F;--amber:#BA7517;--amber-bg:#FAEEDA;--amber-tx:#633806;--blue:#378ADD;--blue-bg:#E6F1FB;--blue-tx:#0C447C;--purple:#534AB7;--purple-bg:#EEEDFE;--purple-tx:#3C3489;--coral:#D85A30;--coral-bg:#FAECE7;--coral-tx:#712B13;--pink:#D4537E;--pink-bg:#FBEAF0;--pink-tx:#72243E;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-tx:#085041;--radius:8px;--radius-lg:12px;}
 @media(prefers-color-scheme:dark){:root{--bg1:#1a1a1a;--bg2:#252523;--bg3:#2f2f2c;--tx1:#e8e6df;--tx2:#9c9a92;--tx3:#6b6a66;--bd1:rgba(255,255,255,0.08);--bd2:rgba(255,255,255,0.15);--green-bg:#04342C;--green-tx:#9FE1CB;--red-bg:#501313;--red-tx:#F7C1C1;--amber-bg:#412402;--amber-tx:#FAC775;--blue-bg:#042C53;--blue-tx:#B5D4F4;--purple-bg:#26215C;--purple-tx:#CECBF6;--coral-bg:#4A1B0C;--coral-tx:#F5C4B3;--pink-bg:#4B1528;--pink-tx:#F4C0D1;--teal-bg:#04342C;--teal-tx:#9FE1CB;}}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--tx1);min-height:100vh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--tx1);min-height:100vh;-webkit-text-size-adjust:100%;}
+@supports(padding:env(safe-area-inset-top)){.sync-bar{padding-top:env(safe-area-inset-top);}.sidebar{padding-top:env(safe-area-inset-top);}@media(max-width:768px){.main{padding-bottom:env(safe-area-inset-bottom);}}}
 .app{display:grid;grid-template-columns:180px 1fr;min-height:100vh;}
 @media(max-width:768px){.app{grid-template-columns:1fr;}.sidebar{transform:translateX(-100%);position:fixed;z-index:100;width:220px;}.sidebar.open{transform:translateX(0);box-shadow:4px 0 20px rgba(0,0,0,.2);}}
 .sidebar{background:var(--bg2);border-right:1px solid var(--bd1);padding:16px 0;position:sticky;top:0;height:100vh;overflow-y:auto;transition:transform .25s;}
@@ -31,7 +32,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @media(max-width:768px){.mobile-header{display:flex;align-items:center;gap:12px;}}
 .hamburger{width:28px;height:28px;display:flex;flex-direction:column;justify-content:center;gap:4px;cursor:pointer;background:none;border:none;padding:4px;}.hamburger span{display:block;width:100%;height:2px;background:var(--tx1);border-radius:1px;}
 .overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:99;}.overlay.show{display:block;}
-.main{padding:24px 28px;overflow-y:auto;}@media(max-width:768px){.main{padding:16px;}}
+.main{padding:24px 28px;overflow-y:auto;background:var(--bg3);min-height:100vh;}@media(max-width:768px){.main{padding:16px;}}
+@media(display-mode:standalone){.app{min-height:100vh;min-height:100dvh;}.main{min-height:100vh;min-height:100dvh;}}
 .page-title{font-size:20px;font-weight:600;margin-bottom:4px;}.page-sub{font-size:13px;color:var(--tx3);margin-bottom:16px;}
 .kpi-grid{display:grid;gap:10px;margin-bottom:16px;}.kpi-4{grid-template-columns:repeat(4,1fr);}.kpi-3{grid-template-columns:repeat(3,1fr);}
 @media(max-width:768px){.kpi-4,.kpi-3{grid-template-columns:repeat(2,1fr);}}
@@ -1382,7 +1384,7 @@ await loadAll();
 setTimeout(hideSyncBar,3000);
 }catch(e){showSyncBar('⚠ Lỗi đồng bộ: '+e.message);setTimeout(hideSyncBar,5000);}}
 
-async function init(){await checkAuth();await loadAll();autoSync();}
+async function init(){try{await checkAuth();await loadAll();autoSync();}catch(e){document.getElementById('page').innerHTML='<div style="padding:40px;text-align:center;color:var(--tx2);"><div style="font-size:16px;font-weight:500;margin-bottom:8px;">Không thể kết nối</div><div style="font-size:13px;margin-bottom:16px;">'+esc(e.message)+'</div><button class="btn btn-primary" onclick="location.reload()">Thử lại</button></div>';}}
 init();
 </script>
 <script>
