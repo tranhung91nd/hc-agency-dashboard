@@ -2,14 +2,21 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>HC Agency — Hệ thống quản trị</title>
+<meta name="description" content="Hệ thống quản trị quảng cáo HC Agency">
+<meta name="theme-color" content="#1D9E75">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="HC Agency">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{--bg1:#ffffff;--bg2:#f5f4f0;--bg3:#eeedeb;--tx1:#1a1a1a;--tx2:#6b6a66;--tx3:#9c9a92;--bd1:rgba(0,0,0,0.08);--bd2:rgba(0,0,0,0.15);--green:#1D9E75;--green-bg:#E1F5EE;--green-tx:#085041;--red:#E24B4A;--red-bg:#FCEBEB;--red-tx:#791F1F;--amber:#BA7517;--amber-bg:#FAEEDA;--amber-tx:#633806;--blue:#378ADD;--blue-bg:#E6F1FB;--blue-tx:#0C447C;--purple:#534AB7;--purple-bg:#EEEDFE;--purple-tx:#3C3489;--coral:#D85A30;--coral-bg:#FAECE7;--coral-tx:#712B13;--pink:#D4537E;--pink-bg:#FBEAF0;--pink-tx:#72243E;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-tx:#085041;--radius:8px;--radius-lg:12px;}
 @media(prefers-color-scheme:dark){:root{--bg1:#1a1a1a;--bg2:#252523;--bg3:#2f2f2c;--tx1:#e8e6df;--tx2:#9c9a92;--tx3:#6b6a66;--bd1:rgba(255,255,255,0.08);--bd2:rgba(255,255,255,0.15);--green-bg:#04342C;--green-tx:#9FE1CB;--red-bg:#501313;--red-tx:#F7C1C1;--amber-bg:#412402;--amber-tx:#FAC775;--blue-bg:#042C53;--blue-tx:#B5D4F4;--purple-bg:#26215C;--purple-tx:#CECBF6;--coral-bg:#4A1B0C;--coral-tx:#F5C4B3;--pink-bg:#4B1528;--pink-tx:#F4C0D1;--teal-bg:#04342C;--teal-tx:#9FE1CB;}}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--tx1);min-height:100vh;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--tx1);min-height:100vh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
 .app{display:grid;grid-template-columns:180px 1fr;min-height:100vh;}
 @media(max-width:768px){.app{grid-template-columns:1fr;}.sidebar{transform:translateX(-100%);position:fixed;z-index:100;width:220px;}.sidebar.open{transform:translateX(0);box-shadow:4px 0 20px rgba(0,0,0,.2);}}
 .sidebar{background:var(--bg2);border-right:1px solid var(--bd1);padding:16px 0;position:sticky;top:0;height:100vh;overflow-y:auto;transition:transform .25s;}
@@ -1377,6 +1384,9 @@ setTimeout(hideSyncBar,3000);
 
 async function init(){await checkAuth();await loadAll();autoSync();}
 init();
+</script>
+<script>
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('SW registered');}).catch(function(e){console.log('SW failed',e);});}
 </script>
 </body>
 </html>
