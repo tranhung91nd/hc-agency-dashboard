@@ -88,6 +88,8 @@ table{width:100%;border-collapse:collapse;min-width:500px;}th{text-align:left;pa
 .invoice-fee-box{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid rgba(15,23,42,.12);border-radius:14px;background:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.75);min-width:270px;justify-content:flex-end;}
 .invoice-fee-currency{font-size:15px;font-weight:600;color:var(--tx2);}
 .invoice-edit-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;background:#ffe5e1;color:#cc4b37;font-size:10px;font-weight:700;line-height:1;}
+.invoice-fee-display{font-size:18px;font-weight:700;color:var(--teal);font-variant-numeric:tabular-nums;cursor:pointer;padding:4px 8px;border-radius:8px;transition:background .15s;min-width:80px;text-align:right;}
+.invoice-fee-display:hover{background:rgba(37,99,235,.08);}
 .invoice-note{padding:10px 0 14px;font-size:12px;font-style:italic;color:var(--tx2);}
 .invoice-total{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;padding:18px 0 22px;}
 .invoice-total-label{font-size:15px;font-weight:700;color:var(--tx1);}
@@ -1130,7 +1132,7 @@ h+='<div class="invoice-label">Chi tiết tài khoản QC</div>';
 tkArr.forEach(function(tk){h+='<div class="invoice-account-row"><span class="invoice-account-name">'+esc(tk.name)+'</span><span class="invoice-account-value">'+ff(tk.spend)+'</span></div>';});
 if(!tkArr.length)h+='<div style="font-size:12px;color:var(--tx3);padding:10px 0 2px;">Không có dữ liệu chi tiêu</div>';
 h+='<div class="invoice-sum-row" style="margin-top:14px;"><span class="invoice-sum-label">Tổng chi tiêu QC</span><span class="invoice-account-value">'+ff(sp)+'</span></div>';
-h+='<div class="invoice-fee-row"><span class="invoice-sum-label">Phí dịch vụ</span><div class="invoice-fee-box"><span class="invoice-edit-badge">'+(authUser?'Sửa được':'Chỉ xem')+'</span><input id="client-fee-'+domId+'" type="number" min="0" class="inline-fee-input" value="'+invoice.fee+'" oninput="previewClientInvoice(\''+c.id+'\',\''+ms+'\',this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" onblur="saveClientMonthlyFee(\''+c.id+'\',\''+ms+'\',this.value)"'+inputAttrs+'><span class="invoice-fee-currency">đ</span></div></div>';
+h+='<div class="invoice-fee-row"><span class="invoice-sum-label">Phí dịch vụ</span><div class="invoice-fee-box"><span id="client-fee-display-'+domId+'" class="invoice-fee-display" onclick="startEditFee(\''+domId+'\',\''+c.id+'\',\''+ms+'\')" title="'+(authUser?'Bấm để sửa':'Đăng nhập admin để sửa')+'">'+ff(invoice.fee)+'</span><input id="client-fee-'+domId+'" type="number" min="0" class="inline-fee-input" style="display:none;" value="'+invoice.fee+'" oninput="previewClientInvoice(\''+c.id+'\',\''+ms+'\',this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" onblur="endEditFee(\''+domId+'\',\''+c.id+'\',\''+ms+'\',this.value)"'+inputAttrs+'><span class="invoice-fee-currency">đ</span></div></div>';
 h+='<div id="invoice-vat-row-'+domId+'" class="invoice-note" style="display:'+(invoice.hasVat?'block':'none')+';">VAT (8%): <span id="invoice-vat-'+domId+'" style="font-weight:700;font-style:normal;color:var(--tx1);">'+ff(invoice.vat)+'</span></div>';
 h+='<div id="invoice-novat-row-'+domId+'" class="invoice-note" style="display:none;"></div>';
 h+='<div class="invoice-total"><span class="invoice-total-label">Tổng thanh toán</span><span id="invoice-total-'+domId+'" class="invoice-total-value">'+ff(invoice.total)+'</span></div>';
@@ -1144,6 +1146,21 @@ h+='</div></div></td></tr>';}
 h+='</tbody><tfoot><tr style="background:var(--bg2);font-weight:600;border-top:1px solid var(--bd2);"><td></td><td>Tổng '+clientList.length+' KH</td><td></td><td></td><td class="mono" style="text-align:right;color:var(--teal);font-size:15px;">'+fm(totalSpend)+'</td><td class="mono" style="text-align:right;">'+fm(totalFee)+'</td><td></td><td></td></tr></tfoot></table></div>';
 return h;}
 function toggleClientInv(id){expandedClientId=(expandedClientId===id)?null:id;render();}
+function startEditFee(domId,clientId,month){
+if(!authUser){toast('Đăng nhập admin để sửa phí dịch vụ',false);return;}
+var display=document.getElementById('client-fee-display-'+domId);
+var input=document.getElementById('client-fee-'+domId);
+if(display)display.style.display='none';
+if(input){input.style.display='';input.focus();input.select();}
+}
+function endEditFee(domId,clientId,month,rawVal){
+var display=document.getElementById('client-fee-display-'+domId);
+var input=document.getElementById('client-fee-'+domId);
+var fee=normalizeMoneyInput(rawVal);
+if(display){display.textContent=ff(fee);display.style.display='';}
+if(input)input.style.display='none';
+saveClientMonthlyFee(clientId,month,rawVal);
+}
 function previewClientInvoice(clientId,month,rawVal){
 var c=clientList.find(function(x){return x.id===clientId;});if(!c)return;
 var domId=invoiceDomId(clientId),fee=normalizeMoneyInput(rawVal),info=getInvoiceTotals(c,month,fee);
