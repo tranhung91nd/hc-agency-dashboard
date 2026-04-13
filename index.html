@@ -12,6 +12,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{--bg1:#ffffff;--bg2:#f5f4f0;--bg3:#eeedeb;--tx1:#1a1a1a;--tx2:#6b6a66;--tx3:#9c9a92;--bd1:rgba(0,0,0,0.08);--bd2:rgba(0,0,0,0.15);--green:#1D9E75;--green-bg:#E1F5EE;--green-tx:#085041;--red:#E24B4A;--red-bg:#FCEBEB;--red-tx:#791F1F;--amber:#BA7517;--amber-bg:#FAEEDA;--amber-tx:#633806;--blue:#378ADD;--blue-bg:#E6F1FB;--blue-tx:#0C447C;--purple:#534AB7;--purple-bg:#EEEDFE;--purple-tx:#3C3489;--coral:#D85A30;--coral-bg:#FAECE7;--coral-tx:#712B13;--pink:#D4537E;--pink-bg:#FBEAF0;--pink-tx:#72243E;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-tx:#085041;--radius:8px;--radius-lg:12px;}
@@ -1099,7 +1100,7 @@ var pct=maxSpend>0?Math.round(sp/maxSpend*100):0;
 var isExp=expandedClientId===c.id;
 h+='<tr style="'+(isExp?'background:var(--blue-bg);':'')+'">';
 h+='<td style="color:var(--tx3);">'+(i+1)+'</td>';
-h+='<td style="font-weight:500;">'+esc(c.name)+' '+(getClientVatFlag(c)?'<span class="vat-badge b-blue">VAT 8%</span>':'<span class="vat-badge b-gray">Không VAT</span>')+'</td>';
+h+='<td style="font-weight:500;">'+esc(c.name)+' '+(getClientVatFlag(c)?'<span class="vat-badge b-blue" style="cursor:pointer;" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',false)" title="Bấm để chuyển sang Không VAT">VAT 8%</span>':'<span class="vat-badge b-gray" style="cursor:pointer;" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',true)" title="Bấm để chuyển sang Có VAT">Không VAT</span>')+'</td>';
 h+='<td style="font-size:12px;color:var(--tx2);">'+esc(c.contact_person||'—')+'</td>';
 h+='<td>'+(c.payment_status==='paid'?'<span class="badge b-green">Đã thanh toán</span>':'<span class="badge b-gray">Chưa</span>')+'</td>';
 h+='<td style="text-align:right;">'+(sp?'<div style="font-weight:500;font-variant-numeric:tabular-nums;color:var(--teal);">'+fm(sp)+'</div><div class="bar-track" style="width:80px;margin-left:auto;margin-top:3px;"><div class="bar-fill" style="width:'+pct+'%;background:var(--teal);"></div></div>':'<span style="color:var(--tx3);">—</span>')+'</td>';
@@ -1233,42 +1234,7 @@ if(!c||!node){toast('Không tìm thấy phiếu để tải',false);return;}
 var originalText=btn?btn.textContent:'';
 if(btn){btn.disabled=true;btn.textContent='Đang tạo...';}
 try{
-var clone=node.cloneNode(true),rect=node.getBoundingClientRect();
-inlineStyleTree(node,clone);
-await inlineCloneImages(node,clone);
-clone.style.margin='0';
-clone.style.width=Math.ceil(rect.width)+'px';
-clone.style.maxWidth='none';
-clone.style.transform='none';
-clone.querySelectorAll('button').forEach(function(el){el.remove();});
-clone.querySelectorAll('input').forEach(function(el){
-el.blur();
-el.style.pointerEvents='none';
-el.style.caretColor='transparent';
-});
-var wrapper=document.createElement('div');
-wrapper.style.width=Math.ceil(rect.width+32)+'px';
-wrapper.style.padding='16px';
-wrapper.style.background='linear-gradient(180deg,#f7f9fc 0%,#eef3f9 100%)';
-wrapper.style.boxSizing='border-box';
-wrapper.appendChild(clone);
-var serialized=new XMLSerializer().serializeToString(wrapper);
-var width=Math.ceil(rect.width+32),height=Math.ceil(rect.height+32);
-var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'"><foreignObject width="100%" height="100%">'+serialized.replace(/&nbsp;/g,'&#160;')+'</foreignObject></svg>';
-var svgBlob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'}),svgUrl=URL.createObjectURL(svgBlob);
-var img=await new Promise(function(resolve,reject){
-var image=new Image();
-image.onload=function(){resolve(image);};
-image.onerror=reject;
-image.src=svgUrl;
-});
-var scale=2,canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
-canvas.width=width*scale;canvas.height=height*scale;
-ctx.scale(scale,scale);
-ctx.fillStyle='#f2f6fb';
-ctx.fillRect(0,0,width,height);
-ctx.drawImage(img,0,0,width,height);
-URL.revokeObjectURL(svgUrl);
+var canvas=await html2canvas(node,{scale:2,useCORS:true,allowTaint:true,backgroundColor:'#f2f6fb',logging:false,removeContainer:true});
 var pngBlob=await new Promise(function(resolve,reject){
 canvas.toBlob(function(blob){if(blob)resolve(blob);else reject(new Error('Không tạo được PNG'));},'image/png');
 });
@@ -1910,12 +1876,19 @@ h+='<div class="btn-row"><button class="btn btn-primary" onclick="svc(this)">Th�
 h+='<div class="section-title">Khách hàng ('+clientList.length+')</div><div class="table-wrap"><table><tr><th>Tên khách hàng</th><th>Liên hệ</th><th>Từ khóa chiến dịch</th><th>VAT</th><th>Phí mặc định</th><th>Thanh toán</th><th></th></tr>';
 clientList.forEach(function(c2){
 h+='<tr><td style="font-weight:500;">'+esc(c2.name)+'</td><td style="font-size:12px;color:var(--tx2);">'+esc(c2.contact_person||'—')+'</td><td style="font-size:11px;color:var(--purple);">'+esc(c2.campaign_keyword||'—')+'</td>';
-h+='<td>'+(getClientVatFlag(c2)?'<span class="badge b-blue">Có VAT 8%</span>':'<span class="badge b-gray">Không VAT</span>')+'</td><td class="mono">'+(c2.service_fee?fm(c2.service_fee):'—')+'</td>';
+h+='<td>'+(getClientVatFlag(c2)?'<span class="badge b-blue" style="cursor:pointer;" onclick="toggleClientVat(\''+c2.id+'\',false)" title="Bấm để chuyển sang Không VAT">Có VAT 8%</span>':'<span class="badge b-gray" style="cursor:pointer;" onclick="toggleClientVat(\''+c2.id+'\',true)" title="Bấm để chuyển sang Có VAT">Không VAT</span>')+'</td><td class="mono">'+(c2.service_fee?fm(c2.service_fee):'—')+'</td>';
 h+='<td>'+(c2.payment_status==='paid'?'<span class="badge b-green">Đã thanh toán</span>':'<span class="badge b-gray">Chưa</span>')+'</td>';
 h+='<td><button class="btn btn-ghost btn-sm" onclick="ecp(\''+c2.id+'\')">Sửa</button> <button class="btn btn-ghost btn-sm" onclick="tgp(this,\''+c2.id+'\',\''+(c2.payment_status==='paid'?'unpaid':'paid')+'\')">'+(c2.payment_status==='paid'?'Hủy thanh toán':'Đã thanh toán')+'</button></td></tr>';});
 h+='</table></div>';return h;}
 async function svc(btn){if(!needAuth())return;btn.disabled=true;var d={name:document.getElementById('cn').value,contact_person:document.getElementById('cc').value||null,service_fee:parseInt(document.getElementById('cf').value)||0,campaign_keyword:document.getElementById('ckw').value||null,has_vat:document.getElementById('cv').value==='true'};if(!d.name){toast('Nhập tên',false);btn.disabled=false;return;}var r=await sb2.from('client').insert(d);btn.disabled=false;if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã thêm!',true);['cn','cc','cf','ckw'].forEach(function(x){document.getElementById(x).value='';});document.getElementById('cv').value='false';await loadAll();pg(5);}}
 async function tgp(btn,id,v){if(!needAuth())return;btn.disabled=true;var r=await sb2.from('client').update({payment_status:v}).eq('id',id);btn.disabled=false;if(r.error)toast('Lỗi',false);else{toast('OK!',true);await loadAll();pg(5);}}
+async function toggleClientVat(id,newVal){
+if(!needAuth())return;
+var r=await sb2.from('client').update({has_vat:newVal}).eq('id',id);
+if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+toast(newVal?'Đã bật VAT 8%':'Đã tắt VAT',true);
+await loadAll();render();
+}
 async function ecp(id){if(!needAuth())return;var c2=clientList.find(function(x){return x.id===id;});if(!c2)return;var n=prompt('Tên khách hàng:',c2.name);if(n===null)return;var f=prompt('Phí dịch vụ mặc định/tháng:',c2.service_fee||0);if(f===null)return;var kw=prompt('Từ khóa chiến dịch:',c2.campaign_keyword||'');if(kw===null)return;var hv=prompt('Có VAT 8% không? (y/n):',getClientVatFlag(c2)?'y':'n');if(hv===null)return;var r=await sb2.from('client').update({name:n,service_fee:parseInt(f)||0,campaign_keyword:kw||null,has_vat:/^y(es)?$/i.test(hv)}).eq('id',id);if(r.error)toast('Lỗi',false);else{toast('OK!',true);await loadAll();pg(5);}}
 
 // ═══ A4: THU CHI ═══
