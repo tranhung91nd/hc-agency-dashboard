@@ -725,6 +725,8 @@ function getEffectiveServiceFee(clientId,month,baseFee){var rec=getMonthlyFeeRec
 function getClientVatFlag(c){return !!(c&&c.has_vat);}
 function getBankProfile(c){return getClientVatFlag(c)?BANK_PROFILES.business:BANK_PROFILES.personal;}
 function getTransferContent(clientName,month){return String(clientName||'').toUpperCase().replace(/\s+/g,' ').trim()+' T'+parseInt(month.split('-')[1])+'/'+month.split('-')[0];}
+function getInvoiceBankTitle(hasVat,bank){return bank+' — '+(hasVat?'STK doanh nghiệp (VAT)':'STK cá nhân');}
+function getInvoiceContentLabel(hasVat){return hasVat?'ND:':'CK:';}
 function getInvoiceTotals(c,month,feeOverride){
 var fee=typeof feeOverride==='number'?feeOverride:getEffectiveServiceFee(c.id,month,c.service_fee);
 var hasVat=getClientVatFlag(c),vat=hasVat?Math.round(fee*0.08):0,bank=getBankProfile(c);
@@ -1117,11 +1119,11 @@ var tkArr=Object.values(tkSpend).filter(function(t){return t.spend>0;}).sort(fun
 var domId=invoiceDomId(c.id),qrUrl=getVietQrImageUrl(c,ms,invoice.fee);
 var copyTextLines=[c.name+' - '+mLabel+'/'+yLabel,'---','Tổng chi tiêu QC: '+ff(sp),'Phí dịch vụ: '+ff(invoice.fee)];
 if(invoice.hasVat)copyTextLines.push('VAT 8%: '+ff(invoice.vat));
-copyTextLines.push('Tổng thanh toán: '+ff(invoice.total),'---','Chuyển khoản:',invoice.bank.bank+' - '+invoice.bank.accountNoDisplay,invoice.bank.accountName,'ND: '+invoice.content);
+copyTextLines.push('Tổng thanh toán: '+ff(invoice.total),'---','Chuyển khoản:',invoice.bank.bank+' - '+invoice.bank.accountNoDisplay,invoice.bank.accountName,getInvoiceContentLabel(invoice.hasVat)+' '+invoice.content);
 var inputAttrs=authUser?'':' disabled title="Đăng nhập admin để sửa phí dịch vụ theo tháng"';
 h+='<tr><td colspan="8" style="padding:6px 10px;">';
 h+='<div id="client-invoice-'+domId+'" class="invoice-card" data-client-id="'+esc(c.id)+'" data-month="'+ms+'" data-spend="'+sp+'" data-has-vat="'+(invoice.hasVat?'1':'0')+'">';
-h+='<div class="invoice-head"><div><div class="invoice-title">Phiếu thanh toán — '+esc(c.name)+'</div><div class="invoice-meta"><span>Kỳ: 01/'+parseInt(ms.split('-')[1])+' — '+dim+'/'+parseInt(ms.split('-')[1])+'/'+yLabel+'</span>'+(invoice.hasVat?'<span class="vat-badge b-blue">Có VAT</span>':'<span class="vat-badge b-gray">Không VAT</span>')+'</div></div><div>'+(c.payment_status==='paid'?'<span class="invoice-status-badge b-green">Đã thanh toán</span>':'<span class="invoice-status-badge b-gray">Chưa thanh toán</span>')+'</div></div>';
+h+='<div class="invoice-head"><div><div class="invoice-title">Phiếu thanh toán — '+esc(c.name)+'</div><div class="invoice-meta"><span>Kỳ: 01/'+parseInt(ms.split('-')[1])+' — '+dim+'/'+parseInt(ms.split('-')[1])+'/'+yLabel+'</span>'+(invoice.hasVat?'<span class="vat-badge b-blue">Có VAT</span>':'')+'</div></div><div>'+(c.payment_status==='paid'?'<span class="invoice-status-badge b-green">Đã thanh toán</span>':'<span class="invoice-status-badge b-gray">Chưa thanh toán</span>')+'</div></div>';
 h+='<div class="invoice-body">';
 h+='<div class="invoice-label">Chi tiết tài khoản QC</div>';
 tkArr.forEach(function(tk){h+='<div class="invoice-account-row"><span class="invoice-account-name">'+esc(tk.name)+'</span><span class="invoice-account-value">'+ff(tk.spend)+'</span></div>';});
@@ -1129,13 +1131,13 @@ if(!tkArr.length)h+='<div style="font-size:12px;color:var(--tx3);padding:10px 0 
 h+='<div class="invoice-sum-row" style="margin-top:14px;"><span class="invoice-sum-label">Tổng chi tiêu QC</span><span class="invoice-account-value">'+ff(sp)+'</span></div>';
 h+='<div class="invoice-fee-row"><span class="invoice-sum-label">Phí dịch vụ</span><div class="invoice-fee-box"><span class="invoice-edit-badge">'+(authUser?'Sửa được':'Chỉ xem')+'</span><input id="client-fee-'+domId+'" type="number" min="0" class="inline-fee-input" value="'+invoice.fee+'" oninput="previewClientInvoice(\''+c.id+'\',\''+ms+'\',this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" onblur="saveClientMonthlyFee(\''+c.id+'\',\''+ms+'\',this.value)"'+inputAttrs+'><span class="invoice-fee-currency">đ</span></div></div>';
 h+='<div id="invoice-vat-row-'+domId+'" class="invoice-note" style="display:'+(invoice.hasVat?'block':'none')+';">VAT (8%): <span id="invoice-vat-'+domId+'" style="font-weight:700;font-style:normal;color:var(--tx1);">'+ff(invoice.vat)+'</span></div>';
-h+='<div id="invoice-novat-row-'+domId+'" class="invoice-note" style="display:'+(invoice.hasVat?'none':'block')+';">Không áp dụng VAT</div>';
+h+='<div id="invoice-novat-row-'+domId+'" class="invoice-note" style="display:none;"></div>';
 h+='<div class="invoice-total"><span class="invoice-total-label">Tổng thanh toán</span><span id="invoice-total-'+domId+'" class="invoice-total-value">'+ff(invoice.total)+'</span></div>';
 h+='</div>';
-h+='<div class="invoice-paybox"><div class="invoice-qr-wrap"><img id="invoice-qr-'+domId+'" src="'+qrUrl+'" alt="QR thanh toán '+esc(c.name)+'" onerror="this.style.display=\'none\';var fb=document.getElementById(\'invoice-qr-fallback-'+domId+'\');if(fb)fb.style.display=\'block\';"><div id="invoice-qr-fallback-'+domId+'" class="invoice-qr-fallback">Không tải được QR.<br>Vẫn có thể sao chép thông tin tài khoản.</div></div><div style="min-width:220px;flex:1 1 260px;"><div class="invoice-bank-title">'+invoice.bank.bank+' — '+(invoice.hasVat?'STK doanh nghiệp (VAT)':'STK cá nhân (không VAT)')+'</div><div class="invoice-bank-lines">STK: <span id="invoice-account-no-'+domId+'">'+invoice.bank.accountNoDisplay+'</span><br><strong id="invoice-account-name-'+domId+'">'+esc(invoice.bank.accountName)+'</strong><br>ND: <span id="invoice-content-'+domId+'">'+esc(invoice.content)+'</span></div></div></div>';
+h+='<div class="invoice-paybox"><div class="invoice-qr-wrap"><img id="invoice-qr-'+domId+'" src="'+qrUrl+'" alt="QR thanh toán '+esc(c.name)+'" onerror="this.style.display=\'none\';var fb=document.getElementById(\'invoice-qr-fallback-'+domId+'\');if(fb)fb.style.display=\'block\';"><div id="invoice-qr-fallback-'+domId+'" class="invoice-qr-fallback">Không tải được QR.<br>Vẫn có thể sao chép thông tin tài khoản.</div></div><div style="min-width:220px;flex:1 1 260px;"><div id="invoice-bank-title-'+domId+'" class="invoice-bank-title">'+getInvoiceBankTitle(invoice.hasVat,invoice.bank.bank)+'</div><div class="invoice-bank-lines">STK: <span id="invoice-account-no-'+domId+'">'+invoice.bank.accountNoDisplay+'</span><br><strong id="invoice-account-name-'+domId+'">'+esc(invoice.bank.accountName)+'</strong><br><span id="invoice-content-label-'+domId+'">'+getInvoiceContentLabel(invoice.hasVat)+'</span> <span id="invoice-content-'+domId+'">'+esc(invoice.content)+'</span></div></div></div>';
 h+='<div class="invoice-actions">';
 h+='<button id="invoice-copy-'+domId+'" class="invoice-btn" onclick="copyClientInvoice('+safeJsString(c.id)+','+safeJsString(ms)+','+sp+')">Sao chép</button>';
-h+='<button class="invoice-btn" type="button">Tải ảnh</button>';
+h+='<button class="invoice-btn" type="button" onclick="downloadClientInvoice('+safeJsString(c.id)+','+safeJsString(ms)+','+sp+',this)">Tải ảnh</button>';
 h+='</div></div></td></tr>';}
 });
 h+='</tbody><tfoot><tr style="background:var(--bg2);font-weight:600;border-top:1px solid var(--bd2);"><td></td><td>Tổng '+clientList.length+' KH</td><td></td><td></td><td class="mono" style="text-align:right;color:var(--teal);font-size:15px;">'+fm(totalSpend)+'</td><td class="mono" style="text-align:right;">'+fm(totalFee)+'</td><td></td><td></td></tr></tfoot></table></div>';
@@ -1144,14 +1146,16 @@ function toggleClientInv(id){expandedClientId=(expandedClientId===id)?null:id;re
 function previewClientInvoice(clientId,month,rawVal){
 var c=clientList.find(function(x){return x.id===clientId;});if(!c)return;
 var domId=invoiceDomId(clientId),fee=normalizeMoneyInput(rawVal),info=getInvoiceTotals(c,month,fee);
-var vatEl=document.getElementById('invoice-vat-'+domId),totalEl=document.getElementById('invoice-total-'+domId),qrEl=document.getElementById('invoice-qr-'+domId),fbEl=document.getElementById('invoice-qr-fallback-'+domId),nameEl=document.getElementById('invoice-account-name-'+domId),noEl=document.getElementById('invoice-account-no-'+domId),contentEl=document.getElementById('invoice-content-'+domId),vatRow=document.getElementById('invoice-vat-row-'+domId),noVatRow=document.getElementById('invoice-novat-row-'+domId);
+var vatEl=document.getElementById('invoice-vat-'+domId),totalEl=document.getElementById('invoice-total-'+domId),qrEl=document.getElementById('invoice-qr-'+domId),fbEl=document.getElementById('invoice-qr-fallback-'+domId),nameEl=document.getElementById('invoice-account-name-'+domId),noEl=document.getElementById('invoice-account-no-'+domId),contentEl=document.getElementById('invoice-content-'+domId),contentLabelEl=document.getElementById('invoice-content-label-'+domId),bankTitleEl=document.getElementById('invoice-bank-title-'+domId),vatRow=document.getElementById('invoice-vat-row-'+domId),noVatRow=document.getElementById('invoice-novat-row-'+domId);
 if(vatEl)vatEl.textContent=ff(info.vat);
 if(totalEl)totalEl.textContent=ff(info.total);
 if(nameEl)nameEl.textContent=info.bank.accountName;
 if(noEl)noEl.textContent=info.bank.accountNoDisplay;
 if(contentEl)contentEl.textContent=info.content;
+if(contentLabelEl)contentLabelEl.textContent=getInvoiceContentLabel(info.hasVat);
+if(bankTitleEl)bankTitleEl.textContent=getInvoiceBankTitle(info.hasVat,info.bank.bank);
 if(vatRow)vatRow.style.display=info.hasVat?'block':'none';
-if(noVatRow)noVatRow.style.display=info.hasVat?'none':'block';
+if(noVatRow)noVatRow.style.display='none';
 if(qrEl){qrEl.style.display='block';qrEl.src=getVietQrImageUrl(c,month,fee);}
 if(fbEl)fbEl.style.display='none';
 }
@@ -1176,8 +1180,105 @@ var fee=feeInput?normalizeMoneyInput(feeInput.value):getEffectiveServiceFee(clie
 var info=getInvoiceTotals(c,month,fee),mLabel='T'+parseInt(month.split('-')[1]),yLabel=month.split('-')[0];
 var lines=[c.name+' - '+mLabel+'/'+yLabel,'---','Tổng chi tiêu QC: '+ff(spend),'Phí dịch vụ: '+ff(info.fee)];
 if(info.hasVat)lines.push('VAT 8%: '+ff(info.vat));
-lines.push('Tổng thanh toán: '+ff(info.total),'---','Chuyển khoản:',info.bank.bank+' - '+info.bank.accountNoDisplay,info.bank.accountName,'ND: '+info.content);
+lines.push('Tổng thanh toán: '+ff(info.total),'---','Chuyển khoản:',info.bank.bank+' - '+info.bank.accountNoDisplay,info.bank.accountName,getInvoiceContentLabel(info.hasVat)+' '+info.content);
 navigator.clipboard.writeText(lines.join('\n'));toast('Đã sao chép!',true);
+}
+function sanitizeFilenamePart(v){return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'phieu';}
+function copyComputedStyles(src,dst){
+var styles=window.getComputedStyle(src),cssText='';
+for(var i=0;i<styles.length;i++){var prop=styles[i];cssText+=prop+':'+styles.getPropertyValue(prop)+';';}
+dst.style.cssText=cssText;
+if(src instanceof HTMLInputElement){dst.setAttribute('value',src.value);dst.value=src.value;}
+}
+function inlineStyleTree(src,dst){
+if(!(src&&dst))return;
+copyComputedStyles(src,dst);
+var sc=src.children||[],dc=dst.children||[];
+for(var i=0;i<sc.length;i++)inlineStyleTree(sc[i],dc[i]);
+}
+async function fetchAsDataUrl(url){
+var resp=await fetch(url,{mode:'cors'});if(!resp.ok)throw new Error('fetch '+resp.status);
+var blob=await resp.blob();
+return await new Promise(function(resolve,reject){
+var reader=new FileReader();
+reader.onload=function(){resolve(reader.result);};
+reader.onerror=reject;
+reader.readAsDataURL(blob);
+});
+}
+async function inlineCloneImages(srcRoot,cloneRoot){
+var srcImgs=srcRoot.querySelectorAll('img'),cloneImgs=cloneRoot.querySelectorAll('img'),tasks=[];
+for(var i=0;i<srcImgs.length;i++){(function(srcImg,cloneImg){
+tasks.push((async function(){
+var src=srcImg.currentSrc||srcImg.src;if(!src)return;
+try{
+if(src.indexOf('data:')===0){cloneImg.src=src;return;}
+cloneImg.src=await fetchAsDataUrl(src);
+}catch(e){
+cloneImg.src=src;
+}
+})());
+})(srcImgs[i],cloneImgs[i]);}
+await Promise.all(tasks);
+}
+function triggerBlobDownload(blob,filename){
+var url=URL.createObjectURL(blob),a=document.createElement('a');
+a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+setTimeout(function(){URL.revokeObjectURL(url);},1000);
+}
+async function downloadClientInvoice(clientId,month,spend,btn){
+var c=clientList.find(function(x){return x.id===clientId;});
+var node=document.getElementById('client-invoice-'+invoiceDomId(clientId));
+if(!c||!node){toast('Không tìm thấy phiếu để tải',false);return;}
+var originalText=btn?btn.textContent:'';
+if(btn){btn.disabled=true;btn.textContent='Đang tạo...';}
+try{
+var clone=node.cloneNode(true),rect=node.getBoundingClientRect();
+inlineStyleTree(node,clone);
+await inlineCloneImages(node,clone);
+clone.style.margin='0';
+clone.style.width=Math.ceil(rect.width)+'px';
+clone.style.maxWidth='none';
+clone.style.transform='none';
+clone.querySelectorAll('button').forEach(function(el){el.remove();});
+clone.querySelectorAll('input').forEach(function(el){
+el.blur();
+el.style.pointerEvents='none';
+el.style.caretColor='transparent';
+});
+var wrapper=document.createElement('div');
+wrapper.style.width=Math.ceil(rect.width+32)+'px';
+wrapper.style.padding='16px';
+wrapper.style.background='linear-gradient(180deg,#f7f9fc 0%,#eef3f9 100%)';
+wrapper.style.boxSizing='border-box';
+wrapper.appendChild(clone);
+var serialized=new XMLSerializer().serializeToString(wrapper);
+var width=Math.ceil(rect.width+32),height=Math.ceil(rect.height+32);
+var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'"><foreignObject width="100%" height="100%">'+serialized.replace(/&nbsp;/g,'&#160;')+'</foreignObject></svg>';
+var svgBlob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'}),svgUrl=URL.createObjectURL(svgBlob);
+var img=await new Promise(function(resolve,reject){
+var image=new Image();
+image.onload=function(){resolve(image);};
+image.onerror=reject;
+image.src=svgUrl;
+});
+var scale=2,canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+canvas.width=width*scale;canvas.height=height*scale;
+ctx.scale(scale,scale);
+ctx.fillStyle='#f2f6fb';
+ctx.fillRect(0,0,width,height);
+ctx.drawImage(img,0,0,width,height);
+URL.revokeObjectURL(svgUrl);
+var pngBlob=await new Promise(function(resolve,reject){
+canvas.toBlob(function(blob){if(blob)resolve(blob);else reject(new Error('Không tạo được PNG'));},'image/png');
+});
+triggerBlobDownload(pngBlob,'phieu-thanh-toan-'+sanitizeFilenamePart(c.name)+'-'+month+'.png');
+toast('Đã tải ảnh phiếu thanh toán',true);
+}catch(e){
+toast('Không thể tải ảnh: '+e.message,false);
+}finally{
+if(btn){btn.disabled=false;btn.textContent=originalText||'Tải ảnh';}
+}
 }
 
 // ═══ P4: THU CHI ═══
