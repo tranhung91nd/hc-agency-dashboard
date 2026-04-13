@@ -69,13 +69,48 @@ table{width:100%;border-collapse:collapse;min-width:500px;}th{text-align:left;pa
 .inline-fee-input{width:150px;padding:8px 10px;border:1px solid var(--bd2);border-radius:10px;background:#fff;color:var(--tx1);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;outline:none;}
 .inline-fee-input:focus{border-color:var(--blue);box-shadow:0 0 0 4px rgba(37,99,235,.1);}
 .inline-fee-input:disabled{background:var(--bg3);color:var(--tx3);cursor:not-allowed;}
-.invoice-paybox{padding:16px 20px;background:var(--bg2);border-top:1px solid var(--bd1);display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
-.invoice-qr-wrap{width:112px;height:112px;border-radius:16px;background:#fff;border:1px solid var(--bd1);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;box-shadow:var(--shadow-sm);}
+.invoice-card{border:1px solid rgba(15,23,42,.12);border-radius:24px;overflow:hidden;background:linear-gradient(180deg,#ffffff 0%,#fcfdff 100%);box-shadow:0 24px 50px rgba(15,23,42,.08);}
+.invoice-head{padding:18px 22px 16px;border-bottom:1px solid rgba(15,23,42,.09);display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;}
+.invoice-title{font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--tx1);}
+.invoice-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:var(--tx2);}
+.invoice-body{padding:18px 22px 8px;}
+.invoice-label{font-size:11px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.08em;}
+.invoice-account-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid rgba(15,23,42,.07);font-size:13px;}
+.invoice-account-row:last-child{border-bottom:none;}
+.invoice-account-name{font-weight:600;color:var(--tx1);}
+.invoice-account-value{font-weight:600;color:var(--teal);font-variant-numeric:tabular-nums;}
+.invoice-sum-row{display:flex;justify-content:space-between;gap:14px;padding:14px 0;font-size:14px;border-bottom:1px solid rgba(15,23,42,.08);}
+.invoice-sum-row:last-child{border-bottom:none;}
+.invoice-sum-label{color:var(--tx2);}
+.invoice-sum-value{font-weight:700;color:var(--tx1);font-variant-numeric:tabular-nums;}
+.invoice-fee-row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:18px 0 12px;border-bottom:1px solid rgba(15,23,42,.08);}
+.invoice-fee-box{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid rgba(15,23,42,.12);border-radius:14px;background:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.75);min-width:270px;justify-content:flex-end;}
+.invoice-fee-currency{font-size:15px;font-weight:600;color:var(--tx2);}
+.invoice-edit-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;background:#ffe5e1;color:#cc4b37;font-size:10px;font-weight:700;line-height:1;}
+.invoice-note{padding:10px 0 14px;font-size:12px;font-style:italic;color:var(--tx2);}
+.invoice-total{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;padding:18px 0 22px;}
+.invoice-total-label{font-size:15px;font-weight:700;color:var(--tx1);}
+.invoice-total-value{font-size:26px;font-weight:800;letter-spacing:-.03em;color:var(--teal);font-variant-numeric:tabular-nums;}
+.invoice-paybox{padding:18px 22px;background:linear-gradient(180deg,#f8fafc 0%,#f3f6fb 100%);border-top:1px solid rgba(15,23,42,.08);display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.invoice-qr-wrap{width:86px;height:86px;border-radius:18px;background:#fff;border:1px solid rgba(15,23,42,.08);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;box-shadow:0 14px 24px rgba(15,23,42,.08);}
 .invoice-qr-wrap img{width:100%;height:100%;object-fit:cover;display:block;}
 .invoice-qr-fallback{display:none;padding:10px;text-align:center;font-size:11px;color:var(--tx3);line-height:1.5;}
+.invoice-bank-title{font-size:13px;font-weight:700;color:var(--tx1);margin-bottom:4px;}
 .invoice-bank-lines{font-size:12px;color:var(--tx2);line-height:1.8;}
 .invoice-bank-lines strong{color:var(--tx1);}
-.vat-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;}
+.invoice-actions{padding:12px 22px;background:#fff;border-top:1px solid rgba(15,23,42,.08);display:flex;justify-content:flex-end;gap:10px;}
+.invoice-btn{min-width:104px;min-height:42px;border-radius:14px;border:1px solid rgba(15,23,42,.12);background:#fff;color:var(--tx2);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;box-shadow:0 8px 18px rgba(15,23,42,.05);}
+.invoice-btn:hover{transform:translateY(-1px);background:#f8fafc;color:var(--tx1);}
+.vat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:700;line-height:1;}
+.invoice-status-badge{display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:700;}
+@media(max-width:768px){
+  .invoice-head,.invoice-body,.invoice-paybox,.invoice-actions{padding-left:16px;padding-right:16px;}
+  .invoice-fee-row,.invoice-total{flex-direction:column;align-items:flex-start;}
+  .invoice-fee-box{min-width:100%;justify-content:space-between;}
+  .inline-fee-input{width:100%;flex:1;}
+  .invoice-actions{justify-content:stretch;}
+  .invoice-btn{flex:1 1 0;}
+}
 .bulk-row{display:grid;grid-template-columns:1fr 2fr 140px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--bd1);}.bulk-row:last-child{border-bottom:none;}.bulk-row input{padding:6px 8px;border:1px solid var(--bd2);border-radius:var(--radius);background:var(--bg2);color:var(--tx1);font-size:13px;font-variant-numeric:tabular-nums;text-align:right;width:100%;}.bulk-row input:focus{border-color:var(--blue);outline:none;}.bulk-label{font-size:12px;color:var(--tx2);}.bulk-sub{font-size:11px;color:var(--tx3);}
 .month-filter{display:flex;gap:8px;align-items:center;margin-bottom:16px;}.month-filter select{padding:6px 10px;border:1px solid var(--bd2);border-radius:var(--radius);background:var(--bg1);color:var(--tx1);font-size:13px;}
 .assign-panel{background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);overflow:hidden;margin:4px 0;}
@@ -1085,24 +1120,22 @@ if(invoice.hasVat)copyTextLines.push('VAT 8%: '+ff(invoice.vat));
 copyTextLines.push('Tổng thanh toán: '+ff(invoice.total),'---','Chuyển khoản:',invoice.bank.bank+' - '+invoice.bank.accountNoDisplay,invoice.bank.accountName,'ND: '+invoice.content);
 var inputAttrs=authUser?'':' disabled title="Đăng nhập admin để sửa phí dịch vụ theo tháng"';
 h+='<tr><td colspan="8" style="padding:6px 10px;">';
-h+='<div id="client-invoice-'+domId+'" style="border:1px solid var(--bd1);border-radius:var(--radius-lg);overflow:hidden;background:var(--bg1);" data-client-id="'+esc(c.id)+'" data-month="'+ms+'" data-spend="'+sp+'" data-has-vat="'+(invoice.hasVat?'1':'0')+'">';
-h+='<div style="padding:14px 20px;border-bottom:1px solid var(--bd1);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;"><div><div style="font-size:15px;font-weight:500;">Phiếu Thanh toán — '+esc(c.name)+'</div><div style="font-size:11px;color:var(--tx3);margin-top:2px;">Kỳ: 01/'+parseInt(ms.split('-')[1])+' — '+dim+'/'+parseInt(ms.split('-')[1])+'/'+yLabel+'</div></div><div style="display:flex;align-items:center;gap:8px;">'+(invoice.hasVat?'<span class="vat-badge b-blue">Có VAT 8%</span>':'<span class="vat-badge b-gray">Không VAT</span>')+(c.payment_status==='paid'?'<span class="badge b-green">Đã thanh toán</span>':'<span class="badge b-gray">Chưa thanh toán</span>')+'</div></div>';
-h+='<div style="padding:16px 20px;">';
-h+='<div style="font-size:11px;font-weight:500;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;">Chi tiết tài khoản QC</div>';
-tkArr.forEach(function(tk){h+='<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--bd1);"><span style="font-weight:500;">'+esc(tk.name)+'</span><span style="color:var(--teal);font-variant-numeric:tabular-nums;">'+ff(tk.spend)+'</span></div>';});
-if(!tkArr.length)h+='<div style="font-size:12px;color:var(--tx3);padding:8px 0;">Không có dữ liệu chi tiêu</div>';
-h+='<div style="height:1px;background:var(--bd1);margin:10px 0;"></div>';
-h+='<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;"><span style="color:var(--tx2);">Tổng chi tiêu QC</span><span style="font-weight:500;font-size:15px;color:var(--teal);font-variant-numeric:tabular-nums;">'+ff(sp)+'</span></div>';
-h+='<div style="height:1px;background:var(--bd1);margin:10px 0;"></div>';
-h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:5px 0;font-size:13px;flex-wrap:wrap;"><span style="color:var(--tx2);">Phí dịch vụ</span><div style="display:flex;align-items:center;gap:8px;"><input id="client-fee-'+domId+'" type="number" min="0" class="inline-fee-input" value="'+invoice.fee+'" oninput="previewClientInvoice(\''+c.id+'\',\''+ms+'\',this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" onblur="saveClientMonthlyFee(\''+c.id+'\',\''+ms+'\',this.value)"'+inputAttrs+'><span style="font-size:11px;color:var(--tx3);">'+(authUser?'Lưu theo tháng':'Chỉ xem')+'</span></div></div>';
-h+='<div id="invoice-vat-row-'+domId+'" style="display:'+(invoice.hasVat?'flex':'none')+';justify-content:space-between;padding:5px 0;font-size:13px;"><span style="color:var(--tx2);">VAT (8%)</span><span id="invoice-vat-'+domId+'" style="font-weight:500;font-variant-numeric:tabular-nums;">'+ff(invoice.vat)+'</span></div>';
-h+='<div id="invoice-novat-row-'+domId+'" style="display:'+(invoice.hasVat?'none':'flex')+';justify-content:space-between;padding:5px 0;font-size:13px;"><span style="color:var(--tx2);">VAT</span><span style="font-weight:500;color:var(--tx3);">Không áp dụng</span></div>';
-h+='<div style="height:1px;background:var(--tx3);opacity:.3;margin:10px 0;"></div>';
-h+='<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:15px;font-weight:500;"><span>Tổng thanh toán</span><span id="invoice-total-'+domId+'" style="font-size:20px;color:var(--teal);font-variant-numeric:tabular-nums;">'+ff(invoice.total)+'</span></div>';
+h+='<div id="client-invoice-'+domId+'" class="invoice-card" data-client-id="'+esc(c.id)+'" data-month="'+ms+'" data-spend="'+sp+'" data-has-vat="'+(invoice.hasVat?'1':'0')+'">';
+h+='<div class="invoice-head"><div><div class="invoice-title">Phiếu thanh toán — '+esc(c.name)+'</div><div class="invoice-meta"><span>Kỳ: 01/'+parseInt(ms.split('-')[1])+' — '+dim+'/'+parseInt(ms.split('-')[1])+'/'+yLabel+'</span>'+(invoice.hasVat?'<span class="vat-badge b-blue">Có VAT</span>':'<span class="vat-badge b-gray">Không VAT</span>')+'</div></div><div>'+(c.payment_status==='paid'?'<span class="invoice-status-badge b-green">Đã thanh toán</span>':'<span class="invoice-status-badge b-gray">Chưa thanh toán</span>')+'</div></div>';
+h+='<div class="invoice-body">';
+h+='<div class="invoice-label">Chi tiết tài khoản QC</div>';
+tkArr.forEach(function(tk){h+='<div class="invoice-account-row"><span class="invoice-account-name">'+esc(tk.name)+'</span><span class="invoice-account-value">'+ff(tk.spend)+'</span></div>';});
+if(!tkArr.length)h+='<div style="font-size:12px;color:var(--tx3);padding:10px 0 2px;">Không có dữ liệu chi tiêu</div>';
+h+='<div class="invoice-sum-row" style="margin-top:14px;"><span class="invoice-sum-label">Tổng chi tiêu QC</span><span class="invoice-account-value">'+ff(sp)+'</span></div>';
+h+='<div class="invoice-fee-row"><span class="invoice-sum-label">Phí dịch vụ</span><div class="invoice-fee-box"><span class="invoice-edit-badge">'+(authUser?'Sửa được':'Chỉ xem')+'</span><input id="client-fee-'+domId+'" type="number" min="0" class="inline-fee-input" value="'+invoice.fee+'" oninput="previewClientInvoice(\''+c.id+'\',\''+ms+'\',this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" onblur="saveClientMonthlyFee(\''+c.id+'\',\''+ms+'\',this.value)"'+inputAttrs+'><span class="invoice-fee-currency">đ</span></div></div>';
+h+='<div id="invoice-vat-row-'+domId+'" class="invoice-note" style="display:'+(invoice.hasVat?'block':'none')+';">VAT (8%): <span id="invoice-vat-'+domId+'" style="font-weight:700;font-style:normal;color:var(--tx1);">'+ff(invoice.vat)+'</span></div>';
+h+='<div id="invoice-novat-row-'+domId+'" class="invoice-note" style="display:'+(invoice.hasVat?'none':'block')+';">Không áp dụng VAT</div>';
+h+='<div class="invoice-total"><span class="invoice-total-label">Tổng thanh toán</span><span id="invoice-total-'+domId+'" class="invoice-total-value">'+ff(invoice.total)+'</span></div>';
 h+='</div>';
-h+='<div class="invoice-paybox"><div class="invoice-qr-wrap"><img id="invoice-qr-'+domId+'" src="'+qrUrl+'" alt="QR thanh toán '+esc(c.name)+'" onerror="this.style.display=\'none\';var fb=document.getElementById(\'invoice-qr-fallback-'+domId+'\');if(fb)fb.style.display=\'block\';"><div id="invoice-qr-fallback-'+domId+'" class="invoice-qr-fallback">Không tải được QR.<br>Vẫn có thể sao chép thông tin tài khoản bên cạnh.</div></div><div style="min-width:220px;flex:1 1 240px;"><div style="font-size:13px;font-weight:600;">'+invoice.bank.bank+'</div><div class="invoice-bank-lines"><strong id="invoice-account-name-'+domId+'">'+esc(invoice.bank.accountName)+'</strong><br>STK: <span id="invoice-account-no-'+domId+'">'+invoice.bank.accountNoDisplay+'</span><br>ND: <span id="invoice-content-'+domId+'">'+esc(invoice.content)+'</span></div></div></div>';
-h+='<div style="padding:10px 20px;border-top:1px solid var(--bd1);display:flex;gap:6px;justify-content:flex-end;">';
-h+='<button id="invoice-copy-'+domId+'" class="btn btn-ghost btn-sm" onclick="copyClientInvoice('+safeJsString(c.id)+','+safeJsString(ms)+','+sp+')">Sao chép</button>';
+h+='<div class="invoice-paybox"><div class="invoice-qr-wrap"><img id="invoice-qr-'+domId+'" src="'+qrUrl+'" alt="QR thanh toán '+esc(c.name)+'" onerror="this.style.display=\'none\';var fb=document.getElementById(\'invoice-qr-fallback-'+domId+'\');if(fb)fb.style.display=\'block\';"><div id="invoice-qr-fallback-'+domId+'" class="invoice-qr-fallback">Không tải được QR.<br>Vẫn có thể sao chép thông tin tài khoản.</div></div><div style="min-width:220px;flex:1 1 260px;"><div class="invoice-bank-title">'+invoice.bank.bank+' — '+(invoice.hasVat?'STK doanh nghiệp (VAT)':'STK cá nhân (không VAT)')+'</div><div class="invoice-bank-lines">STK: <span id="invoice-account-no-'+domId+'">'+invoice.bank.accountNoDisplay+'</span><br><strong id="invoice-account-name-'+domId+'">'+esc(invoice.bank.accountName)+'</strong><br>ND: <span id="invoice-content-'+domId+'">'+esc(invoice.content)+'</span></div></div></div>';
+h+='<div class="invoice-actions">';
+h+='<button id="invoice-copy-'+domId+'" class="invoice-btn" onclick="copyClientInvoice('+safeJsString(c.id)+','+safeJsString(ms)+','+sp+')">Sao chép</button>';
+h+='<button class="invoice-btn" type="button">Tải ảnh</button>';
 h+='</div></div></td></tr>';}
 });
 h+='</tbody><tfoot><tr style="background:var(--bg2);font-weight:600;border-top:1px solid var(--bd2);"><td></td><td>Tổng '+clientList.length+' KH</td><td></td><td></td><td class="mono" style="text-align:right;color:var(--teal);font-size:15px;">'+fm(totalSpend)+'</td><td class="mono" style="text-align:right;">'+fm(totalFee)+'</td><td></td><td></td></tr></tfoot></table></div>';
@@ -1117,8 +1150,8 @@ if(totalEl)totalEl.textContent=ff(info.total);
 if(nameEl)nameEl.textContent=info.bank.accountName;
 if(noEl)noEl.textContent=info.bank.accountNoDisplay;
 if(contentEl)contentEl.textContent=info.content;
-if(vatRow)vatRow.style.display=info.hasVat?'flex':'none';
-if(noVatRow)noVatRow.style.display=info.hasVat?'none':'flex';
+if(vatRow)vatRow.style.display=info.hasVat?'block':'none';
+if(noVatRow)noVatRow.style.display=info.hasVat?'none':'block';
 if(qrEl){qrEl.style.display='block';qrEl.src=getVietQrImageUrl(c,month,fee);}
 if(fbEl)fbEl.style.display='none';
 }
