@@ -1386,7 +1386,7 @@ var amount=parseInt(el.value)||0;
 if(!el.value.trim()){toast('Nhập số tiền',false);return;}
 await sb2.from('daily_spend').delete().eq('ad_account_id',adId).eq('report_date',adViewDate).is('staff_id',null);
 var r=await sb2.from('daily_spend').insert({ad_account_id:adId,report_date:adViewDate,spend_amount:amount});
-if(!r.error){toast('Đã lưu chi tiêu: '+ff(amount),true);await loadAll();var elAc=document.getElementById('ac');if(elAc)elAc.innerHTML=rat();}
+if(!r.error){toast('Đã lưu chi tiêu: '+ff(amount),true);await loadAll();if(curPage===1){render();}else{var elAc=document.getElementById('ac');if(elAc)elAc.innerHTML=rat();}}
 else toast('Lỗi: '+r.error.message,false);}
 async function saveNewTk(btn){
 if(!needAuth())return;
@@ -1405,32 +1405,33 @@ if(staffId&&r.data){
 await sb2.from('assignment').insert({ad_account_id:r.data.id,staff_id:staffId,client_id:clientId,start_date:td(),end_date:null});}
 toast('Đã thêm TK: '+name,true);
 document.getElementById('new-tk-name').value='';document.getElementById('new-tk-fbid').value='';
-toggleAddTk();await loadAll();pg(5);}async function quickAssignStaff(adId,staffId){
+toggleAddTk();await loadAll();stayPage();}async function quickAssignStaff(adId,staffId){
 if(!needAuth())return;
 if(!staffId){toast('Chưa chọn NV',false);return;}
 var existing=assignData.find(function(a){return a.ad_account_id===adId&&a.start_date<=adViewDate&&(!a.end_date||a.end_date>=adViewDate);});
 if(existing){
 var r=await sb2.from('assignment').update({staff_id:staffId}).eq('id',existing.id);
-if(!r.error){toast('Đã cập nhật NV!',true);await loadAll();pg(5);}else toast('Lỗi',false);
+if(!r.error){toast('Đã cập nhật NV!',true);await loadAll();stayPage();}else toast('Lỗi',false);
 }else{
 var ad=adList.find(function(a){return a.id===adId;});
 var r2=await sb2.from('assignment').insert({ad_account_id:adId,staff_id:staffId,client_id:ad?ad.client_id:null,start_date:adViewDate,end_date:null});
-if(!r2.error){toast('Đã gán NV!',true);await loadAll();pg(5);}else toast('Lỗi: '+r2.error.message,false);}}
+if(!r2.error){toast('Đã gán NV!',true);await loadAll();stayPage();}else toast('Lỗi: '+r2.error.message,false);}}
 async function quickAssignClient(adId,clientId){
 if(!needAuth())return;
 if(!clientId){return;}
 var existing=assignData.find(function(a){return a.ad_account_id===adId&&a.start_date<=adViewDate&&(!a.end_date||a.end_date>=adViewDate);});
 if(existing){
 var r=await sb2.from('assignment').update({client_id:clientId}).eq('id',existing.id);
-if(!r.error){toast('Đã cập nhật KH!',true);await loadAll();pg(5);}else toast('Lỗi',false);
+if(!r.error){toast('Đã cập nhật KH!',true);await loadAll();stayPage();}else toast('Lỗi',false);
 }else{
 var r2=await sb2.from('assignment').insert({ad_account_id:adId,staff_id:null,client_id:clientId,start_date:adViewDate,end_date:null});
-if(!r2.error){toast('Đã gán KH!',true);await loadAll();pg(5);}else toast('Lỗi: '+r2.error.message,false);}
+if(!r2.error){toast('Đã gán KH!',true);await loadAll();stayPage();}else toast('Lỗi: '+r2.error.message,false);}
 // Also update ad_account.client_id
 await sb2.from('ad_account').update({client_id:clientId}).eq('id',adId);}
-function toggleExpand(id){expandTabIdx=0;expandedAd=(expandedAd===id)?null:id;var el=document.getElementById('ac');if(el)el.innerHTML=rat();}
-function switchExpandTab(i){expandTabIdx=i;var el=document.getElementById('ac');if(el)el.innerHTML=rat();}
-async function toggleShared(id,val){if(!needAuth())return;var r=await sb2.from('ad_account').update({is_shared:val}).eq('id',id);if(!r.error){toast(val?'Đánh dấu dùng chung':'Đánh dấu riêng',true);await loadAll();pg(5);}else toast('Lỗi',false);}
+function toggleExpand(id){expandTabIdx=0;expandedAd=(expandedAd===id)?null:id;if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}
+function switchExpandTab(i){expandTabIdx=i;if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}
+function stayPage(){if(curPage===1){render();}else{pg(5);}}
+async function toggleShared(id,val){if(!needAuth())return;var r=await sb2.from('ad_account').update({is_shared:val}).eq('id',id);if(!r.error){toast(val?'Đánh dấu dùng chung':'Đánh dấu riêng',true);await loadAll();stayPage();}else toast('Lỗi',false);}
 function editMaxMess(adId,curVal){
 var v=prompt('Nhập giá mess tối đa (VNĐ):',curVal||'');if(v===null)return;
 var num=parseInt(String(v).replace(/[^0-9]/g,''))||0;
@@ -1438,9 +1439,9 @@ saveMaxMess(adId,num);}
 async function saveMaxMess(adId,val){
 if(!needAuth())return;
 var r=await sb2.from('ad_account').update({max_mess_cost:val||null}).eq('id',adId);
-if(!r.error){toast('Đã lưu giá mess tối đa: '+ff(val),true);await loadAll();var el=document.getElementById('ac');if(el)el.innerHTML=rat();}
+if(!r.error){toast('Đã lưu giá mess tối đa: '+ff(val),true);await loadAll();if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}
 else toast('Lỗi: '+r.error.message,false);}
-async function deleteCheckedAd(){if(!needAuth())return;var checks=document.querySelectorAll('.ad-check:checked');if(!checks.length){toast('Chưa chọn TK nào',false);return;}if(!confirm('Xóa '+checks.length+' tài khoản?'))return;var c=0;for(var i=0;i<checks.length;i++){var r=await sb2.from('ad_account').delete().eq('id',checks[i].value);if(!r.error)c++;}toast('Đã xóa '+c+' TK!',true);await loadAll();pg(5);}
+async function deleteCheckedAd(){if(!needAuth())return;var checks=document.querySelectorAll('.ad-check:checked');if(!checks.length){toast('Chưa chọn TK nào',false);return;}if(!confirm('Xóa '+checks.length+' tài khoản?'))return;var c=0;for(var i=0;i<checks.length;i++){var r=await sb2.from('ad_account').delete().eq('id',checks[i].value);if(!r.error)c++;}toast('Đã xóa '+c+' TK!',true);await loadAll();stayPage();}
 async function addAssignment(adId){
 if(!needAuth())return;
 var staffId=prompt('Nhân sự (chọn số):\n'+staffList.map(function(s,i){return(i+1)+'. '+s.short_name;}).join('\n'));
@@ -1450,21 +1451,21 @@ if(!clientId)return;var ci=clientList[parseInt(clientId)-1];if(!ci){toast('Số 
 var sd=prompt('Từ ngày (YYYY-MM-DD):',td());if(!sd)return;
 var ed=prompt('Đến ngày (YYYY-MM-DD, bỏ trống = đang chạy):','');
 var r=await sb2.from('assignment').insert({ad_account_id:adId,staff_id:si.id,client_id:ci.id,start_date:sd,end_date:ed||null});
-if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã thêm phân công!',true);await loadAll();pg(5);}}
+if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã thêm phân công!',true);await loadAll();stayPage();}}
 async function updateAssignDate(id,field,val){
 if(!needAuth())return;
 var upd={};upd[field]=val||null;
 var r=await sb2.from('assignment').update(upd).eq('id',id);
-if(!r.error){toast('Đã cập nhật!',true);await loadAll();var el=document.getElementById('ac');if(el)el.innerHTML=rat();}else toast('Lỗi: '+r.error.message,false);}
+if(!r.error){toast('Đã cập nhật!',true);await loadAll();if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}else toast('Lỗi: '+r.error.message,false);}
 async function setEndDate(id){
 if(!needAuth())return;
 var val=prompt('Đến ngày (YYYY-MM-DD):',td());if(val===null)return;
 var r=await sb2.from('assignment').update({end_date:val||null}).eq('id',id);
-if(!r.error){toast('Đã cập nhật!',true);await loadAll();var el=document.getElementById('ac');if(el)el.innerHTML=rat();}else toast('Lỗi',false);}
+if(!r.error){toast('Đã cập nhật!',true);await loadAll();if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}else toast('Lỗi',false);}
 async function deleteAssign(id){
 if(!needAuth())return;if(!confirm('Xóa phân công này?'))return;
 var r=await sb2.from('assignment').delete().eq('id',id);
-if(!r.error){toast('Đã xóa!',true);await loadAll();pg(5);}else toast('Lỗi',false);}
+if(!r.error){toast('Đã xóa!',true);await loadAll();stayPage();}else toast('Lỗi',false);}
 
 // ═══ MESS ALERTS ═══
 function getMessAlerts(){
@@ -1644,7 +1645,7 @@ if(!insertOk&&oldShared.data&&oldShared.data.length){var restoreS=oldShared.data
 for(var si=0;si<sFns.length;si+=5){await Promise.all(sFns.slice(si,si+5).map(function(fn){return fn();}));}
 btn.disabled=false;btn.textContent='Đồng bộ ngày '+fd(date);
 toast('Đồng bộ xong: '+saved+' OK'+(errors?', '+errors+' lỗi':''),!errors);
-await loadAll();pg(5);}
+await loadAll();stayPage();}
 async function loadMetaAccounts(force,silent){
 if(!force&&metaAccounts.length)return;
 try{
