@@ -462,6 +462,27 @@ tr:hover td{background:#f8fbff;}
   gap:6px;
   flex:0 0 auto;
 }
+.ad-toolbar-note{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:46px;
+  padding:0 14px;
+  border-radius:12px;
+  background:rgba(37,99,235,0.08);
+  border:1px solid rgba(37,99,235,0.12);
+  color:var(--blue-tx);
+  font-size:12px;
+  font-weight:600;
+  white-space:nowrap;
+}
+.ad-toolbar-note-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 0 4px rgba(5,150,105,0.14);
+}
 .ad-toolbar .fi,
 .ad-toolbar .btn{
   min-height:46px;
@@ -502,6 +523,30 @@ tr:hover td{background:#f8fbff;}
   padding-left:14px;
   padding-right:14px;
 }
+.btn-add-account{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);
+  color:#fff;
+  border:1px solid rgba(15,23,42,0.08);
+  box-shadow:0 12px 28px rgba(15,23,42,0.16);
+}
+.btn-add-account:hover{
+  transform:translateY(-1px);
+}
+.btn-add-account-plus{
+  width:20px;
+  height:20px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(255,255,255,0.14);
+  font-size:14px;
+  line-height:1;
+  font-weight:700;
+}
 .overview-card{
   padding:18px 20px !important;
 }
@@ -520,6 +565,7 @@ tr:hover td{background:#f8fbff;}
   }
   .ad-toolbar-actions{
     justify-content:flex-end;
+    flex-wrap:wrap;
   }
 }
 @media(max-width:768px){
@@ -540,11 +586,16 @@ tr:hover td{background:#f8fbff;}
   .ad-toolbar-search,
   .ad-toolbar-filter,
   .ad-toolbar-date,
-  .ad-toolbar-count{
+  .ad-toolbar-count,
+  .ad-toolbar-note{
     width:100%;
     flex:1 1 100%;
   }
   .ad-toolbar-count{
+    justify-content:flex-start;
+    padding:10px 14px;
+  }
+  .ad-toolbar-note{
     justify-content:flex-start;
     padding:10px 14px;
   }
@@ -1123,8 +1174,7 @@ clientList.forEach(function(c){h+='<option value="'+c.id+'">'+esc(c.name)+'</opt
 h+='<option value="none">— Chưa phân loại —</option></select>';
 h+='<select id="filter-status" onchange="filterAdTable()" class="fi ad-toolbar-filter"><option value="">Tất cả tình trạng</option><option value="1">● Hoạt động</option><option value="2">● Vô hiệu hoá</option><option value="3">● Cần thanh toán</option></select>';
 h+='<span class="ad-toolbar-count" id="filter-count">'+adList.length+'/'+adList.length+' tài khoản</span></div>';
-h+='<div class="ad-toolbar-actions"><button class="btn btn-ghost btn-sm" onclick="toggleAddTk()">+ Thêm TK</button><button class="btn btn-green btn-sm" onclick="doMetaSync2(this)">Đồng bộ ngày '+fd(adViewDate)+'</button>';
-h+='<button class="btn btn-primary btn-sm" onclick="loadMetaAndSync()">Cập nhật Meta</button></div></div>';
+h+='<div class="ad-toolbar-actions"><span class="ad-toolbar-note"><span class="ad-toolbar-note-dot"></span>Meta và chi tiêu tự đồng bộ khi mở trang</span><button class="btn btn-sm btn-add-account" onclick="toggleAddTk()"><span class="btn-add-account-plus">+</span><span>Thêm tài khoản</span></button></div></div>';
 // Add TK form (hidden by default)
 h+='<div id="add-tk-form" style="display:none;margin-bottom:12px;"><div class="form-card" style="margin-bottom:0;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-weight:500;font-size:14px;">Thêm tài khoản quảng cáo</span><span style="font-size:18px;cursor:pointer;color:var(--tx3);" onclick="toggleAddTk()">×</span></div>';
 h+='<div class="form-row"><div class="form-group"><label>Tên tài khoản</label><input type="text" id="new-tk-name" placeholder="VD: TK NBNB - 1234"></div><div class="form-group"><label>FB Account ID (bỏ trống = TK ngoài)</label><input type="text" id="new-tk-fbid" placeholder="act_123456789"></div></div>';
@@ -1595,13 +1645,13 @@ for(var si=0;si<sFns.length;si+=5){await Promise.all(sFns.slice(si,si+5).map(fun
 btn.disabled=false;btn.textContent='Đồng bộ ngày '+fd(date);
 toast('Đồng bộ xong: '+saved+' OK'+(errors?', '+errors+' lỗi':''),!errors);
 await loadAll();pg(5);}
-async function loadMetaAccounts(force){
+async function loadMetaAccounts(force,silent){
 if(!force&&metaAccounts.length)return;
 try{
 var all=[],url='https://graph.facebook.com/v25.0/me/adaccounts?fields=id,name,account_status&limit=100&access_token='+META_TOKEN;
 while(url){
 var resp=await fetch(url),data=await resp.json();
-if(data.error){toast('Meta API lỗi: '+data.error.message,false);return;}
+if(data.error){if(!silent)toast('Meta API lỗi: '+data.error.message,false);return;}
 all=all.concat(data.data||[]);
 url=data.paging&&data.paging.next?data.paging.next:null;
 }
@@ -1618,16 +1668,18 @@ detailed.push(base);
 }
 }
 metaAccounts=detailed;
-}catch(e){toast('Lỗi: '+e.message,false);}
+}catch(e){if(!silent)toast('Lỗi: '+e.message,false);}
 }
-async function loadMetaAndSync(){
-if(!needAuth())return;
-await loadMetaAccounts(true);if(!metaAccounts.length)return;
-await loadAll();
+async function loadMetaAndSync(opts){
+opts=opts||{};
+var silent=!!opts.silent,skipAuth=!!opts.skipAuth,refreshAfter=opts.refreshAfter!==false;
+if(skipAuth){if(!authUser)return{ok:false,reason:'auth'};}
+else if(!needAuth())return{ok:false,reason:'auth'};
+await loadMetaAccounts(true,silent);if(!metaAccounts.length)return{ok:false,reason:'empty'};
 var seen=new Set();var uniqueMeta=metaAccounts.filter(function(m){if(seen.has(m.id))return false;seen.add(m.id);return true;});
 var existFb=new Set();adList.forEach(function(a){if(a.fb_account_id)existFb.add(a.fb_account_id);});
 var ph=clientList.find(function(c){return c.name==='Chưa phân loại';});var phId;
-if(ph){phId=ph.id;}else{var{data:nc,error}=await sb2.from('client').insert({name:'Chưa phân loại',status:'active'}).select('id').single();if(error){toast('Lỗi',false);return;}phId=nc.id;}
+if(ph){phId=ph.id;}else{var{data:nc,error}=await sb2.from('client').insert({name:'Chưa phân loại',status:'active'}).select('id').single();if(error){if(!silent)toast('Lỗi',false);return{ok:false,reason:'placeholder'};}phId=nc.id;}
 var imp=0,capOnlyCount=0;
 for(var i=0;i<uniqueMeta.length;i++){var m=uniqueMeta[i];if(existFb.has(m.id))continue;existFb.add(m.id);
 await sb2.from('ad_account').insert({client_id:phId,account_name:m.name,fb_account_id:m.id,account_status:m.account_status});imp++;}
@@ -1635,9 +1687,9 @@ for(var j=0;j<uniqueMeta.length;j++){var m2=uniqueMeta[j];
 var spendCap=metaNum(m2.spend_cap),amountSpent=metaNum(m2.amount_spent);
 if(spendCap&&amountSpent>spendCap)capOnlyCount++;
 await sb2.from('ad_account').update({account_status:m2.account_status,spend_cap:spendCap,amount_spent:amountSpent}).eq('fb_account_id',m2.id);}
-toast((imp?'Nhập '+imp+' TK mới + ':'')+'Đã cập nhật Meta'+(capOnlyCount?' · '+capOnlyCount+' TK chỉ đồng bộ được ngưỡng':''),
-true);
-await loadAll();pg(5);}
+if(!silent)toast((imp?'Nhập '+imp+' TK mới + ':'')+'Đã cập nhật Meta'+(capOnlyCount?' · '+capOnlyCount+' TK chỉ đồng bộ được ngưỡng':''),true);
+if(refreshAfter)await loadAll();
+return{ok:true,imported:imp,capOnlyCount:capOnlyCount};}
 
 // ═══ A2: NHÂN SỰ ═══
 function a2(){
@@ -1862,12 +1914,25 @@ return{saved:saved,errors:errors};}
 
 async function autoSync(){
 try{
+if(authUser){
+showSyncBar('Đang cập nhật Meta...');
+await loadMetaAndSync({silent:true,skipAuth:true,refreshAfter:false});
+await loadAll();
+}
 // Chỉ sync nếu chưa sync trong 30 phút gần nhất
 var lastSync=localStorage.getItem('hc_last_sync');
 var now=Date.now();
-if(lastSync&&(now-parseInt(lastSync))<1800000){console.log('[AutoSync] Skipped — synced <30 min ago');return;}
+if(lastSync&&(now-parseInt(lastSync))<1800000){
+console.log('[AutoSync] Spend sync skipped — synced <30 min ago');
+if(authUser){showSyncBar('✓ Đã cập nhật Meta',true);setTimeout(hideSyncBar,1800);}
+return;
+}
 var mapped=adList.filter(function(a){return a.fb_account_id;});
-if(!mapped.length){console.log('[AutoSync] No mapped accounts');return;}
+if(!mapped.length){
+console.log('[AutoSync] No mapped accounts');
+if(authUser){showSyncBar('✓ Đã cập nhật Meta',true);setTimeout(hideSyncBar,1800);}
+return;
+}
 var today=td();
 var yest=yesterday();
 showSyncBar('Đang đồng bộ dữ liệu hôm qua ('+fd(yest)+')...');
