@@ -1234,7 +1234,25 @@ if(!c||!node){toast('Không tìm thấy phiếu để tải',false);return;}
 var originalText=btn?btn.textContent:'';
 if(btn){btn.disabled=true;btn.textContent='Đang tạo...';}
 try{
-var canvas=await html2canvas(node,{scale:2,useCORS:true,allowTaint:true,backgroundColor:'#f2f6fb',logging:false,removeContainer:true});
+var actionBar=node.querySelector('.invoice-actions');
+if(actionBar)actionBar.style.display='none';
+var imgs=node.querySelectorAll('img');
+var origSrcs=[];
+imgs.forEach(function(img){origSrcs.push(img.src);});
+for(var i=0;i<imgs.length;i++){
+try{
+var resp=await fetch(imgs[i].src,{mode:'cors'});
+var blob=await resp.blob();
+imgs[i].src=URL.createObjectURL(blob);
+}catch(e){imgs[i].style.visibility='hidden';}
+}
+await new Promise(function(r){setTimeout(r,300);});
+var canvas=await html2canvas(node,{scale:2,useCORS:false,allowTaint:false,backgroundColor:'#f2f6fb',logging:false});
+imgs.forEach(function(img,idx){
+if(img.src.startsWith('blob:'))URL.revokeObjectURL(img.src);
+img.src=origSrcs[idx];img.style.visibility='';
+});
+if(actionBar)actionBar.style.display='';
 var pngBlob=await new Promise(function(resolve,reject){
 canvas.toBlob(function(blob){if(blob)resolve(blob);else reject(new Error('Không tạo được PNG'));},'image/png');
 });
@@ -1242,6 +1260,8 @@ triggerBlobDownload(pngBlob,'phieu-thanh-toan-'+sanitizeFilenamePart(c.name)+'-'
 toast('Đã tải ảnh phiếu thanh toán',true);
 }catch(e){
 toast('Không thể tải ảnh: '+e.message,false);
+var actionBar2=node.querySelector('.invoice-actions');if(actionBar2)actionBar2.style.display='';
+node.querySelectorAll('img').forEach(function(img){img.style.visibility='';});
 }finally{
 if(btn){btn.disabled=false;btn.textContent=originalText||'Tải ảnh';}
 }
