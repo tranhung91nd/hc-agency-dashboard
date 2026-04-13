@@ -760,7 +760,7 @@ sb2.from('assignment').select('*').order('start_date',{ascending:false}),
 ]);
 var errs=[];
  [['staff',s],['client',c],['ad_account',aa],['daily_spend',ds],['salary',sal],['transaction',tx],['monthly_revenue',mr],['staff_client',sc2],['assignment',asgn],['campaign_daily_mess',cmess]].forEach(function(pair){if(pair[1].error)errs.push(pair[0]+': '+pair[1].error.message);});
- if(mf.error)console.warn('[client_monthly_fee]',mf.error.message);
+ if(mf.error)console.warn('[client_monthly_fee]',String(mf.error.message||mf.error));
  if(errs.length)throw new Error(errs.join('; '));
  allStaff=s.data||[];staffList=allStaff.filter(function(x){return x.is_active;});
  clientList=c.data||[];adList=aa.data||[];dailyData=ds.data||[];
@@ -1156,11 +1156,53 @@ h+='<div class="invoice-paybox"><div class="invoice-qr-wrap"><img id="invoice-qr
 h+='<div class="invoice-actions">';
 h+='<button id="invoice-copy-'+domId+'" class="invoice-btn" onclick="copyClientInvoice('+safeJsString(c.id)+','+safeJsString(ms)+','+sp+')">Sao chép</button>';
 h+='<button class="invoice-btn" type="button" onclick="downloadClientInvoice('+safeJsString(c.id)+','+safeJsString(ms)+','+sp+',this)">Tải ảnh</button>';
+if(authUser){
+if(c.payment_status==='paid'){
+h+='<button class="invoice-btn" style="border-color:var(--red);color:var(--red);" onclick="undoClientPayment('+safeJsString(c.id)+','+safeJsString(ms)+',this)">Hủy thanh toán</button>';
+}else{
+h+='<button class="invoice-btn" style="background:var(--green);color:#fff;border:none;" onclick="confirmClientPayment('+safeJsString(c.id)+','+safeJsString(ms)+',this)">Xác nhận thanh toán</button>';
+}}
 h+='</div></div></td></tr>';}
 });
 h+='</tbody><tfoot><tr style="background:var(--bg2);font-weight:600;border-top:1px solid var(--bd2);"><td></td><td>Tổng '+clientList.length+' KH</td><td></td><td></td><td class="mono" style="text-align:right;color:var(--teal);font-size:15px;">'+fm(totalSpend)+'</td><td class="mono" style="text-align:right;">'+fm(totalFee)+'</td><td></td><td></td></tr></tfoot></table></div>';
 return h;}
 function toggleClientInv(id){expandedClientId=(expandedClientId===id)?null:id;render();}
+
+async function confirmClientPayment(clientId,month,btn){
+if(!needAuth())return;
+var c=clientList.find(function(x){return x.id===clientId;});if(!c)return;
+if(!confirm('Xác nhận '+esc(c.name)+' đã thanh toán?\nHệ thống sẽ tự tạo giao dịch Thu vào sổ thu chi.'))return;
+if(btn){btn.disabled=true;btn.textContent='Đang xử lý...';}
+try{
+var feeInput=document.getElementById('client-fee-'+invoiceDomId(clientId));
+var fee=feeInput?normalizeMoneyInput(feeInput.value):getEffectiveServiceFee(clientId,month,c.service_fee);
+var info=getInvoiceTotals(c,month,fee);
+var mk=monthKey(month),mLabel='T'+parseInt(mk.split('-')[1])+'/'+mk.split('-')[0];
+var note='Phí DV '+mLabel+' — '+c.name;
+var r1=await sb2.from('client').update({payment_status:'paid'}).eq('id',clientId);
+if(r1.error){toast('Lỗi cập nhật KH: '+r1.error.message,false);return;}
+var r2=await sb2.from('transaction').insert({txn_date:td(),txn_type:'income',amount:info.total,category:'service_fee',client_id:clientId,staff_id:null,note:note,month:mk,source:'invoice'});
+if(r2.error){toast('Lỗi tạo giao dịch: '+r2.error.message,false);return;}
+toast('Đã xác nhận thanh toán + tạo giao dịch Thu: '+ff(info.total),true);
+await loadAll();render();
+}catch(e){toast('Lỗi: '+e.message,false);}
+finally{if(btn){btn.disabled=false;btn.textContent='Xác nhận thanh toán';}}}
+
+async function undoClientPayment(clientId,month,btn){
+if(!needAuth())return;
+var c=clientList.find(function(x){return x.id===clientId;});if(!c)return;
+if(!confirm('Hủy thanh toán '+esc(c.name)+'?\nGiao dịch Thu tự động sẽ bị xóa khỏi sổ thu chi.'))return;
+if(btn){btn.disabled=true;btn.textContent='Đang xử lý...';}
+try{
+var mk=monthKey(month);
+var r1=await sb2.from('client').update({payment_status:'unpaid'}).eq('id',clientId);
+if(r1.error){toast('Lỗi: '+r1.error.message,false);return;}
+var r2=await sb2.from('transaction').delete().eq('client_id',clientId).eq('month',mk).eq('source','invoice');
+if(r2.error)console.warn('Không xóa được giao dịch tự động:',r2.error.message);
+toast('Đã hủy thanh toán'+(r2.error?'':' + xóa giao dịch Thu tự động'),true);
+await loadAll();render();
+}catch(e){toast('Lỗi: '+e.message,false);}
+finally{if(btn){btn.disabled=false;btn.textContent='Hủy thanh toán';}}}
 function startEditFee(domId,clientId,month){
 if(!authUser){toast('Đăng nhập admin để sửa phí dịch vụ',false);return;}
 var display=document.getElementById('client-fee-display-'+domId);
@@ -1270,16 +1312,26 @@ mt.forEach(function(t){if(t.txn_type==='income')inc+=t.amount;else exp+=t.amount
 var h='<div class="page-title">Thu chi</div><div class="month-filter"><label style="font-size:13px;color:var(--tx2);">Tháng:</label><select onchange="finMonth=this.value;render();">';
 sm.forEach(function(m){h+='<option value="'+m+'"'+(m===finMonth?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});h+='</select></div>';
 h+='<div class="kpi-grid kpi-3"><div class="kpi"><div class="kpi-label">Doanh thu</div><div class="kpi-value" style="color:var(--green);">'+ff(inc)+'</div></div><div class="kpi"><div class="kpi-label">Chi phí</div><div class="kpi-value" style="color:var(--red);">'+ff(exp)+'</div></div><div class="kpi"><div class="kpi-label">Lợi nhuận</div><div class="kpi-value" style="color:var(--green);">'+ff(pr)+'</div><div class="kpi-note">Biên lợi nhuận '+mg+'%</div></div></div>';
+if(authUser){
+h+='<div class="form-card"><h3>Thêm giao dịch</h3><div class="form-row"><div class="form-group"><label>Ngày</label><input type="date" id="td2" value="'+td()+'"></div><div class="form-group"><label>Loại</label><select id="tt"><option value="income">Thu</option><option value="expense">Chi</option></select></div><div class="form-group"><label>Số tiền</label><input type="number" id="tv" placeholder="0"></div></div>';
+h+='<div class="form-row"><div class="form-group"><label>Phân loại</label><select id="tc"><option value="service_fee">Phí dịch vụ</option><option value="salary">Lương</option><option value="rent">Mặt bằng</option><option value="other">Khác</option></select></div><div class="form-group"><label>Khách hàng</label><select id="tk"><option value="">—</option>';clientList.forEach(function(c2){h+='<option value="'+c2.id+'">'+esc(c2.name)+'</option>';});h+='</select></div><div class="form-group"><label>Nhân viên</label><select id="tn"><option value="">—</option>';staffList.forEach(function(s){h+='<option value="'+s.id+'">'+esc(s.short_name)+'</option>';});h+='</select></div></div>';
+h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Ghi chú</label><input type="text" id="tno" placeholder=""></div></div><div class="btn-row"><button class="btn btn-primary" onclick="svt(this)">Lưu</button></div></div>';
+}
 var cm2={service_fee:'Phí dịch vụ',salary:'Lương nhân viên',rent:'Chi phí vận hành',other:'Khác'};
-h+='<div class="section-title">Giao dịch</div><div class="table-wrap"><table><tr><th>Ngày</th><th>Loại</th><th>KH/NV</th><th>Phân loại</th><th style="text-align:right;">Số tiền</th></tr>';
-mt.forEach(function(t){var nm=esc(t.client?t.client.name:(t.staff?t.staff.short_name:(t.note||'—')));h+='<tr><td>'+fd(t.txn_date)+'</td><td><span class="badge '+(t.txn_type==='income'?'b-green':'b-red')+'">'+(t.txn_type==='income'?'Thu':'Chi')+'</span></td><td>'+nm+'</td><td style="font-size:12px;color:var(--tx2);">'+(cm2[t.category]||t.category)+'</td><td class="mono" style="text-align:right;color:'+(t.txn_type==='income'?'var(--green)':'var(--red)')+';font-weight:500;">'+(t.txn_type==='income'?'+':'-')+ff(t.amount)+'</td></tr>';});
+h+='<div class="section-title">Giao dịch</div><div class="table-wrap"><table><tr><th>Ngày</th><th>Loại</th><th>KH/NV</th><th>Phân loại</th><th>Nguồn</th><th style="text-align:right;">Số tiền</th>'+(authUser?'<th></th>':'')+'</tr>';
+mt.forEach(function(t){var nm=esc(t.client?t.client.name:(t.staff?t.staff.short_name:(t.note||'—')));var isAuto=t.source==='invoice';
+h+='<tr'+(isAuto?' style="background:var(--green-bg);"':'')+'><td>'+fd(t.txn_date)+'</td><td><span class="badge '+(t.txn_type==='income'?'b-green':'b-red')+'">'+(t.txn_type==='income'?'Thu':'Chi')+'</span></td><td>'+nm+'</td><td style="font-size:12px;color:var(--tx2);">'+(cm2[t.category]||t.category)+'</td>';
+h+='<td>'+(isAuto?'<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:500;background:var(--blue-bg);color:var(--blue-tx);">Từ phiếu KH</span>':'<span style="font-size:11px;color:var(--tx3);">Thủ công</span>')+'</td>';
+h+='<td class="mono" style="text-align:right;color:'+(t.txn_type==='income'?'var(--green)':'var(--red)')+';font-weight:500;">'+(t.txn_type==='income'?'+':'-')+ff(t.amount)+'</td>';
+if(authUser)h+='<td><button class="btn btn-red btn-sm" onclick="dlt(this,\''+t.id+'\')">Xóa</button></td>';
+h+='</tr>';});
 h+='</table></div>';return h;}
 function p5(){
 if(!authUser)return pLogin();
-if(adminTab>4)adminTab=0;
-var tabs=['Tổng quan','Nhân sự','Khách hàng','Thu chi','Lương'];
+if(adminTab>3)adminTab=0;
+var tabs=['Tổng quan','Nhân sự','Khách hàng','Lương'];
 var h='<div class="logout-bar"><span>Đăng nhập: '+esc(authUser.email)+'</span><button class="btn btn-ghost btn-sm" onclick="doLogout()">Đăng xuất</button></div>';
-h+='<div class="page-title">Admin</div><div class="page-sub">Quản lý dữ liệu hệ thống. Tab Tài khoản QC đã được chuyển ra menu riêng để tránh trùng lặp.</div><div class="admin-tabs">';
+h+='<div class="page-title">Admin</div><div class="page-sub">Quản lý dữ liệu hệ thống. Thu chi đã được chuyển ra menu riêng.</div><div class="admin-tabs">';
 tabs.forEach(function(t,i){h+='<div class="admin-tab'+(adminTab===i?' active':'')+'" onclick="sat('+i+')">'+t+'</div>';});
 h+='</div><div id="ac">'+rat()+'</div>';return h;}
 function pLogin(){return'<div class="login-box"><h2>Đăng nhập Admin</h2><p>Nhập email và mật khẩu để truy cập quản lý</p><div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="admin@example.com"></div><div class="form-group"><label>Mật khẩu</label><input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key===\'Enter\')doLogin(this)"></div><button class="btn btn-primary" onclick="doLogin(this)">Đăng nhập</button><div class="login-err" id="login-err"></div></div>';}
@@ -1287,7 +1339,7 @@ async function doLogin(btn){btn.disabled=true;var email=document.getElementById(
 async function doLogout(){await sb2.auth.signOut();authUser=null;toast('Đã đăng xuất',true);render();}
 async function checkAuth(){var{data}=await sb2.auth.getSession();if(data.session)authUser=data.session.user;}
 function sat(i){adminTab=i;expandedAd=null;render();}
-function rat(){if(adminTab===0)return a0();if(adminTab===1)return a2();if(adminTab===2)return a3();if(adminTab===3)return a4();if(adminTab===4)return a5();return'';}
+function rat(){if(adminTab===0)return a0();if(adminTab===1)return a2();if(adminTab===2)return a3();if(adminTab===3)return a5();return'';}
 
 // ═══ A0: TỔNG QUAN ADMIN ═══
 function a0(){
@@ -1865,7 +1917,7 @@ await sb2.from('ad_account').insert({client_id:phId,account_name:m.name,fb_accou
 for(var j=0;j<uniqueMeta.length;j++){var m2=uniqueMeta[j];
 var spendCap=metaNum(m2.spend_cap),amountSpent=metaNum(m2.amount_spent);
 if(spendCap&&amountSpent>spendCap)capOnlyCount++;
-await sb2.from('ad_account').update({account_status:m2.account_status,spend_cap:spendCap,amount_spent:amountSpent}).eq('fb_account_id',m2.id);}
+await sb2.from('ad_account').update({account_name:m2.name,account_status:m2.account_status,spend_cap:spendCap,amount_spent:amountSpent}).eq('fb_account_id',m2.id);}
 if(!silent)toast((imp?'Nhập '+imp+' TK mới + ':'')+'Đã cập nhật Meta'+(capOnlyCount?' · '+capOnlyCount+' TK chỉ đồng bộ được ngưỡng':''),true);
 if(refreshAfter)await loadAll();
 return{ok:true,imported:imp,capOnlyCount:capOnlyCount};}
@@ -1908,16 +1960,8 @@ await loadAll();render();
 async function ecp(id){if(!needAuth())return;var c2=clientList.find(function(x){return x.id===id;});if(!c2)return;var n=prompt('Tên khách hàng:',c2.name);if(n===null)return;var f=prompt('Phí dịch vụ mặc định/tháng:',c2.service_fee||0);if(f===null)return;var kw=prompt('Từ khóa chiến dịch:',c2.campaign_keyword||'');if(kw===null)return;var hv=prompt('Có VAT 8% không? (y/n):',getClientVatFlag(c2)?'y':'n');if(hv===null)return;var r=await sb2.from('client').update({name:n,service_fee:parseInt(f)||0,campaign_keyword:kw||null,has_vat:/^y(es)?$/i.test(hv)}).eq('id',id);if(r.error)toast('Lỗi',false);else{toast('OK!',true);await loadLight();}}
 
 // ═══ A4: THU CHI ═══
-function a4(){
-var h='<div class="form-card"><h3>Thêm giao dịch</h3><div class="form-row"><div class="form-group"><label>Ngày</label><input type="date" id="td2" value="'+td()+'"></div><div class="form-group"><label>Loại</label><select id="tt"><option value="income">Thu</option><option value="expense">Chi</option></select></div><div class="form-group"><label>Số tiền</label><input type="number" id="tv" placeholder="0"></div></div>';
-h+='<div class="form-row"><div class="form-group"><label>Phân loại</label><select id="tc"><option value="service_fee">Phí dịch vụ</option><option value="salary">Lương</option><option value="rent">Mặt bằng</option><option value="other">Khác</option></select></div><div class="form-group"><label>Khách hàng</label><select id="tk"><option value="">—</option>';clientList.forEach(function(c2){h+='<option value="'+c2.id+'">'+esc(c2.name)+'</option>';});h+='</select></div><div class="form-group"><label>Nhân viên</label><select id="tn"><option value="">—</option>';staffList.forEach(function(s){h+='<option value="'+s.id+'">'+esc(s.short_name)+'</option>';});h+='</select></div></div>';
-h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Ghi chú</label><input type="text" id="tno" placeholder=""></div></div><div class="btn-row"><button class="btn btn-primary" onclick="svt(this)">Lưu</button></div></div>';
-var cm2={service_fee:'Phí dịch vụ',salary:'Lương',rent:'Mặt bằng',other:'Khác'};
-h+='<div class="section-title">Gần đây</div><div class="table-wrap"><table><tr><th>Ngày</th><th>Loại</th><th>KH/NV</th><th style="text-align:right;">Số tiền</th><th></th></tr>';
-txnData.slice(0,20).forEach(function(t){var nm=esc(t.client?t.client.name:(t.staff?t.staff.short_name:(t.note||'—')));h+='<tr><td>'+fd(t.txn_date)+'</td><td><span class="badge '+(t.txn_type==='income'?'b-green':'b-red')+'">'+(t.txn_type==='income'?'Thu':'Chi')+'</span></td><td>'+nm+'</td><td class="mono" style="text-align:right;color:'+(t.txn_type==='income'?'var(--green)':'var(--red)')+';font-weight:500;">'+(t.txn_type==='income'?'+':'-')+ff(t.amount)+'</td><td><button class="btn btn-red btn-sm" onclick="dlt(this,\''+t.id+'\')">Xóa</button></td></tr>';});
-h+='</table></div>';return h;}
-async function svt(btn){if(!needAuth())return;btn.disabled=true;var d=document.getElementById('td2').value,tp=document.getElementById('tt').value,v=parseInt(document.getElementById('tv').value)||0,cat=document.getElementById('tc').value,ci=document.getElementById('tk').value||null,si=document.getElementById('tn').value||null,no=document.getElementById('tno').value;if(!v){toast('Nhập số tiền',false);btn.disabled=false;return;}var r=await sb2.from('transaction').insert({txn_date:d,txn_type:tp,amount:v,category:cat,client_id:ci,staff_id:si,note:no,month:d.substring(0,7)});btn.disabled=false;if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã lưu!',true);document.getElementById('tv').value='';document.getElementById('tno').value='';await loadLight();}}
-async function dlt(btn,id){if(!needAuth())return;if(!confirm('Xóa?'))return;btn.disabled=true;var r=await sb2.from('transaction').delete().eq('id',id);if(r.error){toast('Lỗi',false);btn.disabled=false;}else{toast('Đã xóa!',true);await loadLight();}}
+async function svt(btn){if(!needAuth())return;btn.disabled=true;var d=document.getElementById('td2').value,tp=document.getElementById('tt').value,v=parseInt(document.getElementById('tv').value)||0,cat=document.getElementById('tc').value,ci=document.getElementById('tk').value||null,si=document.getElementById('tn').value||null,no=document.getElementById('tno').value;if(!v){toast('Nhập số tiền',false);btn.disabled=false;return;}var r=await sb2.from('transaction').insert({txn_date:d,txn_type:tp,amount:v,category:cat,client_id:ci,staff_id:si,note:no,month:d.substring(0,7),source:'manual'});btn.disabled=false;if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã lưu!',true);document.getElementById('tv').value='';document.getElementById('tno').value='';await loadLight();}}
+async function dlt(btn,id){if(!needAuth())return;if(!confirm('Xóa giao dịch này?'))return;btn.disabled=true;var r=await sb2.from('transaction').delete().eq('id',id);if(r.error){toast('Lỗi',false);btn.disabled=false;}else{toast('Đã xóa!',true);await loadLight();}}
 
 // ═══ A5: LƯƠNG ═══
 function a5(){
