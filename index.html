@@ -442,6 +442,66 @@ tr:hover td{background:#f8fbff;}
   gap:12px !important;
   margin-bottom:20px !important;
 }
+.ad-toolbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:12px;
+}
+.ad-toolbar-main{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  flex:1 1 auto;
+}
+.ad-toolbar-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex:0 0 auto;
+}
+.ad-toolbar .fi,
+.ad-toolbar .btn{
+  min-height:46px;
+}
+.ad-toolbar-date{
+  width:128px;
+  flex:0 1 128px;
+}
+.ad-toolbar-search{
+  flex:1 1 220px;
+  min-width:200px;
+}
+.ad-toolbar-filter{
+  width:152px;
+  min-width:152px;
+  flex:0 1 152px;
+}
+.ad-toolbar-count{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:46px;
+  padding:0 12px;
+  border-radius:12px;
+  background:rgba(255,255,255,0.75);
+  border:1px solid rgba(15,23,42,0.08);
+  color:var(--tx2);
+  font-size:11px;
+  font-weight:500;
+  white-space:nowrap;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.75);
+  flex:0 0 auto;
+}
+.ad-toolbar-actions .btn{
+  white-space:nowrap;
+}
+.ad-toolbar-actions .btn-sm{
+  padding-left:14px;
+  padding-right:14px;
+}
 .overview-card{
   padding:18px 20px !important;
 }
@@ -449,12 +509,48 @@ tr:hover td{background:#f8fbff;}
 .surface-card:hover{
   box-shadow:var(--shadow-md);
 }
+@media(max-width:1460px){
+  .ad-toolbar{
+    flex-wrap:wrap;
+    align-items:stretch;
+  }
+  .ad-toolbar-main,
+  .ad-toolbar-actions{
+    width:100%;
+  }
+  .ad-toolbar-actions{
+    justify-content:flex-end;
+  }
+}
 @media(max-width:768px){
   .sidebar{width:236px;}
   .main{padding:18px 16px 28px;}
   .page-title{font-size:22px;}
   table{min-width:680px;}
   .overview-grid{grid-template-columns:1fr !important;}
+  .ad-toolbar{
+    flex-wrap:wrap;
+    align-items:stretch;
+  }
+  .ad-toolbar-main,
+  .ad-toolbar-actions{
+    width:100%;
+    flex-wrap:wrap;
+  }
+  .ad-toolbar-search,
+  .ad-toolbar-filter,
+  .ad-toolbar-date,
+  .ad-toolbar-count{
+    width:100%;
+    flex:1 1 100%;
+  }
+  .ad-toolbar-count{
+    justify-content:flex-start;
+    padding:10px 14px;
+  }
+  .ad-toolbar-actions .btn{
+    flex:1 1 180px;
+  }
 }
 @media(max-width:480px){
   .page-title{font-size:20px;}
@@ -517,6 +613,8 @@ function gm(){return td().substring(0,7);}
 function lm(){return dates.length?dates[dates.length-1].substring(0,7):gm();}
 function yesterday(){return vnDateStr(-86400000);}
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('overlay').classList.toggle('show');}
+function metaNum(v){var n=parseInt(v,10);return isNaN(n)?0:n;}
+function hasComparableSpendCap(a){return !!(a&&a.spend_cap&&a.amount_spent>=0&&a.amount_spent<=a.spend_cap);}
 function enhanceUI(){
 var page=document.getElementById('page');if(!page)return;
 page.querySelectorAll('[style*="background:var(--bg1)"][style*="border:1px solid var(--bd1)"][style*="border-radius:var(--radius-lg)"]').forEach(function(el){el.classList.add('surface-card');});
@@ -998,7 +1096,7 @@ var sharedCount=adList.filter(function(a){return a.is_shared;}).length;
 var rows=adList.map(function(a,i){
 var ca=getAssign(a.id,adViewDate);
 var ds=dailyData.filter(function(d){return d.ad_account_id===a.id&&d.report_date===adViewDate;}).reduce(function(t,d){return t+d.spend_amount;},0);
-var bal=a.spend_cap?a.spend_cap-a.amount_spent:null;
+var bal=hasComparableSpendCap(a)?a.spend_cap-a.amount_spent:null;
 return{a:a,idx:i,assign:ca,spend:ds,status:a.account_status||1,balance:bal};});
 // Sort
 if(adSortCol==='spend')rows.sort(function(a,b){return adSortDir==='desc'?b.spend-a.spend:a.spend-b.spend;});
@@ -1013,11 +1111,19 @@ h+='<div class="sum-card"><div class="sum-label">Tổng T'+parseInt(ms.split('-'
 h+='<div class="sum-card"><div class="sum-label">Hoạt động</div><div class="sum-val">'+activeCount+'<span style="font-size:13px;color:var(--tx3);font-weight:400;">/'+adList.length+'</span></div><div class="sum-note">'+disabledCount+' vô hiệu · '+unassignedCount+' chưa gán</div></div>';
 h+='<div class="sum-card"><div class="sum-label">Dùng chung</div><div class="sum-val" style="color:var(--purple);">'+sharedCount+'</div><div class="sum-note">TK nhiều NV/KH</div></div></div>';
 // Toolbar
-h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">';
-h+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">';
-h+='<input type="date" id="ad-view-date" value="'+adViewDate+'" onchange="adViewDate=this.value;render();" class="fi" style="width:140px;">';
-h+='<input type="text" id="search-ad" placeholder="Tìm tài khoản, khách hàng..." oninput="filterAdTable()" class="fi" style="width:200px;"></div>';
-h+='<div style="display:flex;gap:6px;"><button class="btn btn-ghost btn-sm" onclick="toggleAddTk()">+ Thêm TK</button><button class="btn btn-green btn-sm" onclick="doMetaSync2(this)">Đồng bộ ngày '+fd(adViewDate)+'</button>';
+h+='<div class="ad-toolbar">';
+h+='<div class="ad-toolbar-main">';
+h+='<input type="date" id="ad-view-date" value="'+adViewDate+'" onchange="adViewDate=this.value;render();" class="fi ad-toolbar-date">';
+h+='<input type="text" id="search-ad" placeholder="Tìm tài khoản, khách hàng..." oninput="filterAdTable()" class="fi ad-toolbar-search">';
+h+='<select id="filter-staff" onchange="filterAdTable()" class="fi ad-toolbar-filter"><option value="">Tất cả nhân viên</option>';
+staffList.forEach(function(s){h+='<option value="'+s.id+'">'+esc(s.short_name)+'</option>';});
+h+='<option value="none">— Chưa gán —</option></select>';
+h+='<select id="filter-client" onchange="filterAdTable()" class="fi ad-toolbar-filter"><option value="">Tất cả khách hàng</option>';
+clientList.forEach(function(c){h+='<option value="'+c.id+'">'+esc(c.name)+'</option>';});
+h+='<option value="none">— Chưa phân loại —</option></select>';
+h+='<select id="filter-status" onchange="filterAdTable()" class="fi ad-toolbar-filter"><option value="">Tất cả tình trạng</option><option value="1">● Hoạt động</option><option value="2">● Vô hiệu hoá</option><option value="3">● Cần thanh toán</option></select>';
+h+='<span class="ad-toolbar-count" id="filter-count">'+adList.length+'/'+adList.length+' tài khoản</span></div>';
+h+='<div class="ad-toolbar-actions"><button class="btn btn-ghost btn-sm" onclick="toggleAddTk()">+ Thêm TK</button><button class="btn btn-green btn-sm" onclick="doMetaSync2(this)">Đồng bộ ngày '+fd(adViewDate)+'</button>';
 h+='<button class="btn btn-primary btn-sm" onclick="loadMetaAndSync()">Cập nhật Meta</button></div></div>';
 // Add TK form (hidden by default)
 h+='<div id="add-tk-form" style="display:none;margin-bottom:12px;"><div class="form-card" style="margin-bottom:0;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-weight:500;font-size:14px;">Thêm tài khoản quảng cáo</span><span style="font-size:18px;cursor:pointer;color:var(--tx3);" onclick="toggleAddTk()">×</span></div>';
@@ -1028,16 +1134,6 @@ h+='</select></div><div class="form-group"><label>Nhân sự phụ trách</label
 staffList.forEach(function(s2){h+='<option value="'+s2.id+'">'+esc(s2.short_name)+'</option>';});
 h+='</select></div><div class="form-group"><label>Loại</label><select id="new-tk-shared"><option value="false">Riêng (1 NV)</option><option value="true">Dùng chung (nhiều NV)</option></select></div></div>';
 h+='<div style="display:flex;gap:8px;align-items:center;"><button class="btn btn-primary" onclick="saveNewTk(this)">+ Thêm TK</button><span style="font-size:11px;color:var(--tx3);">Bỏ trống FB ID = tài khoản ngoài BM, nhập doanh số thủ công</span></div></div></div>';
-// Filter bar
-h+='<div class="filter-bar">';
-h+='<select id="filter-staff" onchange="filterAdTable()" class="fi" style="width:120px;"><option value="">Tất cả nhân viên</option>';
-staffList.forEach(function(s){h+='<option value="'+s.id+'">'+esc(s.short_name)+'</option>';});
-h+='<option value="none">— Chưa gán —</option></select>';
-h+='<select id="filter-client" onchange="filterAdTable()" class="fi" style="width:130px;"><option value="">Tất cả khách hàng</option>';
-clientList.forEach(function(c){h+='<option value="'+c.id+'">'+esc(c.name)+'</option>';});
-h+='<option value="none">— Chưa phân loại —</option></select>';
-h+='<select id="filter-status" onchange="filterAdTable()" class="fi" style="width:140px;"><option value="">Tất cả tình trạng</option><option value="1">● Hoạt động</option><option value="2">● Vô hiệu hoá</option><option value="3">● Cần thanh toán</option></select>';
-h+='<span class="filter-count" id="filter-count">'+adList.length+'/'+adList.length+' tài khoản</span></div>';
 h+='<div class="active-chips" id="active-chips"></div>';
 // Table
 var sa=function(col){return 'onclick="sortAd(\''+col+'\')"';};
@@ -1048,7 +1144,7 @@ h+='<th class="sort-th" '+sa('status')+'>Tình trạng '+si('status')+'</th>';
 h+='<th class="sort-th" '+sa('name')+'>Tài khoản '+si('name')+'</th>';
 h+='<th>Nhân sự</th><th>Khách hàng</th>';
 h+='<th class="sort-th" style="text-align:right;padding-right:16px;" '+sa('spend')+'>Chi tiêu '+fd(adViewDate)+' '+si('spend')+'</th>';
-h+='<th class="sort-th" '+sa('balance')+'>Số dư '+si('balance')+'</th>';
+h+='<th class="sort-th" '+sa('balance')+'>Ngưỡng chi tiêu '+si('balance')+'</th>';
 h+='<th style="text-align:right;">Giá mess tối đa</th>';
 h+='<th>Loại</th></tr></thead><tbody>';
 rows.forEach(function(row){
@@ -1088,9 +1184,14 @@ h+='</select></td>';}
 // Spend column with bar
 var pct=maxSpend>0?Math.round(ds/maxSpend*100):0;
 h+='<td style="padding-right:16px;">'+(ds?'<div style="text-align:right;"><div class="spend-num">'+ff(ds)+'</div><div class="spend-bar"><div class="spend-fill" style="width:'+pct+'%;"></div></div></div>':'<div class="spend-zero">—</div>')+'</td>';
-// Balance cell
-if(a.spend_cap){var bal=a.spend_cap-(a.amount_spent||0);var balPct=Math.round((a.amount_spent||0)/a.spend_cap*100);var balCls=balPct>80?'bal-danger':(balPct>50?'bal-warn':'bal-ok');var barCls=balPct>80?'bal-used-danger':(balPct>50?'bal-used-warn':'bal-used-ok');
-h+='<td><div class="bal-val '+balCls+'">'+fm(bal)+'</div><div class="bal-track"><div class="bal-used '+barCls+'" style="width:'+Math.min(balPct,100)+'%;"></div></div><div class="bal-sub">Đã chi: '+fm(a.amount_spent||0)+'/'+fm(a.spend_cap)+'</div></td>';
+// Spend cap cell
+if(a.spend_cap){
+if(hasComparableSpendCap(a)){
+var bal=a.spend_cap-(a.amount_spent||0),balPct=Math.round((a.amount_spent||0)/a.spend_cap*100),balCls=balPct>80?'bal-danger':(balPct>50?'bal-warn':'bal-ok'),barCls=balPct>80?'bal-used-danger':(balPct>50?'bal-used-warn':'bal-used-ok');
+h+='<td><div class="bal-val '+balCls+'">'+fm(bal)+'</div><div class="bal-track"><div class="bal-used '+barCls+'" style="width:'+Math.min(balPct,100)+'%;"></div></div><div class="bal-sub">Đã dùng trong ngưỡng: '+fm(a.amount_spent||0)+'/'+fm(a.spend_cap)+'</div></td>';
+}else{
+h+='<td><div class="bal-val bal-ok">'+fm(a.spend_cap)+'</div><div class="bal-none">Đã cập nhật ngưỡng Meta</div><div class="bal-sub">'+(a.amount_spent?'Tổng chi Meta: '+fm(a.amount_spent)+' · ':'')+'Không suy ra phần đã dùng trong ngưỡng</div></td>';
+}
 }else{h+='<td><div class="bal-none">Không giới hạn</div></td>';}
 // Max mess cost cell
 h+='<td style="text-align:right;">';
@@ -1494,7 +1595,31 @@ for(var si=0;si<sFns.length;si+=5){await Promise.all(sFns.slice(si,si+5).map(fun
 btn.disabled=false;btn.textContent='Đồng bộ ngày '+fd(date);
 toast('Đồng bộ xong: '+saved+' OK'+(errors?', '+errors+' lỗi':''),!errors);
 await loadAll();pg(5);}
-async function loadMetaAccounts(force){if(!force&&metaAccounts.length)return;try{var all=[];var url='https://graph.facebook.com/v25.0/me/adaccounts?fields=id,name,account_status,spend_cap,amount_spent&limit=100&access_token='+META_TOKEN;while(url){var resp=await fetch(url);var data=await resp.json();if(data.error){toast('Meta API lỗi: '+data.error.message,false);return;}all=all.concat(data.data||[]);url=data.paging&&data.paging.next?data.paging.next:null;}metaAccounts=all;}catch(e){toast('Lỗi: '+e.message,false);}}
+async function loadMetaAccounts(force){
+if(!force&&metaAccounts.length)return;
+try{
+var all=[],url='https://graph.facebook.com/v25.0/me/adaccounts?fields=id,name,account_status&limit=100&access_token='+META_TOKEN;
+while(url){
+var resp=await fetch(url),data=await resp.json();
+if(data.error){toast('Meta API lỗi: '+data.error.message,false);return;}
+all=all.concat(data.data||[]);
+url=data.paging&&data.paging.next?data.paging.next:null;
+}
+var detailed=[];
+for(var i=0;i<all.length;i++){
+var base=all[i];
+try{
+var detailUrl='https://graph.facebook.com/v25.0/'+base.id+'?fields=id,name,account_status,spend_cap,amount_spent&access_token='+META_TOKEN;
+var dResp=await fetch(detailUrl),dData=await dResp.json();
+if(!dData.error)detailed.push(dData);
+else detailed.push(base);
+}catch(e){
+detailed.push(base);
+}
+}
+metaAccounts=detailed;
+}catch(e){toast('Lỗi: '+e.message,false);}
+}
 async function loadMetaAndSync(){
 if(!needAuth())return;
 await loadMetaAccounts(true);if(!metaAccounts.length)return;
@@ -1503,12 +1628,15 @@ var seen=new Set();var uniqueMeta=metaAccounts.filter(function(m){if(seen.has(m.
 var existFb=new Set();adList.forEach(function(a){if(a.fb_account_id)existFb.add(a.fb_account_id);});
 var ph=clientList.find(function(c){return c.name==='Chưa phân loại';});var phId;
 if(ph){phId=ph.id;}else{var{data:nc,error}=await sb2.from('client').insert({name:'Chưa phân loại',status:'active'}).select('id').single();if(error){toast('Lỗi',false);return;}phId=nc.id;}
-var imp=0;
+var imp=0,capOnlyCount=0;
 for(var i=0;i<uniqueMeta.length;i++){var m=uniqueMeta[i];if(existFb.has(m.id))continue;existFb.add(m.id);
 await sb2.from('ad_account').insert({client_id:phId,account_name:m.name,fb_account_id:m.id,account_status:m.account_status});imp++;}
 for(var j=0;j<uniqueMeta.length;j++){var m2=uniqueMeta[j];
-await sb2.from('ad_account').update({account_status:m2.account_status,spend_cap:parseInt(m2.spend_cap)||0,amount_spent:parseInt(m2.amount_spent)||0}).eq('fb_account_id',m2.id);}
-toast(imp?'Nhập '+imp+' TK mới + cập nhật trạng thái':'Cập nhật trạng thái xong',true);
+var spendCap=metaNum(m2.spend_cap),amountSpent=metaNum(m2.amount_spent);
+if(spendCap&&amountSpent>spendCap)capOnlyCount++;
+await sb2.from('ad_account').update({account_status:m2.account_status,spend_cap:spendCap,amount_spent:amountSpent}).eq('fb_account_id',m2.id);}
+toast((imp?'Nhập '+imp+' TK mới + ':'')+'Đã cập nhật Meta'+(capOnlyCount?' · '+capOnlyCount+' TK chỉ đồng bộ được ngưỡng':''),
+true);
 await loadAll();pg(5);}
 
 // ═══ A2: NHÂN SỰ ═══
@@ -1596,8 +1724,8 @@ dailyData.filter(function(d){return d.report_date.substring(0,7)===cm;}).forEach
 var cid=d.matched_client_id||null;
 if(!cid){var aa=adList.find(function(a){return a.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
 if(cid&&cs[cid])cs[cid].spend+=d.spend_amount;});
-// Ad accounts with spend_cap
-var tkAlerts=[];adList.forEach(function(a){if(a.spend_cap&&a.amount_spent){var pct=Math.round(a.amount_spent/a.spend_cap*100);if(pct>=80)tkAlerts.push({name:a.account_name,spent:a.amount_spent,cap:a.spend_cap,pct:pct});}});
+// Ad accounts with comparable spend-cap usage
+var tkAlerts=[];adList.forEach(function(a){if(hasComparableSpendCap(a)){var pct=Math.round(a.amount_spent/a.spend_cap*100);if(pct>=80)tkAlerts.push({name:a.account_name,spent:a.amount_spent,cap:a.spend_cap,pct:pct});}});
 // Finance
 var inc=0,exp=0;txnData.forEach(function(t){if(t.month===cm){if(t.txn_type==='income')inc+=t.amount;else exp+=t.amount;}});
 var summary='Dữ liệu HC Agency — T'+parseInt(cm.split('-')[1])+'/'+cm.split('-')[0]+' ('+nd+' ngày có data, tháng '+dim+' ngày):\n';
