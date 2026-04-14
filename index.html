@@ -694,6 +694,8 @@ var SB_URL='https://eqsnohwymgmdvbqwflas.supabase.co',SB_KEY='eyJhbGciOiJIUzI1Ni
 var sb2=supabase.createClient(SB_URL,SB_KEY);
 // TODO: Move META_TOKEN to server-side (Supabase Edge Function / backend API) — currently exposed in client HTML
 var META_TOKEN='EAANvdDJlt7oBRLy4VILybPsIicSow1ZBkCwN4cf2K8150rAUH1UPjVAjJAKiortcjiZAQmDLjzZBzMX18XGu6NXrF2towUPiTFb5sIqxdZAqEzAPjk4OMZCD5HO0vmR5FGZCrmZAYHPeE0sacZC6iGHAlgGJnC7KV3vZACUHjuEB30u6lsTltsOMZCcwTgcKijfnIe0AZDZD';
+var META_BUSINESS_ID='906359547034707';
+var META_GLOBAL_SCOPE_ID='5673838172639075';
 var CL={purple:{c:'var(--purple)',bg:'var(--purple-bg)',tx:'var(--purple-tx)'},teal:{c:'var(--teal)',bg:'var(--teal-bg)',tx:'var(--teal-tx)'},coral:{c:'var(--coral)',bg:'var(--coral-bg)',tx:'var(--coral-tx)'},pink:{c:'var(--pink)',bg:'var(--pink-bg)',tx:'var(--pink-tx)'},blue:{c:'var(--blue)',bg:'var(--blue-bg)',tx:'var(--blue-tx)'},green:{c:'var(--green)',bg:'var(--green-bg)',tx:'var(--green-tx)'},amber:{c:'var(--amber)',bg:'var(--amber-bg)',tx:'var(--amber-tx)'}};
 function sc(c){return CL[c]||CL.blue;}
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[];
@@ -1340,8 +1342,7 @@ h+='</table></div>';return h;}
 
 // ═══ ĐỐI SOÁT VCB ═══
 function p4DoiSoat(){
-var h='<div class="page-sub">So khớp sao kê ngân hàng VCB với dữ liệu chi tiêu Meta Ads</div>';
-// Upload zone
+var h='<div class="page-sub">So khớp sao kê VCB với Meta Billing theo mã tham chiếu từng giao dịch</div>';
 h+='<div class="form-card"><div style="text-align:center;padding:20px 0;">';
 if(!reconcileData){
 h+='<div style="font-size:14px;font-weight:500;margin-bottom:8px;">Upload sao kê VCB</div>';
@@ -1352,70 +1353,104 @@ h+='<button class="btn btn-primary" onclick="document.getElementById(\'vcb-file\
 h+='<div style="display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap;">';
 h+='<span class="badge b-green">Đã upload</span>';
 h+='<span style="font-size:13px;font-weight:500;">'+esc(reconcileData.fileName)+'</span>';
-h+='<span style="font-size:11px;color:var(--tx3);">'+reconcileData.dateRange+' · '+reconcileData.totalRows+' giao dịch · '+reconcileData.fbRows.length+' Facebook</span>';
-h+='<button class="btn btn-ghost btn-sm" onclick="reconcileData=null;render()">Xóa</button>';
-h+='</div>';
-}
+h+='<span style="font-size:11px;color:var(--tx3);">'+reconcileData.dateRange+' · '+reconcileData.vcbRows.length+' giao dịch FB · '+reconcileData.mv4bRows.length+' MV4B</span>';
+h+='<button class="btn btn-ghost btn-sm" onclick="reconcileData=null;render()">Xóa & upload lại</button>';
+h+='</div>';}
 h+='</div></div>';
 if(!reconcileData)return h;
-// KPI
-var rd=reconcileData;
-var pct=rd.metaTotal>0?((1-Math.abs(rd.diff)/Math.max(rd.vcbTotal,rd.metaTotal))*100).toFixed(1):0;
+var rd=reconcileData,matched=rd.matched,totalVcb=rd.totalVcb,totalMeta=rd.totalMeta,diff=totalVcb-totalMeta;
+var matchedCount=matched.filter(function(m){return m.meta;}).length;
+var pct=rd.vcbRows.length>0?Math.round(matchedCount/rd.vcbRows.length*100):0;
 h+='<div class="kpi-grid kpi-4" style="grid-template-columns:repeat(4,1fr);">';
-h+='<div class="kpi"><div class="kpi-label">VCB trừ (Facebook)</div><div class="kpi-value" style="color:var(--red);">'+ff(rd.vcbTotal)+'</div><div class="kpi-note">'+rd.fbRows.length+' giao dịch FACEBK</div></div>';
-h+='<div class="kpi"><div class="kpi-label">Meta spend (hệ thống)</div><div class="kpi-value" style="color:var(--blue);">'+ff(rd.metaTotal)+'</div><div class="kpi-note">Từ daily_spend</div></div>';
-h+='<div class="kpi"><div class="kpi-label">Chênh lệch</div><div class="kpi-value" style="color:var(--amber);">'+ff(Math.abs(rd.diff))+'</div><div class="kpi-note">'+(rd.diff>0?'VCB > Meta':'Meta > VCB')+'</div></div>';
-h+='<div class="kpi"><div class="kpi-label">Tỷ lệ khớp</div><div class="kpi-value" style="color:var(--green);">'+pct+'%</div><div style="height:6px;border-radius:3px;background:var(--bd1);margin-top:6px;"><div style="height:6px;border-radius:3px;background:var(--green);width:'+Math.min(pct,100)+'%;"></div></div></div></div>';
-// Comparison by date
-h+='<div class="section-title">So khớp theo ngày</div>';
-h+='<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;"><span style="font-size:12px;color:var(--tx3);">Hiển thị:</span><select class="fi" id="reconcile-filter" onchange="renderReconcileTable()"><option value="all">Tất cả ngày</option><option value="diff">Chỉ ngày chênh lệch</option></select></div>';
-h+='<div id="reconcile-table">'+buildReconcileTable('all')+'</div>';
-// Non-FB transactions
-if(rd.otherRows.length){
-h+='<div class="section-title" style="margin-top:20px;">Giao dịch khác (không phải Facebook)</div>';
-h+='<div class="table-wrap"><table><tr><th>Ngày</th><th>Nội dung</th><th>Loại</th><th style="text-align:right;">Số tiền</th></tr>';
-rd.otherRows.forEach(function(r){
-var isCredit=!!r.credit;
-h+='<tr><td>'+esc(r.date)+'</td><td style="font-size:12px;max-width:400px;overflow:hidden;text-overflow:ellipsis;">'+esc(r.detail.substring(0,80))+'</td>';
-h+='<td><span class="badge '+(isCredit?'b-green':'b-red')+'">'+(isCredit?'Có':'Nợ')+'</span></td>';
-h+='<td class="mono" style="text-align:right;color:'+(isCredit?'var(--green)':'var(--red)')+';">'+(isCredit?'+':'-')+ff(isCredit?r.credit:r.debit)+'</td></tr>';});
-h+='</table></div>';}
+h+='<div class="kpi"><div class="kpi-label">VCB đã trừ</div><div class="kpi-value" style="color:var(--red);">'+ff(totalVcb)+'</div><div class="kpi-note">'+rd.vcbRows.length+' lần trừ tiền</div></div>';
+h+='<div class="kpi"><div class="kpi-label">Meta billing</div><div class="kpi-value" style="color:var(--blue);">'+ff(totalMeta)+'</div><div class="kpi-note">'+matchedCount+' giao dịch khớp mã</div></div>';
+h+='<div class="kpi"><div class="kpi-label">Phí ngoại tệ</div><div class="kpi-value" style="color:var(--amber);">'+ff(Math.abs(diff))+'</div><div class="kpi-note">~'+((totalMeta>0?Math.abs(diff)/totalMeta*100:0).toFixed(1))+'% phí MasterCard</div></div>';
+h+='<div class="kpi"><div class="kpi-label">Khớp mã</div><div class="kpi-value" style="color:var(--green);">'+matchedCount+'/'+rd.vcbRows.length+'</div><div style="height:6px;border-radius:3px;background:var(--bd1);margin-top:6px;"><div style="height:6px;border-radius:3px;background:var(--green);width:'+pct+'%;"></div></div></div></div>';
+h+='<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
+h+='<span style="font-size:12px;color:var(--tx3);">Lọc:</span>';
+h+='<select class="fi" id="rec-filter" onchange="renderRecTable()"><option value="all">Tất cả ('+matched.length+')</option><option value="diff">Chênh lệch lớn (&gt;2%)</option><option value="mv4b">Phí MV4B / tích xanh ('+rd.mv4bRows.length+')</option><option value="nomatch">Không khớp</option></select>';
+var cards={};matched.forEach(function(m){if(m.card)cards[m.card]=1;});rd.mv4bRows.forEach(function(m){if(m.card)cards[m.card]=1;});
+var cardKeys=Object.keys(cards).sort();
+h+='<select class="fi" id="rec-card-filter" onchange="renderRecTable()"><option value="">Tất cả thẻ</option>';
+cardKeys.forEach(function(c){h+='<option value="'+c+'">...'+c+'</option>';});
+h+='</select></div>';
+h+='<div id="rec-table">'+buildRecTable('all','')+'</div>';
 return h;}
 
-function buildReconcileTable(filter){
+function buildRecTable(filter,cardFilter){
 if(!reconcileData)return'';
-var rd=reconcileData,byDate=rd.byDate;
-var dkeys=Object.keys(byDate).sort();
-var h='<div class="table-wrap"><table><tr><th>Ngày</th><th style="text-align:right;">VCB trừ</th><th style="text-align:right;">Meta spend</th><th style="text-align:right;">Chênh lệch</th><th>GD</th><th>Trạng thái</th></tr>';
-var totVcb=0,totMeta=0;
-dkeys.forEach(function(d){
-var row=byDate[d],diff=row.vcb-row.meta,absDiff=Math.abs(diff),pctDiff=row.vcb>0?(absDiff/row.vcb*100):0;
-totVcb+=row.vcb;totMeta+=row.meta;
-if(filter==='diff'&&pctDiff<1)return;
-var st=pctDiff<1?'b-green':(pctDiff<5?'b-amber':'b-red');
-var stText=pctDiff<1?'Khớp':(pctDiff<5?'Chênh nhỏ':'Chênh lệch');
-h+='<tr'+(pctDiff>=1?' style="background:var(--amber-bg);"':'')+'>';
-h+='<td style="font-weight:500;">'+esc(d)+'</td>';
-h+='<td class="mono" style="text-align:right;color:var(--red);">'+ff(row.vcb)+'</td>';
-h+='<td class="mono" style="text-align:right;color:var(--blue);">'+ff(row.meta)+'</td>';
-h+='<td class="mono" style="text-align:right;color:'+(absDiff===0?'var(--green)':'var(--amber)')+';">'+(diff>0?'+':'')+ff(diff)+'</td>';
-h+='<td style="font-size:11px;color:var(--tx3);">'+row.count+' GD</td>';
-h+='<td><span class="badge '+st+'">'+stText+'</span></td></tr>';});
-h+='<tr style="background:var(--bg2);font-weight:600;"><td>Tổng</td>';
-h+='<td class="mono" style="text-align:right;color:var(--red);">'+ff(totVcb)+'</td>';
-h+='<td class="mono" style="text-align:right;color:var(--blue);">'+ff(totMeta)+'</td>';
-var totalDiff=totVcb-totMeta;
-h+='<td class="mono" style="text-align:right;color:var(--amber);">'+(totalDiff>0?'+':'')+ff(totalDiff)+'</td>';
-h+='<td></td><td></td></tr></table></div>';
+var rd=reconcileData,rows=[];
+if(filter==='mv4b'){rows=rd.mv4bRows.map(function(v){return{vcb:v,meta:null,diff:0,pctDiff:0,isMv4b:true};});}
+else{rows=rd.matched.slice();if(filter==='diff')rows=rows.filter(function(r){return r.pctDiff>2;});
+if(filter==='nomatch')rows=rows.filter(function(r){return!r.meta;});}
+if(cardFilter)rows=rows.filter(function(r){return(r.vcb||r).card===cardFilter||(r.isMv4b&&r.vcb.card===cardFilter);});
+var h='<div class="table-wrap"><table style="min-width:900px;"><thead><tr>';
+h+='<th colspan="4" style="text-align:center;background:rgba(220,38,38,0.06);color:var(--red);border-right:2px solid rgba(220,38,38,0.15);">Sao kê VCB</th>';
+h+='<th colspan="3" style="text-align:center;background:rgba(37,99,235,0.06);color:var(--blue);border-right:2px solid rgba(37,99,235,0.15);">Meta Billing</th>';
+h+='<th colspan="2" style="text-align:center;">Kết quả</th></tr><tr>';
+h+='<th style="background:rgba(220,38,38,0.03);">Ngày trừ</th>';
+h+='<th style="background:rgba(220,38,38,0.03);text-align:right;">Số tiền VCB</th>';
+h+='<th style="background:rgba(220,38,38,0.03);">Mã tham chiếu</th>';
+h+='<th style="background:rgba(220,38,38,0.03);border-right:2px solid rgba(220,38,38,0.15);">Thẻ</th>';
+h+='<th style="background:rgba(37,99,235,0.03);text-align:right;">Số tiền Meta</th>';
+h+='<th style="background:rgba(37,99,235,0.03);">Hoá đơn VAT</th>';
+h+='<th style="background:rgba(37,99,235,0.03);border-right:2px solid rgba(37,99,235,0.15);">TK quảng cáo</th>';
+h+='<th style="text-align:right;">Chênh lệch</th><th></th></tr></thead><tbody>';
+var sumVcb=0,sumMeta=0;
+rows.forEach(function(r){
+var v=r.isMv4b?r.vcb:r.vcb;
+var m=r.meta;
+var isMv4b=r.isMv4b||v.isMv4b;
+sumVcb+=v.debit;
+if(m)sumMeta+=m.amount;
+var diffVal=m?(v.debit-m.amount):0;
+var rowStyle=isMv4b?' style="opacity:.5;"':(r.pctDiff>2?' style="background:var(--amber-bg);"':'');
+h+='<tr'+rowStyle+'>';
+h+='<td style="background:rgba(220,38,38,0.03);font-weight:500;">'+esc(v.date)+'</td>';
+h+='<td class="mono" style="background:rgba(220,38,38,0.03);text-align:right;color:var(--red);">'+ff(v.debit)+'</td>';
+h+='<td style="background:rgba(220,38,38,0.03);"><span style="font-family:monospace;font-size:11px;color:var(--tx2);">'+esc(v.refCode)+'</span></td>';
+h+='<td style="background:rgba(220,38,38,0.03);border-right:2px solid rgba(220,38,38,0.15);"><span style="display:inline-flex;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:500;background:'+(isMv4b?'var(--purple-bg);color:var(--purple-tx)':'var(--bg3);color:var(--tx3)')+';">'+esc(v.card||'—')+'</span></td>';
+if(isMv4b){
+h+='<td style="background:rgba(37,99,235,0.03);text-align:right;color:var(--tx3);">—</td>';
+h+='<td style="background:rgba(37,99,235,0.03);font-size:11px;color:var(--tx3);">Phí tích xanh / xác minh</td>';
+h+='<td style="background:rgba(37,99,235,0.03);border-right:2px solid rgba(37,99,235,0.15);">—</td>';
+h+='<td style="text-align:right;">—</td><td><span class="badge b-purple">MV4B</span></td>';
+}else if(m){
+h+='<td class="mono" style="background:rgba(37,99,235,0.03);text-align:right;color:var(--blue);">'+ff(m.amount)+'</td>';
+var billLink=buildBillingLink(m);
+h+='<td style="background:rgba(37,99,235,0.03);"><a href="'+billLink+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--blue-tx);text-decoration:none;padding:3px 8px;border-radius:6px;background:var(--blue-bg);font-family:monospace;">'+esc(m.invoiceId||m.transId.substring(0,12)+'...')+'<span style="font-size:12px;opacity:.6;">↗</span></a></td>';
+h+='<td style="background:rgba(37,99,235,0.03);border-right:2px solid rgba(37,99,235,0.15);font-size:11px;">'+esc(m.accountName||'—')+'</td>';
+h+='<td class="mono" style="text-align:right;color:var(--amber);">'+(diffVal>0?'+':'')+ff(diffVal)+'</td>';
+h+='<td><span class="badge '+(r.pctDiff>2?'b-amber':'b-green')+'">'+(r.pctDiff>2?'>2%':'Khớp')+'</span></td>';
+}else{
+h+='<td style="background:rgba(37,99,235,0.03);text-align:right;color:var(--tx3);">—</td>';
+h+='<td style="background:rgba(37,99,235,0.03);color:var(--tx3);font-size:11px;">Chưa tìm thấy</td>';
+h+='<td style="background:rgba(37,99,235,0.03);border-right:2px solid rgba(37,99,235,0.15);">—</td>';
+h+='<td style="text-align:right;">—</td><td><span class="badge b-red">Không khớp</span></td>';}
+h+='</tr>';});
+var sumDiff=sumVcb-sumMeta;
+h+='</tbody><tfoot><tr style="background:var(--bg2);font-weight:600;"><td>Tổng</td>';
+h+='<td class="mono" style="text-align:right;color:var(--red);">'+ff(sumVcb)+'</td>';
+h+='<td colspan="2" style="border-right:2px solid rgba(220,38,38,0.15);font-size:11px;color:var(--tx3);">'+rows.length+' giao dịch</td>';
+h+='<td class="mono" style="text-align:right;color:var(--blue);">'+ff(sumMeta)+'</td>';
+h+='<td colspan="2" style="border-right:2px solid rgba(37,99,235,0.15);"></td>';
+h+='<td class="mono" style="text-align:right;color:var(--amber);">'+(sumDiff>0?'+':'')+ff(sumDiff)+'</td>';
+h+='<td></td></tr></tfoot></table></div>';
 return h;}
 
-function renderReconcileTable(){
-var f=document.getElementById('reconcile-filter');
-var el=document.getElementById('reconcile-table');
-if(f&&el)el.innerHTML=buildReconcileTable(f.value);}
+function renderRecTable(){
+var f=document.getElementById('rec-filter'),cf=document.getElementById('rec-card-filter');
+var el=document.getElementById('rec-table');
+if(el)el.innerHTML=buildRecTable(f?f.value:'all',cf?cf.value:'');}
+
+function buildBillingLink(meta){
+if(!meta||!meta.transId)return'#';
+var paymentAccountId=meta.paymentAccountId||meta.accountFbId||'';
+var pid=paymentAccountId.replace('act_','');
+return'https://business.facebook.com/billing_hub/payment_activity/transaction_details?asset_id='+pid+'&business_id='+META_BUSINESS_ID+'&placement=ads_manager&global_scope_id='+META_GLOBAL_SCOPE_ID+'&payment_account_id='+pid+'&transaction_id='+encodeURIComponent(meta.transId)+'&date='+meta.dateRange;}
 
 async function handleVcbUpload(file){
-if(!file){return;}
+if(!file)return;
 toast('Đang phân tích sao kê...',true);
 try{
 var data=await file.arrayBuffer();
@@ -1423,43 +1458,81 @@ var XLSX=await loadXLSX();
 var wb=XLSX.read(data,{type:'array'});
 var ws=wb.Sheets[wb.SheetNames[0]];
 var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-// Parse VCB format: find header row with STT
 var startRow=-1;
-for(var i=0;i<Math.min(20,rows.length);i++){
-var r0=String(rows[i][1]||'');
-if(r0.indexOf('STT')>=0){startRow=i+1;break;}}
+for(var i=0;i<Math.min(20,rows.length);i++){if(String(rows[i][1]||'').indexOf('STT')>=0){startRow=i+1;break;}}
 if(startRow<0){toast('Không nhận dạng được format sao kê VCB',false);return;}
-var fbRows=[],otherRows=[],byDate={},vcbTotal=0,dates2=[];
+var vcbRows=[],mv4bRows=[],otherRows=[],allDates=[];
 for(var j=startRow;j<rows.length;j++){
-var row=rows[j];
-var stt=row[1];if(!stt||isNaN(parseInt(stt)))continue;
-var dateDoc=String(row[2]||'');
-var debitRaw=row[3],creditRaw=row[4],detail=String(row[6]||'');
-var date=dateDoc.split('\n')[0].trim();
-if(!date||date.length<8)continue;
+var row=rows[j];var stt=row[1];if(!stt||isNaN(parseInt(stt)))continue;
+var dateDoc=String(row[2]||''),debitRaw=row[3],creditRaw=row[4],detail=String(row[6]||'');
+var date=dateDoc.split('\n')[0].trim();if(!date||date.length<8)continue;
 var debit=parseFloat(String(debitRaw).replace(/,/g,''))||0;
 var credit=parseFloat(String(creditRaw).replace(/,/g,''))||0;
-var isFb=detail.indexOf('FACEBK')>=0||detail.indexOf('FACEBOOK')>=0;
-var entry={date:date,debit:debit,credit:credit,detail:detail,isFb:isFb,fbCode:''};
-if(isFb){
-var fm2=detail.match(/FACEBK\s*\*(\S+)/);if(fm2)entry.fbCode=fm2[1];
-fbRows.push(entry);vcbTotal+=debit;
-if(!byDate[date])byDate[date]={vcb:0,meta:0,count:0};
-byDate[date].vcb+=debit;byDate[date].count++;
-if(dates2.indexOf(date)<0)dates2.push(date);
-}else if(debit||credit){otherRows.push(entry);}}
-// Match with daily_spend by date
-var metaTotal=0;
-dates2.forEach(function(d){
-var parts=d.split('/');if(parts.length<3)return;
-var isoDate=parts[2]+'-'+(parts[1].length<2?'0':'')+parts[1]+'-'+(parts[0].length<2?'0':'')+parts[0];
-var daySpend=dailyData.filter(function(ds){return ds.report_date===isoDate;}).reduce(function(t,ds){return t+ds.spend_amount;},0);
-if(byDate[d])byDate[d].meta=daySpend;
-metaTotal+=daySpend;});
-reconcileData={fileName:file.name,totalRows:fbRows.length+otherRows.length,fbRows:fbRows,otherRows:otherRows,byDate:byDate,vcbTotal:vcbTotal,metaTotal:metaTotal,diff:vcbTotal-metaTotal,dateRange:dates2.length?(dates2[0]+' — '+dates2[dates2.length-1]):''};
-toast('Phân tích xong: '+fbRows.length+' giao dịch Facebook',true);
+var isFb=detail.indexOf('FACEBK')>=0;
+if(!isFb){if(debit||credit)otherRows.push({date:date,debit:debit,credit:credit,detail:detail});continue;}
+var refMatch=detail.match(/FACEBK\s*\*(\S+)/);
+var refCode=refMatch?refMatch[1].replace(/\s+/g,''):'';
+var cardMatch=detail.match(/\.{3,}(\d{4})\./)||detail.match(/\.(\d{4})\./);
+var card='';
+if(!card){var docParts=dateDoc.split('\n');if(docParts.length>1){var docNum=docParts[1]||'';var cm=docNum.match(/(\d{4})\s*-/);if(cm)card=cm[1];}}
+var isMv4b=refCode.indexOf('MV4B')>=0||refCode==='MV4B';
+var entry={date:date,debit:debit,refCode:refCode,card:card,detail:detail,isMv4b:isMv4b};
+if(isMv4b)mv4bRows.push(entry);else vcbRows.push(entry);
+if(allDates.indexOf(date)<0)allDates.push(date);}
+allDates.sort();
+toast('Đã parse '+vcbRows.length+' giao dịch FB + '+mv4bRows.length+' MV4B. Đang lấy Meta Billing...',true);
+var metaTxns=await fetchMetaBilling(allDates);
+var matched=matchVcbToMeta(vcbRows,metaTxns);
+var totalVcb=vcbRows.reduce(function(t,v){return t+v.debit;},0);
+var totalMeta=matched.reduce(function(t,m){return t+(m.meta?m.meta.amount:0);},0);
+reconcileData={fileName:file.name,vcbRows:vcbRows,mv4bRows:mv4bRows,otherRows:otherRows,matched:matched,totalVcb:totalVcb,totalMeta:totalMeta,dateRange:allDates.length?(allDates[0]+' — '+allDates[allDates.length-1]):''};
+toast('Đối soát xong: '+matched.filter(function(m){return m.meta;}).length+'/'+vcbRows.length+' khớp mã',true);
 render();
-}catch(e){toast('Lỗi đọc file: '+e.message,false);}}
+}catch(e){toast('Lỗi: '+e.message,false);}}
+
+async function fetchMetaBilling(dateRange){
+var results=[];
+var mapped=adList.filter(function(a){return a.fb_account_id;});
+if(!mapped.length)return results;
+var minDate=dateRange[0],maxDate=dateRange[dateRange.length-1];
+if(!minDate||!maxDate)return results;
+var minParts=minDate.split('/'),maxParts=maxDate.split('/');
+var since=minParts[2]+'-'+(minParts[1].length<2?'0':'')+minParts[1]+'-'+(minParts[0].length<2?'0':'')+minParts[0];
+var until=maxParts[2]+'-'+(maxParts[1].length<2?'0':'')+maxParts[1]+'-'+(maxParts[0].length<2?'0':'')+maxParts[0];
+var sinceTs=Math.floor(new Date(since+'T00:00:00+07:00').getTime()/1000)-86400;
+var untilTs=Math.floor(new Date(until+'T23:59:59+07:00').getTime()/1000)+86400;
+var dateRangeStr=sinceTs+'_'+untilTs;
+for(var i=0;i<mapped.length;i+=50){
+var chunk=mapped.slice(i,i+50);
+var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.fb_account_id+'/transactions?fields=id,transaction_id,time,amount,currency,payment_option,account_id&time_start='+sinceTs+'&time_stop='+untilTs+'&limit=200'};});
+try{
+var resp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
+var bResults=await resp.json();
+for(var k=0;k<bResults.length;k++){
+try{
+var body=JSON.parse(bResults[k].body||'{}');
+if(body.data&&body.data.length){
+body.data.forEach(function(tx){
+var acc=chunk[k];
+var accName=acc?acc.account_name:'';
+results.push({transId:tx.transaction_id||tx.id||'',amount:Math.round(Math.abs(parseFloat(tx.amount)||0)),time:tx.time||'',accountFbId:acc?acc.fb_account_id:'',accountName:accName,paymentAccountId:acc?acc.fb_account_id:'',invoiceId:'',dateRange:dateRangeStr});
+});}
+}catch(e){}}
+}catch(e){console.warn('Meta billing batch error:',e.message);}}
+return results;}
+
+function matchVcbToMeta(vcbRows,metaTxns){
+var used={};
+return vcbRows.map(function(v){
+var bestMatch=null,bestDiff=Infinity;
+for(var i=0;i<metaTxns.length;i++){
+if(used[i])continue;
+var m=metaTxns[i];
+var amtDiff=Math.abs(v.debit-m.amount);
+var pctDiff=v.debit>0?(amtDiff/v.debit*100):100;
+if(pctDiff<5&&amtDiff<bestDiff){bestDiff=amtDiff;bestMatch={idx:i,meta:m,diff:amtDiff,pctDiff:pctDiff};}}
+if(bestMatch){used[bestMatch.idx]=true;return{vcb:v,meta:bestMatch.meta,diff:bestMatch.diff,pctDiff:bestMatch.pctDiff};}
+return{vcb:v,meta:null,diff:0,pctDiff:0};});}
 
 function loadXLSX(){
 if(window.XLSX)return Promise.resolve(window.XLSX);
