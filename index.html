@@ -827,13 +827,16 @@ function pg(i){if(authUser&&!canAccessPage(i)){toast('Bạn không có quyền t
 function render(){
 var sb=document.getElementById('sidebar');
 var el=document.getElementById('page');
-// Chưa đăng nhập → hiện màn hình login toàn trang, ẩn sidebar
+var appEl=document.querySelector('.app');
+var overlay=document.getElementById('overlay');
 if(!authUser){
 if(sb)sb.style.display='none';
+if(overlay)overlay.classList.remove('show');
+if(appEl)appEl.style.gridTemplateColumns='1fr';
 el.innerHTML=renderLoginScreen();
 return;}
-// Đã đăng nhập → hiện sidebar + render page
-if(sb)sb.style.display='';
+if(sb){sb.style.display='';}
+if(appEl)appEl.style.gridTemplateColumns='';
 syncSidebarNav();
 if(curPage===0)el.innerHTML=p0();else if(curPage===1)el.innerHTML=p1();else if(curPage===2)el.innerHTML=p2();else if(curPage===3)el.innerHTML=p3();else if(curPage===4)el.innerHTML=p4();else if(curPage===5)el.innerHTML=p5();else if(curPage===6)el.innerHTML=p6();
 enhanceUI();
