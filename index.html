@@ -1321,12 +1321,18 @@ var h='';
 if(authUser&&!isAdmin()){
 h+='<div class="logout-bar"><span>'+esc(authUser.email)+' <span class="badge b-blue" style="margin-left:6px;">'+esc(userRole==='accountant'?'Kế toán':userRole)+'</span></span><button class="btn btn-ghost btn-sm" onclick="doLogout()">Đăng xuất</button></div>';}
 h+='<div class="page-title">Tài chính</div>';
+var canTC=canAccessSubPage(4,0),canDS=canAccessSubPage(4,1);
+if(canTC&&canDS){
 h+='<div class="admin-tabs" style="margin-bottom:16px;">';
 h+='<div class="admin-tab'+(finTab===0?' active':'')+'" onclick="setFinTab(0)">Thu chi</div>';
 h+='<div class="admin-tab'+(finTab===1?' active':'')+'" onclick="setFinTab(1)">Đối soát VCB</div>';
 h+='</div>';
-if(finTab===0)return h+p4ThuChi();
-return h+p4DoiSoat();
+}else if(!canTC&&canDS){finTab=1;}else if(canTC&&!canDS){finTab=0;}
+if(finTab===0&&canTC)return h+p4ThuChi();
+if(finTab===1&&canDS)return h+p4DoiSoat();
+if(canTC)return h+p4ThuChi();
+if(canDS)return h+p4DoiSoat();
+return h+'<div style="padding:20px;color:var(--tx3);">Không có quyền truy cập.</div>';
 }
 function p4ThuChi(){
 var am=new Set();txnData.forEach(function(t){am.add(t.month);});var sm=Array.from(am).sort().reverse();
@@ -1671,7 +1677,23 @@ else{userRole='admin';userAllowedPages=null;}
 function canAccessPage(pageNum){
 if(!authUser)return true;
 if(userRole==='admin'||!userAllowedPages)return true;
-return userAllowedPages.indexOf(pageNum)>=0;}
+for(var i=0;i<userAllowedPages.length;i++){
+var p=userAllowedPages[i];
+if(p===pageNum)return true;
+if(typeof p==='number'&&Math.floor(p)===pageNum)return true;
+if(typeof p==='string'&&parseInt(p)===pageNum)return true;
+}return false;}
+function canAccessSubPage(pageNum,subTab){
+if(!authUser)return true;
+if(userRole==='admin'||!userAllowedPages)return true;
+var subKey=pageNum+'.'+subTab;
+var hasExact=false,hasParent=false;
+for(var i=0;i<userAllowedPages.length;i++){
+var p=userAllowedPages[i];
+if(p===subKey||String(p)===subKey)hasExact=true;
+if(p===pageNum)hasParent=true;}
+if(hasParent)return true;
+return hasExact;}
 function isAdmin(){return authUser&&(userRole==='admin'||!userAllowedPages);}
 async function loadAllUserRoles(){
 try{var{data}=await sb2.from('user_roles').select('*').order('created_at');allUserRoles=data||[];}catch(e){allUserRoles=[];}}
@@ -2348,20 +2370,21 @@ h+='<div class="form-card"><h3>Phân quyền tài khoản</h3>';
 h+='<div style="padding:10px 14px;background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;">Nếu email không có trong danh sách này, tài khoản sẽ mặc định là Admin (toàn quyền). Thêm email vào đây để giới hạn quyền.</div>';
 h+='<div class="form-row"><div class="form-group"><label>Email</label><input type="email" id="ur-email" placeholder="linh.kt@hcagency.vn"></div><div class="form-group"><label>Tên hiển thị</label><input type="text" id="ur-name" placeholder="Ngọc Linh"></div></div>';
 h+='<div class="form-row"><div class="form-group"><label>Vai trò</label><select id="ur-role"><option value="accountant">Kế toán</option><option value="viewer">Chỉ xem</option></select></div></div>';
-var pageNames={0:'Tổng quan',1:'Tài khoản QC',2:'Nhân sự',3:'Khách hàng',4:'Tài chính',6:'Cảnh báo'};
+var pageNames={0:'Tổng quan',1:'Tài khoản QC',2:'Nhân sự',3:'Khách hàng','4.0':'Tài chính — Thu chi','4.1':'Tài chính — Đối soát',6:'Cảnh báo'};
 h+='<div style="font-size:12px;font-weight:500;color:var(--tx2);margin:8px 0 6px;">Quyền truy cập trang</div>';
 h+='<div style="display:flex;flex-wrap:wrap;gap:6px;">';
-[0,1,2,3,4,6].forEach(function(p){
-h+='<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--bd1);border-radius:var(--radius);font-size:12px;cursor:pointer;"><input type="checkbox" class="ur-page-cb" value="'+p+'"'+(p===4?' checked':'')+'> '+pageNames[p]+'</label>';});
+[0,1,2,3,'4.0','4.1',6].forEach(function(p){
+var checked=(p==='4.0'||p==='4.1')?' checked':'';
+h+='<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--bd1);border-radius:var(--radius);font-size:12px;cursor:pointer;"><input type="checkbox" class="ur-page-cb" value="'+p+'"'+checked+'> '+pageNames[p]+'</label>';});
 h+='</div>';
 h+='<div class="btn-row" style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="addUserRole(this)">Thêm tài khoản</button></div></div>';
 // List existing roles
 h+='<div class="form-card"><h3>Danh sách tài khoản đã phân quyền ('+allUserRoles.length+')</h3>';
 if(allUserRoles.length){
 h+='<div class="table-wrap"><table><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Trang được phép</th><th></th></tr>';
-var pn2={0:'Tổng quan',1:'TK QC',2:'Nhân sự',3:'Khách hàng',4:'Tài chính',5:'Admin',6:'Cảnh báo'};
+var pn2={0:'Tổng quan',1:'TK QC',2:'Nhân sự',3:'Khách hàng',4:'Tài chính','4.0':'TC — Thu chi','4.1':'TC — Đối soát',5:'Admin',6:'Cảnh báo'};
 allUserRoles.forEach(function(ur){
-var pages=(ur.allowed_pages||[]).map(function(p){return pn2[p]||('p'+p);}).join(', ');
+var pages=(ur.allowed_pages||[]).map(function(p){return pn2[p]||pn2[String(p)]||('p'+p);}).join(', ');
 var roleLabel=ur.role==='accountant'?'Kế toán':(ur.role==='viewer'?'Chỉ xem':ur.role);
 h+='<tr><td style="font-weight:500;">'+esc(ur.display_name||'—')+'</td><td style="font-size:12px;color:var(--tx2);">'+esc(ur.email)+'</td><td><span class="badge b-blue">'+esc(roleLabel)+'</span></td><td style="font-size:11px;">'+esc(pages)+'</td><td><button class="btn btn-red btn-sm" onclick="deleteUserRole(this,\''+ur.id+'\')">Xóa</button></td></tr>';});
 h+='</table></div>';
@@ -2391,7 +2414,7 @@ var email=document.getElementById('ur-email').value.trim();
 var name=document.getElementById('ur-name').value.trim();
 var role=document.getElementById('ur-role').value;
 if(!email){toast('Nhập email',false);return;}
-var pages=[];document.querySelectorAll('.ur-page-cb:checked').forEach(function(cb){pages.push(parseInt(cb.value));});
+var pages=[];document.querySelectorAll('.ur-page-cb:checked').forEach(function(cb){var v=cb.value;pages.push(isNaN(v)?v:parseFloat(v));});
 if(!pages.length){toast('Chọn ít nhất 1 trang',false);return;}
 btn.disabled=true;
 var{error}=await sb2.from('user_roles').upsert({email:email,display_name:name,role:role,allowed_pages:pages},{onConflict:'email'});
