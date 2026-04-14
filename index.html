@@ -693,9 +693,10 @@ tr:hover td{background:#f8fbff;}
 var SB_URL='https://eqsnohwymgmdvbqwflas.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxc25vaHd5bWdtZHZicXdmbGFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzU1NzUsImV4cCI6MjA5MTIxMTU3NX0.0cv-j9zJUfVAj9LBG8VFHNO0Jke4JjehBKSzDVd1nA0';
 var sb2=supabase.createClient(SB_URL,SB_KEY);
 // TODO: Move META_TOKEN to server-side (Supabase Edge Function / backend API) — currently exposed in client HTML
-var META_TOKEN='EAANvdDJlt7oBRLy4VILybPsIicSow1ZBkCwN4cf2K8150rAUH1UPjVAjJAKiortcjiZAQmDLjzZBzMX18XGu6NXrF2towUPiTFb5sIqxdZAqEzAPjk4OMZCD5HO0vmR5FGZCrmZAYHPeE0sacZC6iGHAlgGJnC7KV3vZACUHjuEB30u6lsTltsOMZCcwTgcKijfnIe0AZDZD';
-var META_BUSINESS_ID='906359547034707';
-var META_GLOBAL_SCOPE_ID='5673838172639075';
+// Token được load từ Supabase app_settings — không hardcode trong HTML
+var META_TOKEN='';
+var META_BUSINESS_ID='';
+var META_GLOBAL_SCOPE_ID='';
 var CL={purple:{c:'var(--purple)',bg:'var(--purple-bg)',tx:'var(--purple-tx)'},teal:{c:'var(--teal)',bg:'var(--teal-bg)',tx:'var(--teal-tx)'},coral:{c:'var(--coral)',bg:'var(--coral-bg)',tx:'var(--coral-tx)'},pink:{c:'var(--pink)',bg:'var(--pink-bg)',tx:'var(--pink-tx)'},blue:{c:'var(--blue)',bg:'var(--blue-bg)',tx:'var(--blue-tx)'},green:{c:'var(--green)',bg:'var(--green-bg)',tx:'var(--green-tx)'},amber:{c:'var(--amber)',bg:'var(--amber-bg)',tx:'var(--amber-tx)'}};
 function sc(c){return CL[c]||CL.blue;}
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[];
@@ -1349,6 +1350,8 @@ h+='<div style="font-size:14px;font-weight:500;margin-bottom:8px;">Upload sao k�
 h+='<div style="font-size:12px;color:var(--tx3);margin-bottom:14px;">Hỗ trợ .xlsx — Export từ app VCB hoặc Internet Banking</div>';
 h+='<input type="file" id="vcb-file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleVcbUpload(this.files[0])">';
 h+='<button class="btn btn-primary" onclick="document.getElementById(\'vcb-file\').click()">Chọn file sao kê</button>';
+h+='<div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="checkMetaTokenPermissions(this)">Kiểm tra quyền Meta Token</button></div>';
+h+='<div id="token-check-result"></div>';
 }else{
 h+='<div style="display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap;">';
 h+='<span class="badge b-green">Đã upload</span>';
@@ -1417,8 +1420,12 @@ h+='<td style="background:rgba(37,99,235,0.03);border-right:2px solid rgba(37,99
 h+='<td style="text-align:right;">—</td><td><span class="badge b-purple">MV4B</span></td>';
 }else if(m){
 h+='<td class="mono" style="background:rgba(37,99,235,0.03);text-align:right;color:var(--blue);">'+ff(m.amount)+'</td>';
+if(m.transId){
 var billLink=buildBillingLink(m);
-h+='<td style="background:rgba(37,99,235,0.03);"><a href="'+billLink+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--blue-tx);text-decoration:none;padding:3px 8px;border-radius:6px;background:var(--blue-bg);font-family:monospace;">'+esc(m.invoiceId||m.transId.substring(0,12)+'...')+'<span style="font-size:12px;opacity:.6;">↗</span></a></td>';
+var linkLabel=m.invoiceId||m.transId.substring(0,18)+'...';
+h+='<td style="background:rgba(37,99,235,0.03);"><a href="'+billLink+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--blue-tx);text-decoration:none;padding:3px 8px;border-radius:6px;background:var(--blue-bg);font-family:monospace;">'+esc(linkLabel)+'<span style="font-size:12px;opacity:.6;">↗</span></a></td>';
+}else{
+h+='<td style="background:rgba(37,99,235,0.03);"><span style="font-size:10px;padding:3px 8px;border-radius:6px;background:var(--bg3);color:var(--tx3);">'+(m.isSpendFallback?'daily_spend':'—')+'</span></td>';}
 h+='<td style="background:rgba(37,99,235,0.03);border-right:2px solid rgba(37,99,235,0.15);font-size:11px;">'+esc(m.accountName||'—')+'</td>';
 h+='<td class="mono" style="text-align:right;color:var(--amber);">'+(diffVal>0?'+':'')+ff(diffVal)+'</td>';
 h+='<td><span class="badge '+(r.pctDiff>2?'b-amber':'b-green')+'">'+(r.pctDiff>2?'>2%':'Khớp')+'</span></td>';
@@ -1445,9 +1452,9 @@ if(el)el.innerHTML=buildRecTable(f?f.value:'all',cf?cf.value:'');}
 
 function buildBillingLink(meta){
 if(!meta||!meta.transId)return'#';
-var paymentAccountId=meta.paymentAccountId||meta.accountFbId||'';
-var pid=paymentAccountId.replace('act_','');
-return'https://business.facebook.com/billing_hub/payment_activity/transaction_details?asset_id='+pid+'&business_id='+META_BUSINESS_ID+'&placement=ads_manager&global_scope_id='+META_GLOBAL_SCOPE_ID+'&payment_account_id='+pid+'&transaction_id='+encodeURIComponent(meta.transId)+'&date='+meta.dateRange;}
+var pid=(meta.paymentAccountId||meta.accountFbId||'').replace('act_','');
+var dateParam=(meta.sinceTs&&meta.untilTs)?(meta.sinceTs+'_'+meta.untilTs):'';
+return'https://business.facebook.com/billing_hub/payment_activity/transaction_details?asset_id='+pid+'&business_id='+META_BUSINESS_ID+'&placement=ads_manager&global_scope_id='+META_GLOBAL_SCOPE_ID+'&payment_account_id='+pid+'&transaction_id='+encodeURIComponent(meta.transId)+(dateParam?'&date='+dateParam:'');}
 
 async function handleVcbUpload(file){
 if(!file)return;
@@ -1493,37 +1500,70 @@ render();
 async function fetchMetaBilling(dateRange){
 var results=[];
 var mapped=adList.filter(function(a){return a.fb_account_id;});
-if(!mapped.length)return results;
+if(!mapped.length){toast('Chưa có TK nào ghép Meta',false);return results;}
 var minDate=dateRange[0],maxDate=dateRange[dateRange.length-1];
 if(!minDate||!maxDate)return results;
 var minParts=minDate.split('/'),maxParts=maxDate.split('/');
 var since=minParts[2]+'-'+(minParts[1].length<2?'0':'')+minParts[1]+'-'+(minParts[0].length<2?'0':'')+minParts[0];
 var until=maxParts[2]+'-'+(maxParts[1].length<2?'0':'')+maxParts[1]+'-'+(maxParts[0].length<2?'0':'')+maxParts[0];
-var sinceTs=Math.floor(new Date(since+'T00:00:00+07:00').getTime()/1000)-86400;
-var untilTs=Math.floor(new Date(until+'T23:59:59+07:00').getTime()/1000)+86400;
+var sinceTs=Math.floor(new Date(since+'T00:00:00+07:00').getTime()/1000)-172800;
+var untilTs=Math.floor(new Date(until+'T23:59:59+07:00').getTime()/1000)+172800;
 var dateRangeStr=sinceTs+'_'+untilTs;
 for(var i=0;i<mapped.length;i+=50){
 var chunk=mapped.slice(i,i+50);
-var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.fb_account_id+'/transactions?fields=id,transaction_id,time,amount,currency,payment_option,account_id&time_start='+sinceTs+'&time_stop='+untilTs+'&limit=200'};});
+var batchReqs=chunk.map(function(a){
+return{method:'GET',relative_url:a.fb_account_id+'/transactions?fields=id,time,billing_amount,fatura_id,charge_type,payment_option,product_type&time_start='+sinceTs+'&time_stop='+untilTs+'&limit=500'};});
 try{
 var resp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
 var bResults=await resp.json();
 for(var k=0;k<bResults.length;k++){
 try{
+var httpCode=bResults[k].code||200;
 var body=JSON.parse(bResults[k].body||'{}');
-if(body.data&&body.data.length){
+if(body.error){console.warn('[Billing] TK '+chunk[k].fb_account_id+':',body.error.message);continue;}
+if(!body.data||!body.data.length)continue;
 body.data.forEach(function(tx){
 var acc=chunk[k];
-var accName=acc?acc.account_name:'';
-results.push({transId:tx.transaction_id||tx.id||'',amount:Math.round(Math.abs(parseFloat(tx.amount)||0)),time:tx.time||'',accountFbId:acc?acc.fb_account_id:'',accountName:accName,paymentAccountId:acc?acc.fb_account_id:'',invoiceId:'',dateRange:dateRangeStr});
-});}
-}catch(e){}}
+var amt=0;
+if(tx.billing_amount){
+if(typeof tx.billing_amount==='object')amt=Math.round(Math.abs(parseFloat(tx.billing_amount.amount||tx.billing_amount.value||0)));
+else amt=Math.round(Math.abs(parseFloat(tx.billing_amount)));
+if(tx.billing_amount.currency==='USD')amt=Math.round(amt*25000);
+}else if(tx.amount){amt=Math.round(Math.abs(parseFloat(tx.amount)));}
+var refCode='';
+if(tx.payment_option){
+var po=typeof tx.payment_option==='string'?tx.payment_option:JSON.stringify(tx.payment_option);
+var rm=po.match(/([A-Z0-9]{6,12}(?:42|F2|K2|Y2|G2|U2|X2|B2|N2|T2|62|82))/i);
+if(rm)refCode=rm[1];}
+var payAccId=acc?acc.fb_account_id:'';
+results.push({transId:tx.id||'',amount:amt,time:tx.time||'',refCode:refCode,accountFbId:payAccId,accountName:acc?acc.account_name:'',accountId:payAccId,paymentAccountId:payAccId,invoiceId:tx.fatura_id||'',chargeType:tx.charge_type||'',sinceTs:String(sinceTs),untilTs:String(untilTs)});
+});}catch(e){console.warn('[Billing] parse error:',e.message);}}
 }catch(e){console.warn('Meta billing batch error:',e.message);}}
+if(!results.length){
+toast('Meta API không trả dữ liệu billing — đang fallback so khớp theo daily_spend',false);
+return fallbackDailySpend(dateRange,dateRangeStr);}
+return results;}
+
+function fallbackDailySpend(dateRange,dateRangeStr){
+var results=[];
+dateRange.forEach(function(d){
+var parts=d.split('/');if(parts.length<3)return;
+var isoDate=parts[2]+'-'+(parts[1].length<2?'0':'')+parts[1]+'-'+(parts[0].length<2?'0':'')+parts[0];
+dailyData.filter(function(ds){return ds.report_date===isoDate;}).forEach(function(ds){
+var acc=adList.find(function(a){return a.id===ds.ad_account_id;});
+results.push({transId:'',amount:ds.spend_amount,time:isoDate,refCode:'',accountFbId:acc?acc.fb_account_id:'',accountName:acc?acc.account_name:'',accountId:acc?acc.fb_account_id:'',paymentAccountId:acc?acc.fb_account_id:'',invoiceId:'',chargeType:'spend',sinceTs:'',untilTs:'',isSpendFallback:true});});});
 return results;}
 
 function matchVcbToMeta(vcbRows,metaTxns){
 var used={};
+var metaByRef={};
+metaTxns.forEach(function(m,i){if(m.refCode){var k=m.refCode.toUpperCase();if(!metaByRef[k])metaByRef[k]={idx:i,meta:m};}});
 return vcbRows.map(function(v){
+var k=v.refCode.toUpperCase();
+if(metaByRef[k]&&!used[metaByRef[k].idx]){
+var mi=metaByRef[k];used[mi.idx]=true;
+var d=Math.abs(v.debit-mi.meta.amount);
+return{vcb:v,meta:mi.meta,diff:d,pctDiff:v.debit>0?(d/v.debit*100):0};}
 var bestMatch=null,bestDiff=Infinity;
 for(var i=0;i<metaTxns.length;i++){
 if(used[i])continue;
@@ -1542,10 +1582,67 @@ s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
 s.onload=function(){resolve(window.XLSX);};
 s.onerror=function(){reject(new Error('Không tải được thư viện XLSX'));};
 document.head.appendChild(s);});}
+
+async function checkMetaTokenPermissions(btn){
+if(btn){btn.disabled=true;btn.textContent='Đang kiểm tra...';}
+var el=document.getElementById('token-check-result');
+if(!el){if(btn){btn.disabled=false;btn.textContent='Kiểm tra quyền Meta Token';}return;}
+el.innerHTML='<div style="padding:12px;color:var(--tx3);font-size:12px;">Đang gọi Meta API...</div>';
+try{
+var needed=['ads_read','ads_management','business_management'];
+var billingNeeded=['ads_read'];
+var r1=await fetch('https://graph.facebook.com/v25.0/me/permissions?access_token='+META_TOKEN);
+var d1=await r1.json();
+var r2=await fetch('https://graph.facebook.com/v25.0/debug_token?input_token='+META_TOKEN+'&access_token='+META_TOKEN);
+var d2=await r2.json();
+var h='<div style="margin-top:14px;padding:16px;border:1px solid var(--bd1);border-radius:var(--radius-lg);background:var(--bg1);font-size:12px;">';
+h+='<div style="font-weight:600;font-size:13px;margin-bottom:10px;">Kết quả kiểm tra Meta Token</div>';
+if(d2.data){
+var td2=d2.data;
+h+='<div style="display:grid;grid-template-columns:140px 1fr;gap:4px 12px;margin-bottom:12px;">';
+h+='<span style="color:var(--tx3);">App ID:</span><span>'+esc(td2.app_id||'—')+'</span>';
+h+='<span style="color:var(--tx3);">Type:</span><span>'+esc(td2.type||'—')+'</span>';
+h+='<span style="color:var(--tx3);">Valid:</span><span style="color:'+(td2.is_valid?'var(--green)':'var(--red)')+';">'+(td2.is_valid?'Hợp lệ':'Không hợp lệ')+'</span>';
+if(td2.expires_at){var exp=new Date(td2.expires_at*1000);h+='<span style="color:var(--tx3);">Hết hạn:</span><span'+(td2.expires_at<Date.now()/1000?' style="color:var(--red);"':'')+'>'+exp.toLocaleDateString('vi-VN')+' '+exp.toLocaleTimeString('vi-VN')+'</span>';}
+if(td2.scopes)h+='<span style="color:var(--tx3);">Scopes:</span><span style="word-break:break-all;">'+td2.scopes.join(', ')+'</span>';
+h+='</div>';}
+if(d1.data){
+h+='<div style="font-weight:500;margin-bottom:6px;">Quyền đã cấp:</div>';
+h+='<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;">';
+var grantedSet={};
+d1.data.forEach(function(p){grantedSet[p.permission]=p.status;
+var isGranted=p.status==='granted';
+var isBilling=billingNeeded.indexOf(p.permission)>=0;
+h+='<span style="display:inline-flex;padding:3px 8px;border-radius:8px;font-size:11px;font-weight:500;background:'+(isGranted?'var(--green-bg)':'var(--red-bg)')+';color:'+(isGranted?'var(--green-tx)':'var(--red-tx)')+';">'+esc(p.permission)+': '+(isGranted?'OK':'DENIED')+'</span>';});
+h+='</div>';
+h+='<div style="font-weight:500;margin-bottom:6px;">Quyền cần cho Billing / Đối soát:</div>';
+h+='<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;">';
+needed.forEach(function(p){var st=grantedSet[p];var ok=st==='granted';
+h+='<span style="display:inline-flex;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:500;background:'+(ok?'var(--green-bg)':'var(--amber-bg)')+';color:'+(ok?'var(--green-tx)':'var(--amber-tx)')+';">'+p+': '+(ok?'OK':'THIẾU')+'</span>';});
+h+='</div>';}
+if(d1.error)h+='<div style="color:var(--red);padding:8px 0;">Lỗi permissions: '+esc(d1.error.message)+'</div>';
+if(d2.error||d2.data&&d2.data.error)h+='<div style="color:var(--red);padding:8px 0;">Lỗi debug_token: '+esc((d2.error||d2.data.error||{}).message||'')+'</div>';
+var testAcc=adList.find(function(a){return a.fb_account_id;});
+if(testAcc){
+h+='<div style="font-weight:500;margin-bottom:6px;">Test gọi /transactions:</div>';
+try{
+var tr=await fetch('https://graph.facebook.com/v25.0/'+testAcc.fb_account_id+'/transactions?fields=id,time,billing_amount,fatura_id&limit=3&access_token='+META_TOKEN);
+var td3=await tr.json();
+if(td3.error){h+='<div style="padding:8px 12px;border-radius:8px;background:var(--red-bg);color:var(--red-tx);font-size:11px;"><strong>Lỗi:</strong> '+esc(td3.error.message)+'<br><strong>Code:</strong> '+td3.error.code+' / Subcode: '+(td3.error.error_subcode||'—')+'</div>';}
+else if(td3.data){h+='<div style="padding:8px 12px;border-radius:8px;background:var(--green-bg);color:var(--green-tx);font-size:11px;"><strong>Thành công!</strong> Trả về '+td3.data.length+' giao dịch từ TK '+esc(testAcc.account_name)+'</div>';
+if(td3.data.length)h+='<pre style="margin-top:6px;font-size:10px;background:var(--bg3);padding:8px;border-radius:6px;overflow-x:auto;max-height:120px;">'+esc(JSON.stringify(td3.data[0],null,2))+'</pre>';}
+else{h+='<div style="padding:8px 12px;border-radius:8px;background:var(--amber-bg);color:var(--amber-tx);font-size:11px;">Không có dữ liệu trả về (response rỗng)</div>';
+h+='<pre style="margin-top:6px;font-size:10px;background:var(--bg3);padding:8px;border-radius:6px;overflow-x:auto;">'+esc(JSON.stringify(td3,null,2))+'</pre>';}
+}catch(e){h+='<div style="color:var(--red);">Lỗi kết nối: '+esc(e.message)+'</div>';}}
+h+='<div style="margin-top:10px;padding:10px;background:var(--blue-bg);color:var(--blue-tx);border-radius:8px;font-size:11px;line-height:1.6;"><strong>Nếu thiếu quyền:</strong> Vào <a href="https://business.facebook.com/settings/system-users" target="_blank" style="color:var(--blue);text-decoration:underline;">Meta Business Settings → System Users</a> → chọn system user → bấm "Add Assets" → thêm quyền <code>ads_read</code>, <code>ads_management</code>, <code>business_management</code> → Generate new token với các quyền billing.</div>';
+h+='</div>';
+el.innerHTML=h;
+}catch(e){el.innerHTML='<div style="margin-top:8px;color:var(--red);font-size:12px;">Lỗi: '+esc(e.message)+'</div>';}
+finally{if(btn){btn.disabled=false;btn.textContent='Kiểm tra quyền Meta Token';}}}
 function p5(){
 if(!authUser)return pLogin();
-if(adminTab>3)adminTab=0;
-var tabs=['Tổng quan','Nhân sự','Khách hàng','Lương'];
+if(adminTab>4)adminTab=0;
+var tabs=['Tổng quan','Nhân sự','Khách hàng','Lương','Cài đặt'];
 var h='<div class="logout-bar"><span>Đăng nhập: '+esc(authUser.email)+'</span><button class="btn btn-ghost btn-sm" onclick="doLogout()">Đăng xuất</button></div>';
 h+='<div class="page-title">Admin</div><div class="page-sub">Quản lý dữ liệu hệ thống.</div><div class="admin-tabs">';
 tabs.forEach(function(t,i){h+='<div class="admin-tab'+(adminTab===i?' active':'')+'" onclick="sat('+i+')">'+t+'</div>';});
@@ -1554,8 +1651,24 @@ function pLogin(){return'<div class="login-box"><h2>Đăng nhập Admin</h2><p>N
 async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;toast('Đăng nhập thành công!',true);render();}}
 async function doLogout(){await sb2.auth.signOut();authUser=null;toast('Đã đăng xuất',true);render();}
 async function checkAuth(){var{data}=await sb2.auth.getSession();if(data.session)authUser=data.session.user;}
+async function loadAppSettings(){
+try{
+var{data,error}=await sb2.from('app_settings').select('key,value');
+if(error){console.warn('[app_settings]',String(error.message||error));return;}
+if(!data)return;
+data.forEach(function(r){
+if(r.key==='META_TOKEN'&&r.value)META_TOKEN=r.value;
+if(r.key==='META_BUSINESS_ID'&&r.value)META_BUSINESS_ID=r.value;
+if(r.key==='META_GLOBAL_SCOPE_ID'&&r.value)META_GLOBAL_SCOPE_ID=r.value;
+});
+}catch(e){console.warn('[loadAppSettings]',e.message);}}
+async function saveAppSetting(key,value){
+if(!needAuth())return false;
+var{error}=await sb2.from('app_settings').upsert({key:key,value:value,updated_at:new Date().toISOString()},{onConflict:'key'});
+if(error){toast('Lỗi lưu: '+error.message,false);return false;}
+return true;}
 function sat(i){adminTab=i;expandedAd=null;render();}
-function rat(){if(adminTab===0)return a0();if(adminTab===1)return a2();if(adminTab===2)return a3();if(adminTab===3)return a5();return'';}
+function rat(){if(adminTab===0)return a0();if(adminTab===1)return a2();if(adminTab===2)return a3();if(adminTab===3)return a5();if(adminTab===4)return a6Settings();return'';}
 
 // ═══ A0: TỔNG QUAN ADMIN ═══
 function a0(){
@@ -2189,6 +2302,41 @@ h+='</table></div>';return h;}
 async function svsl(btn){if(!needAuth())return;btn.disabled=true;var m=document.getElementById('slm').value,si=document.getElementById('sls').value,b=parseInt(document.getElementById('slb').value)||0,x=parseInt(document.getElementById('slx').value)||0,n=document.getElementById('sln').value;if(!b){toast('Nhập lương',false);btn.disabled=false;return;}var r=await sb2.from('salary').upsert({staff_id:si,month:m,base_salary:b,bonus:x,total:b+x,note:n},{onConflict:'staff_id,month'});btn.disabled=false;if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã lưu!',true);document.getElementById('slb').value='';document.getElementById('slx').value='0';document.getElementById('sln').value='';await loadLight();}}
 async function dlsl(btn,id){if(!needAuth())return;if(!confirm('Xóa?'))return;btn.disabled=true;var r=await sb2.from('salary').delete().eq('id',id);if(r.error){toast('Lỗi',false);btn.disabled=false;}else{toast('Đã xóa!',true);await loadLight();}}
 
+// ═══ A6: CÀI ĐẶT ═══
+function a6Settings(){
+var tokenPreview=META_TOKEN?('***'+META_TOKEN.slice(-8)):'Chưa nhập';
+var h='<div class="form-card"><h3>Cấu hình Meta API</h3>';
+h+='<div style="padding:10px 14px;background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;">Token và ID được lưu an toàn trong database Supabase (bảng app_settings). Chỉ admin đã đăng nhập mới đọc được. Không lưu trong source code HTML.</div>';
+h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Meta access token</label><div style="display:flex;gap:8px;align-items:center;"><input type="password" id="set-meta-token" value="'+esc(META_TOKEN)+'" placeholder="EAAxxxxx..." style="flex:1;font-family:monospace;font-size:12px;"><button class="btn btn-ghost btn-sm" onclick="var el=document.getElementById(\'set-meta-token\');el.type=el.type===\'password\'?\'text\':\'password\';">Hiện/Ẩn</button></div><div style="font-size:11px;color:var(--tx3);margin-top:4px;">Hiện tại: '+tokenPreview+'</div></div></div>';
+h+='<div class="form-row"><div class="form-group"><label>Business ID</label><input type="text" id="set-business-id" value="'+esc(META_BUSINESS_ID)+'" placeholder="906359547034707" style="font-family:monospace;font-size:12px;"></div><div class="form-group"><label>Global scope ID</label><input type="text" id="set-global-scope" value="'+esc(META_GLOBAL_SCOPE_ID)+'" placeholder="5673838172639075" style="font-family:monospace;font-size:12px;"></div></div>';
+h+='<div class="btn-row"><button class="btn btn-primary" onclick="saveMetaSettings(this)">Lưu cài đặt</button><button class="btn btn-ghost" onclick="checkMetaTokenPermissions(this)">Kiểm tra quyền token</button></div>';
+h+='<div id="token-check-result"></div>';
+h+='</div>';
+h+='<div class="form-card"><h3>Thông tin ngân hàng (phiếu thanh toán)</h3>';
+h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
+h+='<div><div style="font-size:12px;font-weight:500;color:var(--green);margin-bottom:8px;">STK doanh nghiệp (có VAT)</div>';
+h+='<div style="font-size:12px;color:var(--tx2);line-height:1.8;">Ngân hàng: '+esc(BANK_PROFILES.business.bank)+'<br>STK: '+esc(BANK_PROFILES.business.accountNo)+'<br>Chủ TK: '+esc(BANK_PROFILES.business.accountName)+'</div></div>';
+h+='<div><div style="font-size:12px;font-weight:500;color:var(--blue);margin-bottom:8px;">STK cá nhân (không VAT)</div>';
+h+='<div style="font-size:12px;color:var(--tx2);line-height:1.8;">Ngân hàng: '+esc(BANK_PROFILES.personal.bank)+'<br>STK: '+esc(BANK_PROFILES.personal.accountNo)+'<br>Chủ TK: '+esc(BANK_PROFILES.personal.accountName)+'</div></div>';
+h+='</div><div style="font-size:11px;color:var(--tx3);margin-top:10px;">Thông tin ngân hàng đang hardcode trong code. Liên hệ dev để thay đổi.</div></div>';
+return h;}
+
+async function saveMetaSettings(btn){
+if(!needAuth())return;
+btn.disabled=true;btn.textContent='Đang lưu...';
+var token=document.getElementById('set-meta-token').value.trim();
+var bizId=document.getElementById('set-business-id').value.trim();
+var gsId=document.getElementById('set-global-scope').value.trim();
+var ok1=await saveAppSetting('META_TOKEN',token);
+var ok2=await saveAppSetting('META_BUSINESS_ID',bizId);
+var ok3=await saveAppSetting('META_GLOBAL_SCOPE_ID',gsId);
+if(ok1&&ok2&&ok3){
+META_TOKEN=token;META_BUSINESS_ID=bizId;META_GLOBAL_SCOPE_ID=gsId;
+toast('Đã lưu cài đặt Meta!',true);
+}else{toast('Có lỗi khi lưu',false);}
+btn.disabled=false;btn.textContent='Lưu cài đặt';
+render();}
+
 // ═══ AI CHAT (Multi-model: OpenAI + Claude) ═══
 var OPENAI_KEY=localStorage.getItem('hc_openai_key')||'';
 var CLAUDE_KEY=localStorage.getItem('hc_claude_key')||'';
@@ -2394,7 +2542,7 @@ await loadAll();
 setTimeout(hideSyncBar,3000);
 }catch(e){showSyncBar('⚠ Lỗi đồng bộ: '+e.message);setTimeout(hideSyncBar,5000);}}
 
-async function init(){try{await checkAuth();await loadAll();autoSync();}catch(e){document.getElementById('page').innerHTML='<div style="padding:40px;text-align:center;color:var(--tx2);"><div style="font-size:16px;font-weight:500;margin-bottom:8px;">Không thể kết nối</div><div style="font-size:13px;margin-bottom:16px;">'+esc(e.message)+'</div><button class="btn btn-primary" onclick="location.reload()">Thử lại</button></div>';}}
+async function init(){try{await checkAuth();await loadAppSettings();await loadAll();autoSync();}catch(e){document.getElementById('page').innerHTML='<div style="padding:40px;text-align:center;color:var(--tx2);"><div style="font-size:16px;font-weight:500;margin-bottom:8px;">Không thể kết nối</div><div style="font-size:13px;margin-bottom:16px;">'+esc(e.message)+'</div><button class="btn btn-primary" onclick="location.reload()">Thử lại</button></div>';}}
 init();
 </script>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){});}</script>
