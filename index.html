@@ -701,7 +701,7 @@ var META_GLOBAL_SCOPE_ID='';
 var CL={purple:{c:'var(--purple)',bg:'var(--purple-bg)',tx:'var(--purple-tx)'},teal:{c:'var(--teal)',bg:'var(--teal-bg)',tx:'var(--teal-tx)'},coral:{c:'var(--coral)',bg:'var(--coral-bg)',tx:'var(--coral-tx)'},pink:{c:'var(--pink)',bg:'var(--pink-bg)',tx:'var(--pink-tx)'},blue:{c:'var(--blue)',bg:'var(--blue-bg)',tx:'var(--blue-tx)'},green:{c:'var(--green)',bg:'var(--green-bg)',tx:'var(--green-tx)'},amber:{c:'var(--amber)',bg:'var(--amber-bg)',tx:'var(--amber-tx)'}};
 function sc(c){return CL[c]||CL.blue;}
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,finTab=0,reconcileData=null,userRole='guest',userAllowedPages=null,allUserRoles=[];
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,finTab=0,reconcileData=null,userRole='guest',userAllowedPages=null,allUserRoles=[];
 var BANK_PROFILES={
 business:{bank:'Techcombank',bankCode:'TCB',accountNo:'68915555',accountNoDisplay:'68915555',accountName:'CONG TY TNHH HC QUANG CAO'},
 personal:{bank:'Techcombank',bankCode:'TCB',accountNo:'9188899999',accountNoDisplay:'9188 8999 99',accountName:'TRAN TRUC HUNG'}
@@ -843,6 +843,7 @@ if(appEl)appEl.style.gridTemplateColumns='';
 syncSidebarNav();
 if(curPage===0)el.innerHTML=p0();else if(curPage===1)el.innerHTML=p1();else if(curPage===2)el.innerHTML=p2();else if(curPage===3)el.innerHTML=p3();else if(curPage===4)el.innerHTML=p4();else if(curPage===5)el.innerHTML=p5();else if(curPage===6)el.innerHTML=p6();
 enhanceUI();
+if(curPage===1&&spendTab===0)restoreAdFilters();
 var aiFab=document.querySelector('.ai-fab');if(aiFab){aiFab.style.display=(curPage===3&&expandedClientId)?'none':'';}
 var adot=document.getElementById('alert-dot');if(adot){var ac=getMessAlerts().length;adot.style.background=ac?'var(--red)':'var(--green)';adot.style.animation=ac?'pulse 2s infinite':'none';}}
 
@@ -1820,14 +1821,14 @@ h+='<div class="sum-card"><div class="sum-label">Dùng chung</div><div class="su
 h+='<div class="ad-toolbar">';
 h+='<div class="ad-toolbar-main">';
 h+='<input type="date" id="ad-view-date" value="'+adViewDate+'" onchange="adViewDate=this.value;render();" class="fi ad-toolbar-date">';
-h+='<input type="text" id="search-ad" placeholder="Tìm tài khoản, khách hàng..." oninput="filterAdTable()" class="fi ad-toolbar-search">';
+h+='<input type="text" id="search-ad" placeholder="Tìm tài khoản, khách hàng..." value="'+esc(adSearchText)+'" oninput="filterAdTable()" class="fi ad-toolbar-search">';
 h+='<select id="filter-staff" onchange="filterAdTable()" class="fi ad-toolbar-filter"><option value="">Tất cả nhân viên</option>';
-staffList.forEach(function(s){h+='<option value="'+s.id+'">'+esc(s.short_name)+'</option>';});
-h+='<option value="none">— Chưa gán —</option></select>';
+staffList.forEach(function(s){h+='<option value="'+s.id+'"'+(s.id===adFilterStaff?' selected':'')+'>'+esc(s.short_name)+'</option>';});
+h+='<option value="none"'+(adFilterStaff==='none'?' selected':'')+'>— Chưa gán —</option></select>';
 h+='<select id="filter-client" onchange="filterAdTable()" class="fi ad-toolbar-filter"><option value="">Tất cả khách hàng</option>';
-clientList.forEach(function(c){h+='<option value="'+c.id+'">'+esc(c.name)+'</option>';});
-h+='<option value="none">— Chưa phân loại —</option></select>';
-h+='<select id="filter-status" onchange="filterAdTable()" class="fi ad-toolbar-filter"><option value="">Tất cả tình trạng</option><option value="1">● Hoạt động</option><option value="2">● Vô hiệu hoá</option><option value="3">● Cần thanh toán</option></select>';
+clientList.forEach(function(c){h+='<option value="'+c.id+'"'+(c.id===adFilterClient?' selected':'')+'>'+esc(c.name)+'</option>';});
+h+='<option value="none"'+(adFilterClient==='none'?' selected':'')+'>— Chưa phân loại —</option></select>';
+h+='<select id="filter-status" onchange="filterAdTable()" class="fi ad-toolbar-filter"><option value="">Tất cả tình trạng</option><option value="1"'+(adFilterStatus==='1'?' selected':'')+'>● Hoạt động</option><option value="2"'+(adFilterStatus==='2'?' selected':'')+'>● Vô hiệu hoá</option><option value="3"'+(adFilterStatus==='3'?' selected':'')+'>● Cần thanh toán</option></select>';
 h+='<span class="ad-toolbar-count" id="filter-count">'+adList.length+'/'+adList.length+' tài khoản</span></div>';
 h+='<div class="ad-toolbar-actions"><span class="ad-toolbar-note"><span class="ad-toolbar-note-dot"></span>Meta và chi tiêu tự đồng bộ khi mở trang</span><button class="btn btn-sm btn-add-account" onclick="toggleAddTk()"><span class="btn-add-account-plus">+</span><span>Thêm tài khoản</span></button></div></div>';
 // Add TK form (hidden by default)
@@ -2007,11 +2008,19 @@ h+='<div style="display:flex;gap:8px;margin-top:10px;"><button class="btn btn-re
 return h;}
 
 // ═══ FILTER & SORT ═══
+function restoreAdFilters(){
+var search=document.getElementById('search-ad'),staff=document.getElementById('filter-staff'),client=document.getElementById('filter-client'),status=document.getElementById('filter-status');
+if(search)search.value=adSearchText;
+if(staff)staff.value=adFilterStaff;
+if(client)client.value=adFilterClient;
+if(status)status.value=adFilterStatus;
+filterAdTable(true);
+}
 function filterAdTable(){
-var sf=document.getElementById('filter-staff').value;
-var sc2=document.getElementById('filter-client').value;
-var ss=document.getElementById('filter-status').value;
-var sq=(document.getElementById('search-ad').value||'').toLowerCase();
+var sfEl=document.getElementById('filter-staff'),scEl=document.getElementById('filter-client'),ssEl=document.getElementById('filter-status'),sqEl=document.getElementById('search-ad');
+if(!sfEl||!scEl||!ssEl||!sqEl)return;
+var sf=sfEl.value,sc2=scEl.value,ss=ssEl.value,sq=(sqEl.value||'').toLowerCase();
+adFilterStaff=sf;adFilterClient=sc2;adFilterStatus=ss;adSearchText=sqEl.value||'';
 var shown=0,total=0;
 document.querySelectorAll('.ad-row').forEach(function(r){
 total++;
@@ -2030,8 +2039,8 @@ if(sc2){var sel2=document.getElementById('filter-client');chips.push(sel2.option
 if(ss){var sel3=document.getElementById('filter-status');chips.push(sel3.options[sel3.selectedIndex].text);}
 var ce=document.getElementById('active-chips');
 if(ce)ce.innerHTML=chips.map(function(c){return'<span class="chip">'+c+' <span class="x" onclick="clearFilters()">×</span></span>';}).join('');}
-function clearFilters(){document.getElementById('filter-staff').value='';document.getElementById('filter-client').value='';document.getElementById('filter-status').value='';filterAdTable();}
-function sortAd(col){if(adSortCol===col)adSortDir=adSortDir==='desc'?'asc':'desc';else{adSortCol=col;adSortDir=col==='spend'?'desc':'asc';}if(curPage===1){render();filterAdTable();return;}var el=document.getElementById('ac');if(el)el.innerHTML=rat();}
+function clearFilters(){adSearchText='';adFilterStaff='';adFilterClient='';adFilterStatus='';var s=document.getElementById('search-ad');if(s)s.value='';document.getElementById('filter-staff').value='';document.getElementById('filter-client').value='';document.getElementById('filter-status').value='';filterAdTable();}
+function sortAd(col){if(adSortCol===col)adSortDir=adSortDir==='desc'?'asc':'desc';else{adSortCol=col;adSortDir=col==='spend'?'desc':'asc';}if(curPage===1){render();return;}var el=document.getElementById('ac');if(el)el.innerHTML=rat();}
 function toggleCheckAll(v){document.querySelectorAll('.ad-check').forEach(function(c){c.checked=v;});}
 function toggleAddTk(){var f=document.getElementById('add-tk-form');if(f)f.style.display=f.style.display==='none'?'block':'none';}
 async function saveManualSpend(adId){
