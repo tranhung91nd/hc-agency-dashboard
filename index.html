@@ -701,7 +701,7 @@ var META_GLOBAL_SCOPE_ID='';
 var CL={purple:{c:'var(--purple)',bg:'var(--purple-bg)',tx:'var(--purple-tx)'},teal:{c:'var(--teal)',bg:'var(--teal-bg)',tx:'var(--teal-tx)'},coral:{c:'var(--coral)',bg:'var(--coral-bg)',tx:'var(--coral-tx)'},pink:{c:'var(--pink)',bg:'var(--pink-bg)',tx:'var(--pink-tx)'},blue:{c:'var(--blue)',bg:'var(--blue-bg)',tx:'var(--blue-tx)'},green:{c:'var(--green)',bg:'var(--green-bg)',tx:'var(--green-tx)'},amber:{c:'var(--amber)',bg:'var(--amber-bg)',tx:'var(--amber-tx)'}};
 function sc(c){return CL[c]||CL.blue;}
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,finTab=0,reconcileData=null,userRole='guest',userAllowedPages=null,allUserRoles=[];
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,finTab=0,reconcileData=null,userRole='guest',userAllowedPages=null,allUserRoles=[];
 var BANK_PROFILES={
 business:{bank:'Techcombank',bankCode:'TCB',accountNo:'68915555',accountNoDisplay:'68915555',accountName:'CONG TY TNHH HC QUANG CAO'},
 personal:{bank:'Techcombank',bankCode:'TCB',accountNo:'9188899999',accountNoDisplay:'9188 8999 99',accountName:'TRAN TRUC HUNG'}
@@ -743,6 +743,37 @@ return{fee:fee,vat:vat,total:fee+vat,hasVat:hasVat,bank:bank,content:getTransfer
 function getVietQrImageUrl(c,month,amount){
 var info=getInvoiceTotals(c,month,amount),bank=info.bank;
 return 'https://img.vietqr.io/image/'+bank.bankCode+'-'+bank.accountNo+'-compact2.png?amount='+info.total+'&addInfo='+encodeURIComponent(info.content)+'&accountName='+encodeURIComponent(bank.accountName);
+}
+function clientFilterMatch(row,month){
+var c=row.c,sp=row.spend,search=String(clientSearchText||'').toLowerCase().trim();
+if(search){
+var hay=[c.name,c.contact_person,c.campaign_keyword].map(function(v){return String(v||'').toLowerCase();}).join(' ');
+if(hay.indexOf(search)<0)return false;
+}
+if(clientFilterPayment==='paid'&&c.payment_status!=='paid')return false;
+if(clientFilterPayment==='unpaid'&&c.payment_status==='paid')return false;
+if(clientFilterVat==='vat'&&!getClientVatFlag(c))return false;
+if(clientFilterVat==='no_vat'&&getClientVatFlag(c))return false;
+if(clientFilterStatus&&c.status!==clientFilterStatus)return false;
+if(clientFilterSpend==='has_spend'&&sp<=0)return false;
+if(clientFilterSpend==='no_spend'&&sp>0)return false;
+return true;
+}
+function sortClientRows(rows,month){
+rows.sort(function(a,b){
+if(clientSortMode==='fee_desc')return getEffectiveServiceFee(b.c.id,month,b.c.service_fee)-getEffectiveServiceFee(a.c.id,month,a.c.service_fee)||a.c.name.localeCompare(b.c.name);
+if(clientSortMode==='name_asc')return a.c.name.localeCompare(b.c.name);
+if(clientSortMode==='unpaid_first'){var ap=a.c.payment_status==='paid'?1:0,bp=b.c.payment_status==='paid'?1:0;return ap-bp||b.spend-a.spend||a.c.name.localeCompare(b.c.name);}
+return b.spend-a.spend||a.c.name.localeCompare(b.c.name);
+});
+}
+function clientFilterLabel(kind,val){
+if(kind==='payment')return val==='paid'?'Đã thanh toán':'Chưa thanh toán';
+if(kind==='vat')return val==='vat'?'Có VAT':'Không VAT';
+if(kind==='status')return val==='active'?'Đang hoạt động':(val==='paused'?'Tạm dừng':'Dừng');
+if(kind==='spend')return val==='has_spend'?'Có chi tiêu':'Chưa có chi tiêu';
+if(kind==='sort')return {spend_desc:'Chi tiêu cao nhất',fee_desc:'Phí DV cao nhất',name_asc:'Tên A-Z',unpaid_first:'Chưa thanh toán trước'}[val]||'';
+return val||'';
 }
 function enhanceUI(){
 var page=document.getElementById('page');if(!page)return;
@@ -1127,15 +1158,35 @@ dailyData.filter(function(d){return d.report_date.substring(0,7)===ms;}).forEach
 var cid=d.matched_client_id||null;
 if(!cid){var aa=adList.find(function(a){return a.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
 if(cid&&cs[cid])cs[cid].spend+=d.spend_amount;});
-var rows=clientList.map(function(c){return{c:c,spend:cs[c.id]?cs[c.id].spend:0};});
-rows.sort(function(a,b){return b.spend-a.spend||a.c.name.localeCompare(b.c.name);});
+var allRows=clientList.map(function(c){return{c:c,spend:cs[c.id]?cs[c.id].spend:0};});
+var rows=allRows.filter(function(row){return clientFilterMatch(row,ms);});
+sortClientRows(rows,ms);
 var maxSpend=Math.max.apply(null,rows.map(function(r){return r.spend;}))||1;
 var totalSpend=rows.reduce(function(t,r){return t+r.spend;},0);
 var totalFee=rows.reduce(function(t,r){return t+getEffectiveServiceFee(r.c.id,ms,r.c.service_fee);},0);
+if(expandedClientId&&!rows.some(function(r){return r.c.id===expandedClientId;}))expandedClientId=null;
 var h='<div class="page-title">Khách hàng</div><div class="page-sub">Tổng '+clientList.length+'</div>';
 h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;"><span style="font-size:12px;color:var(--tx3);">Tháng:</span><select class="fi" style="width:140px;" onchange="clientMonth=this.value;expandedClientId=null;render();">';
 monthList.forEach(function(m){h+='<option value="'+m+'"'+(m===ms?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
 h+='</select><span style="font-size:12px;color:var(--tx3);margin-left:8px;">'+nd+' ngày dữ liệu</span></div>';
+h+='<div class="ad-toolbar">';
+h+='<div class="ad-toolbar-main">';
+h+='<input type="text" id="client-search" placeholder="Tìm khách hàng, liên hệ..." value="'+esc(clientSearchText)+'" oninput="clientSearchText=this.value;expandedClientId=null;render();" class="fi ad-toolbar-search">';
+h+='<select class="fi ad-toolbar-filter" onchange="clientFilterPayment=this.value;expandedClientId=null;render();"><option value="">Tất cả thanh toán</option><option value="paid"'+(clientFilterPayment==='paid'?' selected':'')+'>Đã thanh toán</option><option value="unpaid"'+(clientFilterPayment==='unpaid'?' selected':'')+'>Chưa thanh toán</option></select>';
+h+='<select class="fi ad-toolbar-filter" onchange="clientFilterVat=this.value;expandedClientId=null;render();"><option value="">Tất cả VAT</option><option value="vat"'+(clientFilterVat==='vat'?' selected':'')+'>Có VAT</option><option value="no_vat"'+(clientFilterVat==='no_vat'?' selected':'')+'>Không VAT</option></select>';
+h+='<select class="fi ad-toolbar-filter" onchange="clientFilterStatus=this.value;expandedClientId=null;render();"><option value="">Tất cả trạng thái</option><option value="active"'+(clientFilterStatus==='active'?' selected':'')+'>Đang hoạt động</option><option value="paused"'+(clientFilterStatus==='paused'?' selected':'')+'>Tạm dừng</option><option value="stopped"'+(clientFilterStatus==='stopped'?' selected':'')+'>Dừng</option></select>';
+h+='<select class="fi ad-toolbar-filter" onchange="clientFilterSpend=this.value;expandedClientId=null;render();"><option value="">Tất cả chi tiêu</option><option value="has_spend"'+(clientFilterSpend==='has_spend'?' selected':'')+'>Có chi tiêu</option><option value="no_spend"'+(clientFilterSpend==='no_spend'?' selected':'')+'>Chưa có chi tiêu</option></select>';
+h+='<select class="fi ad-toolbar-filter" onchange="clientSortMode=this.value;render();"><option value="spend_desc"'+(clientSortMode==='spend_desc'?' selected':'')+'>Chi tiêu cao nhất</option><option value="fee_desc"'+(clientSortMode==='fee_desc'?' selected':'')+'>Phí DV cao nhất</option><option value="name_asc"'+(clientSortMode==='name_asc'?' selected':'')+'>Tên A-Z</option><option value="unpaid_first"'+(clientSortMode==='unpaid_first'?' selected':'')+'>Chưa thanh toán trước</option></select>';
+h+='<span class="ad-toolbar-count">'+rows.length+'/'+clientList.length+' khách hàng</span></div>';
+h+='<div class="ad-toolbar-actions"><button class="btn btn-ghost btn-sm" onclick="clearClientFilters()">Xóa bộ lọc</button></div></div>';
+var clientChips=[];
+if(clientSearchText)clientChips.push('Tìm: '+esc(clientSearchText));
+if(clientFilterPayment)clientChips.push(clientFilterLabel('payment',clientFilterPayment));
+if(clientFilterVat)clientChips.push(clientFilterLabel('vat',clientFilterVat));
+if(clientFilterStatus)clientChips.push(clientFilterLabel('status',clientFilterStatus));
+if(clientFilterSpend)clientChips.push(clientFilterLabel('spend',clientFilterSpend));
+if(clientSortMode&&clientSortMode!=='spend_desc')clientChips.push(clientFilterLabel('sort',clientSortMode));
+h+='<div class="active-chips">'+clientChips.map(function(c){return'<span class="chip">'+c+' <span class="x" onclick="clearClientFilters()">×</span></span>';}).join('')+'</div>';
 h+='<div class="table-wrap"><table><thead><tr><th style="width:30px;">#</th><th>Khách hàng</th><th>Liên hệ</th><th>Thanh toán</th><th style="text-align:right;color:var(--teal);font-weight:500;">Chi tiêu '+mLabel+'</th><th style="text-align:right;">Phí dịch vụ</th><th>Trạng thái</th><th style="text-align:center;">Phiếu thanh toán</th></tr></thead><tbody>';
 rows.forEach(function(row,i){
 var c=row.c,sp=row.spend,invoice=getInvoiceTotals(c,ms);
@@ -1192,8 +1243,9 @@ h+='<button class="invoice-btn" type="button" style="background:linear-gradient(
 }}
 h+='</div></div></td></tr>';}
 });
-h+='</tbody><tfoot><tr style="background:var(--bg2);font-weight:600;border-top:1px solid var(--bd2);"><td></td><td>Tổng '+clientList.length+' KH</td><td></td><td></td><td class="mono" style="text-align:right;color:var(--teal);font-size:15px;">'+fm(totalSpend)+'</td><td class="mono" style="text-align:right;">'+fm(totalFee)+'</td><td></td><td></td></tr></tfoot></table></div>';
+h+='</tbody><tfoot><tr style="background:var(--bg2);font-weight:600;border-top:1px solid var(--bd2);"><td></td><td>Tổng '+rows.length+'/'+clientList.length+' KH</td><td></td><td></td><td class="mono" style="text-align:right;color:var(--teal);font-size:15px;">'+fm(totalSpend)+'</td><td class="mono" style="text-align:right;">'+fm(totalFee)+'</td><td></td><td></td></tr></tfoot></table></div>';
 return h;}
+function clearClientFilters(){clientSearchText='';clientFilterPayment='';clientFilterVat='';clientFilterStatus='';clientFilterSpend='';clientSortMode='spend_desc';expandedClientId=null;render();}
 function toggleClientInv(id){expandedClientId=(expandedClientId===id)?null:id;render();}
 
 async function insertInvoiceIncomeTransaction(payload){
