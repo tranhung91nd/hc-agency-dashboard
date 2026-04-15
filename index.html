@@ -99,8 +99,8 @@ table{width:100%;border-collapse:collapse;min-width:500px;}th{text-align:left;pa
 .invoice-bank-title{font-size:14px;font-weight:700;color:var(--tx1);margin-bottom:6px;}
 .invoice-bank-lines{font-size:13px;color:var(--tx2);line-height:1.9;}
 .invoice-bank-lines strong{color:var(--tx1);}
-.invoice-actions{padding:16px 24px;background:#fff;border-top:1px solid rgba(15,23,42,.06);display:flex;justify-content:flex-end;gap:10px;position:relative;z-index:301;}
-.invoice-btn{min-width:110px;min-height:44px;border-radius:12px;border:1px solid rgba(15,23,42,.12);background:#fff;color:var(--tx2);font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;box-shadow:0 1px 3px rgba(15,23,42,.05);}
+.invoice-actions{padding:16px 24px;background:#fff;border-top:1px solid rgba(15,23,42,.06);display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;position:relative;z-index:301;overflow:visible;}
+.invoice-btn{min-width:110px;min-height:44px;border-radius:12px;border:1px solid rgba(15,23,42,.12);background:#fff;color:var(--tx2);font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;box-shadow:0 1px 3px rgba(15,23,42,.05);white-space:nowrap;position:relative;z-index:2;}
 .invoice-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(15,23,42,.10);background:#f8fafc;color:var(--tx1);}
 .invoice-btn:active{transform:translateY(0);box-shadow:0 1px 2px rgba(15,23,42,.06);}
 .vat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:700;line-height:1;}
@@ -723,6 +723,7 @@ function toggleSidebar(){document.getElementById('sidebar').classList.toggle('op
 function metaNum(v){var n=parseInt(v,10);return isNaN(n)?0:n;}
 function hasComparableSpendCap(a){return !!(a&&a.spend_cap&&a.amount_spent>=0&&a.amount_spent<=a.spend_cap);}
 function isMissingRelationError(err){return !!(err&&err.message&&/relation .* does not exist/i.test(err.message));}
+function isMissingColumnError(err){return !!(err&&err.message&&(/column .* does not exist/i.test(err.message)||/Could not find .* column/i.test(err.message)||/schema cache/i.test(err.message)));}
 function invoiceDomId(clientId){return String(clientId).replace(/[^A-Za-z0-9_-]/g,'_');}
 function monthKey(month){return (month||'').substring(0,7);}
 function normalizeMoneyInput(v){return metaNum(String(v||'').replace(/[^0-9]/g,''));}
@@ -1179,13 +1180,13 @@ h+='<div class="invoice-total"><span class="invoice-total-label">Tổng thanh to
 h+='</div>';
 h+='<div class="invoice-paybox"><div class="invoice-qr-wrap"><img id="invoice-qr-'+domId+'" src="'+qrUrl+'" alt="QR thanh toán '+esc(c.name)+'" onerror="this.style.display=\'none\';var fb=document.getElementById(\'invoice-qr-fallback-'+domId+'\');if(fb)fb.style.display=\'block\';"><div id="invoice-qr-fallback-'+domId+'" class="invoice-qr-fallback">Không tải được QR.<br>Vẫn có thể sao chép thông tin tài khoản.</div></div><div style="min-width:220px;flex:1 1 260px;"><div id="invoice-bank-title-'+domId+'" class="invoice-bank-title">'+getInvoiceBankTitle(invoice.hasVat,invoice.bank.bank)+'</div><div class="invoice-bank-lines">STK: <span id="invoice-account-no-'+domId+'">'+invoice.bank.accountNoDisplay+'</span><br><strong id="invoice-account-name-'+domId+'">'+esc(invoice.bank.accountName)+'</strong><br><span id="invoice-content-label-'+domId+'">'+getInvoiceContentLabel(invoice.hasVat)+'</span> <span id="invoice-content-'+domId+'">'+esc(invoice.content)+'</span></div></div></div>';
 h+='<div class="invoice-actions">';
-h+='<button id="invoice-copy-'+domId+'" class="invoice-btn" onclick="copyClientInvoice('+safeJsString(c.id)+','+safeJsString(ms)+','+sp+')">Sao chép</button>';
+h+='<button id="invoice-copy-'+domId+'" class="invoice-btn" type="button" onclick="event.preventDefault();event.stopPropagation();copyClientInvoice('+safeJsString(c.id)+','+safeJsString(ms)+','+sp+')">Sao chép</button>';
 h+='<button class="invoice-btn" type="button" onclick="downloadClientInvoice('+safeJsString(c.id)+','+safeJsString(ms)+','+sp+',this)">Tải ảnh</button>';
 if(authUser){
 if(c.payment_status==='paid'){
-h+='<button class="invoice-btn" style="border-color:var(--red);color:var(--red);background:#fff;" onmouseenter="this.style.background=\'var(--red-bg)\'" onmouseleave="this.style.background=\'#fff\'" onclick="undoClientPayment('+safeJsString(c.id)+','+safeJsString(ms)+',this)">Hủy thanh toán</button>';
+h+='<button class="invoice-btn" type="button" style="border-color:var(--red);color:var(--red);background:#fff;" onmouseenter="this.style.background=\'var(--red-bg)\'" onmouseleave="this.style.background=\'#fff\'" onclick="event.preventDefault();event.stopPropagation();undoClientPayment('+safeJsString(c.id)+','+safeJsString(ms)+',this)">Hủy thanh toán</button>';
 }else{
-h+='<button class="invoice-btn" style="background:linear-gradient(180deg,#10b981 0%,#059669 100%);color:#fff;border:none;box-shadow:0 2px 8px rgba(5,150,105,.3);min-width:160px;" onclick="confirmClientPayment('+safeJsString(c.id)+','+safeJsString(ms)+',this)">✓ Xác nhận thanh toán</button>';
+h+='<button class="invoice-btn" type="button" style="background:linear-gradient(180deg,#10b981 0%,#059669 100%);color:#fff;border:none;box-shadow:0 2px 8px rgba(5,150,105,.3);min-width:160px;" onclick="event.preventDefault();event.stopPropagation();confirmClientPayment('+safeJsString(c.id)+','+safeJsString(ms)+',this)">✓ Xác nhận thanh toán</button>';
 }}
 h+='</div></div></td></tr>';}
 });
@@ -1193,10 +1194,23 @@ h+='</tbody><tfoot><tr style="background:var(--bg2);font-weight:600;border-top:1
 return h;}
 function toggleClientInv(id){expandedClientId=(expandedClientId===id)?null:id;render();}
 
+async function insertInvoiceIncomeTransaction(payload){
+var r=await sb2.from('transaction').insert(Object.assign({},payload,{source:'invoice'}));
+if(r.error&&isMissingColumnError(r.error))r=await sb2.from('transaction').insert(payload);
+return r;
+}
+async function deleteInvoiceIncomeTransactions(clientId,month,note){
+var r=await sb2.from('transaction').delete().eq('client_id',clientId).eq('month',month).eq('source','invoice');
+if(r.error&&isMissingColumnError(r.error)){
+r=await sb2.from('transaction').delete().eq('client_id',clientId).eq('month',month).eq('txn_type','income').eq('category','service_fee').eq('note',note);
+}
+return r;
+}
 async function confirmClientPayment(clientId,month,btn){
 if(!needAuth())return;
 var c=clientList.find(function(x){return x.id===clientId;});if(!c)return;
 if(!confirm('Xác nhận '+esc(c.name)+' đã thanh toán?\nHệ thống sẽ tự tạo giao dịch Thu vào sổ thu chi.'))return;
+var oldText=btn?btn.textContent:'';
 if(btn){btn.disabled=true;btn.textContent='Đang xử lý...';}
 try{
 var feeInput=document.getElementById('client-fee-'+invoiceDomId(clientId));
@@ -1206,28 +1220,29 @@ var mk=monthKey(month),mLabel='T'+parseInt(mk.split('-')[1])+'/'+mk.split('-')[0
 var note='Phí DV '+mLabel+' — '+c.name;
 var r1=await sb2.from('client').update({payment_status:'paid'}).eq('id',clientId);
 if(r1.error){toast('Lỗi cập nhật KH: '+r1.error.message,false);return;}
-var r2=await sb2.from('transaction').insert({txn_date:td(),txn_type:'income',amount:info.total,category:'service_fee',client_id:clientId,staff_id:null,note:note,month:mk,source:'invoice'});
-if(r2.error){toast('Lỗi tạo giao dịch: '+r2.error.message,false);return;}
-toast('Đã xác nhận thanh toán + tạo giao dịch Thu: '+ff(info.total),true);
+var r2=await insertInvoiceIncomeTransaction({txn_date:td(),txn_type:'income',amount:info.total,category:'service_fee',client_id:clientId,staff_id:null,note:note,month:mk});
+if(r2.error)toast('Đã xác nhận thanh toán, nhưng lỗi tạo giao dịch Thu: '+r2.error.message,false);
+else toast('Đã xác nhận thanh toán + tạo giao dịch Thu: '+ff(info.total),true);
 await loadAll();render();
 }catch(e){toast('Lỗi: '+e.message,false);}
-finally{if(btn){btn.disabled=false;btn.textContent='Xác nhận thanh toán';}}}
+finally{if(btn){btn.disabled=false;btn.textContent=oldText||'✓ Xác nhận thanh toán';}}}
 
 async function undoClientPayment(clientId,month,btn){
 if(!needAuth())return;
 var c=clientList.find(function(x){return x.id===clientId;});if(!c)return;
 if(!confirm('Hủy thanh toán '+esc(c.name)+'?\nGiao dịch Thu tự động sẽ bị xóa khỏi sổ thu chi.'))return;
+var oldText=btn?btn.textContent:'';
 if(btn){btn.disabled=true;btn.textContent='Đang xử lý...';}
 try{
-var mk=monthKey(month);
+var mk=monthKey(month),mLabel='T'+parseInt(mk.split('-')[1])+'/'+mk.split('-')[0],note='Phí DV '+mLabel+' — '+c.name;
 var r1=await sb2.from('client').update({payment_status:'unpaid'}).eq('id',clientId);
 if(r1.error){toast('Lỗi: '+r1.error.message,false);return;}
-var r2=await sb2.from('transaction').delete().eq('client_id',clientId).eq('month',mk).eq('source','invoice');
+var r2=await deleteInvoiceIncomeTransactions(clientId,mk,note);
 if(r2.error)console.warn('Không xóa được giao dịch tự động:',r2.error.message);
 toast('Đã hủy thanh toán'+(r2.error?'':' + xóa giao dịch Thu tự động'),true);
 await loadAll();render();
 }catch(e){toast('Lỗi: '+e.message,false);}
-finally{if(btn){btn.disabled=false;btn.textContent='Hủy thanh toán';}}}
+finally{if(btn){btn.disabled=false;btn.textContent=oldText||'Hủy thanh toán';}}}
 function startEditFee(domId,clientId,month){
 if(!authUser){toast('Đăng nhập admin để sửa phí dịch vụ',false);return;}
 var display=document.getElementById('client-fee-display-'+domId);
