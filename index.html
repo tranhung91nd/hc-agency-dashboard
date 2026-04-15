@@ -714,6 +714,7 @@ function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/<
 function needAuth(){if(!authUser){toast('Cần đăng nhập',false);return false;}return true;}
 function needAdmin(){if(!isAdmin()){toast('Cần quyền Admin',false);return false;}return true;}
 function safeJsString(v){return JSON.stringify(v==null?'':String(v));}
+function safeJsAttrString(v){return safeJsString(v).replace(/"/g,'&quot;');}
 function vnDateStr(offset){var d=new Date(),u=d.getTime()+d.getTimezoneOffset()*60000+25200000+(offset||0),v=new Date(u);return v.getFullYear()+'-'+('0'+(v.getMonth()+1)).slice(-2)+'-'+('0'+v.getDate()).slice(-2);}
 function td(){return vnDateStr(0);}
 function gm(){return td().substring(0,7);}
@@ -1180,13 +1181,13 @@ h+='<div class="invoice-total"><span class="invoice-total-label">Tổng thanh to
 h+='</div>';
 h+='<div class="invoice-paybox"><div class="invoice-qr-wrap"><img id="invoice-qr-'+domId+'" src="'+qrUrl+'" alt="QR thanh toán '+esc(c.name)+'" onerror="this.style.display=\'none\';var fb=document.getElementById(\'invoice-qr-fallback-'+domId+'\');if(fb)fb.style.display=\'block\';"><div id="invoice-qr-fallback-'+domId+'" class="invoice-qr-fallback">Không tải được QR.<br>Vẫn có thể sao chép thông tin tài khoản.</div></div><div style="min-width:220px;flex:1 1 260px;"><div id="invoice-bank-title-'+domId+'" class="invoice-bank-title">'+getInvoiceBankTitle(invoice.hasVat,invoice.bank.bank)+'</div><div class="invoice-bank-lines">STK: <span id="invoice-account-no-'+domId+'">'+invoice.bank.accountNoDisplay+'</span><br><strong id="invoice-account-name-'+domId+'">'+esc(invoice.bank.accountName)+'</strong><br><span id="invoice-content-label-'+domId+'">'+getInvoiceContentLabel(invoice.hasVat)+'</span> <span id="invoice-content-'+domId+'">'+esc(invoice.content)+'</span></div></div></div>';
 h+='<div class="invoice-actions">';
-h+='<button id="invoice-copy-'+domId+'" class="invoice-btn" type="button" onclick="event.preventDefault();event.stopPropagation();copyClientInvoice('+safeJsString(c.id)+','+safeJsString(ms)+','+sp+')">Sao chép</button>';
-h+='<button class="invoice-btn" type="button" onclick="downloadClientInvoice('+safeJsString(c.id)+','+safeJsString(ms)+','+sp+',this)">Tải ảnh</button>';
+h+='<button id="invoice-copy-'+domId+'" class="invoice-btn" type="button" onclick="copyClientInvoice('+safeJsAttrString(c.id)+','+safeJsAttrString(ms)+','+sp+')">Sao chép</button>';
+h+='<button class="invoice-btn" type="button" onclick="downloadClientInvoice('+safeJsAttrString(c.id)+','+safeJsAttrString(ms)+','+sp+',this)">Tải ảnh</button>';
 if(authUser){
 if(c.payment_status==='paid'){
-h+='<button class="invoice-btn" type="button" style="border-color:var(--red);color:var(--red);background:#fff;" onmouseenter="this.style.background=\'var(--red-bg)\'" onmouseleave="this.style.background=\'#fff\'" onclick="event.preventDefault();event.stopPropagation();undoClientPayment('+safeJsString(c.id)+','+safeJsString(ms)+',this)">Hủy thanh toán</button>';
+h+='<button class="invoice-btn" type="button" style="border-color:var(--red);color:var(--red);background:#fff;" onmouseenter="this.style.background=\'var(--red-bg)\'" onmouseleave="this.style.background=\'#fff\'" onclick="undoClientPayment('+safeJsAttrString(c.id)+','+safeJsAttrString(ms)+',this)">Hủy thanh toán</button>';
 }else{
-h+='<button class="invoice-btn" type="button" style="background:linear-gradient(180deg,#10b981 0%,#059669 100%);color:#fff;border:none;box-shadow:0 2px 8px rgba(5,150,105,.3);min-width:160px;" onclick="event.preventDefault();event.stopPropagation();confirmClientPayment('+safeJsString(c.id)+','+safeJsString(ms)+',this)">✓ Xác nhận thanh toán</button>';
+h+='<button class="invoice-btn" type="button" style="background:linear-gradient(180deg,#10b981 0%,#059669 100%);color:#fff;border:none;box-shadow:0 2px 8px rgba(5,150,105,.3);min-width:160px;" onclick="confirmClientPayment('+safeJsAttrString(c.id)+','+safeJsAttrString(ms)+',this)">✓ Xác nhận thanh toán</button>';
 }}
 h+='</div></div></td></tr>';}
 });
