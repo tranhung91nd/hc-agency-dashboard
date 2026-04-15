@@ -2158,38 +2158,107 @@ alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,account_
 alerts.sort(function(a,b){return b.cost_per_mess-a.cost_per_mess;});
 return alerts;}
 
+async function runLimited(items,limit,worker){
+var out=new Array(items.length),next=0,count=Math.min(limit,items.length);
+var runners=Array.from({length:count},async function(){
+while(next<items.length){var idx=next++;out[idx]=await worker(items[idx],idx);}
+});
+await Promise.all(runners);
+return out;
+}
+function chunkArray(arr,size){var chunks=[];for(var i=0;i<arr.length;i+=size)chunks.push(arr.slice(i,i+size));return chunks;}
+function buildSharedSpendRows(a,rows,date){
+var combo={};
+(rows||[]).forEach(function(c){var spend=Math.round(parseFloat(c.spend||0));if(!spend)return;
+var parts=(c.campaign_name||'').split('_'),sp=(parts[0]||'').trim(),cp=(parts[2]||'').trim();
+var spLower=sp.toLowerCase(),cpLower=cp.toLowerCase();
+var ms2=allStaff.find(function(s){return s.campaign_keyword&&spLower===s.campaign_keyword.toLowerCase();});
+var mc=clientList.find(function(cl){return cl.campaign_keyword&&cpLower.indexOf(cl.campaign_keyword.toLowerCase())>=0;});
+if(ms2){var key=ms2.id+'|'+(mc?mc.id:'');if(!combo[key])combo[key]={ad_account_id:a.id,report_date:date,spend_amount:0,staff_id:ms2.id,matched_client_id:mc?mc.id:null};combo[key].spend_amount+=spend;}
+});
+return Object.keys(combo).map(function(k){return combo[k];});
+}
+async function fetchSharedSpendRowsBatch(shared,date){
+var rows=[],errors=0;
+for(var b=0;b<shared.length;b+=50){
+var chunk=shared.slice(b,b+50);
+var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.fb_account_id+'/insights?level=campaign&fields=campaign_name,spend&time_range={"since":"'+date+'","until":"'+date+'"}&limit=500'};});
+try{
+var bResp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
+var bResults=await bResp.json();
+for(var j=0;j<chunk.length;j++){
+try{
+var body=JSON.parse((bResults[j]&&bResults[j].body)||'{}');
+if(body.error){errors++;continue;}
+rows=rows.concat(buildSharedSpendRows(chunk[j],body.data||[],date));
+}catch(e){errors++;}
+}
+}catch(e){errors+=chunk.length;}
+}
+return{rows:rows,errors:errors};
+}
+async function replaceSharedSpendRows(shared,date){
+var ids=shared.map(function(a){return a.id;});
+if(!ids.length)return{saved:0,errors:0};
+var oldShared=await sb2.from('daily_spend').select('*').in('ad_account_id',ids).eq('report_date',date).not('staff_id','is',null);
+var fetched=await fetchSharedSpendRowsBatch(shared,date),errors=fetched.errors,saved=0;
+var del=await sb2.from('daily_spend').delete().in('ad_account_id',ids).eq('report_date',date).not('staff_id','is',null);
+if(del.error){errors+=ids.length;return{saved:0,errors:errors};}
+var batches=chunkArray(fetched.rows,500);
+for(var i=0;i<batches.length;i++){
+var ins=await sb2.from('daily_spend').insert(batches[i]);
+if(ins.error){errors+=batches[i].length;}
+else saved+=batches[i].length;
+}
+if(errors&&oldShared.data&&oldShared.data.length){
+var restoreS=oldShared.data.map(function(row){var cp=Object.assign({},row);delete cp.id;return cp;});
+await sb2.from('daily_spend').insert(restoreS);
+}
+return{saved:saved,errors:errors};
+}
+async function fetchCampaignMessRows(a,d3,d1){
+var campUrl='https://graph.facebook.com/v25.0/'+a.fb_account_id+'/campaigns?fields=id,effective_status&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=500&access_token='+META_TOKEN;
+var insightsUrl='https://graph.facebook.com/v25.0/'+a.fb_account_id+'/insights?level=campaign&fields=campaign_id,campaign_name,spend,actions&time_range={"since":"'+d3+'","until":"'+d1+'"}&time_increment=1&limit=500&access_token='+META_TOKEN;
+var res=await Promise.all([fetch(campUrl),fetch(insightsUrl)]);
+var campData=await res[0].json(),data=await res[1].json();
+if(campData.error)throw new Error(campData.error.message||'Meta campaign error');
+if(data.error)throw new Error(data.error.message||'Meta insights error');
+var activeIds=new Set();
+(campData.data||[]).forEach(function(c){activeIds.add(c.id);});
+return (data.data||[]).map(function(r){
+var spend=Math.round(parseFloat(r.spend||0)),messCount=0;
+if(r.actions){r.actions.forEach(function(act){
+if(act.action_type&&(act.action_type.indexOf('messaging_conversation_started')>=0||act.action_type==='onsite_conversion.messaging_conversation_started_7d'))messCount+=parseInt(act.value)||0;});}
+return{ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount,campaign_status:activeIds.has(r.campaign_id)?'ACTIVE':'PAUSED'};
+});
+}
 async function syncCampaignMess(btn){
+var oldText=btn?btn.textContent:'Quét giá mess';
 if(btn){btn.disabled=true;btn.textContent='Đang quét...';}
 var d1=vnDateStr(-86400000),d3=vnDateStr(-259200000);
 var mapped=adList.filter(function(a){return a.fb_account_id&&a.max_mess_cost;});
-if(!mapped.length){toast('Chưa có TK nào đặt giá mess tối đa',false);if(btn){btn.disabled=false;btn.textContent='Quét giá mess';}return;}
-var saved=0,errors=0;
-for(var i=0;i<mapped.length;i++){
-var a=mapped[i];
+if(!mapped.length){toast('Chưa có TK nào đặt giá mess tối đa',false);if(btn){btn.disabled=false;btn.textContent=oldText;}return;}
+var rowsToSave=[],errors=0,done=0,limit=8;
 try{
-// 1. Lấy danh sách campaign đang ACTIVE
-var activeIds=new Set();
-var campUrl='https://graph.facebook.com/v25.0/'+a.fb_account_id+'/campaigns?fields=id,effective_status&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=500&access_token='+META_TOKEN;
-var campResp=await fetch(campUrl);var campData=await campResp.json();
-if(campData.data)(campData.data).forEach(function(c){activeIds.add(c.id);});
-// 2. Lấy insights cho 3 ngày
-var url='https://graph.facebook.com/v25.0/'+a.fb_account_id+'/insights?level=campaign&fields=campaign_id,campaign_name,spend,actions&time_range={"since":"'+d3+'","until":"'+d1+'"}&time_increment=1&limit=500&access_token='+META_TOKEN;
-var resp=await fetch(url);var data=await resp.json();
-if(data.error){errors++;continue;}
-var rows=data.data||[];
-for(var j=0;j<rows.length;j++){
-var r=rows[j];
-var spend=Math.round(parseFloat(r.spend||0));
-var messCount=0;
-if(r.actions){r.actions.forEach(function(act){
-if(act.action_type&&(act.action_type.indexOf('messaging_conversation_started')>=0||act.action_type==='onsite_conversion.messaging_conversation_started_7d'))messCount+=parseInt(act.value)||0;});}
-var status=activeIds.has(r.campaign_id)?'ACTIVE':'PAUSED';
-var upsert=await sb2.from('campaign_daily_mess').upsert({ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount,campaign_status:status},{onConflict:'ad_account_id,campaign_id,report_date'});
-if(!upsert.error)saved++;else errors++;}
-}catch(e){errors++;}}
-if(btn){btn.disabled=false;btn.textContent='Quét giá mess';}
+await runLimited(mapped,limit,async function(a){
+try{
+var rows=await fetchCampaignMessRows(a,d3,d1);
+rowsToSave=rowsToSave.concat(rows);
+}catch(e){errors++;console.warn('[Mess sync] '+(a.account_name||a.fb_account_id)+':',e.message);}
+done++;
+if(btn)btn.textContent='Đang quét '+done+'/'+mapped.length;
+});
+var saved=0,batches=chunkArray(rowsToSave,500);
+for(var i=0;i<batches.length;i++){
+if(btn)btn.textContent='Đang lưu '+(i+1)+'/'+batches.length;
+var upsert=await sb2.from('campaign_daily_mess').upsert(batches[i],{onConflict:'ad_account_id,campaign_id,report_date'});
+if(upsert.error){errors+=batches[i].length;console.warn('[Mess sync upsert]',upsert.error.message);}
+else saved+=batches[i].length;
+}
 toast('Quét xong: '+saved+' dòng'+(errors?' · '+errors+' lỗi':''),!errors);
-await loadAll();}
+await loadAll();
+}catch(e){toast('Lỗi quét giá mess: '+e.message,false);}
+finally{if(btn){btn.disabled=false;btn.textContent=oldText;}}}
 
 // ═══ P6: CẢNH BÁO GIÁ MESS ═══
 function p6(){
@@ -2278,26 +2347,9 @@ if(!r.error){saved++;}else{if(oldData.data&&oldData.data.length){var restore=old
 })(j);
 if(tasks.length>=10||j===bResults.length-1){await Promise.all(tasks);tasks=[];}}
 }catch(e){errors+=chunk.length;}}
-// === TK dùng chung: song song 5 TK ===
-var sFns=shared.map(function(a){return async function(){try{
-var url='https://graph.facebook.com/v25.0/'+a.fb_account_id+'/insights?level=campaign&fields=campaign_name,spend&time_range={"since":"'+date+'","until":"'+date+'"}&limit=500&access_token='+META_TOKEN;
-var resp=await fetch(url);var data=await resp.json();
-if(data.error){errors++;return;}
-var oldShared=await sb2.from('daily_spend').select('*').eq('ad_account_id',a.id).eq('report_date',date).not('staff_id','is',null);
-await sb2.from('daily_spend').delete().eq('ad_account_id',a.id).eq('report_date',date).not('staff_id','is',null);
-var combo={};
-(data.data||[]).forEach(function(c){var spend=Math.round(parseFloat(c.spend||0));if(!spend)return;
-var parts=(c.campaign_name||'').split('_');var sp=(parts[0]||'').trim();var cp=(parts[2]||'').trim();
-var ms2=allStaff.find(function(s){return s.campaign_keyword&&sp.toLowerCase()===s.campaign_keyword.toLowerCase();});
-var mc=clientList.find(function(cl){return cl.campaign_keyword&&cp.toLowerCase().indexOf(cl.campaign_keyword.toLowerCase())>=0;});
-if(ms2){var key=ms2.id+'|'+(mc?mc.id:'');if(!combo[key])combo[key]={sid:ms2.id,cid:mc?mc.id:null,spend:0};combo[key].spend+=spend;}});
-var ks=Object.keys(combo);var insertOk=true;
-for(var k=0;k<ks.length;k++){var cb=combo[ks[k]];
-var r=await sb2.from('daily_spend').insert({ad_account_id:a.id,report_date:date,spend_amount:cb.spend,staff_id:cb.sid,matched_client_id:cb.cid});
-if(!r.error)saved++;else{errors++;insertOk=false;}}
-if(!insertOk&&oldShared.data&&oldShared.data.length){var restoreS=oldShared.data.map(function(row){var cp2=Object.assign({},row);delete cp2.id;return cp2;});await sb2.from('daily_spend').insert(restoreS);}
-}catch(e){errors++;}};});
-for(var si=0;si<sFns.length;si+=5){await Promise.all(sFns.slice(si,si+5).map(function(fn){return fn();}));}
+// === TK dùng chung: batch Meta API + insert DB theo lô ===
+var sharedResult=await replaceSharedSpendRows(shared,date);
+saved+=sharedResult.saved;errors+=sharedResult.errors;
 btn.disabled=false;btn.textContent='Đồng bộ ngày '+fd(date);
 toast('Đồng bộ xong: '+saved+' OK'+(errors?', '+errors+' lỗi':''),!errors);
 await loadAll();stayPage();}
@@ -2642,24 +2694,9 @@ if(!r.error)saved++;else errors++;
 })(j);
 if(tasks.length>=10||j===bResults.length-1){await Promise.all(tasks);tasks=[];}}
 }catch(e){errors+=chunk.length;}}
-// TK dùng chung
-var sFns=shared.map(function(a){return async function(){try{
-var url='https://graph.facebook.com/v25.0/'+a.fb_account_id+'/insights?level=campaign&fields=campaign_name,spend&time_range={"since":"'+date+'","until":"'+date+'"}&limit=500&access_token='+META_TOKEN;
-var resp=await fetch(url);var data=await resp.json();
-if(data.error){errors++;return;}
-await sb2.from('daily_spend').delete().eq('ad_account_id',a.id).eq('report_date',date).not('staff_id','is',null);
-var combo={};
-(data.data||[]).forEach(function(c){var spend=Math.round(parseFloat(c.spend||0));if(!spend)return;
-var parts=(c.campaign_name||'').split('_');var sp=(parts[0]||'').trim();var cp=(parts[2]||'').trim();
-var ms2=allStaff.find(function(s){return s.campaign_keyword&&sp.toLowerCase()===s.campaign_keyword.toLowerCase();});
-var mc=clientList.find(function(cl){return cl.campaign_keyword&&cp.toLowerCase().indexOf(cl.campaign_keyword.toLowerCase())>=0;});
-if(ms2){var key=ms2.id+'|'+(mc?mc.id:'');if(!combo[key])combo[key]={sid:ms2.id,cid:mc?mc.id:null,spend:0};combo[key].spend+=spend;}});
-var ks=Object.keys(combo);
-for(var k=0;k<ks.length;k++){var cb=combo[ks[k]];
-var r=await sb2.from('daily_spend').insert({ad_account_id:a.id,report_date:date,spend_amount:cb.spend,staff_id:cb.sid,matched_client_id:cb.cid});
-if(!r.error)saved++;else errors++;}
-}catch(e){errors++;}};});
-for(var si=0;si<sFns.length;si+=5){await Promise.all(sFns.slice(si,si+5).map(function(fn){return fn();}));}
+// TK dùng chung: batch Meta API + insert DB theo lô
+var sharedResult=await replaceSharedSpendRows(shared,date);
+saved+=sharedResult.saved;errors+=sharedResult.errors;
 return{saved:saved,errors:errors};}
 
 async function autoSync(){
