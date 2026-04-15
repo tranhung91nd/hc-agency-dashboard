@@ -2277,38 +2277,49 @@ await sb2.from('daily_spend').insert(restoreS);
 }
 return{saved:saved,errors:errors};
 }
-async function fetchCampaignMessRows(a,d3,d1){
-var campUrl='https://graph.facebook.com/v25.0/'+a.fb_account_id+'/campaigns?fields=id,effective_status&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=500&access_token='+META_TOKEN;
-var insightsUrl='https://graph.facebook.com/v25.0/'+a.fb_account_id+'/insights?level=campaign&fields=campaign_id,campaign_name,spend,actions&time_range={"since":"'+d3+'","until":"'+d1+'"}&time_increment=1&limit=500&access_token='+META_TOKEN;
-var res=await Promise.all([fetch(campUrl),fetch(insightsUrl)]);
-var campData=await res[0].json(),data=await res[1].json();
-if(campData.error)throw new Error(campData.error.message||'Meta campaign error');
-if(data.error)throw new Error(data.error.message||'Meta insights error');
+function parseMessRows(a,campBody,insBody){
 var activeIds=new Set();
-(campData.data||[]).forEach(function(c){activeIds.add(c.id);});
-return (data.data||[]).map(function(r){
+(campBody.data||[]).forEach(function(c){activeIds.add(c.id);});
+return (insBody.data||[]).map(function(r){
 var spend=Math.round(parseFloat(r.spend||0)),messCount=0;
 if(r.actions){r.actions.forEach(function(act){
 if(act.action_type&&(act.action_type.indexOf('messaging_conversation_started')>=0||act.action_type==='onsite_conversion.messaging_conversation_started_7d'))messCount+=parseInt(act.value)||0;});}
 return{ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount,campaign_status:activeIds.has(r.campaign_id)?'ACTIVE':'PAUSED'};
 });
 }
-async function syncCampaignMess(btn){
+async function fetchCampaignMessBatch(accounts,d3,d1){
+var allRows=[],errors=0;
+for(var b=0;b<accounts.length;b+=25){
+var chunk=accounts.slice(b,b+25);
+var batchReqs=[];
+chunk.forEach(function(a){
+batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/campaigns?fields=id,effective_status&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=500'});
+batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/insights?level=campaign&fields=campaign_id,campaign_name,spend,actions&time_range={"since":"'+d3+'","until":"'+d1+'"}&time_increment=1&limit=500'});
+});
+try{
+var bResp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
+var bResults=await bResp.json();
+for(var j=0;j<chunk.length;j++){
+try{
+var campBody=JSON.parse((bResults[j*2]&&bResults[j*2].body)||'{}');
+var insBody=JSON.parse((bResults[j*2+1]&&bResults[j*2+1].body)||'{}');
+if(campBody.error||insBody.error){errors++;continue;}
+allRows=allRows.concat(parseMessRows(chunk[j],campBody,insBody));
+}catch(e2){errors++;}}
+}catch(e){errors+=chunk.length;}}
+return{rows:allRows,errors:errors};
+}
+async function syncCampaignMess(btn,skipRefresh){
 var oldText=btn?btn.textContent:'Quét giá mess';
 if(btn){btn.disabled=true;btn.textContent='Đang quét...';}
 var d1=vnDateStr(-86400000),d3=vnDateStr(-259200000);
 var mapped=adList.filter(function(a){return a.fb_account_id&&a.max_mess_cost;});
-if(!mapped.length){toast('Chưa có TK nào đặt giá mess tối đa',false);if(btn){btn.disabled=false;btn.textContent=oldText;}return;}
-var rowsToSave=[],errors=0,done=0,limit=8;
+if(!mapped.length){if(btn){toast('Chưa có TK nào đặt giá mess tối đa',false);btn.disabled=false;btn.textContent=oldText;}return;}
+var errors=0;
 try{
-await runLimited(mapped,limit,async function(a){
-try{
-var rows=await fetchCampaignMessRows(a,d3,d1);
-rowsToSave=rowsToSave.concat(rows);
-}catch(e){errors++;console.warn('[Mess sync] '+(a.account_name||a.fb_account_id)+':',e.message);}
-done++;
-if(btn)btn.textContent='Đang quét '+done+'/'+mapped.length;
-});
+if(btn)btn.textContent='Đang quét '+mapped.length+' TK...';
+var result=await fetchCampaignMessBatch(mapped,d3,d1);
+var rowsToSave=result.rows;errors=result.errors;
 var saved=0,batches=chunkArray(rowsToSave,500);
 for(var i=0;i<batches.length;i++){
 if(btn)btn.textContent='Đang lưu '+(i+1)+'/'+batches.length;
@@ -2317,7 +2328,7 @@ if(upsert.error){errors+=batches[i].length;console.warn('[Mess sync upsert]',ups
 else saved+=batches[i].length;
 }
 toast('Quét xong: '+saved+' dòng'+(errors?' · '+errors+' lỗi':''),!errors);
-await loadAll();
+if(!skipRefresh)await loadAll();
 }catch(e){toast('Lỗi quét giá mess: '+e.message,false);}
 finally{if(btn){btn.disabled=false;btn.textContent=oldText;}}}
 
@@ -2384,35 +2395,9 @@ var date=adViewDate;if(!date){toast('Chọn ngày',false);return;}
 btn.disabled=true;btn.textContent='Đang đồng bộ...';
 var mapped=adList.filter(function(a){return a.fb_account_id;});
 if(!mapped.length){toast('Chưa có TK nào ghép Meta',false);btn.disabled=false;btn.textContent='Đồng bộ ngày '+fd(date);return;}
-var normal=mapped.filter(function(a){return!a.is_shared;});
-var shared=mapped.filter(function(a){return a.is_shared;});
-var saved=0,errors=0;
-// === BATCH API: 50 TK thường / lần gọi ===
-for(var b=0;b<normal.length;b+=50){
-var chunk=normal.slice(b,b+50);
-var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.fb_account_id+'/insights?fields=spend&time_range={"since":"'+date+'","until":"'+date+'"}'};});
-try{
-var bResp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
-var bResults=await bResp.json();
-// Song song 10 lưu DB cùng lúc
-var tasks=[];
-for(var j=0;j<bResults.length;j++){(function(idx){
-tasks.push((async function(){try{
-var body=JSON.parse(bResults[idx].body||'{}');
-var spend=0;if(body.data&&body.data.length)spend=Math.round(parseFloat(body.data[0].spend));
-var oldData=await sb2.from('daily_spend').select('*').eq('ad_account_id',chunk[idx].id).eq('report_date',date).is('staff_id',null);
-await sb2.from('daily_spend').delete().eq('ad_account_id',chunk[idx].id).eq('report_date',date).is('staff_id',null);
-var r=await sb2.from('daily_spend').insert({ad_account_id:chunk[idx].id,report_date:date,spend_amount:spend});
-if(!r.error){saved++;}else{if(oldData.data&&oldData.data.length){var restore=oldData.data.map(function(row){var cp=Object.assign({},row);delete cp.id;return cp;});await sb2.from('daily_spend').insert(restore);}errors++;}
-}catch(e){errors++;}})());
-})(j);
-if(tasks.length>=10||j===bResults.length-1){await Promise.all(tasks);tasks=[];}}
-}catch(e){errors+=chunk.length;}}
-// === TK dùng chung: batch Meta API + insert DB theo lô ===
-var sharedResult=await replaceSharedSpendRows(shared,date);
-saved+=sharedResult.saved;errors+=sharedResult.errors;
+var r=await syncOneDate(date,mapped);
 btn.disabled=false;btn.textContent='Đồng bộ ngày '+fd(date);
-toast('Đồng bộ xong: '+saved+' OK'+(errors?', '+errors+' lỗi':''),!errors);
+toast('Đồng bộ xong: '+r.saved+' OK'+(r.errors?', '+r.errors+' lỗi':''),!r.errors);
 await loadAll();stayPage();}
 async function loadMetaAccounts(force,silent){
 if(!force&&metaAccounts.length)return;
@@ -2425,16 +2410,18 @@ all=all.concat(data.data||[]);
 url=data.paging&&data.paging.next?data.paging.next:null;
 }
 var detailed=[];
-for(var i=0;i<all.length;i++){
-var base=all[i];
+for(var b=0;b<all.length;b+=50){
+var chunk=all.slice(b,b+50);
+var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.id+'?fields=id,name,account_status,spend_cap,amount_spent'};});
 try{
-var detailUrl='https://graph.facebook.com/v25.0/'+base.id+'?fields=id,name,account_status,spend_cap,amount_spent&access_token='+META_TOKEN;
-var dResp=await fetch(detailUrl),dData=await dResp.json();
-if(!dData.error)detailed.push(dData);
-else detailed.push(base);
-}catch(e){
-detailed.push(base);
+var bResp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
+var bResults=await bResp.json();
+for(var j=0;j<chunk.length;j++){
+try{var body=JSON.parse((bResults[j]&&bResults[j].body)||'{}');
+if(!body.error&&body.id)detailed.push(body);else detailed.push(chunk[j]);
+}catch(e2){detailed.push(chunk[j]);}
 }
+}catch(e){for(var k=0;k<chunk.length;k++)detailed.push(chunk[k]);}
 }
 metaAccounts=detailed;
 }catch(e){if(!silent)toast('Lỗi: '+e.message,false);}
@@ -2450,12 +2437,13 @@ var existFb=new Set();adList.forEach(function(a){if(a.fb_account_id)existFb.add(
 var ph=clientList.find(function(c){return c.name==='Chưa phân loại';});var phId;
 if(ph){phId=ph.id;}else{var{data:nc,error}=await sb2.from('client').insert({name:'Chưa phân loại',status:'active'}).select('id').single();if(error){if(!silent)toast('Lỗi',false);return{ok:false,reason:'placeholder'};}phId=nc.id;}
 var imp=0,capOnlyCount=0;
-for(var i=0;i<uniqueMeta.length;i++){var m=uniqueMeta[i];if(existFb.has(m.id))continue;existFb.add(m.id);
-await sb2.from('ad_account').insert({client_id:phId,account_name:m.name,fb_account_id:m.id,account_status:m.account_status});imp++;}
-for(var j=0;j<uniqueMeta.length;j++){var m2=uniqueMeta[j];
-var spendCap=metaNum(m2.spend_cap),amountSpent=metaNum(m2.amount_spent);
-if(spendCap&&amountSpent>spendCap)capOnlyCount++;
-await sb2.from('ad_account').update({account_name:m2.name,account_status:m2.account_status,spend_cap:spendCap,amount_spent:amountSpent}).eq('fb_account_id',m2.id);}
+var newAccounts=uniqueMeta.filter(function(m){return!existFb.has(m.id);});
+if(newAccounts.length){
+var insertRows=newAccounts.map(function(m){existFb.add(m.id);imp++;return{client_id:phId,account_name:m.name,fb_account_id:m.id,account_status:m.account_status};});
+var insertBatches=chunkArray(insertRows,200);
+for(var ib=0;ib<insertBatches.length;ib++){await sb2.from('ad_account').insert(insertBatches[ib]);}}
+var updateItems=uniqueMeta.map(function(m2){var spendCap=metaNum(m2.spend_cap),amountSpent=metaNum(m2.amount_spent);if(spendCap&&amountSpent>spendCap)capOnlyCount++;return{id:m2.id,data:{account_name:m2.name,account_status:m2.account_status,spend_cap:spendCap,amount_spent:amountSpent}};});
+await runLimited(updateItems,15,async function(item){await sb2.from('ad_account').update(item.data).eq('fb_account_id',item.id);});
 if(!silent)toast((imp?'Nhập '+imp+' TK mới + ':'')+'Đã cập nhật Meta'+(capOnlyCount?' · '+capOnlyCount+' TK chỉ đồng bộ được ngưỡng':''),true);
 if(refreshAfter)await loadAll();
 return{ok:true,imported:imp,capOnlyCount:capOnlyCount};}
@@ -2743,17 +2731,16 @@ var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.fb_accoun
 try{
 var bResp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
 var bResults=await bResp.json();
-var tasks=[];
-for(var j=0;j<bResults.length;j++){(function(idx){
-tasks.push((async function(){try{
-var body=JSON.parse(bResults[idx].body||'{}');
+var upsertRows=[];
+for(var j=0;j<bResults.length;j++){
+try{var body=JSON.parse(bResults[j].body||'{}');
 var spend=0;if(body.data&&body.data.length)spend=Math.round(parseFloat(body.data[0].spend));
-await sb2.from('daily_spend').delete().eq('ad_account_id',chunk[idx].id).eq('report_date',date).is('staff_id',null);
-var r=await sb2.from('daily_spend').insert({ad_account_id:chunk[idx].id,report_date:date,spend_amount:spend});
-if(!r.error)saved++;else errors++;
-}catch(e){errors++;}})());
-})(j);
-if(tasks.length>=10||j===bResults.length-1){await Promise.all(tasks);tasks=[];}}
+upsertRows.push({ad_account_id:chunk[j].id,report_date:date,spend_amount:spend});
+}catch(e){errors++;}}
+if(upsertRows.length){
+await sb2.from('daily_spend').delete().in('ad_account_id',upsertRows.map(function(r){return r.ad_account_id;})).eq('report_date',date).is('staff_id',null);
+var ubatches=chunkArray(upsertRows,200);
+for(var ub=0;ub<ubatches.length;ub++){var ur=await sb2.from('daily_spend').insert(ubatches[ub]);if(!ur.error)saved+=ubatches[ub].length;else errors+=ubatches[ub].length;}}
 }catch(e){errors+=chunk.length;}}
 // TK dùng chung: batch Meta API + insert DB theo lô
 var sharedResult=await replaceSharedSpendRows(shared,date);
@@ -2782,14 +2769,13 @@ return;
 }
 var today=td();
 var yest=yesterday();
-showSyncBar('Đang đồng bộ dữ liệu hôm qua ('+fd(yest)+')...');
-var r1=await syncOneDate(yest,mapped);
-showSyncBar('Đang đồng bộ dữ liệu hôm nay ('+fd(today)+')...');
-var r2=await syncOneDate(today,mapped);
+showSyncBar('Đang đồng bộ spend hôm qua + hôm nay...');
+var results=await Promise.all([syncOneDate(yest,mapped),syncOneDate(today,mapped)]);
+var r1=results[0],r2=results[1];
 var totalSaved=r1.saved+r2.saved,totalErrors=r1.errors+r2.errors;
 localStorage.setItem('hc_last_sync',String(Date.now()));
 showSyncBar('Đang quét giá mess chiến dịch...');
-await syncCampaignMess();
+await syncCampaignMess(null,true);
 showSyncBar('✓ Đồng bộ xong: '+totalSaved+' OK'+(totalErrors?', '+totalErrors+' lỗi':''),true);
 await loadAll();
 setTimeout(hideSyncBar,3000);
