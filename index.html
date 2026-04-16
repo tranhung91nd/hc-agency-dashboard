@@ -711,6 +711,11 @@ function ff(n){if(!n)return'—';return n.toLocaleString('vi-VN');}
 function fd(d){var p=d.split('-');return parseInt(p[2])+'/'+parseInt(p[1]);}
 function toast(m,ok){var d=document.createElement('div');d.className='toast '+(ok?'toast-ok':'toast-err');d.textContent=m;document.getElementById('toast-container').appendChild(d);setTimeout(function(){d.remove();},3000);}
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function moneyVal(v){var n=Number(v);return isFinite(n)?n:0;}
+function sameId(a,b){return String(a)===String(b);}
+function spendRowsForDate(date){return dailyData.filter(function(d){return d.report_date===date;});}
+function spendTotalForDate(date){return spendRowsForDate(date).reduce(function(t,d){return t+moneyVal(d.spend_amount);},0);}
+function spendTotalForAccountDate(adId,date){return dailyData.filter(function(d){return sameId(d.ad_account_id,adId)&&d.report_date===date;}).reduce(function(t,d){return t+moneyVal(d.spend_amount);},0);}
 function needAuth(){if(!authUser){toast('Cần đăng nhập',false);return false;}return true;}
 function needAdmin(){if(!isAdmin()){toast('Cần quyền Admin',false);return false;}return true;}
 function safeJsString(v){return JSON.stringify(v==null?'':String(v));}
@@ -1767,13 +1772,13 @@ return'<div style="display:flex;align-items:center;justify-content:center;min-he
 +'</div>'
 +'<div style="text-align:center;margin-top:16px;font-size:11px;color:var(--tx3);">HC Agency &copy; 2026</div>'
 +'</div></div>';}
-async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){var firstPage=typeof userAllowedPages[0]==='string'?parseInt(userAllowedPages[0]):userAllowedPages[0];curPage=firstPage;}else{curPage=0;}toast('Đăng nhập thành công! ('+userRole+')',true);render();}}
+async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){var firstPage=typeof userAllowedPages[0]==='string'?parseInt(userAllowedPages[0]):userAllowedPages[0];curPage=firstPage;}else{curPage=0;}toast('Đăng nhập thành công! ('+userRole+')',true);autoSync();render();}}
 async function doLogout(){await sb2.auth.signOut();authUser=null;userRole='guest';userAllowedPages=null;META_TOKEN='';curPage=0;toast('Đã đăng xuất',true);render();}
 async function checkAuth(){var{data}=await sb2.auth.getSession();if(data.session){authUser=data.session.user;await loadUserRole();}}
 async function loadUserRole(){
 if(!authUser){userRole='guest';userAllowedPages=null;return;}
 try{
-var{data,error}=await sb2.from('user_roles').select('*').eq('email',authUser.email).single();
+var{data,error}=await sb2.from('user_roles').select('*').eq('email',authUser.email).maybeSingle();
 if(data){userRole=data.role||'accountant';userAllowedPages=data.allowed_pages||[4];}
 else{userRole='admin';userAllowedPages=null;}
 }catch(e){userRole='admin';userAllowedPages=null;}}
@@ -1843,9 +1848,9 @@ function a1(){
 var stLabel={1:'Hoạt động',2:'Vô hiệu hoá',3:'Cần thanh toán',7:'Đang xét duyệt'};
 var stDot={1:'dot-ok',2:'dot-off',3:'dot-warn',7:'dot-ok'};
 // KPI data
-var dayTotal=dailyData.filter(function(d){return d.report_date===adViewDate;}).reduce(function(t,d){return t+d.spend_amount;},0);
+var dayTotal=spendTotalForDate(adViewDate);
 var ms=adViewDate.substring(0,7);
-var monthTotal=dailyData.filter(function(d){return d.report_date.substring(0,7)===ms;}).reduce(function(t,d){return t+d.spend_amount;},0);
+var monthTotal=dailyData.filter(function(d){return d.report_date.substring(0,7)===ms;}).reduce(function(t,d){return t+moneyVal(d.spend_amount);},0);
 var monthDays=new Set();dailyData.filter(function(d){return d.report_date.substring(0,7)===ms;}).forEach(function(d){monthDays.add(d.report_date);});
 var activeCount=adList.filter(function(a){return(a.account_status||1)===1;}).length;
 var disabledCount=adList.filter(function(a){return(a.account_status||1)===2;}).length;
@@ -1854,7 +1859,7 @@ var sharedCount=adList.filter(function(a){return a.is_shared;}).length;
 // Build ad rows data for sorting
 var rows=adList.map(function(a,i){
 var ca=getAssign(a.id,adViewDate);
-var ds=dailyData.filter(function(d){return d.ad_account_id===a.id&&d.report_date===adViewDate;}).reduce(function(t,d){return t+d.spend_amount;},0);
+var ds=spendTotalForAccountDate(a.id,adViewDate);
 var bal=hasComparableSpendCap(a)?a.spend_cap-a.amount_spent:null;
 return{a:a,idx:i,assign:ca,spend:ds,status:a.account_status||1,balance:bal};});
 // Sort
@@ -1882,7 +1887,7 @@ clientList.forEach(function(c){h+='<option value="'+c.id+'"'+(c.id===adFilterCli
 h+='<option value="none"'+(adFilterClient==='none'?' selected':'')+'>— Chưa phân loại —</option></select>';
 h+='<select id="filter-status" onchange="filterAdTable()" class="fi ad-toolbar-filter"><option value="">Tất cả tình trạng</option><option value="1"'+(adFilterStatus==='1'?' selected':'')+'>● Hoạt động</option><option value="2"'+(adFilterStatus==='2'?' selected':'')+'>● Vô hiệu hoá</option><option value="3"'+(adFilterStatus==='3'?' selected':'')+'>● Cần thanh toán</option></select>';
 h+='<span class="ad-toolbar-count" id="filter-count">'+adList.length+'/'+adList.length+' tài khoản</span></div>';
-h+='<div class="ad-toolbar-actions"><span class="ad-toolbar-note"><span class="ad-toolbar-note-dot"></span>Meta và chi tiêu tự đồng bộ khi mở trang</span><button class="btn btn-sm btn-add-account" onclick="toggleAddTk()"><span class="btn-add-account-plus">+</span><span>Thêm tài khoản</span></button></div></div>';
+h+='<div class="ad-toolbar-actions"><span class="ad-toolbar-note"><span class="ad-toolbar-note-dot"></span>Meta và chi tiêu tự đồng bộ khi mở trang</span><button class="btn btn-ghost btn-sm" onclick="doMetaSync2(this)">Đồng bộ ngày '+fd(adViewDate)+'</button><button class="btn btn-sm btn-add-account" onclick="toggleAddTk()"><span class="btn-add-account-plus">+</span><span>Thêm tài khoản</span></button></div></div>';
 // Add TK form (hidden by default)
 h+='<div id="add-tk-form" style="display:none;margin-bottom:12px;"><div class="form-card" style="margin-bottom:0;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-weight:500;font-size:14px;">Thêm tài khoản quảng cáo</span><span style="font-size:18px;cursor:pointer;color:var(--tx3);" onclick="toggleAddTk()">×</span></div>';
 h+='<div class="form-row"><div class="form-group"><label>Tên tài khoản</label><input type="text" id="new-tk-name" placeholder="VD: TK NBNB - 1234"></div><div class="form-group"><label>FB Account ID (bỏ trống = TK ngoài)</label><input type="text" id="new-tk-fbid" placeholder="act_123456789"></div></div>';
@@ -1967,7 +1972,7 @@ h+='<td><span class="pq '+(a.is_shared?'pq-s':'pq-r')+'" onclick="toggleShared(\
 if(expandedAd===a.id){
 h+='<tr><td colspan="10" style="padding:4px 0;"><div class="assign-panel">';
 // Manual spend input section
-var curSpend=dailyData.filter(function(dd){return dd.ad_account_id===a.id&&dd.report_date===adViewDate;}).reduce(function(t,dd){return t+dd.spend_amount;},0);
+var curSpend=spendTotalForAccountDate(a.id,adViewDate);
 var isExternal=!a.fb_account_id;
 h+='<div style="padding:12px 18px;border-bottom:1px solid var(--bd1);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">';
 h+='<span style="font-size:12px;color:var(--tx2);">Chi tiêu ngày '+fd(adViewDate)+':</span>';
@@ -1978,15 +1983,15 @@ h+='<input type="number" id="manual-spend-'+a.id+'" placeholder="Nhập số ti�
 h+='<button class="btn btn-green btn-sm" onclick="saveManualSpend(\''+a.id+'\')">Lưu</button></div></div>';
 if(a.is_shared){
 // Shared account: 2 tabs
-var mySpends=dailyData.filter(function(dd){return dd.ad_account_id===a.id&&dd.report_date===adViewDate&&dd.staff_id;});
-var totalSharedSpend=mySpends.reduce(function(t,dd){return t+dd.spend_amount;},0);
+var mySpends=dailyData.filter(function(dd){return sameId(dd.ad_account_id,a.id)&&dd.report_date===adViewDate&&dd.staff_id;});
+var totalSharedSpend=mySpends.reduce(function(t,dd){return t+moneyVal(dd.spend_amount);},0);
 // Group by staff
 var staffSpends={};mySpends.forEach(function(dd){
 if(!staffSpends[dd.staff_id])staffSpends[dd.staff_id]={total:0,clients:{}};
-staffSpends[dd.staff_id].total+=dd.spend_amount;
+staffSpends[dd.staff_id].total+=moneyVal(dd.spend_amount);
 var cid=dd.matched_client_id||'unknown';
 if(!staffSpends[dd.staff_id].clients[cid])staffSpends[dd.staff_id].clients[cid]=0;
-staffSpends[dd.staff_id].clients[cid]+=dd.spend_amount;});
+staffSpends[dd.staff_id].clients[cid]+=moneyVal(dd.spend_amount);});
 h+='<div class="xp-head"><span style="font-weight:500;font-size:14px;color:var(--purple);">'+esc(a.account_name)+' — Chi tiết ngày '+fd(adViewDate)+'</span><span style="font-size:12px;color:var(--tx3);">Tổng: '+ff(totalSharedSpend)+'</span></div>';
 h+='<div class="xp-tabs"><div class="xp-tab'+(expandTabIdx===0?' on':'')+'" onclick="switchExpandTab(0)">Chi tiết NV</div><div class="xp-tab'+(expandTabIdx===1?' on':'')+'" onclick="switchExpandTab(1)">Phân công</div></div>';
 if(expandTabIdx===0){
@@ -2810,14 +2815,6 @@ if(authUser){
 showSyncBar('Đang cập nhật Meta...');
 await loadMetaAndSync({silent:true,skipAuth:true,refreshAfter:false});
 }
-// Chỉ sync nếu chưa sync trong 30 phút gần nhất
-var lastSync=localStorage.getItem('hc_last_sync');
-var now=Date.now();
-if(lastSync&&(now-parseInt(lastSync))<1800000){
-console.log('[AutoSync] Spend sync skipped — synced <30 min ago');
-if(authUser){showSyncBar('✓ Đã cập nhật Meta',true);setTimeout(hideSyncBar,1800);}
-return;
-}
 var mapped=adList.filter(function(a){return a.fb_account_id;});
 if(!mapped.length){
 console.log('[AutoSync] No mapped accounts');
@@ -2830,7 +2827,6 @@ showSyncBar('Đang đồng bộ spend hôm qua + hôm nay...');
 var results=await Promise.all([syncOneDate(yest,mapped),syncOneDate(today,mapped)]);
 var r1=results[0],r2=results[1];
 var totalSaved=r1.saved+r2.saved,totalErrors=r1.errors+r2.errors;
-localStorage.setItem('hc_last_sync',String(Date.now()));
 showSyncBar('Đang quét giá mess chiến dịch...');
 await syncCampaignMess(null,true);
 showSyncBar('✓ Đồng bộ xong: '+totalSaved+' OK'+(totalErrors?', '+totalErrors+' lỗi':''),true);
