@@ -362,16 +362,35 @@ td{
   border-bottom:1px solid rgba(15,23,42,0.06);
 }
 tr:hover td{background:#f8fbff;}
-#ad-table{table-layout:fixed;min-width:1100px;}
-#ad-table colgroup .col-chk{width:36px;}
-#ad-table colgroup .col-st{width:88px;}
-#ad-table colgroup .col-name{width:auto;}
-#ad-table colgroup .col-nv{width:110px;}
-#ad-table colgroup .col-kh{width:130px;}
-#ad-table colgroup .col-spend{width:150px;}
-#ad-table colgroup .col-cap{width:160px;}
-#ad-table colgroup .col-price{width:130px;}
+#ad-table{table-layout:fixed;min-width:1340px;}
+#ad-table colgroup .col-chk{width:44px;}
+#ad-table colgroup .col-st{width:118px;}
+#ad-table colgroup .col-name{width:340px;}
+#ad-table colgroup .col-assign{width:250px;}
+#ad-table colgroup .col-spend{width:170px;}
+#ad-table colgroup .col-cap{width:190px;}
+#ad-table colgroup .col-price{width:150px;}
+#ad-table colgroup .col-type{width:96px;}
+#ad-table th.resizable-th{position:sticky;overflow:visible;padding-right:18px;}
+#ad-table .th-label{display:inline-flex;align-items:center;gap:3px;min-width:0;max-width:100%;}
+.col-resizer{position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:5;touch-action:none;}
+.col-resizer:after{content:"";position:absolute;top:10px;bottom:10px;left:3px;width:1px;background:transparent;}
+.col-resizer:hover:after,.col-resizer.active:after{background:var(--blue);}
+body.col-resizing{cursor:col-resize;user-select:none;}
 #ad-table td.td-price-pair{padding:8px 10px;}
+.td-assign{padding-top:9px;padding-bottom:9px;}
+.assign-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap;cursor:pointer;min-width:0;}
+.assign-chip{display:inline-flex;align-items:center;max-width:110px;height:26px;padding:0 9px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.assign-chip.staff{background:var(--blue-bg);color:var(--blue-tx);}
+.assign-chip.client{background:var(--teal-bg);color:var(--teal-tx);}
+.assign-chip.empty{background:var(--bg3);color:var(--tx3);}
+.assign-edit{width:28px;height:26px;border:1px solid var(--bd1);border-radius:8px;background:#fff;color:var(--tx3);font-size:14px;line-height:1;cursor:pointer;}
+.assign-edit:hover{border-color:var(--blue);color:var(--blue);}
+.td-type{text-align:center;}
+.type-pill{display:inline-flex;align-items:center;justify-content:center;height:26px;padding:0 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.type-pill.tp-r{background:var(--bg3);color:var(--tx3);}
+.type-pill.tp-s{background:var(--purple-bg);color:var(--purple-tx);}
+.type-pill:hover{opacity:.82;}
 .price-pair{display:flex;flex-direction:column;gap:3px;align-items:flex-end;}
 .price-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-variant-numeric:tabular-nums;cursor:pointer;padding:2px 6px;border-radius:6px;transition:background .12s;}
 .price-tag:hover{background:rgba(37,99,235,0.06);}
@@ -903,7 +922,7 @@ if(appEl)appEl.style.gridTemplateColumns='';
 syncSidebarNav();
 if(curPage===0)el.innerHTML=p0();else if(curPage===1)el.innerHTML=p1();else if(curPage===2)el.innerHTML=p2();else if(curPage===3)el.innerHTML=p3();else if(curPage===4)el.innerHTML=p4();else if(curPage===5)el.innerHTML=p5();else if(curPage===6)el.innerHTML=p6();
 enhanceUI();
-if(curPage===1&&spendTab===0)restoreAdFilters();
+if(curPage===1&&spendTab===0){restoreAdFilters();initAdColumnResize();}
 var aiFab=document.querySelector('.ai-fab');if(aiFab){aiFab.style.display=(curPage===3&&expandedClientId)?'none':'';}
 var adot=document.getElementById('alert-dot');if(adot){var ac=getMessAlerts().length+getLeadAlerts().length;adot.style.background=ac?'var(--red)':'var(--green)';adot.style.animation=ac?'pulse 2s infinite':'none';}}
 
@@ -1925,14 +1944,17 @@ h+='<div class="active-chips" id="active-chips"></div>';
 // Table
 var sa=function(col){return 'onclick="sortAd(\''+col+'\')"';};
 var si=function(col){return adSortCol===col?'<span class="sort-arrow on">'+(adSortDir==='desc'?'▼':'▲')+'</span>':'<span class="sort-arrow">▼</span>';};
-h+='<div class="table-wrap"><table id="ad-table"><colgroup><col class="col-chk"><col class="col-st"><col class="col-name"><col class="col-nv"><col class="col-kh"><col class="col-spend"><col class="col-cap"><col class="col-price"></colgroup><thead><tr>';
-h+='<th><input type="checkbox" onchange="toggleCheckAll(this.checked)"></th>';
-h+='<th class="sort-th" '+sa('status')+'>Tình trạng '+si('status')+'</th>';
-h+='<th class="sort-th" '+sa('name')+'>Tài khoản '+si('name')+'</th>';
-h+='<th>Nhân sự</th><th>Khách hàng</th>';
-h+='<th class="sort-th" style="text-align:right;padding-right:16px;" '+sa('spend')+'>Chi tiêu '+fd(adViewDate)+' '+si('spend')+'</th>';
-h+='<th class="sort-th" '+sa('balance')+'>Ngưỡng chi tiêu '+si('balance')+'</th>';
-h+='<th style="text-align:right;">Giá tối đa</th>';
+var rh=function(col){return '<span class="col-resizer" data-col="'+col+'" title="Kéo để chỉnh độ rộng cột. Bấm đúp để đưa về mặc định."></span>';};
+var th=function(col,label,sort,align){return '<th data-col="'+col+'" class="'+(sort?'sort-th ':'')+'resizable-th" '+(sort?sa(sort):'')+(align?' style="text-align:'+align+';"':'')+'><span class="th-label">'+label+(sort?' '+si(sort):'')+'</span>'+rh(col)+'</th>';};
+h+='<div class="table-wrap"><table id="ad-table"><colgroup><col class="col-chk" data-col="chk"><col class="col-st" data-col="st"><col class="col-name" data-col="name"><col class="col-assign" data-col="assign"><col class="col-spend" data-col="spend"><col class="col-cap" data-col="cap"><col class="col-price" data-col="price"><col class="col-type" data-col="type"></colgroup><thead><tr>';
+h+='<th data-col="chk" class="resizable-th"><input type="checkbox" onchange="toggleCheckAll(this.checked)">'+rh('chk')+'</th>';
+h+=th('st','Tình trạng','status');
+h+=th('name','Tài khoản','name');
+h+=th('assign','Phân công');
+h+=th('spend','Chi tiêu '+fd(adViewDate),'spend','right');
+h+=th('cap','Ngưỡng','balance');
+h+=th('price','Giá tối đa',null,'right');
+h+=th('type','Loại',null,'center');
 h+='</tr></thead><tbody>';
 rows.forEach(function(row){
 var a=row.a,ca=row.assign,ds=row.spend,status=row.status;
@@ -1940,34 +1962,29 @@ var hasAssign=ca.length>0;
 var staffStrs=ca.map(function(x){var s=allStaff.find(function(ss){return ss.id===x.staff_id;});return s?s.id:'';});
 var clientStrs=ca.map(function(x){return x.client_id||'';});
 var allClientIds=clientStrs.concat(a.client_id?[a.client_id]:[]);
-h+='<tr class="ad-row'+(a.is_shared?' shared-row':'')+'" data-staff="'+staffStrs.join(',')+'" data-client="'+allClientIds.join(',')+'" data-status="'+status+'" data-name="'+(a.account_name||'').toLowerCase()+'" data-spend="'+ds+'" style="'+(status===2?'opacity:.3;':(!hasAssign&&status===1?'opacity:.6;':''))+'">';
+var searchStaffNames=ca.map(function(x){var s=allStaff.find(function(ss){return ss.id===x.staff_id;});return s?s.short_name:'';}).join(' ');
+var searchClientNames=ca.map(function(x){var c2=clientList.find(function(cc){return cc.id===x.client_id;});return c2?c2.name:'';}).join(' ');
+var directClient=a.client_id?clientList.find(function(c2){return c2.id===a.client_id;}):null;
+var searchHay=[a.account_name,a.fb_account_id,searchStaffNames,searchClientNames,directClient?directClient.name:''].join(' ').toLowerCase();
+h+='<tr class="ad-row'+(a.is_shared?' shared-row':'')+'" data-staff="'+staffStrs.join(',')+'" data-client="'+allClientIds.join(',')+'" data-status="'+status+'" data-name="'+esc(searchHay)+'" data-spend="'+ds+'" style="'+(status===2?'opacity:.3;':(!hasAssign&&status===1?'opacity:.6;':''))+'">';
 h+='<td><input type="checkbox" class="ad-check" value="'+a.id+'"></td>';
 h+='<td><span class="st-text"><span class="dot '+(stDot[status]||'dot-ok')+'"></span>'+(stLabel[status]||'—')+'</span></td>';
-h+='<td><div style="display:flex;align-items:center;gap:6px;"><div class="tk-name" onclick="toggleExpand(\''+a.id+'\')">'+esc(a.account_name)+'</div>'+(a.fb_account_id?'<a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+a.fb_account_id.replace('act_','')+'" target="_blank" rel="noopener" title="Mở Meta Ads Manager" style="flex-shrink:0;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;background:var(--blue-bg);color:var(--blue);text-decoration:none;font-size:11px;transition:all .15s;" onmouseover="this.style.background=\'var(--blue)\';this.style.color=\'#fff\';" onmouseout="this.style.background=\'var(--blue-bg)\';this.style.color=\'var(--blue)\';">↗</a>':'')+'<span class="type-badge '+(a.is_shared?'tb-s':'tb-r')+'" onclick="toggleShared(\''+a.id+'\','+!a.is_shared+')" title="Bấm để đổi loại">'+(a.is_shared?'Chung':'Riêng')+'</span></div><div class="tk-id">'+(a.fb_account_id?esc(a.fb_account_id):'<span style="color:var(--amber);">chưa ghép Meta</span>')+'</div></td>';
-// NV column
+h+='<td><div style="display:flex;align-items:center;gap:6px;min-width:0;"><div class="tk-name" onclick="toggleExpand(\''+a.id+'\')">'+esc(a.account_name)+'</div>'+(a.fb_account_id?'<a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+a.fb_account_id.replace('act_','')+'" target="_blank" rel="noopener" title="Mở Meta Ads Manager" style="flex-shrink:0;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;background:var(--blue-bg);color:var(--blue);text-decoration:none;font-size:11px;transition:all .15s;" onmouseover="this.style.background=\'var(--blue)\';this.style.color=\'#fff\';" onmouseout="this.style.background=\'var(--blue-bg)\';this.style.color=\'var(--blue)\';">↗</a>':'')+'</div><div class="tk-id">'+(a.fb_account_id?esc(a.fb_account_id):'<span style="color:var(--amber);">chưa ghép Meta</span>')+'</div></td>';
+// Assignment column
+h+='<td class="td-assign"><div class="assign-wrap" onclick="toggleExpand(\''+a.id+'\')" title="Bấm để xem hoặc sửa phân công">';
 if(a.is_shared){
 var sNames=ca.map(function(x){var s=allStaff.find(function(ss){return ss.id===x.staff_id;});return s?s.short_name:'?';});
-h+='<td><div style="display:flex;gap:3px;flex-wrap:wrap;">';
-[...new Set(sNames)].forEach(function(n){var sObj2=allStaff.find(function(ss){return ss.short_name===n;});var col2=sObj2?sc(sObj2.color_code):{bg:'var(--purple-bg)',tx:'var(--purple-tx)'};h+='<span class="nv-badge" style="background:'+col2.bg+';color:'+col2.tx+';">'+esc(n)+'</span>';});
-if(!sNames.length)h+='<span style="font-size:12px;color:var(--tx3);">tự động</span>';
-h+='</div></td>';
-}else{
-var curStaffId=hasAssign?ca[0].staff_id:'';
-h+='<td><select class="fi" style="width:100%;font-size:11px;padding:4px 6px;" onchange="quickAssignStaff(\''+a.id+'\',this.value)"><option value="">— Chọn NV —</option>';
-staffList.forEach(function(s2){h+='<option value="'+s2.id+'"'+(s2.id===curStaffId?' selected':'')+'>'+s2.short_name+'</option>';});
-h+='</select></td>';}
-// KH column
-if(a.is_shared){
 var cNames=ca.map(function(x){var c2=clientList.find(function(cc){return cc.id===x.client_id;});return c2?c2.name:'?';});
-h+='<td><div style="display:flex;gap:3px;flex-wrap:wrap;">';
-[...new Set(cNames)].forEach(function(n){h+='<span class="nv-badge" style="background:var(--teal-bg);color:var(--teal-tx);">'+esc(n)+'</span>';});
-if(!cNames.length)h+='<span style="font-size:12px;color:var(--tx3);">tự động</span>';
-h+='</div></td>';
+var uniqS=[...new Set(sNames)],uniqC=[...new Set(cNames)];
+if(uniqS.length){uniqS.slice(0,2).forEach(function(n){h+='<span class="assign-chip staff">'+esc(n)+'</span>';});if(uniqS.length>2)h+='<span class="assign-chip empty">+'+(uniqS.length-2)+'</span>';}else h+='<span class="assign-chip empty">tự động</span>';
+if(uniqC.length){uniqC.slice(0,1).forEach(function(n){h+='<span class="assign-chip client">'+esc(n)+'</span>';});if(uniqC.length>1)h+='<span class="assign-chip empty">+'+(uniqC.length-1)+' KH</span>';}else h+='<span class="assign-chip empty">tự động</span>';
 }else{
-var curClientId=hasAssign?ca[0].client_id:(a.client_id||'');
-h+='<td><select class="fi" style="width:100%;font-size:11px;padding:4px 6px;" onchange="quickAssignClient(\''+a.id+'\',this.value)"><option value="">— Chọn KH —</option>';
-clientList.forEach(function(c2){h+='<option value="'+c2.id+'"'+(c2.id===curClientId?' selected':'')+'>'+esc(c2.name)+'</option>';});
-h+='</select></td>';}
+var curStaffId=hasAssign?ca[0].staff_id:'',curClientId=hasAssign?ca[0].client_id:(a.client_id||'');
+var curStaff=allStaff.find(function(s2){return s2.id===curStaffId;}),curClient=clientList.find(function(c2){return c2.id===curClientId;});
+h+='<span class="assign-chip '+(curStaff?'staff':'empty')+'">'+(curStaff?esc(curStaff.short_name):'Chưa gán NV')+'</span>';
+h+='<span class="assign-chip '+(curClient?'client':'empty')+'">'+(curClient?esc(curClient.name):'Chưa phân loại')+'</span>';
+}
+h+='<button class="assign-edit" onclick="event.stopPropagation();toggleExpand(\''+a.id+'\')" title="Sửa phân công">⋯</button></div></td>';
 // Spend column with bar
 var pct=maxSpend>0?Math.round(ds/maxSpend*100):0;
 h+='<td style="padding-right:16px;">'+(ds?'<div style="text-align:right;"><div class="spend-num">'+ff(ds)+'</div><div class="spend-bar"><div class="spend-fill" style="width:'+pct+'%;"></div></div></div>':'<div class="spend-zero">—</div>')+'</td>';
@@ -1987,7 +2004,7 @@ if(a.max_mess_cost){h+='<span class="price-tag-val mess">'+ff(a.max_mess_cost)+'
 h+='</div>';
 h+='<div class="price-tag" onclick="editMaxLead(\''+a.id+'\','+(a.max_lead_cost||0)+')" title="Giá form tối đa — bấm để sửa"><span class="price-tag-label">Form</span>';
 if(a.max_lead_cost){h+='<span class="price-tag-val lead">'+ff(a.max_lead_cost)+'</span>';}else{h+='<span class="price-tag-unset">—</span>';}
-h+='</div></div></td></tr>';
+h+='</div></div></td><td class="td-type"><span class="type-pill '+(a.is_shared?'tp-s':'tp-r')+'" onclick="toggleShared(\''+a.id+'\','+!a.is_shared+')" title="Bấm để đổi loại">'+(a.is_shared?'Chung':'Riêng')+'</span></td></tr>';
 // Expandable assignment panel
 if(expandedAd===a.id){
 h+='<tr><td colspan="8" style="padding:4px 0;"><div class="assign-panel">';
@@ -2066,6 +2083,13 @@ h+='</div>';}
 // Non-shared: simple assignment panel
 h+='<div class="xp-head"><span style="font-weight:500;font-size:13px;">Lịch sử phân công — '+esc(a.account_name)+'</span><button class="btn btn-primary btn-sm" onclick="addAssignment(\''+a.id+'\')">+ Thêm khoảng</button></div>';
 h+='<div class="xp-body">';
+var panelStaffId=hasAssign?ca[0].staff_id:'',panelClientId=hasAssign?ca[0].client_id:(a.client_id||'');
+h+='<div style="display:grid;grid-template-columns:130px minmax(140px,1fr) minmax(160px,1fr);gap:8px;align-items:center;margin-bottom:12px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--radius);"><span style="font-size:12px;color:var(--tx2);font-weight:500;">Phân công hiện tại</span>';
+h+='<select class="fi" style="width:100%;font-size:12px;" onchange="quickAssignStaff(\''+a.id+'\',this.value)"><option value="">— Chọn NV —</option>';
+staffList.forEach(function(s3){h+='<option value="'+s3.id+'"'+(s3.id===panelStaffId?' selected':'')+'>'+esc(s3.short_name)+'</option>';});
+h+='</select><select class="fi" style="width:100%;font-size:12px;" onchange="quickAssignClient(\''+a.id+'\',this.value)"><option value="">— Chọn KH —</option>';
+clientList.forEach(function(c3){h+='<option value="'+c3.id+'"'+(c3.id===panelClientId?' selected':'')+'>'+esc(c3.name)+'</option>';});
+h+='</select></div>';
 var myA=assignData.filter(function(x){return x.ad_account_id===a.id;}).sort(function(a2,b2){return a2.start_date>b2.start_date?-1:1;});
 if(myA.length){
 h+='<div class="assign-row" style="font-size:10px;color:var(--tx3);border-bottom:1px solid var(--bd2);"><span>Nhân sự</span><span>Khách hàng</span><span>Từ ngày</span><span>Đến ngày</span><span></span></div>';
@@ -2085,8 +2109,8 @@ h+='</div>';}
 h+='</div></td></tr>';}
 });
 // Footer row
-h+='</tbody><tfoot><tr class="foot-row"><td></td><td style="font-size:12px;color:var(--tx2);">'+adList.length+' tài khoản</td><td></td><td></td><td></td>';
-h+='<td style="padding-right:16px;"><div style="text-align:right;"><div class="spend-num" style="font-size:15px;color:var(--teal-tx);">'+ff(dayTotal)+'</div></div></td><td></td><td></td></tr></tfoot></table></div>';
+h+='</tbody><tfoot><tr class="foot-row"><td></td><td colspan="3" style="font-size:12px;color:var(--tx2);">'+adList.length+' tài khoản</td>';
+h+='<td style="padding-right:16px;"><div style="text-align:right;"><div class="spend-num" style="font-size:15px;color:var(--teal-tx);">'+ff(dayTotal)+'</div></div></td><td></td><td></td><td></td></tr></tfoot></table></div>';
 h+='<div style="display:flex;gap:8px;margin-top:10px;"><button class="btn btn-red btn-sm" onclick="deleteCheckedAd()">Xóa đã chọn</button></div>';
 return h;}
 
@@ -2123,6 +2147,27 @@ if(ss){var sel3=document.getElementById('filter-status');chips.push(sel3.options
 var ce=document.getElementById('active-chips');
 if(ce)ce.innerHTML=chips.map(function(c){return'<span class="chip">'+c+' <span class="x" onclick="clearFilters()">×</span></span>';}).join('');}
 function clearFilters(){adSearchText='';adFilterStaff='';adFilterClient='';adFilterStatus='';var s=document.getElementById('search-ad');if(s)s.value='';document.getElementById('filter-staff').value='';document.getElementById('filter-client').value='';document.getElementById('filter-status').value='';filterAdTable();}
+var AD_COL_DEFAULTS={chk:44,st:118,name:340,assign:250,spend:170,cap:190,price:150,type:96};
+var AD_COL_MINS={chk:36,st:92,name:220,assign:170,spend:130,cap:145,price:120,type:72};
+function getAdColumnWidths(){var saved={};try{saved=JSON.parse(localStorage.getItem('hc_ad_col_widths')||'{}')||{};}catch(e){saved={};}var out={};Object.keys(AD_COL_DEFAULTS).forEach(function(k){var n=parseInt(saved[k],10);out[k]=isFinite(n)&&n>0?n:AD_COL_DEFAULTS[k];});return out;}
+function saveAdColumnWidth(col,width){var w=getAdColumnWidths();w[col]=Math.max(AD_COL_MINS[col]||60,Math.round(width));localStorage.setItem('hc_ad_col_widths',JSON.stringify(w));applyAdColumnWidths();}
+function applyAdColumnWidths(){var tbl=document.getElementById('ad-table');if(!tbl)return;var w=getAdColumnWidths(),total=0;Object.keys(AD_COL_DEFAULTS).forEach(function(k){var col=tbl.querySelector('col[data-col="'+k+'"]');if(col){var val=Math.max(AD_COL_MINS[k]||60,w[k]||AD_COL_DEFAULTS[k]);col.style.width=val+'px';total+=val;}});tbl.style.minWidth=Math.max(total,1100)+'px';}
+function initAdColumnResize(){
+var tbl=document.getElementById('ad-table');if(!tbl)return;
+applyAdColumnWidths();
+tbl.querySelectorAll('.col-resizer').forEach(function(handle){
+if(handle.dataset.ready)return;handle.dataset.ready='1';
+handle.addEventListener('dblclick',function(ev){ev.preventDefault();ev.stopPropagation();var col=handle.dataset.col;var w=getAdColumnWidths();delete w[col];localStorage.setItem('hc_ad_col_widths',JSON.stringify(w));applyAdColumnWidths();});
+handle.addEventListener('pointerdown',function(ev){
+ev.preventDefault();ev.stopPropagation();
+var col=handle.dataset.col,startX=ev.clientX,widths=getAdColumnWidths(),startW=widths[col]||AD_COL_DEFAULTS[col],minW=AD_COL_MINS[col]||60;
+handle.classList.add('active');document.body.classList.add('col-resizing');
+function move(e){var next=Math.max(minW,startW+(e.clientX-startX));saveAdColumnWidth(col,next);}
+function up(){handle.classList.remove('active');document.body.classList.remove('col-resizing');document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);}
+document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);
+});
+});
+}
 function sortAd(col){if(adSortCol===col)adSortDir=adSortDir==='desc'?'asc':'desc';else{adSortCol=col;adSortDir=col==='spend'?'desc':'asc';}if(curPage===1){render();return;}var el=document.getElementById('ac');if(el)el.innerHTML=rat();}
 function toggleCheckAll(v){document.querySelectorAll('.ad-check').forEach(function(c){c.checked=v;});}
 function toggleAddTk(){var f=document.getElementById('add-tk-form');if(f)f.style.display=f.style.display==='none'?'block':'none';}
