@@ -792,7 +792,7 @@ async function loadAll(){try{
 sb2.from('staff').select('*').order('monthly_budget',{ascending:false}),
 sb2.from('client').select('*').order('name'),
 sb2.from('ad_account').select('*,client(name)').order('account_name'),
-sb2.from('daily_spend').select('*,staff_id,matched_client_id,ad_account(id,account_name,client_id,client(name))').gte('report_date',new Date(Date.now()-180*86400000).toISOString().substring(0,10)).order('report_date'),
+sb2.from('daily_spend').select('*,staff_id,matched_client_id,ad_account(id,account_name,client_id,client(name))').gte('report_date',new Date(Date.now()-180*86400000).toISOString().substring(0,10)).order('report_date').limit(50000),
 sb2.from('salary').select('*,staff(short_name)').order('month',{ascending:false}),
 sb2.from('transaction').select('*,client(name),staff(short_name)').order('txn_date',{ascending:false}),
 sb2.from('monthly_revenue').select('*,staff(short_name,code)').order('month'),
