@@ -655,6 +655,44 @@ tr:hover td{background:#f8fbff;}
   .kpi,.sum-card,.staff-card,.form-card,.detail-panel,.overview-card{padding:14px;}
 }
 
+/* ===== AD TABLE REDESIGN ===== */
+#ad-table{
+  border:1px solid var(--bd1);
+  border-radius:var(--radius-lg);
+  overflow:hidden;
+  border-collapse:separate;
+  border-spacing:0;
+}
+#ad-table thead th{
+  background:var(--bg2);
+  padding:12px 14px;
+  border-bottom:1px solid var(--bd1);
+  text-transform:none;
+  letter-spacing:0;
+  font-size:12px;
+}
+#ad-table tbody td{
+  padding:14px;
+  border-bottom:1px solid var(--bd1);
+}
+#ad-table tbody tr:last-child td{
+  border-bottom:none;
+}
+#ad-table .spend-bar,
+#ad-table .bal-track{
+  height:4px;
+  border-radius:2px;
+}
+#ad-table .spend-fill,
+#ad-table .bal-used{
+  height:4px;
+  border-radius:2px;
+}
+#ad-table .foot-row td{
+  border-top:1px solid var(--bd1);
+  border-bottom:none;
+}
+
 </style>
 </head>
 <body>
@@ -1907,11 +1945,11 @@ h+='<div class="table-wrap"><table id="ad-table"><thead><tr>';
 h+='<th style="width:24px;"><input type="checkbox" onchange="toggleCheckAll(this.checked)"></th>';
 h+='<th class="sort-th" '+sa('status')+'>Tình trạng '+si('status')+'</th>';
 h+='<th class="sort-th" '+sa('name')+'>Tài khoản '+si('name')+'</th>';
-h+='<th>Nhân sự</th><th>Khách hàng</th>';
+h+='<th>Nhân sự · khách hàng</th>';
 h+='<th class="sort-th" style="text-align:right;padding-right:16px;" '+sa('spend')+'>Chi tiêu '+fd(adViewDate)+' '+si('spend')+'</th>';
 h+='<th class="sort-th" '+sa('balance')+'>Ngưỡng chi tiêu '+si('balance')+'</th>';
-h+='<th style="text-align:right;">Kết quả tối đa</th>';
-h+='<th>Loại</th></tr></thead><tbody>';
+h+='<th style="text-align:right;">Kết quả giới hạn</th>';
+h+='</tr></thead><tbody>';
 rows.forEach(function(row){
 var a=row.a,ca=row.assign,ds=row.spend,status=row.status;
 var hasAssign=ca.length>0;
@@ -1921,31 +1959,33 @@ var allClientIds=clientStrs.concat(a.client_id?[a.client_id]:[]);
 h+='<tr class="ad-row'+(a.is_shared?' shared-row':'')+'" data-staff="'+staffStrs.join(',')+'" data-client="'+allClientIds.join(',')+'" data-status="'+status+'" data-name="'+(a.account_name||'').toLowerCase()+'" data-spend="'+ds+'" style="'+(status===2?'opacity:.3;':(!hasAssign&&status===1?'opacity:.6;':''))+'">';
 h+='<td><input type="checkbox" class="ad-check" value="'+a.id+'"></td>';
 h+='<td><span class="st-text"><span class="dot '+(stDot[status]||'dot-ok')+'"></span>'+(stLabel[status]||'—')+'</span></td>';
-h+='<td><div style="display:flex;align-items:center;gap:6px;"><div class="tk-name" onclick="toggleExpand(\''+a.id+'\')">'+esc(a.account_name)+'</div>'+(a.fb_account_id?'<a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+a.fb_account_id.replace('act_','')+'" target="_blank" rel="noopener" title="Mở Meta Ads Manager" style="flex-shrink:0;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;background:var(--blue-bg);color:var(--blue);text-decoration:none;font-size:11px;transition:all .15s;" onmouseover="this.style.background=\'var(--blue)\';this.style.color=\'#fff\';" onmouseout="this.style.background=\'var(--blue-bg)\';this.style.color=\'var(--blue)\';">↗</a>':'')+'</div><div class="tk-id">'+(a.fb_account_id?esc(a.fb_account_id):'<span style="color:var(--amber);">chưa ghép Meta</span>')+'</div></td>';
-// NV column
+h+='<td><div style="display:flex;align-items:center;gap:6px;"><div class="tk-name" onclick="toggleExpand(\''+a.id+'\')">'+esc(a.account_name)+'</div>'+(a.fb_account_id?'<a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+a.fb_account_id.replace('act_','')+'" target="_blank" rel="noopener" title="Mở Meta Ads Manager" style="flex-shrink:0;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;background:var(--blue-bg);color:var(--blue);text-decoration:none;font-size:11px;transition:all .15s;" onmouseover="this.style.background=\'var(--blue)\';this.style.color=\'#fff\';" onmouseout="this.style.background=\'var(--blue-bg)\';this.style.color=\'var(--blue)\';">↗</a>':'')+'</div><div class="tk-id" style="display:flex;align-items:center;gap:6px;">'+(a.fb_account_id?esc(a.fb_account_id):'<span style="color:var(--amber);">chưa ghép Meta</span>')+'<span class="pq '+(a.is_shared?'pq-s':'pq-r')+'" onclick="toggleShared(\''+a.id+'\','+!a.is_shared+')" style="font-size:10px;padding:1px 6px;">'+(a.is_shared?'Dùng chung':'Riêng')+'</span></div></td>';
+// NV · KH combined column
+h+='<td>';
 if(a.is_shared){
 var sNames=ca.map(function(x){var s=allStaff.find(function(ss){return ss.id===x.staff_id;});return s?s.short_name:'?';});
-h+='<td><div style="display:flex;gap:3px;flex-wrap:wrap;">';
+var cNames=ca.map(function(x){var c2=clientList.find(function(cc){return cc.id===x.client_id;});return c2?c2.name:'?';});
+h+='<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">';
 [...new Set(sNames)].forEach(function(n){var sObj2=allStaff.find(function(ss){return ss.short_name===n;});var col2=sObj2?sc(sObj2.color_code):{bg:'var(--purple-bg)',tx:'var(--purple-tx)'};h+='<span class="nv-badge" style="background:'+col2.bg+';color:'+col2.tx+';">'+esc(n)+'</span>';});
-if(!sNames.length)h+='<span style="font-size:12px;color:var(--tx3);">tự động</span>';
-h+='</div></td>';
+if(!sNames.length)h+='<span style="font-size:11px;color:var(--tx3);font-style:italic;">tự động</span>';
+h+='<span style="font-size:11px;color:var(--tx3);margin:0 1px;">→</span>';
+[...new Set(cNames)].forEach(function(n){h+='<span class="nv-badge" style="background:var(--teal-bg);color:var(--teal-tx);">'+esc(n)+'</span>';});
+if(!cNames.length)h+='<span style="font-size:11px;color:var(--tx3);font-style:italic;">tự động</span>';
+h+='</div>';
 }else{
 var curStaffId=hasAssign?ca[0].staff_id:'';
-h+='<td><select class="fi" style="width:100%;font-size:11px;padding:4px 6px;" onchange="quickAssignStaff(\''+a.id+'\',this.value)"><option value="">— Chọn NV —</option>';
-staffList.forEach(function(s2){h+='<option value="'+s2.id+'"'+(s2.id===curStaffId?' selected':'')+'>'+s2.short_name+'</option>';});
-h+='</select></td>';}
-// KH column
-if(a.is_shared){
-var cNames=ca.map(function(x){var c2=clientList.find(function(cc){return cc.id===x.client_id;});return c2?c2.name:'?';});
-h+='<td><div style="display:flex;gap:3px;flex-wrap:wrap;">';
-[...new Set(cNames)].forEach(function(n){h+='<span class="nv-badge" style="background:var(--teal-bg);color:var(--teal-tx);">'+esc(n)+'</span>';});
-if(!cNames.length)h+='<span style="font-size:12px;color:var(--tx3);">tự động</span>';
-h+='</div></td>';
-}else{
 var curClientId=hasAssign?ca[0].client_id:(a.client_id||'');
-h+='<td><select class="fi" style="width:100%;font-size:11px;padding:4px 6px;" onchange="quickAssignClient(\''+a.id+'\',this.value)"><option value="">— Chọn KH —</option>';
+h+='<div style="display:flex;align-items:center;gap:4px;">';
+h+='<select class="fi" style="flex:1;min-width:0;font-size:11px;padding:4px 6px;" onchange="quickAssignStaff(\''+a.id+'\',this.value)"><option value="">— Chọn NV —</option>';
+staffList.forEach(function(s2){h+='<option value="'+s2.id+'"'+(s2.id===curStaffId?' selected':'')+'>'+s2.short_name+'</option>';});
+h+='</select>';
+h+='<span style="font-size:11px;color:var(--tx3);flex-shrink:0;">→</span>';
+h+='<select class="fi" style="flex:1;min-width:0;font-size:11px;padding:4px 6px;" onchange="quickAssignClient(\''+a.id+'\',this.value)"><option value="">— Chọn KH —</option>';
 clientList.forEach(function(c2){h+='<option value="'+c2.id+'"'+(c2.id===curClientId?' selected':'')+'>'+esc(c2.name)+'</option>';});
-h+='</select></td>';}
+h+='</select>';
+h+='</div>';
+}
+h+='</td>';
 // Spend column with bar
 var pct=maxSpend>0?Math.round(ds/maxSpend*100):0;
 h+='<td style="padding-right:16px;">'+(ds?'<div style="text-align:right;"><div class="spend-num">'+ff(ds)+'</div><div class="spend-bar"><div class="spend-fill" style="width:'+pct+'%;"></div></div></div>':'<div class="spend-zero">—</div>')+'</td>';
@@ -1972,10 +2012,10 @@ if(a.max_lead_cost){h+='<span class="mess-val" style="cursor:pointer;font-size:1
 else{h+='<span style="font-size:11px;color:var(--tx3);cursor:pointer;" onclick="editMaxLead(\''+a.id+'\',0)">Chưa đặt</span>';}
 h+='</div>';
 h+='</div></td>';
-h+='<td><span class="pq '+(a.is_shared?'pq-s':'pq-r')+'" onclick="toggleShared(\''+a.id+'\','+!a.is_shared+')">'+(a.is_shared?'Dùng chung':'Riêng')+'</span></td></tr>';
+h+='</tr>';
 // Expandable assignment panel
 if(expandedAd===a.id){
-h+='<tr><td colspan="9" style="padding:4px 0;"><div class="assign-panel">';
+h+='<tr><td colspan="7" style="padding:4px 0;"><div class="assign-panel">';
 // Manual spend input section
 var curSpend=spendTotalForAccountDate(a.id,adViewDate);
 var isExternal=!a.fb_account_id;
@@ -2070,8 +2110,8 @@ h+='</div>';}
 h+='</div></td></tr>';}
 });
 // Footer row
-h+='</tbody><tfoot><tr class="foot-row"><td></td><td style="font-size:12px;color:var(--tx2);">'+adList.length+' tài khoản</td><td></td><td></td><td></td>';
-h+='<td style="padding-right:16px;"><div style="text-align:right;"><div class="spend-num" style="font-size:15px;color:var(--teal-tx);">'+ff(dayTotal)+'</div></div></td><td></td><td></td><td></td></tr></tfoot></table></div>';
+h+='</tbody><tfoot><tr class="foot-row"><td></td><td></td><td style="font-size:12px;color:var(--tx2);">'+adList.length+' tài khoản</td><td></td>';
+h+='<td style="padding-right:16px;"><div style="text-align:right;"><div class="spend-num" style="font-size:15px;color:var(--teal-tx);">'+ff(dayTotal)+'</div></div></td><td></td><td></td></tr></tfoot></table></div>';
 h+='<div style="display:flex;gap:8px;margin-top:10px;"><button class="btn btn-red btn-sm" onclick="deleteCheckedAd()">Xóa đã chọn</button></div>';
 return h;}
 
