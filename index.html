@@ -369,7 +369,7 @@ tr:hover td{background:#f8fbff;}
 #ad-table colgroup .col-client{width:170px;}
 #ad-table colgroup .col-spend{width:170px;}
 #ad-table colgroup .col-cap{width:170px;}
-#ad-table colgroup .col-price{width:165px;}
+#ad-table colgroup .col-price{width:124px;}
 #ad-table .th-label{display:inline-flex;align-items:center;gap:3px;min-width:0;max-width:100%;}
 .ad-account-cell{min-width:0;}
 .ad-account-top{display:flex;align-items:center;gap:8px;min-width:0;margin-bottom:5px;}
@@ -392,15 +392,15 @@ tr:hover td{background:#f8fbff;}
 .spend-cap-cell .bal-val{font-size:18px;}
 .spend-cap-cell .bal-track{margin-left:auto;max-width:120px;}
 .spend-cap-cell .bal-sub{text-align:right;}
-.td-price-pair{padding:8px 10px;}
-.price-pair{display:flex;flex-direction:column;gap:4px;align-items:flex-end;}
-.price-tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-variant-numeric:tabular-nums;cursor:pointer;padding:2px 0;border-radius:6px;transition:background .12s;}
+.td-price-pair{padding:8px 8px;}
+.price-pair{display:grid;gap:5px;justify-content:end;}
+.price-tag{display:grid;grid-template-columns:44px 50px;align-items:center;column-gap:6px;font-size:11px;font-variant-numeric:tabular-nums;cursor:pointer;padding:1px 0;border-radius:6px;transition:background .12s;}
 .price-tag:hover{background:rgba(37,99,235,0.06);}
-.price-tag-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:1px 5px;border-radius:4px;background:#f3e8ff;color:#7c3aed;}
+.price-tag-label{display:inline-flex;align-items:center;justify-content:center;width:44px;height:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:0 5px;border-radius:5px;background:#f3e8ff;color:#7c3aed;}
 .price-tag-label.form{background:#eef2ff;color:var(--blue);}
-.price-tag-val{font-weight:700;font-size:13px;color:var(--tx1);}
+.price-tag-val{font-weight:700;font-size:13px;color:var(--tx1);text-align:right;white-space:nowrap;}
 .price-tag-val.lead{color:var(--blue);}
-.price-tag-unset{font-size:11px;color:var(--tx3);}
+.price-tag-unset{font-size:11px;color:var(--tx3);text-align:right;white-space:nowrap;}
 .badge,.chip,.tag,.nv-badge,.pq{
   font-weight:600;
   letter-spacing:0.01em;
@@ -2048,10 +2048,10 @@ h+='<td class="spend-cap-cell"><div class="bal-val bal-ok">'+fm(a.spend_cap)+'</
 // Max cost combined cell (Kết quả tối đa)
 h+='<td class="td-price-pair"><div class="price-pair">';
 h+='<div class="price-tag" onclick="editMaxMess(\''+a.id+'\','+(a.max_mess_cost||0)+')" title="Giá mess tối đa — bấm để sửa"><span class="price-tag-label">Mess</span>';
-if(a.max_mess_cost){h+='<span class="price-tag-val">'+ff(a.max_mess_cost)+'đ</span>';}else{h+='<span class="price-tag-unset">Chưa đặt</span>';}
+if(a.max_mess_cost){h+='<span class="price-tag-val">'+fm(a.max_mess_cost)+'</span>';}else{h+='<span class="price-tag-unset">—</span>';}
 h+='</div>';
 h+='<div class="price-tag" onclick="editMaxLead(\''+a.id+'\','+(a.max_lead_cost||0)+')" title="Giá form tối đa — bấm để sửa"><span class="price-tag-label form">Form</span>';
-if(a.max_lead_cost){h+='<span class="price-tag-val lead">'+ff(a.max_lead_cost)+'đ</span>';}else{h+='<span class="price-tag-unset">Chưa đặt</span>';}
+if(a.max_lead_cost){h+='<span class="price-tag-val lead">'+fm(a.max_lead_cost)+'</span>';}else{h+='<span class="price-tag-unset">—</span>';}
 h+='</div></div></td>';
 h+='</tr>';
 // Expandable assignment panel
