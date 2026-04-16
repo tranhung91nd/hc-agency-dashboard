@@ -793,7 +793,7 @@ sb2.from('transaction').select('*,client(name),staff(short_name)').order('txn_da
 sb2.from('monthly_revenue').select('*,staff(short_name,code)').order('month'),
 sb2.from('staff_client').select('*,client(name)'),
 sb2.from('assignment').select('*').order('start_date',{ascending:false}),
- sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,client(name))').order('report_date',{ascending:false}).limit(5000),
+ sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,max_lead_cost,client(name))').order('report_date',{ascending:false}).limit(5000),
  sb2.from('client_monthly_fee').select('*').order('month',{ascending:false})
 ]);
 var errs=[];
@@ -876,7 +876,7 @@ if(curPage===0)el.innerHTML=p0();else if(curPage===1)el.innerHTML=p1();else if(c
 enhanceUI();
 if(curPage===1&&spendTab===0)restoreAdFilters();
 var aiFab=document.querySelector('.ai-fab');if(aiFab){aiFab.style.display=(curPage===3&&expandedClientId)?'none':'';}
-var adot=document.getElementById('alert-dot');if(adot){var ac=getMessAlerts().length;adot.style.background=ac?'var(--red)':'var(--green)';adot.style.animation=ac?'pulse 2s infinite':'none';}}
+var adot=document.getElementById('alert-dot');if(adot){var ac=getMessAlerts().length+getLeadAlerts().length;adot.style.background=ac?'var(--red)':'var(--green)';adot.style.animation=ac?'pulse 2s infinite':'none';}}
 
 // ═══ P0: TỔNG QUAN ═══
 function p0(){
@@ -1904,6 +1904,7 @@ h+='<th>Nhân sự</th><th>Khách hàng</th>';
 h+='<th class="sort-th" style="text-align:right;padding-right:16px;" '+sa('spend')+'>Chi tiêu '+fd(adViewDate)+' '+si('spend')+'</th>';
 h+='<th class="sort-th" '+sa('balance')+'>Ngưỡng chi tiêu '+si('balance')+'</th>';
 h+='<th style="text-align:right;">Giá mess tối đa</th>';
+h+='<th style="text-align:right;">Giá form tối đa</th>';
 h+='<th>Loại</th></tr></thead><tbody>';
 rows.forEach(function(row){
 var a=row.a,ca=row.assign,ds=row.spend,status=row.status;
@@ -1956,10 +1957,15 @@ h+='<td style="text-align:right;">';
 if(a.max_mess_cost){h+='<span class="mess-val" style="cursor:pointer;font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;" onclick="editMaxMess(\''+a.id+'\','+a.max_mess_cost+')" title="Bấm để sửa">'+ff(a.max_mess_cost)+'<span style="font-size:11px;color:var(--tx3);margin-left:2px;">đ</span></span>';}
 else{h+='<span style="font-size:11px;color:var(--tx3);cursor:pointer;" onclick="editMaxMess(\''+a.id+'\',0)">Chưa đặt</span>';}
 h+='</td>';
+// Max lead cost cell
+h+='<td style="text-align:right;">';
+if(a.max_lead_cost){h+='<span class="mess-val" style="cursor:pointer;font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--blue);" onclick="editMaxLead(\''+a.id+'\','+a.max_lead_cost+')" title="Bấm để sửa">'+ff(a.max_lead_cost)+'<span style="font-size:11px;color:var(--tx3);margin-left:2px;">đ</span></span>';}
+else{h+='<span style="font-size:11px;color:var(--tx3);cursor:pointer;" onclick="editMaxLead(\''+a.id+'\',0)">Chưa đặt</span>';}
+h+='</td>';
 h+='<td><span class="pq '+(a.is_shared?'pq-s':'pq-r')+'" onclick="toggleShared(\''+a.id+'\','+!a.is_shared+')">'+(a.is_shared?'Dùng chung':'Riêng')+'</span></td></tr>';
 // Expandable assignment panel
 if(expandedAd===a.id){
-h+='<tr><td colspan="9" style="padding:4px 0;"><div class="assign-panel">';
+h+='<tr><td colspan="10" style="padding:4px 0;"><div class="assign-panel">';
 // Manual spend input section
 var curSpend=dailyData.filter(function(dd){return dd.ad_account_id===a.id&&dd.report_date===adViewDate;}).reduce(function(t,dd){return t+dd.spend_amount;},0);
 var isExternal=!a.fb_account_id;
@@ -2157,6 +2163,15 @@ if(!needAuth())return;
 var r=await sb2.from('ad_account').update({max_mess_cost:val||null}).eq('id',adId);
 if(!r.error){toast('Đã lưu giá mess tối đa: '+ff(val),true);await loadAll();if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}
 else toast('Lỗi: '+r.error.message,false);}
+function editMaxLead(adId,curVal){
+var v=prompt('Nhập giá form (lead) tối đa (VNĐ):',curVal||'');if(v===null)return;
+var num=parseInt(String(v).replace(/[^0-9]/g,''))||0;
+saveMaxLead(adId,num);}
+async function saveMaxLead(adId,val){
+if(!needAuth())return;
+var r=await sb2.from('ad_account').update({max_lead_cost:val||null}).eq('id',adId);
+if(!r.error){toast('Đã lưu giá form tối đa: '+ff(val),true);await loadAll();if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}
+else toast('Lỗi: '+r.error.message,false);}
 async function deleteCheckedAd(){if(!needAuth())return;var checks=document.querySelectorAll('.ad-check:checked');if(!checks.length){toast('Chưa chọn TK nào',false);return;}if(!confirm('Xóa '+checks.length+' tài khoản?'))return;var c=0;for(var i=0;i<checks.length;i++){var r=await sb2.from('ad_account').delete().eq('id',checks[i].value);if(!r.error)c++;}toast('Đã xóa '+c+' TK!',true);await loadAll();stayPage();}
 async function addAssignment(adId){
 if(!needAuth())return;
@@ -2183,12 +2198,11 @@ if(!needAuth())return;if(!confirm('Xóa phân công này?'))return;
 var r=await sb2.from('assignment').delete().eq('id',id);
 if(!r.error){toast('Đã xóa!',true);await loadAll();stayPage();}else toast('Lỗi',false);}
 
-// ═══ MESS ALERTS ═══
-function getMessAlerts(){
+// ═══ CAMPAIGN ALERTS (MESS + FORM) ═══
+function buildCampAggregates(){
 var today=td();
 var d1=vnDateStr(-86400000),d2=vnDateStr(-172800000),d3=vnDateStr(-259200000);
 var threeDays=[d3,d2,d1];
-// Tìm status mới nhất của mỗi campaign
 var latestStatus={};
 campaignMessData.forEach(function(r){
 var key=r.ad_account_id+'|'+r.campaign_id;
@@ -2197,26 +2211,49 @@ var camps={};
 campaignMessData.forEach(function(r){
 if(threeDays.indexOf(r.report_date)<0)return;
 var key=r.ad_account_id+'|'+r.campaign_id;
-// Chỉ tính campaign đang ACTIVE
 var st=latestStatus[key];
 if(st&&st.status!=='ACTIVE')return;
-if(!camps[key])camps[key]={aid:r.ad_account_id,cid:r.campaign_id,name:r.campaign_name,days:0,spend:0,mess:0,ad:r.ad_account};
+if(!camps[key])camps[key]={aid:r.ad_account_id,cid:r.campaign_id,name:r.campaign_name,days:0,spend:0,mess:0,leads:0,ad:r.ad_account};
 if(r.spend>0)camps[key].days++;
 camps[key].spend+=r.spend||0;
-camps[key].mess+=r.mess_count||0;});
+camps[key].mess+=r.mess_count||0;
+camps[key].leads+=(r.lead_count||0);});
+return{camps:camps,today:today};}
+function getMessAlerts(){
+var agg=buildCampAggregates(),camps=agg.camps,today=agg.today;
 var alerts=[];
 Object.keys(camps).forEach(function(k){
 var c=camps[k];
 if(c.days<3)return;
 if(!c.ad||!c.ad.max_mess_cost)return;
+// Chỉ cảnh báo camp có mess (không phải camp form)
+if(c.mess===0&&c.leads>0)return;
 var costPerMess=c.mess>0?Math.round(c.spend/c.mess):Infinity;
 if(costPerMess>c.ad.max_mess_cost){
 var acc=adList.find(function(a){return a.id===c.aid;});
 var ca=acc?getAssign(acc.id,today):[];
 var staffId=ca.length?ca[0].staff_id:null;
 var staff=staffId?allStaff.find(function(s){return s.id===staffId;}):null;
-alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_mess:costPerMess,max_cost:c.ad.max_mess_cost,spend_3d:c.spend,mess_3d:c.mess,staff:staff,days:c.days});}});
+alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_mess:costPerMess,max_cost:c.ad.max_mess_cost,spend_3d:c.spend,mess_3d:c.mess,staff:staff,days:c.days,type:'mess'});}});
 alerts.sort(function(a,b){return b.cost_per_mess-a.cost_per_mess;});
+return alerts;}
+function getLeadAlerts(){
+var agg=buildCampAggregates(),camps=agg.camps,today=agg.today;
+var alerts=[];
+Object.keys(camps).forEach(function(k){
+var c=camps[k];
+if(c.days<3)return;
+if(!c.ad||!c.ad.max_lead_cost)return;
+// Chỉ cảnh báo camp có lead (không phải camp mess)
+if(c.leads===0&&c.mess>0)return;
+var costPerLead=c.leads>0?Math.round(c.spend/c.leads):Infinity;
+if(costPerLead>c.ad.max_lead_cost){
+var acc=adList.find(function(a){return a.id===c.aid;});
+var ca=acc?getAssign(acc.id,today):[];
+var staffId=ca.length?ca[0].staff_id:null;
+var staff=staffId?allStaff.find(function(s){return s.id===staffId;}):null;
+alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_lead:costPerLead,max_cost:c.ad.max_lead_cost,spend_3d:c.spend,leads_3d:c.leads,staff:staff,days:c.days,type:'lead'});}});
+alerts.sort(function(a,b){return b.cost_per_lead-a.cost_per_lead;});
 return alerts;}
 
 async function runLimited(items,limit,worker){
@@ -2281,10 +2318,12 @@ function parseMessRows(a,campBody,insBody){
 var activeIds=new Set();
 (campBody.data||[]).forEach(function(c){activeIds.add(c.id);});
 return (insBody.data||[]).map(function(r){
-var spend=Math.round(parseFloat(r.spend||0)),messCount=0;
+var spend=Math.round(parseFloat(r.spend||0)),messCount=0,leadCount=0;
 if(r.actions){r.actions.forEach(function(act){
-if(act.action_type&&(act.action_type.indexOf('messaging_conversation_started')>=0||act.action_type==='onsite_conversion.messaging_conversation_started_7d'))messCount+=parseInt(act.value)||0;});}
-return{ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount,campaign_status:activeIds.has(r.campaign_id)?'ACTIVE':'PAUSED'};
+if(act.action_type&&(act.action_type.indexOf('messaging_conversation_started')>=0||act.action_type==='onsite_conversion.messaging_conversation_started_7d'))messCount+=parseInt(act.value)||0;
+if(act.action_type&&(act.action_type==='lead'||act.action_type==='leadgen_grouped'))leadCount+=parseInt(act.value)||0;
+});}
+return{ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount,lead_count:leadCount,campaign_status:activeIds.has(r.campaign_id)?'ACTIVE':'PAUSED'};
 });
 }
 async function fetchCampaignMessBatch(accounts,d3,d1){
@@ -2313,8 +2352,8 @@ async function syncCampaignMess(btn,skipRefresh){
 var oldText=btn?btn.textContent:'Quét giá mess';
 if(btn){btn.disabled=true;btn.textContent='Đang quét...';}
 var d1=vnDateStr(-86400000),d3=vnDateStr(-259200000);
-var mapped=adList.filter(function(a){return a.fb_account_id&&a.max_mess_cost;});
-if(!mapped.length){if(btn){toast('Chưa có TK nào đặt giá mess tối đa',false);btn.disabled=false;btn.textContent=oldText;}return;}
+var mapped=adList.filter(function(a){return a.fb_account_id&&(a.max_mess_cost||a.max_lead_cost);});
+if(!mapped.length){if(btn){toast('Chưa có TK nào đặt ngưỡng giá mess/form',false);btn.disabled=false;btn.textContent=oldText;}return;}
 var errors=0;
 try{
 if(btn)btn.textContent='Đang quét '+mapped.length+' TK...';
@@ -2332,24 +2371,41 @@ if(!skipRefresh)await loadAll();
 }catch(e){toast('Lỗi quét giá mess: '+e.message,false);}
 finally{if(btn){btn.disabled=false;btn.textContent=oldText;}}}
 
-// ═══ P6: CẢNH BÁO GIÁ MESS ═══
+// ═══ P6: CẢNH BÁO GIÁ CHIẾN DỊCH ═══
+var p6Tab=0;
+function setP6Tab(i){p6Tab=i;render();}
 function p6(){
-var alerts=getMessAlerts();
+var messAlerts=getMessAlerts(),leadAlerts=getLeadAlerts();
+var totalAlerts=messAlerts.length+leadAlerts.length;
 var d1=fd(vnDateStr(-86400000)),d3=fd(vnDateStr(-259200000));
-var h='<div class="page-title">Cảnh báo giá mess</div><div class="page-sub">Giá mess trung bình 3 ngày ('+d3+' – '+d1+') · Chỉ chiến dịch đang hoạt động, chạy đủ 3 ngày trở lên</div>';
-h+='<div style="display:flex;gap:8px;margin-bottom:16px;"><button class="btn btn-primary" onclick="syncCampaignMess(this)">Quét giá mess</button><button class="btn btn-ghost" onclick="pg(5)">Đặt ngưỡng (Admin)</button></div>';
+var h='<div class="page-title">Cảnh báo giá chiến dịch</div><div class="page-sub">Giá trung bình 3 ngày ('+d3+' – '+d1+') · Chỉ chiến dịch đang hoạt động, chạy đủ 3 ngày trở lên</div>';
+h+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;"><button class="btn btn-primary" onclick="syncCampaignMess(this)">Quét giá mess & form</button><button class="btn btn-ghost" onclick="pg(5)">Đặt ngưỡng (Admin)</button></div>';
 // KPI
-var tkWithThreshold=adList.filter(function(a){return a.max_mess_cost;}).length;
+var tkMess=adList.filter(function(a){return a.max_mess_cost;}).length;
+var tkLead=adList.filter(function(a){return a.max_lead_cost;}).length;
 var allCamps=new Set();campaignMessData.forEach(function(r){allCamps.add(r.campaign_id);});
 h+='<div class="kpi-grid kpi-4">';
-h+='<div class="kpi"><div class="kpi-label">Chiến dịch vượt ngưỡng</div><div class="kpi-value" style="color:'+(alerts.length?'var(--red)':'var(--green)')+';">'+alerts.length+'</div><div class="kpi-note">Cần xử lý</div></div>';
-h+='<div class="kpi"><div class="kpi-label">TK đã đặt ngưỡng</div><div class="kpi-value">'+tkWithThreshold+'</div><div class="kpi-note">/ '+adList.length+' tài khoản</div></div>';
-h+='<div class="kpi"><div class="kpi-label">Chiến dịch đang theo dõi</div><div class="kpi-value">'+allCamps.size+'</div><div class="kpi-note">Có dữ liệu mess</div></div>';
+h+='<div class="kpi"><div class="kpi-label">Vượt ngưỡng Mess</div><div class="kpi-value" style="color:'+(messAlerts.length?'var(--red)':'var(--green)')+';">'+messAlerts.length+'</div><div class="kpi-note">'+tkMess+' TK đặt ngưỡng mess</div></div>';
+h+='<div class="kpi"><div class="kpi-label">Vượt ngưỡng Form</div><div class="kpi-value" style="color:'+(leadAlerts.length?'var(--red)':'var(--green)')+';">'+leadAlerts.length+'</div><div class="kpi-note">'+tkLead+' TK đặt ngưỡng form</div></div>';
+h+='<div class="kpi"><div class="kpi-label">Chiến dịch theo dõi</div><div class="kpi-value">'+allCamps.size+'</div><div class="kpi-note">Có dữ liệu</div></div>';
 h+='<div class="kpi"><div class="kpi-label">Lần quét gần nhất</div><div class="kpi-value" style="font-size:14px;">'+(campaignMessData.length?campaignMessData[0].report_date:'Chưa quét')+'</div></div></div>';
-if(!alerts.length){
-h+='<div style="text-align:center;padding:40px;color:var(--tx3);"><div style="font-size:36px;margin-bottom:8px;">✓</div><div style="font-size:15px;font-weight:500;color:var(--green);">Không có chiến dịch nào vượt ngưỡng</div><div style="font-size:12px;margin-top:4px;">Tất cả chiến dịch đang trong mức cho phép</div></div>';
+// Tabs
+h+='<div class="admin-tabs" style="margin-bottom:16px;">';
+h+='<div class="admin-tab'+(p6Tab===0?' active':'')+'" onclick="setP6Tab(0)">Cảnh báo Mess'+(messAlerts.length?' <span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:4px;">'+messAlerts.length+'</span>':'')+'</div>';
+h+='<div class="admin-tab'+(p6Tab===1?' active':'')+'" onclick="setP6Tab(1)">Cảnh báo Form'+(leadAlerts.length?' <span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:4px;">'+leadAlerts.length+'</span>':'')+'</div>';
+h+='</div>';
+if(p6Tab===0)h+=p6AlertList(messAlerts,'mess');
+else h+=p6AlertList(leadAlerts,'lead');
 return h;}
-// Group: Staff → Client → Campaign
+function p6AlertList(alerts,type){
+var isMess=type==='mess';
+var resultLabel=isMess?'Mess':'Form';
+var costKey=isMess?'cost_per_mess':'cost_per_lead';
+var countKey=isMess?'mess_3d':'leads_3d';
+var h='';
+if(!alerts.length){
+h+='<div style="text-align:center;padding:40px;color:var(--tx3);"><div style="font-size:36px;margin-bottom:8px;">✓</div><div style="font-size:15px;font-weight:500;color:var(--green);">Không có chiến dịch '+resultLabel+' nào vượt ngưỡng</div><div style="font-size:12px;margin-top:4px;">Tất cả chiến dịch đang trong mức cho phép</div></div>';
+return h;}
 var byStaff={};alerts.forEach(function(al){
 var sk=al.staff?al.staff.id:'none';
 if(!byStaff[sk])byStaff[sk]={staff:al.staff,clients:{}};
@@ -2365,24 +2421,22 @@ var g=byStaff[sk],sObj=g.staff;
 var sCol=sObj?sc(sObj.color_code):{bg:'var(--bg3)',tx:'var(--tx3)',c:'var(--tx3)'};
 var clientKeys=Object.keys(g.clients).sort(function(a,b){return g.clients[b].length-g.clients[a].length;});
 var totalCamps=clientKeys.reduce(function(t,k){return t+g.clients[k].length;},0);
-// Staff block
 h+='<div style="border:1px solid var(--bd1);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px;">';
 h+='<div style="padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bd1);">';
 h+='<div style="display:flex;align-items:center;gap:10px;"><div class="avatar" style="background:'+sCol.bg+';color:'+sCol.tx+';">'+(sObj?esc(sObj.avatar_initials):'?')+'</div><div><div style="font-size:15px;font-weight:600;">'+(sObj?esc(sObj.short_name):'Chưa gán NV')+'</div><div style="font-size:12px;color:var(--tx3);">'+clientKeys.length+' khách hàng · '+totalCamps+' chiến dịch vượt ngưỡng</div></div></div>';
 h+='<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--red-bg);color:var(--red-tx);font-weight:500;">'+totalCamps+'</span></div>';
-// Each client
 clientKeys.forEach(function(cname){
 var camps=g.clients[cname];
 h+='<div style="border-bottom:1px solid var(--bd1);">';
 h+='<div style="padding:10px 20px 10px 48px;background:var(--bg2);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bd1);"><div style="font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;"><span style="width:6px;height:6px;border-radius:50%;background:'+sCol.c+';"></span>'+esc(cname)+'</div><span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--red-bg);color:var(--red-tx);font-weight:500;">'+camps.length+' chiến dịch</span></div>';
-// Campaign header
-h+='<div style="display:grid;grid-template-columns:1fr 110px 70px 110px 90px;gap:6px;padding:4px 20px 4px 48px;font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px;"><span>Chiến dịch</span><span style="text-align:right">Chi tiêu 3 ngày</span><span style="text-align:right">Mess</span><span style="text-align:right">Giá mess TB</span><span style="text-align:right">Ngưỡng</span></div>';
-camps.sort(function(a,b){return b.cost_per_mess-a.cost_per_mess;}).forEach(function(al){
+h+='<div style="display:grid;grid-template-columns:1fr 110px 70px 110px 90px;gap:6px;padding:4px 20px 4px 48px;font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px;"><span>Chiến dịch</span><span style="text-align:right">Chi tiêu 3 ngày</span><span style="text-align:right">'+resultLabel+'</span><span style="text-align:right">Giá '+resultLabel+' TB</span><span style="text-align:right">Ngưỡng</span></div>';
+camps.sort(function(a,b){return(b[costKey]||0)-(a[costKey]||0);}).forEach(function(al){
+var costVal=al[costKey]||0;
 h+='<div style="display:grid;grid-template-columns:1fr 110px 70px 110px 90px;gap:6px;align-items:center;padding:8px 20px 8px 48px;border-bottom:1px solid var(--bd1);font-size:12px;background:var(--red-bg);">';
 h+='<div><div style="font-weight:500;font-size:13px;">'+esc(al.campaign_name)+'</div><div style="font-size:11px;color:var(--tx3);margin-top:1px;">'+esc(al.account_name)+'</div></div>';
 h+='<div class="mono" style="text-align:right;">'+ff(al.spend_3d)+'</div>';
-h+='<div class="mono" style="text-align:right;">'+(al.mess_3d||'0')+'</div>';
-h+='<div class="mono" style="text-align:right;font-weight:600;color:var(--red);">'+(al.cost_per_mess===Infinity?'∞':ff(al.cost_per_mess))+'</div>';
+h+='<div class="mono" style="text-align:right;">'+(al[countKey]||'0')+'</div>';
+h+='<div class="mono" style="text-align:right;font-weight:600;color:var(--red);">'+(costVal===Infinity?'∞':ff(costVal))+'</div>';
 h+='<div class="mono" style="text-align:right;color:var(--tx3);">'+ff(al.max_cost)+'</div></div>';});
 h+='</div>';});
 h+='</div>';});
@@ -2640,10 +2694,13 @@ cArr.forEach(function(c){if(c.spend>0||c.fee>0)summary+=c.name+': chi tiêu '+ff
 if(tkAlerts.length){summary+='\n== CẢNH BÁO NGÂN SÁCH TK ==\n';tkAlerts.sort(function(a,b){return b.pct-a.pct;}).forEach(function(a){summary+=a.name+': đã chi '+ff(a.spent)+'/'+ff(a.cap)+' ('+a.pct+'%)\n';});}
 summary+='\n== TÀI CHÍNH ==\nDoanh thu phí DV: '+ff(inc)+'\nChi phí (lương+VH): '+ff(exp)+'\nLợi nhuận: '+ff(inc-exp)+'\n';
 summary+='Tổng TK: '+adList.length+' ('+adList.filter(function(a){return a.account_status===1;}).length+' hoạt động)\n';
-var messAlerts=getMessAlerts();
+var messAlerts=getMessAlerts(),leadAlerts=getLeadAlerts();
 if(messAlerts.length){summary+='\n== CẢNH BÁO GIÁ MESS (TB 3 ngày) ==\n';
 messAlerts.forEach(function(al){summary+=al.campaign_name+' ('+al.client_name+'): giá mess '+ff(al.cost_per_mess)+'đ, ngưỡng '+ff(al.max_cost)+'đ, NV '+(al.staff?al.staff.short_name:'—')+', spend 3 ngày '+ff(al.spend_3d)+', '+al.mess_3d+' mess\n';});}
 else{summary+='\n== GIÁ MESS ==\nKhông có chiến dịch nào vượt ngưỡng giá mess.\n';}
+if(leadAlerts.length){summary+='\n== CẢNH BÁO GIÁ FORM (TB 3 ngày) ==\n';
+leadAlerts.forEach(function(al){summary+=al.campaign_name+' ('+al.client_name+'): giá form '+ff(al.cost_per_lead)+'đ, ngưỡng '+ff(al.max_cost)+'đ, NV '+(al.staff?al.staff.short_name:'—')+', spend 3 ngày '+ff(al.spend_3d)+', '+al.leads_3d+' form\n';});}
+else{summary+='\n== GIÁ FORM ==\nKhông có chiến dịch nào vượt ngưỡng giá form.\n';}
 return summary;}
 
 function addAIMsg(role,html){
