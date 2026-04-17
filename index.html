@@ -2738,6 +2738,15 @@ h+='<div class="form-row"><div class="form-group"><label>Business ID</label><inp
 h+='<div class="btn-row"><button class="btn btn-primary" onclick="saveMetaSettings(this)">Lưu cài đặt</button><button class="btn btn-ghost" onclick="checkMetaTokenPermissions(this)">Kiểm tra quyền token</button></div>';
 h+='<div id="token-check-result"></div>';
 h+='</div>';
+// AI API keys
+var openaiPreview=OPENAI_KEY?('***'+OPENAI_KEY.slice(-6)):'Chưa nhập';
+var claudePreview=CLAUDE_KEY?('***'+CLAUDE_KEY.slice(-6)):'Chưa nhập';
+h+='<div class="form-card"><h3>Cấu hình API Key AI (HC AI)</h3>';
+h+='<div style="padding:10px 14px;background:var(--amber-bg);color:var(--amber-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;">⚠ Key lưu trong <b>localStorage của trình duyệt này</b> — không đồng bộ với máy khác. Mỗi trình duyệt/thiết bị phải cấu hình riêng để bảo mật. Xoá cache trình duyệt sẽ mất key.</div>';
+h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>OpenAI API Key (dùng cho GPT-5.4)</label><div style="display:flex;gap:8px;align-items:center;"><input type="password" id="set-openai-key" value="'+esc(OPENAI_KEY)+'" placeholder="sk-proj-..." style="flex:1;font-family:monospace;font-size:12px;"><button class="btn btn-ghost btn-sm" onclick="var el=document.getElementById(\'set-openai-key\');el.type=el.type===\'password\'?\'text\':\'password\';">Hiện/Ẩn</button></div><div style="font-size:11px;color:var(--tx3);margin-top:4px;">Hiện tại: '+openaiPreview+' · <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener" style="color:var(--blue);">Lấy key tại đây ↗</a></div></div></div>';
+h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Anthropic Claude API Key (dùng cho Claude Haiku/Sonnet)</label><div style="display:flex;gap:8px;align-items:center;"><input type="password" id="set-claude-key" value="'+esc(CLAUDE_KEY)+'" placeholder="sk-ant-..." style="flex:1;font-family:monospace;font-size:12px;"><button class="btn btn-ghost btn-sm" onclick="var el=document.getElementById(\'set-claude-key\');el.type=el.type===\'password\'?\'text\':\'password\';">Hiện/Ẩn</button></div><div style="font-size:11px;color:var(--tx3);margin-top:4px;">Hiện tại: '+claudePreview+' · <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--blue);">Lấy key tại đây ↗</a></div></div></div>';
+h+='<div class="btn-row"><button class="btn btn-primary" onclick="saveAIKeys(this)">Lưu API Key</button><button class="btn btn-ghost" onclick="clearAIKeys(this)">Xoá tất cả</button></div>';
+h+='</div>';
 h+='<div class="form-card"><h3>Thông tin ngân hàng (phiếu thanh toán)</h3>';
 h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
 h+='<div><div style="font-size:12px;font-weight:500;color:var(--green);margin-bottom:8px;">STK doanh nghiệp (có VAT)</div>';
@@ -2786,6 +2795,32 @@ META_TOKEN=token;META_BUSINESS_ID=bizId;META_GLOBAL_SCOPE_ID=gsId;
 toast('Đã lưu cài đặt Meta!',true);
 }else{toast('Có lỗi khi lưu',false);}
 btn.disabled=false;btn.textContent='Lưu cài đặt';
+render();}
+
+function saveAIKeys(btn){
+if(!isAdmin())return;
+btn.disabled=true;btn.textContent='Đang lưu...';
+var oKey=document.getElementById('set-openai-key').value.trim();
+var cKey=document.getElementById('set-claude-key').value.trim();
+if(oKey){localStorage.setItem('hc_openai_key',oKey);OPENAI_KEY=oKey;}
+else{localStorage.removeItem('hc_openai_key');OPENAI_KEY='';}
+if(cKey){localStorage.setItem('hc_claude_key',cKey);CLAUDE_KEY=cKey;}
+else{localStorage.removeItem('hc_claude_key');CLAUDE_KEY='';}
+// Reset AI conversation để lần hỏi tiếp theo dùng key mới
+aiMessages=[];aiInitDone=false;
+var msgsEl=document.getElementById('ai-msgs');if(msgsEl)msgsEl.innerHTML='';
+toast('Đã lưu API key AI vào trình duyệt này!',true);
+btn.disabled=false;btn.textContent='Lưu API Key';
+render();}
+
+function clearAIKeys(btn){
+if(!isAdmin())return;
+if(!confirm('Xoá toàn bộ API key AI khỏi trình duyệt này?'))return;
+localStorage.removeItem('hc_openai_key');localStorage.removeItem('hc_claude_key');
+OPENAI_KEY='';CLAUDE_KEY='';
+aiMessages=[];aiInitDone=false;
+var msgsEl=document.getElementById('ai-msgs');if(msgsEl)msgsEl.innerHTML='';
+toast('Đã xoá API key AI',true);
 render();}
 
 async function addUserRole(btn){
@@ -2916,7 +2951,7 @@ aiMessages.push({role:'assistant',content:reply});
 return reply;
 }else{
 // OpenAI API
-var resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},body:JSON.stringify({model:model,messages:aiMessages,max_tokens:1500,temperature:0.7})});
+var resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},body:JSON.stringify({model:model,messages:aiMessages,max_completion_tokens:1500})});
 var data=await resp.json();
 if(data.error){
 if(data.error.message&&data.error.message.indexOf('API key')>=0){localStorage.removeItem('hc_openai_key');OPENAI_KEY='';}
@@ -2947,6 +2982,12 @@ document.getElementById('ai-send-btn').disabled=false;}
 function askAI(q){document.getElementById('ai-input').value=q;sendAI();}
 
 function resetAIKey(){
+// Ưu tiên mở Admin > Cài đặt (tab 4) cho Admin. Nếu không phải Admin → fallback prompt như cũ.
+if(isAdmin()){
+if(aiOpen)toggleAI();
+curPage=5;adminTab=4;render();
+toast('Cập nhật API key ở mục "Cấu hình API Key AI"',true);
+return;}
 var m=getAIModel();
 if(isClaude(m)){CLAUDE_KEY='';localStorage.removeItem('hc_claude_key');CLAUDE_KEY=prompt('Nhập Anthropic API key mới:')||'';if(CLAUDE_KEY)localStorage.setItem('hc_claude_key',CLAUDE_KEY);}
 else{OPENAI_KEY='';localStorage.removeItem('hc_openai_key');OPENAI_KEY=prompt('Nhập OpenAI API key mới:')||'';if(OPENAI_KEY)localStorage.setItem('hc_openai_key',OPENAI_KEY);}
