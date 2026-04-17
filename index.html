@@ -2442,13 +2442,13 @@ return{rows:allRows,errors:errors};
 async function syncCampaignMess(btn,skipRefresh){
 var oldText=btn?btn.textContent:'Quét giá mess';
 if(btn){btn.disabled=true;btn.textContent='Đang quét...';}
-var d1=vnDateStr(-86400000),d3=vnDateStr(-259200000);
+var today=td(),d3=vnDateStr(-259200000);
 var mapped=adList.filter(function(a){return a.fb_account_id&&(a.max_mess_cost||a.max_lead_cost);});
 if(!mapped.length){if(btn){toast('Chưa có TK nào đặt ngưỡng giá mess/form',false);btn.disabled=false;btn.textContent=oldText;}return;}
 var errors=0;
 try{
 if(btn)btn.textContent='Đang quét '+mapped.length+' TK...';
-var result=await fetchCampaignMessBatch(mapped,d3,d1);
+var result=await fetchCampaignMessBatch(mapped,d3,today);
 var rowsToSave=result.rows;errors=result.errors;
 var saved=0,batches=chunkArray(rowsToSave,500);
 for(var i=0;i<batches.length;i++){
