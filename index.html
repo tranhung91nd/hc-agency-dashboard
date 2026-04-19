@@ -1779,8 +1779,12 @@ h+='<div style="font-size:14px;font-weight:500;margin-bottom:8px;">Upload sao k�
 h+='<div style="font-size:12px;color:var(--tx3);margin-bottom:14px;">Hỗ trợ .xlsx — Export từ app VCB hoặc Internet Banking</div>';
 h+='<input type="file" id="vcb-file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleVcbUpload(this.files[0])">';
 h+='<button class="btn btn-primary" onclick="document.getElementById(\'vcb-file\').click()">Chọn file sao kê</button>';
-h+='<div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="checkMetaTokenPermissions(this)">Kiểm tra quyền Meta Token</button></div>';
+h+='<div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">';
+h+='<button class="btn btn-ghost btn-sm" onclick="checkMetaTokenPermissions(this)">Kiểm tra quyền Meta Token</button>';
+h+='<button class="btn btn-ghost btn-sm" onclick="showMetaSyncStatus(this)">Trạng thái đồng bộ Meta</button>';
+h+='</div>';
 h+='<div id="token-check-result"></div>';
+h+='<div id="meta-sync-status"></div>';
 }else{
 h+='<div style="display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap;">';
 h+='<span class="badge b-green">Đã upload</span>';
@@ -1938,6 +1942,23 @@ var until=maxParts[2]+'-'+(maxParts[1].length<2?'0':'')+maxParts[1]+'-'+(maxPart
 var sinceTs=Math.floor(new Date(since+'T00:00:00+07:00').getTime()/1000)-172800;
 var untilTs=Math.floor(new Date(until+'T23:59:59+07:00').getTime()/1000)+172800;
 var dateRangeStr=sinceTs+'_'+untilTs;
+// ═══ LOCAL SCRAPER DATA ═══
+// Nguồn chính: bảng meta_billing_transactions (fill bởi ~/Downloads/meta-billing-scraper).
+// Graph API /transactions đã bị Meta khoá nên chỉ dùng làm fallback.
+var assetIds=mapped.map(function(a){return (a.fb_account_id||'').replace('act_','');}).filter(Boolean);
+if(assetIds.length){
+try{
+var sbq=await sb2.from('meta_billing_transactions').select('transaction_id,asset_id,account_name,date_iso,amount_vnd,card_last4,vat_invoice_id,reference_id,details_url,billing_reason').in('asset_id',assetIds).gte('date_iso',since).lte('date_iso',until);
+if(!sbq.error&&sbq.data&&sbq.data.length){
+sbq.data.forEach(function(r){
+var acc=mapped.find(function(a){return (a.fb_account_id||'').replace('act_','')===r.asset_id;});
+var fbId=acc?acc.fb_account_id:('act_'+r.asset_id);
+results.push({transId:r.transaction_id,amount:r.amount_vnd||0,time:r.date_iso,refCode:(r.reference_id||'').toUpperCase(),accountFbId:fbId,accountName:r.account_name||(acc?acc.account_name:''),accountId:fbId,paymentAccountId:fbId,invoiceId:r.vat_invoice_id||'',chargeType:r.billing_reason||'',sinceTs:String(sinceTs),untilTs:String(untilTs)});
+});
+console.log('[Billing] Supabase: '+sbq.data.length+' giao dịch từ local scraper');
+return results;}
+}catch(e){console.warn('[Billing] Supabase query error:',e.message);}
+}
 for(var i=0;i<mapped.length;i+=50){
 var chunk=mapped.slice(i,i+50);
 var batchReqs=chunk.map(function(a){
@@ -2011,6 +2032,45 @@ s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
 s.onload=function(){resolve(window.XLSX);};
 s.onerror=function(){reject(new Error('Không tải được thư viện XLSX'));};
 document.head.appendChild(s);});}
+
+async function showMetaSyncStatus(btn){
+if(btn){btn.disabled=true;btn.textContent='Đang đọc...';}
+var el=document.getElementById('meta-sync-status');
+if(!el){if(btn){btn.disabled=false;btn.textContent='Trạng thái đồng bộ Meta';}return;}
+el.innerHTML='<div style="padding:12px;color:var(--tx3);font-size:12px;">Đang đọc Supabase...</div>';
+try{
+var logQ=await sb2.from('meta_sync_log').select('*').order('started_at',{ascending:false}).limit(5);
+var countQ=await sb2.from('meta_billing_transactions').select('transaction_id',{count:'exact',head:true});
+var latestQ=await sb2.from('meta_billing_transactions').select('synced_at,date_iso').order('date_iso',{ascending:false}).limit(1);
+var h='<div style="margin-top:14px;padding:16px;border:1px solid var(--bd1);border-radius:var(--radius-lg);background:var(--bg1);font-size:12px;">';
+h+='<div style="font-weight:600;font-size:13px;margin-bottom:10px;">Trạng thái đồng bộ Meta Billing</div>';
+if(logQ.error&&/relation.*does not exist/i.test(logQ.error.message||'')){
+h+='<div style="color:var(--amber);padding:8px;background:var(--amber-bg);border-radius:6px;">Chưa tạo bảng <code>meta_billing_transactions</code>. Chạy <code>schema.sql</code> trong Supabase SQL Editor trước.</div>';
+h+='</div>';el.innerHTML=h;if(btn){btn.disabled=false;btn.textContent='Trạng thái đồng bộ Meta';}return;}
+var total=countQ.count||0;
+var latest=(latestQ.data&&latestQ.data[0])||null;
+h+='<div style="display:grid;grid-template-columns:160px 1fr;gap:6px 12px;margin-bottom:12px;">';
+h+='<span style="color:var(--tx3);">Tổng giao dịch:</span><span style="font-weight:500;">'+total.toLocaleString('vi-VN')+'</span>';
+if(latest){
+h+='<span style="color:var(--tx3);">GD gần nhất:</span><span>'+esc(latest.date_iso)+'</span>';
+h+='<span style="color:var(--tx3);">Sync gần nhất:</span><span>'+new Date(latest.synced_at).toLocaleString('vi-VN')+'</span>';}
+h+='</div>';
+if(logQ.data&&logQ.data.length){
+h+='<div style="font-weight:500;margin:8px 0 4px;">5 lần sync gần nhất:</div>';
+h+='<table style="width:100%;font-size:11px;"><thead><tr style="color:var(--tx3);"><th style="text-align:left;padding:4px 6px;">Thời gian</th><th style="text-align:left;padding:4px 6px;">Trạng thái</th><th style="text-align:right;padding:4px 6px;">Số GD</th></tr></thead><tbody>';
+logQ.data.forEach(function(l){
+var color=l.status==='success'?'var(--green)':(l.status==='error'?'var(--red)':'var(--amber)');
+h+='<tr><td style="padding:4px 6px;">'+new Date(l.started_at).toLocaleString('vi-VN')+'</td>';
+h+='<td style="padding:4px 6px;color:'+color+';">'+esc(l.status||'—')+'</td>';
+h+='<td style="padding:4px 6px;text-align:right;">'+(l.transaction_count||0)+'</td></tr>';
+if(l.error_message)h+='<tr><td colspan="3" style="padding:2px 6px;color:var(--red);font-size:10px;">'+esc(l.error_message.substring(0,200))+'</td></tr>';
+});
+h+='</tbody></table>';}
+h+='<div style="margin-top:12px;padding:10px;background:var(--blue-bg);border-radius:6px;color:var(--blue-tx);font-size:11px;">Để đồng bộ: double-click <code>~/Downloads/meta-billing-scraper/Đối soát Meta.command</code></div>';
+h+='</div>';
+el.innerHTML=h;
+}catch(e){el.innerHTML='<div style="padding:12px;color:var(--red);">Lỗi: '+esc(e.message)+'</div>';}
+if(btn){btn.disabled=false;btn.textContent='Trạng thái đồng bộ Meta';}}
 
 async function checkMetaTokenPermissions(btn){
 if(btn){btn.disabled=true;btn.textContent='Đang kiểm tra...';}
