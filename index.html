@@ -1230,6 +1230,10 @@ var y=parseInt(monthStr.split('-')[0]),m=parseInt(monthStr.split('-')[1]);
 var d=new Date(Date.UTC(y,m,0)); // ngày cuối tháng
 return d;}
 function getClientEarliestStart(clientId){
+// Ưu tiên client.start_date (nguồn đáng tin cậy nhất, do admin nhập trực tiếp)
+var c=clientList.find(function(x){return x.id===clientId;});
+if(c&&c.start_date)return c.start_date;
+// Fallback: dùng MIN(assignment.start_date) cho khách chưa có start_date
 var earliest=null;
 assignData.forEach(function(a){
 if(a.client_id!==clientId)return;
@@ -1407,7 +1411,18 @@ var copyTextLines=[c.name+' - '+mLabel+'/'+yLabel,'---','Tổng chi tiêu QC: '+
 if(invoice.hasVat)copyTextLines.push('VAT 8%: '+ff(invoice.vat));
 copyTextLines.push('Tổng thanh toán: '+ff(invoice.total),'---','Chuyển khoản:',invoice.bank.bank+' - '+invoice.bank.accountNoDisplay,invoice.bank.accountName,getInvoiceContentLabel(invoice.hasVat)+' '+invoice.content);
 var inputAttrs=authUser?'':' disabled title="Đăng nhập admin để sửa phí dịch vụ theo tháng"';
+var sdAttrs=authUser?'':' disabled title="Đăng nhập admin để sửa ngày bắt đầu"';
+var startDateVal=c.start_date||'';
+var earliestForRate=getClientEarliestStart(c.id);
+var daysMng=earliestForRate?Math.floor((getEndOfMonth(ms)-new Date(earliestForRate))/86400000)+1:0;
+var rateForRow=COMMISSION_RATE(daysMng);
 h+='<tr><td colspan="8" style="padding:6px 10px;">';
+h+='<div style="padding:8px 12px;margin-bottom:10px;background:var(--bg2);border-radius:var(--radius);display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid var(--bd2);">';
+h+='<span style="font-size:12px;color:var(--tx3);font-weight:500;">Ngày bắt đầu quản lý:</span>';
+h+='<input type="date" class="fi" style="width:160px;padding:4px 8px;font-size:12px;" value="'+startDateVal+'" onchange="onClientStartDateChange(\''+c.id+'\',this.value)"'+sdAttrs+'>';
+h+='<span style="font-size:11px;color:var(--tx3);">Quản lý <strong style="color:var(--tx1);">'+daysMng+'</strong> ngày → hoa hồng <strong style="color:'+(rateForRow>=0.02?'var(--green)':'var(--amber)')+';">'+(rateForRow*100)+'%</strong></span>';
+h+='<span id="client-sd-status-'+c.id+'" style="font-size:11px;color:var(--green);margin-left:auto;"></span>';
+h+='</div>';
 h+='<div id="client-invoice-'+domId+'" class="invoice-card" data-client-id="'+esc(c.id)+'" data-month="'+ms+'" data-spend="'+sp+'" data-has-vat="'+(invoice.hasVat?'1':'0')+'">';
 h+='<div class="invoice-head"><div><div class="invoice-title">Phiếu thanh toán — '+esc(c.name)+'</div><div class="invoice-meta"><span>Kỳ: 01/'+parseInt(ms.split('-')[1])+' — '+dim+'/'+parseInt(ms.split('-')[1])+'/'+yLabel+'</span>'+(invoice.hasVat?'<span class="vat-badge b-blue">Có VAT</span>':'')+'</div></div><div>'+(c.payment_status==='paid'?'<span class="invoice-status-badge b-green">Đã thanh toán</span>':'<span class="invoice-status-badge b-gray">Chưa thanh toán</span>')+'</div></div>';
 h+='<div class="invoice-body">';
@@ -2812,6 +2827,26 @@ var r=await sb2.from('client').update({has_vat:newVal}).eq('id',id);
 if(r.error){toast('Lỗi: '+r.error.message,false);return;}
 toast(newVal?'Đã bật VAT 8%':'Đã tắt VAT',true);
 await loadAll();render();
+}
+// ═══ Sửa ngày bắt đầu quản lý khách (dùng cho tính hoa hồng 1%/2%) ═══
+async function onClientStartDateChange(clientId,newDate){
+if(!needAuth())return;
+if(!newDate){toast('Ngày không hợp lệ',false);return;}
+var statusEl=document.getElementById('client-sd-status-'+clientId);
+if(statusEl){statusEl.textContent='Đang lưu...';statusEl.style.color='var(--tx3)';}
+var r=await sb2.from('client').update({start_date:newDate}).eq('id',clientId);
+if(r.error){
+if(statusEl){statusEl.textContent='Lỗi: '+r.error.message;statusEl.style.color='var(--red)';}
+toast('Lỗi: '+r.error.message,false);
+return;
+}
+// Cập nhật local để không cần reload
+var c=clientList.find(function(x){return x.id===clientId;});
+if(c)c.start_date=newDate;
+if(statusEl){statusEl.textContent='Đã lưu ✓';statusEl.style.color='var(--green)';}
+toast('Đã lưu ngày bắt đầu',true);
+// Re-render sau 600ms để cập nhật % hoa hồng trong bảng lương
+setTimeout(function(){render();},600);
 }
 async function ecp(id){if(!needAuth())return;var c2=clientList.find(function(x){return x.id===id;});if(!c2)return;var n=prompt('Tên khách hàng:',c2.name);if(n===null)return;var f=prompt('Phí dịch vụ mặc định/tháng:',c2.service_fee||0);if(f===null)return;var kw=prompt('Từ khóa chiến dịch:',c2.campaign_keyword||'');if(kw===null)return;var hv=prompt('Có VAT 8% không? (y/n):',getClientVatFlag(c2)?'y':'n');if(hv===null)return;var r=await sb2.from('client').update({name:n,service_fee:parseInt(f)||0,campaign_keyword:kw||null,has_vat:/^y(es)?$/i.test(hv)}).eq('id',id);if(r.error)toast('Lỗi',false);else{toast('OK!',true);await loadLight();}}
 
