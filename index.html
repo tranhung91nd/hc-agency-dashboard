@@ -782,7 +782,7 @@ function sc(c){return CL[c]||CL.blue;}
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,finTab=0,reconcileData=null,userRole='guest',userAllowedPages=null,allUserRoles=[];
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,finTab=0,reconcileData=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={};
 var BANK_PROFILES={
 business:{bank:'Techcombank',bankCode:'TCB',accountNo:'68915555',accountNoDisplay:'68915555',accountName:'CONG TY TNHH HC QUANG CAO'},
 personal:{bank:'Techcombank',bankCode:'TCB',accountNo:'9188899999',accountNoDisplay:'9188 8999 99',accountName:'TRAN TRUC HUNG'}
@@ -1222,6 +1222,46 @@ h+='</tbody></table></div>';
 return h;}
 
 // ═══ P2: NHÂN SỰ ═══
+// ═══ TÍNH LƯƠNG TỰ ĐỘNG ═══
+// Hoa hồng quảng cáo: 1% nếu khách quản lý < 90 ngày, 2% nếu ≥ 90 ngày (tính đến cuối tháng lương)
+function COMMISSION_RATE(days){return days>=90?0.02:0.01;}
+function getEndOfMonth(monthStr){
+var y=parseInt(monthStr.split('-')[0]),m=parseInt(monthStr.split('-')[1]);
+var d=new Date(Date.UTC(y,m,0)); // ngày cuối tháng
+return d;}
+function getClientEarliestStart(clientId){
+var earliest=null;
+assignData.forEach(function(a){
+if(a.client_id!==clientId)return;
+if(!a.start_date)return;
+if(!earliest||a.start_date<earliest)earliest=a.start_date;});
+return earliest;}
+function computeStaffCommission(staffId,monthStr){
+// Xác định client→spend cho NV này trong tháng monthStr
+var clientSpend={};
+dailyData.forEach(function(d){
+if(!d.report_date||d.report_date.substring(0,7)!==monthStr)return;
+var sid=gsfa(d.ad_account_id,d.report_date,d.staff_id);
+if(sid!==staffId)return;
+var cid=d.matched_client_id||null;
+if(!cid){var aa=adList.find(function(x){return x.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
+if(!cid)return;
+if(!clientSpend[cid])clientSpend[cid]=0;
+clientSpend[cid]+=moneyVal(d.spend_amount);});
+var eom=getEndOfMonth(monthStr);
+var breakdown=[];
+Object.keys(clientSpend).forEach(function(cid){
+var spend=clientSpend[cid];
+var client=clientList.find(function(c){return c.id===cid;});
+var earliest=getClientEarliestStart(cid);
+var days=earliest?Math.floor((eom-new Date(earliest))/86400000)+1:0;
+var rate=COMMISSION_RATE(days);
+var amount=Math.round(spend*rate);
+breakdown.push({client_id:cid,client_name:client?client.name:'(đã xoá)',spend:spend,days:days,rate:rate,amount:amount});});
+breakdown.sort(function(a,b){return b.amount-a.amount;});
+var total=breakdown.reduce(function(t,x){return t+x.amount;},0);
+return{total:total,detail:breakdown};}
+
 function p2(){var nd=dates.length||1,st={};staffList.forEach(function(s){st[s.id]=0;});
 dailyData.forEach(function(d){var sid=gsfa(d.ad_account_id,d.report_date,d.staff_id);if(sid)st[sid]+=d.spend_amount;});
 var h='<div class="page-title">Nhân sự</div><div class="page-sub">'+staffList.length+' Chuyên viên quảng cáo</div>';
@@ -1229,9 +1269,70 @@ h+='<div class="table-wrap"><table><tr><th></th><th>Họ tên</th><th>Ngân sác
 staffList.forEach(function(s){var c=sc(s.color_code),sal=salaryData.find(function(x){return x.staff_id===s.id;});
 h+='<tr><td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div></td><td style="font-weight:500;">'+esc(s.full_name)+'</td><td class="mono">'+fm(s.monthly_budget)+'</td><td class="mono" style="color:'+c.c+';font-weight:500;">'+fm(st[s.id])+'</td><td class="mono">'+(sal?fm(sal.total):'—')+'</td></tr>';});
 h+='</table></div>';
+// ═══ BẢNG LƯƠNG THÁNG ═══
+h+=renderSalaryTable();
 var ms=new Set();monthlyRevData.forEach(function(r){ms.add(r.month);});var sm=Array.from(ms).sort();
 if(sm.length){h+='<div class="section-title">Chi tiêu lịch sử</div><div class="table-wrap"><table><tr><th>Tháng</th>';staffList.forEach(function(s){h+='<th style="text-align:right;">'+esc(s.short_name)+'</th>';});h+='<th style="text-align:right;">Tổng</th></tr>';
 sm.forEach(function(m){var tt=0;h+='<tr><td>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</td>';staffList.forEach(function(s){var rv=monthlyRevData.find(function(r){return r.staff_id===s.id&&r.month===m;}),v=rv?rv.total_spend:0;tt+=v;h+='<td class="mono" style="text-align:right;">'+fm(v)+'</td>';});h+='<td class="mono" style="text-align:right;font-weight:600;">'+fm(tt)+'</td></tr>';});h+='</table></div>';}
+return h;}
+
+// ═══ BẢNG LƯƠNG THÁNG (inline edit + autosave) ═══
+function renderSalaryTable(){
+if(!salaryMonth)salaryMonth=lm(); // mặc định tháng hiện tại
+// Danh sách tháng có dữ liệu + tháng hiện tại + 6 tháng gần nhất
+var monthSet=new Set();
+dates.forEach(function(d){monthSet.add(d.substring(0,7));});
+salaryData.forEach(function(s){monthSet.add(s.month);});
+monthSet.add(lm());
+// Thêm 6 tháng gần nhất nếu chưa có
+var tdObj=new Date();
+for(var i=0;i<6;i++){var my=tdObj.getFullYear(),mm=tdObj.getMonth()+1-i;while(mm<=0){mm+=12;my-=1;}monthSet.add(my+'-'+String(mm).padStart(2,'0'));}
+var monthArr=Array.from(monthSet).sort().reverse();
+var h='<div class="section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;"><div>Bảng lương tháng</div><div style="display:flex;gap:8px;align-items:center;"><select class="fi" style="width:140px;" onchange="salaryMonth=this.value;expandedSalaryStaffId=null;render();">';
+monthArr.forEach(function(m){h+='<option value="'+m+'"'+(m===salaryMonth?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
+h+='</select><button class="btn btn-ghost btn-sm" onclick="recomputeAllCommissions(this)">🔄 Tính lại hoa hồng</button></div></div>';
+h+='<div style="font-size:12px;color:var(--tx3);margin-bottom:10px;">Hoa hồng tự động: <b>1%</b> ngân sách nếu khách quản lý dưới 90 ngày · <b>2%</b> nếu từ 90 ngày trở lên (tính đến cuối tháng). Tự động lưu khi chỉnh sửa.</div>';
+h+='<div class="table-wrap"><table><thead><tr><th></th><th>Nhân sự</th><th style="text-align:right;">Lương cứng</th><th style="text-align:right;">Hoa hồng QC</th><th style="text-align:right;">Thưởng khác</th><th style="text-align:right;">Tổng</th><th style="min-width:180px;">Ghi chú thưởng</th></tr></thead><tbody>';
+var grandTotal=0;
+staffList.forEach(function(s){
+var c=sc(s.color_code);
+// Lấy row lương từ DB nếu có
+var row=salaryData.find(function(x){return x.staff_id===s.id&&x.month===salaryMonth;});
+// Tính hoa hồng tự động
+var isCEO=(Number(s.default_base_salary)===0)||/hưng coaching|hung coaching|ceo/i.test((s.full_name||'')+' '+(s.short_name||''));
+var comm=isCEO?{total:0,detail:[]}:computeStaffCommission(s.id,salaryMonth);
+// Giá trị hiển thị: ưu tiên DB, fallback default
+var baseVal=row&&row.base_salary!=null?Number(row.base_salary):(isCEO?0:(Number(s.default_base_salary)||4000000));
+var commVal=row&&row.commission!=null?Number(row.commission):comm.total;
+var bonusVal=row&&row.bonus!=null?Number(row.bonus):0;
+var noteVal=row&&row.note?row.note:'';
+var total=baseVal+commVal+bonusVal;grandTotal+=total;
+var isExp=expandedSalaryStaffId===s.id;
+h+='<tr'+(isExp?' style="background:var(--bg2);"':'')+'>';
+h+='<td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';cursor:pointer;" onclick="toggleSalaryExpand(\''+s.id+'\')">'+esc(s.avatar_initials)+'</div></td>';
+h+='<td style="font-weight:500;cursor:pointer;" onclick="toggleSalaryExpand(\''+s.id+'\')">'+esc(s.full_name)+(isCEO?' <span style="font-size:10px;padding:2px 6px;border-radius:6px;background:var(--amber-bg);color:var(--amber-tx);margin-left:4px;">CEO</span>':'')+'<div style="font-size:11px;color:var(--tx3);margin-top:2px;">'+comm.detail.length+' khách hàng · Click để xem chi tiết</div></td>';
+h+='<td style="text-align:right;"><input type="number" class="mono" style="width:110px;text-align:right;border:1px solid var(--bd1);border-radius:6px;padding:5px 8px;font-size:12px;" value="'+baseVal+'" oninput="onSalaryEdit(\''+s.id+'\',\'base_salary\',this.value)"></td>';
+h+='<td style="text-align:right;" class="mono"><span style="color:'+(commVal>0?'var(--green)':'var(--tx3)')+';font-weight:500;">'+ff(commVal)+'</span>'+(isCEO?'':'<div style="font-size:10px;color:var(--tx3);">tự động</div>')+'</td>';
+h+='<td style="text-align:right;"><input type="number" class="mono" style="width:110px;text-align:right;border:1px solid var(--bd1);border-radius:6px;padding:5px 8px;font-size:12px;" value="'+bonusVal+'" oninput="onSalaryEdit(\''+s.id+'\',\'bonus\',this.value)"></td>';
+h+='<td style="text-align:right;font-weight:600;" class="mono">'+ff(total)+'</td>';
+h+='<td><input type="text" style="width:100%;min-width:160px;border:1px solid var(--bd1);border-radius:6px;padding:5px 8px;font-size:12px;" placeholder="VD: Thưởng dự án Mysterise" value="'+esc(noteVal)+'" oninput="onSalaryEdit(\''+s.id+'\',\'note\',this.value)"></td>';
+h+='</tr>';
+// Expanded row: chi tiết hoa hồng
+if(isExp){
+h+='<tr><td colspan="7" style="background:var(--bg2);padding:12px 20px;">';
+if(comm.detail.length){
+h+='<div style="font-size:12px;font-weight:500;margin-bottom:8px;color:var(--tx2);">Chi tiết hoa hồng quảng cáo — '+comm.detail.length+' khách hàng</div>';
+h+='<table style="width:100%;font-size:12px;"><thead><tr style="color:var(--tx3);font-size:11px;text-transform:uppercase;"><th style="text-align:left;padding:4px 8px;">Khách hàng</th><th style="text-align:right;padding:4px 8px;">Ngày quản lý</th><th style="text-align:right;padding:4px 8px;">Spend tháng</th><th style="text-align:right;padding:4px 8px;">% hoa hồng</th><th style="text-align:right;padding:4px 8px;">Số tiền</th></tr></thead><tbody>';
+comm.detail.forEach(function(b){
+h+='<tr><td style="padding:4px 8px;">'+esc(b.client_name)+'</td><td style="text-align:right;padding:4px 8px;" class="mono">'+b.days+' ngày</td><td style="text-align:right;padding:4px 8px;" class="mono">'+ff(b.spend)+'</td><td style="text-align:right;padding:4px 8px;"><span style="color:'+(b.rate>=0.02?'var(--green)':'var(--amber-tx)')+';font-weight:500;">'+(b.rate*100).toFixed(0)+'%</span></td><td style="text-align:right;padding:4px 8px;font-weight:500;" class="mono">'+ff(b.amount)+'</td></tr>';});
+h+='<tr style="border-top:1px solid var(--bd1);"><td colspan="4" style="text-align:right;padding:6px 8px;font-weight:500;">Tổng hoa hồng</td><td style="text-align:right;padding:6px 8px;font-weight:600;color:var(--green);" class="mono">'+ff(comm.total)+'</td></tr>';
+h+='</tbody></table>';
+}else{
+h+='<div style="font-size:12px;color:var(--tx3);text-align:center;padding:10px;">'+(isCEO?'CEO không nhận hoa hồng quảng cáo tự động':'Không có dữ liệu khách hàng quản lý trong tháng này')+'</div>';}
+h+='</td></tr>';}
+});
+h+='<tr style="border-top:2px solid var(--bd1);background:var(--bg2);"><td colspan="5" style="text-align:right;font-weight:600;padding:10px;">Tổng chi lương tháng</td><td style="text-align:right;font-weight:600;padding:10px;color:var(--red);" class="mono">'+ff(grandTotal)+'</td><td></td></tr>';
+h+='</tbody></table></div>';
 return h;}
 
 // ═══ P3: KHÁCH HÀNG ═══
@@ -2726,6 +2827,70 @@ h+='<div class="section-title">Lịch sử lương</div><div class="table-wrap">
 salaryData.slice(0,20).forEach(function(s){h+='<tr><td>T'+parseInt(s.month.split('-')[1])+'/'+s.month.split('-')[0]+'</td><td>'+(s.staff?esc(s.staff.short_name):'—')+'</td><td class="mono" style="text-align:right;">'+ff(s.base_salary)+'</td><td class="mono" style="text-align:right;">'+ff(s.bonus)+'</td><td class="mono" style="text-align:right;font-weight:500;">'+ff(s.total)+'</td><td><button class="btn btn-red btn-sm" onclick="dlsl(this,\''+s.id+'\')">Xóa</button></td></tr>';});
 h+='</table></div>';return h;}
 async function svsl(btn){if(!needAuth())return;btn.disabled=true;var m=document.getElementById('slm').value,si=document.getElementById('sls').value,b=parseInt(document.getElementById('slb').value)||0,x=parseInt(document.getElementById('slx').value)||0,n=document.getElementById('sln').value;if(!b){toast('Nhập lương',false);btn.disabled=false;return;}var r=await sb2.from('salary').upsert({staff_id:si,month:m,base_salary:b,bonus:x,total:b+x,note:n},{onConflict:'staff_id,month'});btn.disabled=false;if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã lưu!',true);document.getElementById('slb').value='';document.getElementById('slx').value='0';document.getElementById('sln').value='';await loadLight();}}
+
+// ═══ HANDLERS BẢNG LƯƠNG TỰ ĐỘNG ═══
+function toggleSalaryExpand(staffId){
+expandedSalaryStaffId=(expandedSalaryStaffId===staffId)?null:staffId;render();}
+
+// Autosave debounce 800ms khi user sửa lương cứng/thưởng/ghi chú
+function onSalaryEdit(staffId,field,value){
+var key=staffId+'|'+salaryMonth;
+if(salarySaveTimers[key])clearTimeout(salarySaveTimers[key]);
+// Lưu pending value vào 1 map tạm (merge với state hiện tại)
+if(!window._salaryPending)window._salaryPending={};
+if(!window._salaryPending[key])window._salaryPending[key]={};
+window._salaryPending[key][field]=value;
+salarySaveTimers[key]=setTimeout(function(){saveSalaryRow(staffId).catch(function(e){console.warn('[salary save]',e);});},800);}
+
+async function saveSalaryRow(staffId){
+if(!needAuth())return;
+var key=staffId+'|'+salaryMonth;
+var pending=(window._salaryPending&&window._salaryPending[key])||{};
+var staff=staffList.find(function(s){return s.id===staffId;});if(!staff)return;
+var isCEO=(Number(staff.default_base_salary)===0)||/hưng coaching|hung coaching|ceo/i.test((staff.full_name||'')+' '+(staff.short_name||''));
+var existing=salaryData.find(function(x){return x.staff_id===staffId&&x.month===salaryMonth;});
+// Hoa hồng luôn tính tự động từ data
+var comm=isCEO?{total:0,detail:[]}:computeStaffCommission(staffId,salaryMonth);
+// Ưu tiên giá trị pending, sau đó DB, sau đó default
+var base=pending.base_salary!=null?(parseInt(pending.base_salary)||0):(existing&&existing.base_salary!=null?Number(existing.base_salary):(isCEO?0:(Number(staff.default_base_salary)||4000000)));
+var bonus=pending.bonus!=null?(parseInt(pending.bonus)||0):(existing&&existing.bonus!=null?Number(existing.bonus):0);
+var note=pending.note!=null?String(pending.note):(existing&&existing.note?existing.note:'');
+var total=base+comm.total+bonus;
+var payload={staff_id:staffId,month:salaryMonth,base_salary:base,commission:comm.total,commission_detail:comm.detail,bonus:bonus,total:total,note:note};
+var r=await sb2.from('salary').upsert(payload,{onConflict:'staff_id,month'});
+if(r.error){
+// Fallback: nếu cột commission/commission_detail chưa tồn tại trong DB → lưu tối thiểu
+if(/commission/.test(r.error.message||'')){
+var fallback={staff_id:staffId,month:salaryMonth,base_salary:base,bonus:bonus+comm.total,total:total,note:note+(comm.total>0?(note?' | ':'')+'Hoa hồng: '+ff(comm.total)+'đ':'')};
+var r2=await sb2.from('salary').upsert(fallback,{onConflict:'staff_id,month'});
+if(r2.error){toast('Lỗi lưu lương: '+r2.error.message,false);return;}
+toast('⚠ Chưa chạy migration — đã lưu ghép hoa hồng vào thưởng',true);
+}else{toast('Lỗi lưu lương: '+r.error.message,false);return;}
+}
+delete window._salaryPending[key];
+// Silent reload — không render để không mất focus input
+try{var{data}=await sb2.from('salary').select('*,staff(short_name)').order('month',{ascending:false});if(data)salaryData=data;}catch(e){}}
+
+async function recomputeAllCommissions(btn){
+if(!needAuth())return;
+btn.disabled=true;btn.textContent='Đang tính...';
+var count=0;
+for(var i=0;i<staffList.length;i++){
+var s=staffList[i];
+var isCEO=(Number(s.default_base_salary)===0)||/hưng coaching|hung coaching|ceo/i.test((s.full_name||'')+' '+(s.short_name||''));
+if(isCEO)continue;
+var comm=computeStaffCommission(s.id,salaryMonth);
+var existing=salaryData.find(function(x){return x.staff_id===s.id&&x.month===salaryMonth;});
+var base=existing&&existing.base_salary!=null?Number(existing.base_salary):(Number(s.default_base_salary)||4000000);
+var bonus=existing&&existing.bonus!=null?Number(existing.bonus):0;
+var note=existing&&existing.note?existing.note:'';
+var payload={staff_id:s.id,month:salaryMonth,base_salary:base,commission:comm.total,commission_detail:comm.detail,bonus:bonus,total:base+comm.total+bonus,note:note};
+var r=await sb2.from('salary').upsert(payload,{onConflict:'staff_id,month'});
+if(!r.error)count++;
+}
+btn.disabled=false;btn.textContent='🔄 Tính lại hoa hồng';
+toast('Đã tính lại hoa hồng cho '+count+' NV',true);
+await loadLight();}
 async function dlsl(btn,id){if(!needAuth())return;if(!confirm('Xóa?'))return;btn.disabled=true;var r=await sb2.from('salary').delete().eq('id',id);if(r.error){toast('Lỗi',false);btn.disabled=false;}else{toast('Đã xóa!',true);await loadLight();}}
 
 // ═══ A6: CÀI ĐẶT ═══
@@ -2911,6 +3076,20 @@ else{summary+='\n== GIÁ MESS ==\nKhông có chiến dịch nào vượt ngưỡ
 if(leadAlerts.length){summary+='\n== CẢNH BÁO GIÁ FORM (TB 4 ngày) ==\n';
 leadAlerts.forEach(function(al){summary+=al.campaign_name+' ('+al.client_name+'): giá form '+ff(al.cost_per_lead)+'đ, ngưỡng '+ff(al.max_cost)+'đ, NV '+(al.staff?al.staff.short_name:'—')+', spend 4 ngày '+ff(al.spend_4d)+', '+al.leads_4d+' form\n';});}
 else{summary+='\n== GIÁ FORM ==\nKhông có chiến dịch nào vượt ngưỡng giá form.\n';}
+// Bảng lương tháng hiện tại
+var smo=lm();
+summary+='\n== BẢNG LƯƠNG THÁNG '+smo+' ==\n';
+var sumTotal=0;
+staffList.forEach(function(s){
+var isCEO=(Number(s.default_base_salary)===0)||/hưng coaching|hung coaching|ceo/i.test((s.full_name||'')+' '+(s.short_name||''));
+var comm=isCEO?{total:0,detail:[]}:computeStaffCommission(s.id,smo);
+var row=salaryData.find(function(x){return x.staff_id===s.id&&x.month===smo;});
+var base=row&&row.base_salary!=null?Number(row.base_salary):(isCEO?0:(Number(s.default_base_salary)||4000000));
+var bonus=row&&row.bonus!=null?Number(row.bonus):0;
+var t=base+comm.total+bonus;sumTotal+=t;
+summary+=s.short_name+(isCEO?' (CEO)':'')+': cứng '+ff(base)+' + hoa hồng '+ff(comm.total)+' + thưởng '+ff(bonus)+' = '+ff(t)+(row&&row.note?' ['+row.note+']':'')+'\n';
+});
+summary+='Tổng chi lương: '+ff(sumTotal)+'\n';
 var balAlerts=getBalanceAlerts();
 if(balAlerts.length){summary+='\n== CẢNH BÁO TK SẮP HẾT TIỀN (số dư < '+ff(BALANCE_ALERT_THRESHOLD)+'đ) ==\n';
 balAlerts.forEach(function(al){var dl=al.days_left===null?'chưa xác định':(al.days_left<1?'<1 ngày':'~'+al.days_left.toFixed(1)+' ngày');summary+=al.account_name+' ('+(al.client_name||'chưa gán KH')+'): còn '+ff(al.balance)+'đ, chi TB '+ff(Math.round(al.avg_daily))+'đ/ngày → còn chạy '+dl+', NV '+(al.staff?al.staff.short_name:'—')+'\n';});}
