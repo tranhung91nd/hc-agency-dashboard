@@ -3638,6 +3638,7 @@ function fillQuotationDefaults(id){
     set('qt-fanpage-pkg',q.fanpage_package||1);
     set('qt-budget',q.monthly_budget||'');
     set('qt-support-fee',q.support_fee||'');
+    check('qt-hide-low',shouldHideLowTiers(q));
   }else{
     set('qt-client','');
     set('qt-number','');
@@ -3648,6 +3649,7 @@ function fillQuotationDefaults(id){
     set('qt-fanpage-pkg',1);
     set('qt-budget','');
     set('qt-support-fee','');
+    check('qt-hide-low',false);
   }
   onQuotationPackageChange();
   onQuotationBudgetChange();
@@ -3682,6 +3684,12 @@ function onQuotationBudgetChange(){
   var tierLabel=document.getElementById('qt-tier-label');
   if(tierLabel)tierLabel.textContent=tier?tier.label+' → '+tier.display:'Nhập ngân sách để xem bậc phí';
   if(feeInput&&(!feeInput.dataset.touched||feeInput.dataset.touched==='0'))feeInput.value=auto||'';
+  var hideChk=document.getElementById('qt-hide-low');
+  if(hideChk&&(!hideChk.dataset.touched||hideChk.dataset.touched==='0'))hideChk.checked=b>=30000000;
+  recalcQuotationPreview();
+}
+function onQuotationHideLowChange(){
+  var el=document.getElementById('qt-hide-low');if(el)el.dataset.touched='1';
   recalcQuotationPreview();
 }
 
@@ -3744,6 +3752,7 @@ function renderQuotationModal(){
   h+='<div><label>Ngân sách dự kiến/tháng (VNĐ)</label><input id="qt-budget" type="number" class="fi" oninput="onQuotationBudgetChange()" placeholder="VD: 20000000"></div>';
   h+='<div><label>Phí hỗ trợ/tháng (VNĐ)</label><input id="qt-support-fee" type="number" class="fi" oninput="onQuotationFeeManualChange()" placeholder="Tự tính theo bậc"></div>';
   h+='<div style="grid-column:1/-1;font-size:11px;color:var(--tx3);" id="qt-tier-label">Nhập ngân sách để xem bậc phí</div>';
+  h+='<div style="grid-column:1/-1;padding:8px 10px;background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius);"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:12.5px;color:var(--tx2);margin:0;"><input type="checkbox" id="qt-hide-low" onchange="onQuotationHideLowChange()" style="width:15px;height:15px;cursor:pointer;margin:0;"><span>Ẩn các bậc dưới 30tr khi in báo giá <span style="color:var(--tx3);">(tự bật khi ngân sách ≥ 30tr)</span></span></label></div>';
   h+='</div></div>';
   h+='<div class="hc-form-grid" style="margin-top:14px;">';
   h+='<div style="grid-column:1/-1;"><label>Ghi chú (ưu đãi riêng, điều khoản đặc biệt...)</label><input id="qt-note" class="fi"></div>';
@@ -3782,6 +3791,8 @@ async function saveQuotation(btn,markSent){
     var c=clientList.find(function(x){return x.id===clientId;});
     number=getNextQuotationNumber((c&&c.contract_prefix)||'XXX',new Date().getFullYear());
   }
+  var hideLowEl=document.getElementById('qt-hide-low');
+  var hideLow=hideLowEl?!!hideLowEl.checked:(budget>=30000000);
   var snapshot={
     package_type:type,
     fanpage_package:(type==='fanpage'||type==='combo')?fpId:null,
@@ -3789,6 +3800,7 @@ async function saveQuotation(btn,markSent){
     monthly_budget:budget,
     support_fee:adFee,
     total:total,
+    hide_low_tiers:hideLow,
     features:(pkg?pkg.features:null)
   };
   var payload={
@@ -3874,7 +3886,7 @@ function renderQuotationPreview(){
     +'<button class="btn" onclick="closeQuotationPreview()">✕ Đóng</button>'
     +'<button class="btn btn-primary" onclick="printQuotation()">🖨️ In / Lưu PDF</button>'
     +'</div>'
-    +'<div id="qt-print-area" style="background:#fff;border-radius:12px;overflow:hidden;">'+html+'</div>'
+    +'<div id="qt-print-area">'+html+'</div>'
     +'</div>';
   ov.onclick=function(e){if(e.target===ov)closeQuotationPreview();};
   document.body.appendChild(ov);
@@ -3889,121 +3901,239 @@ function printQuotation(){
 }
 
 function quotationPrintCss(){
-  return '@page{size:A4;margin:0;}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#0f172a;}'
-    +'.qt-page{width:210mm;min-height:297mm;padding:0;margin:0 auto;background:#fff;page-break-after:always;box-sizing:border-box;}'
-    +'.qt-page:last-child{page-break-after:auto;}'
-    +'.qt-header{background:#0b1e4e;color:#fff;padding:26px 30px;display:flex;gap:18px;align-items:center;}'
-    +'.qt-logo{background:#fff;color:#0b1e4e;padding:8px 14px;border-radius:6px;font-weight:800;letter-spacing:.5px;font-size:13px;text-align:center;line-height:1.2;min-width:140px;}'
-    +'.qt-logo small{display:block;font-size:9px;font-weight:500;color:#0b1e4e;letter-spacing:.3px;}'
-    +'.qt-title{font-size:34px;font-weight:800;color:#ffd84d;margin:0;letter-spacing:-.5px;}'
-    +'.qt-sub{font-size:13px;font-weight:500;color:#fff;letter-spacing:.2px;margin-top:4px;}'
-    +'.qt-contact{padding:14px 30px;background:#0b1e4e;color:#fff;font-size:12px;border-top:1px dashed rgba(255,255,255,.15);display:flex;gap:28px;flex-wrap:wrap;}'
-    +'.qt-contact strong{color:#ffd84d;display:block;font-size:11px;letter-spacing:.5px;}'
-    +'.qt-body{padding:26px 30px;}'
-    +'.qt-to{background:#f1f5ff;border-left:4px solid #0b1e4e;padding:12px 14px;border-radius:4px;margin-bottom:18px;font-size:13px;}'
-    +'.qt-to strong{color:#0b1e4e;}'
-    +'.qt-section-title{background:#0b1e4e;color:#fff;padding:8px 14px;border-radius:4px;font-size:13px;font-weight:700;letter-spacing:.3px;margin:18px 0 10px;}'
-    +'.qt-package{border:2px solid #0b1e4e;border-radius:8px;padding:14px 16px;margin-bottom:14px;background:#fafbff;}'
-    +'.qt-package h4{margin:0 0 4px;color:#0b1e4e;font-size:15px;}'
-    +'.qt-package .price{font-size:22px;font-weight:800;color:#ffa200;margin-bottom:8px;}'
-    +'.qt-package ul{margin:0;padding-left:18px;font-size:12.5px;line-height:1.7;}'
-    +'.qt-package li{margin-bottom:2px;}'
-    +'.qt-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px;}'
-    +'.qt-table th{background:#0b1e4e;color:#fff;padding:9px 12px;text-align:left;font-weight:700;}'
-    +'.qt-table td{padding:8px 12px;border-bottom:1px solid #e5e7eb;}'
-    +'.qt-table td:last-child{text-align:right;font-weight:600;color:#0b1e4e;}'
-    +'.qt-total{background:#ffd84d;padding:14px 18px;font-size:16px;font-weight:700;border-radius:6px;margin:14px 0;display:flex;justify-content:space-between;color:#0b1e4e;}'
-    +'.qt-payment{background:#f1f5ff;border-radius:6px;padding:12px 14px;margin:12px 0;font-size:12.5px;line-height:1.7;}'
-    +'.qt-payment strong{color:#0b1e4e;}'
-    +'.qt-footer{background:#0b1e4e;color:#fff;padding:18px 30px;font-size:12px;display:flex;justify-content:space-between;gap:18px;margin-top:auto;}'
-    +'.qt-footer strong{color:#ffd84d;}'
-    +'.qt-note{font-size:11.5px;color:#475569;font-style:italic;margin-top:10px;}'
-    +'.qt-badge{display:inline-block;background:#ffd84d;color:#0b1e4e;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:.5px;}';
+  // Đồng bộ với bảng màu + font website (system stack, blue/purple, nền slate)
+  return '@page{size:A4;margin:0;}'
+    +'*{box-sizing:border-box;}'
+    +'body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:#0f172a;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:linear-gradient(180deg,#f7f9fc 0%,#f2f5fa 100%);line-height:1.45;}'
+    +'.qt-doc{width:210mm;margin:0 auto;background:#fff;border-radius:18px;box-shadow:0 16px 40px rgba(15,23,42,.08);overflow:hidden;border:1px solid rgba(15,23,42,.08);}'
+    +'@media print{body{background:#fff;}.qt-doc{box-shadow:none;border:none;border-radius:0;}}'
+    // HERO
+    +'.qt-hero{position:relative;background:linear-gradient(135deg,#f8fbff 0%,#edf4ff 60%,#e6efff 100%);padding:40px 44px 36px;overflow:hidden;border-bottom:1px solid rgba(15,23,42,.08);}'
+    +'.qt-hero::before{content:"";position:absolute;top:-80px;right:-80px;width:260px;height:260px;background:radial-gradient(circle,rgba(37,99,235,.14) 0%,transparent 70%);border-radius:50%;}'
+    +'.qt-hero::after{content:"";position:absolute;bottom:-60px;left:-60px;width:200px;height:200px;background:radial-gradient(circle,rgba(91,76,230,.1) 0%,transparent 70%);border-radius:50%;}'
+    +'.qt-hero-inner{position:relative;z-index:2;display:flex;gap:22px;align-items:flex-start;}'
+    +'.qt-logo{width:72px;height:72px;border-radius:16px;background:linear-gradient(135deg,#2563eb 0%,#5b4ce6 100%);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:24px;color:#fff;letter-spacing:.5px;box-shadow:0 10px 24px rgba(37,99,235,.3);flex-shrink:0;}'
+    +'.qt-hero-stack{flex:1;}'
+    +'.qt-brand-line{font-size:11px;letter-spacing:3px;color:#1d4ed8;text-transform:uppercase;font-weight:600;margin-bottom:8px;}'
+    +'.qt-hero-title{font-size:30px;font-weight:700;margin:0 0 6px;color:#0f172a;letter-spacing:-.03em;line-height:1.1;}'
+    +'.qt-hero-sub{font-size:14px;color:#475569;margin:0 0 16px;}'
+    +'.qt-badge-box{display:inline-flex;gap:18px;background:rgba(255,255,255,.7);border:1px solid rgba(37,99,235,.14);border-radius:12px;padding:10px 18px;}'
+    +'.qt-badge-box div{display:flex;flex-direction:column;gap:2px;}'
+    +'.qt-badge-box span{font-size:10px;color:#94a3b8;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;}'
+    +'.qt-badge-box b{font-size:13px;color:#0f172a;font-weight:600;}'
+    // CONTACT STRIP
+    +'.qt-strip{background:#f8fafc;padding:12px 44px;display:flex;gap:24px;flex-wrap:wrap;font-size:12.5px;color:#475569;border-bottom:1px solid rgba(15,23,42,.08);}'
+    +'.qt-strip div{display:flex;gap:8px;align-items:center;}'
+    +'.qt-strip .dot{width:5px;height:5px;background:#2563eb;border-radius:50%;flex-shrink:0;}'
+    // BODY
+    +'.qt-body{padding:36px 44px 20px;background:#fff;}'
+    +'.qt-greeting{background:linear-gradient(180deg,#f8fbff 0%,#eff6ff 100%);border:1px solid rgba(37,99,235,.14);padding:16px 20px;border-radius:12px;margin-bottom:28px;font-size:13.5px;line-height:1.6;color:#0f172a;}'
+    +'.qt-greeting b{color:#1d4ed8;}'
+    // SECTION
+    +'.qt-section{margin-bottom:28px;page-break-inside:avoid;}'
+    +'.qt-section-head{display:flex;gap:14px;align-items:center;margin-bottom:16px;}'
+    +'.qt-section-icon{width:40px;height:40px;background:#eff6ff;color:#2563eb;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:1px solid rgba(37,99,235,.14);}'
+    +'.qt-section-head h3{margin:0;color:#0f172a;font-size:17px;font-weight:600;letter-spacing:-.01em;}'
+    +'.qt-section-head p{margin:2px 0 0;color:#94a3b8;font-size:12px;}'
+    // PACKAGE CARD
+    +'.qt-package{background:#fff;border:1px solid rgba(15,23,42,.08);border-radius:12px;padding:20px 22px;box-shadow:0 8px 24px rgba(15,23,42,.06);}'
+    +'.qt-package-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid rgba(15,23,42,.08);}'
+    +'.qt-package-name{font-size:15px;font-weight:600;color:#0f172a;margin:0 0 4px;letter-spacing:-.01em;}'
+    +'.qt-package-tag{display:inline-block;background:#f3f0ff;color:#4338ca;padding:3px 10px;border-radius:20px;font-size:10px;letter-spacing:.5px;font-weight:600;text-transform:uppercase;}'
+    +'.qt-package-price{background:linear-gradient(180deg,#f8fbff 0%,#edf4ff 100%);border:1px solid rgba(37,99,235,.22);color:#1d4ed8;padding:10px 16px;border-radius:12px;font-weight:700;font-size:17px;white-space:nowrap;text-align:right;letter-spacing:-.01em;min-width:160px;}'
+    +'.qt-package-price small{display:block;font-size:9px;color:#94a3b8;letter-spacing:1px;font-weight:500;margin-bottom:2px;text-transform:uppercase;}'
+    +'.qt-package-price .unit{display:block;font-size:10px;color:#94a3b8;margin-top:2px;text-transform:none;letter-spacing:0;font-weight:500;}'
+    +'.qt-package-features{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:8px;}'
+    +'.qt-package-features li{display:flex;gap:10px;font-size:13px;color:#0f172a;line-height:1.5;}'
+    +'.qt-package-features li::before{content:"";color:#2563eb;background:#eff6ff;width:18px;height:18px;border-radius:50%;flex-shrink:0;margin-top:1px;background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2710%27 height=%2710%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%232563eb%27 stroke-width=%273%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpolyline points=%2720 6 9 17 4 12%27/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:center;}'
+    // AD TIER TABLE
+    +'.qt-tier-wrap{border-radius:12px;overflow:hidden;border:1px solid rgba(15,23,42,.08);box-shadow:0 8px 24px rgba(15,23,42,.06);}'
+    +'.qt-tier-table{width:100%;border-collapse:collapse;font-size:13px;background:#fff;}'
+    +'.qt-tier-table thead th{background:#f8fafc;color:#475569;padding:11px 16px;text-align:left;font-weight:600;font-size:11px;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid rgba(15,23,42,.08);}'
+    +'.qt-tier-table thead th:last-child{text-align:right;}'
+    +'.qt-tier-table tbody td{padding:11px 16px;border-bottom:1px solid rgba(15,23,42,.08);color:#0f172a;}'
+    +'.qt-tier-table tbody td:last-child{text-align:right;font-weight:600;color:#0f172a;white-space:nowrap;}'
+    +'.qt-tier-table tbody tr:last-child td{border-bottom:none;}'
+    +'.qt-tier-table tbody tr.current td{background:linear-gradient(90deg,rgba(37,99,235,.04) 0%,rgba(37,99,235,.1) 100%);color:#1d4ed8;font-weight:600;}'
+    +'.qt-tier-table tbody tr.current td:first-child{position:relative;padding-left:32px;}'
+    +'.qt-tier-table tbody tr.current td:first-child::before{content:"";position:absolute;left:14px;top:50%;transform:translateY(-50%);width:8px;height:8px;background:#2563eb;border-radius:50%;box-shadow:0 0 0 3px rgba(37,99,235,.16);}'
+    +'.qt-applied{margin-top:12px;background:#eff6ff;border:1px solid rgba(37,99,235,.16);border-radius:12px;padding:12px 16px;font-size:13px;color:#0f172a;line-height:1.55;}'
+    +'.qt-applied b{color:#1d4ed8;font-weight:600;}'
+    // TOTAL BOX
+    +'.qt-total{background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 50%,#5b4ce6 100%);border-radius:18px;padding:24px 28px;margin-bottom:28px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 14px 32px rgba(37,99,235,.28);position:relative;overflow:hidden;page-break-inside:avoid;}'
+    +'.qt-total::before{content:"";position:absolute;top:-60px;right:-60px;width:200px;height:200px;background:radial-gradient(circle,rgba(255,255,255,.14) 0%,transparent 70%);border-radius:50%;}'
+    +'.qt-total-lbl{position:relative;z-index:2;}'
+    +'.qt-total-lbl small{display:block;font-size:10px;letter-spacing:1.5px;color:rgba(255,255,255,.75);text-transform:uppercase;font-weight:600;margin-bottom:4px;}'
+    +'.qt-total-lbl b{font-size:15px;color:#fff;font-weight:500;}'
+    +'.qt-total-val{position:relative;z-index:2;font-size:30px;font-weight:700;color:#fff;letter-spacing:-.03em;text-align:right;line-height:1.1;}'
+    +'.qt-total-val small{display:block;font-size:11px;font-weight:500;opacity:.75;letter-spacing:.5px;margin-top:2px;}'
+    // COMMIT GRID
+    +'.qt-commit{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px;}'
+    +'.qt-commit-card{background:#f8fafc;border:1px solid rgba(15,23,42,.08);border-radius:12px;padding:16px 18px;}'
+    +'.qt-commit-card h4{margin:0 0 10px;color:#0f172a;font-size:13px;display:flex;gap:8px;align-items:center;font-weight:600;letter-spacing:-.01em;}'
+    +'.qt-commit-card h4::before{content:"";width:3px;height:14px;background:#2563eb;border-radius:2px;}'
+    +'.qt-commit-card ul{margin:0;padding-left:16px;font-size:12.5px;line-height:1.6;color:#475569;}'
+    // NOTE
+    +'.qt-note{background:#fffbeb;border:1px solid rgba(217,119,6,.18);padding:12px 16px;border-radius:12px;margin-bottom:20px;font-size:12.5px;line-height:1.6;color:#0f172a;}'
+    +'.qt-note b{color:#b45309;font-weight:600;}'
+    // PAYMENT
+    +'.qt-pay-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-bottom:8px;}'
+    +'.qt-pay-card{background:#fff;border:1px solid rgba(15,23,42,.08);border-radius:12px;padding:18px 20px;box-shadow:0 8px 24px rgba(15,23,42,.06);}'
+    +'.qt-pay-card h4{margin:0 0 12px;color:#0f172a;font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;display:flex;gap:8px;align-items:center;}'
+    +'.qt-pay-card h4::before{content:"";width:3px;height:12px;background:#2563eb;border-radius:2px;}'
+    +'.qt-pay-row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid rgba(15,23,42,.08);font-size:13px;}'
+    +'.qt-pay-row:last-child{border:none;}'
+    +'.qt-pay-row span{color:#94a3b8;}'
+    +'.qt-pay-row b{color:#0f172a;font-weight:600;text-align:right;}'
+    +'.qt-qr{background:linear-gradient(180deg,#f8fbff 0%,#edf4ff 100%);border:1px solid rgba(37,99,235,.16);border-radius:12px;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;}'
+    +'.qt-qr img{width:100%;max-width:160px;height:auto;display:block;border-radius:8px;background:#fff;padding:4px;}'
+    +'.qt-qr-lbl{font-size:10px;color:#1d4ed8;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;}'
+    // FOOTER
+    +'.qt-footer{background:linear-gradient(180deg,#f8fbff 0%,#f2f5fa 100%);padding:26px 44px 24px;border-top:1px solid rgba(15,23,42,.08);}'
+    +'.qt-thanks{color:#1d4ed8;font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0;text-align:center;}'
+    +'.qt-thanks-sub{color:#475569;font-size:12.5px;margin:4px 0 0;text-align:center;}'
+    +'.qt-sign{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:40px;}'
+    +'.qt-sign-col small{display:block;color:#94a3b8;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;font-weight:600;}'
+    +'.qt-sign-col b{color:#0f172a;font-size:13px;font-weight:600;}'
+    +'.qt-sign-col .line{border-top:1px dashed rgba(15,23,42,.14);margin-top:52px;padding-top:6px;font-size:11px;color:#94a3b8;text-align:center;}'
+    +'.qt-sign-col.right{text-align:right;}'
+    +'.qt-sign-col.right .line{text-align:center;}';
+}
+
+// Ẩn các bậc <30tr khi khách hàng thuộc nhóm ngân sách lớn
+function shouldHideLowTiers(q){
+  if(!q)return false;
+  if(q.snapshot&&q.snapshot.hide_low_tiers!=null)return !!q.snapshot.hide_low_tiers;
+  var b=parseInt(q.monthly_budget)||0;
+  return b>=30000000;
+}
+
+// Tạo URL VietQR cho báo giá — dùng STK doanh nghiệp mặc định
+function getQuotationVietQrUrl(q,amount){
+  var bp=(typeof BANK_PROFILES!=='undefined'&&BANK_PROFILES.business)?BANK_PROFILES.business:{bankCode:'TCB',accountNo:'68915555',accountName:'CONG TY TNHH HC QUANG CAO'};
+  var content='BAO GIA '+(q.quote_number||'').replace(/\//g,' ');
+  return 'https://img.vietqr.io/image/'+bp.bankCode+'-'+bp.accountNo+'-compact2.png?amount='+(parseInt(amount)||0)+'&addInfo='+encodeURIComponent(content)+'&accountName='+encodeURIComponent(bp.accountName);
 }
 
 function renderQuotationHtml(q,c){
   var tot=quotationTotals(q);
   var pkg=q.fanpage_package?FANPAGE_PACKAGES.find(function(p){return p.id===q.fanpage_package;}):null;
   var tier=findAdTier(q.monthly_budget);
+  var hideLow=shouldHideLowTiers(q);
+  var tiers=hideLow?AD_FEE_TIERS.filter(function(t){return t.max>=30000000;}):AD_FEE_TIERS;
+  var sectionIdx=0;
+  var hasFanpage=(q.package_type==='fanpage'||q.package_type==='combo');
+  var hasAds=(q.package_type==='ads'||q.package_type==='combo');
+  var clientDisplay=esc(c.company_full_name||c.name||'Quý khách');
+  var budgetLine=q.monthly_budget?' với ngân sách <b>'+ff(q.monthly_budget)+'đ/tháng</b>':'';
+  var qrUrl=getQuotationVietQrUrl(q,tot.total);
+  var ctContent=(c.name||'KH').toUpperCase().replace(/\s+/g,' ').trim()+' '+(q.quote_number||'BAOGIA');
+
   var h='<style>'+quotationPrintCss()+'</style>';
-  h+='<div class="qt-page">';
-  // Header
-  h+='<div class="qt-header">';
-  h+='<div class="qt-logo">HƯNG<br>COACHING<small>FACEBOOK MARKETING</small></div>';
-  h+='<div style="flex:1;"><div class="qt-title">BẢNG BÁO GIÁ</div><div class="qt-sub">DỊCH VỤ QUẢNG CÁO FACEBOOK</div></div>';
-  h+='<div style="text-align:right;font-size:11px;"><div class="qt-badge">Mã: '+esc(q.quote_number||'—')+'</div><div style="margin-top:6px;opacity:.85;">Ngày lập: '+esc(q.issued_date||'—')+'</div><div style="opacity:.85;">Hiệu lực đến: '+esc(q.valid_until||'—')+'</div></div>';
+  h+='<div class="qt-doc">';
+
+  // HERO
+  h+='<div class="qt-hero"><div class="qt-hero-inner">';
+  h+='<div class="qt-logo">HC</div>';
+  h+='<div class="qt-hero-stack">';
+  h+='<div class="qt-brand-line">HC Agency · Digital Marketing</div>';
+  h+='<h1 class="qt-hero-title">Báo giá dịch vụ</h1>';
+  h+='<p class="qt-hero-sub">Quảng cáo Facebook · Vận hành Fanpage · Tư vấn thương hiệu</p>';
+  h+='<div class="qt-badge-box">';
+  h+='<div><span>Số báo giá</span><b>'+esc(q.quote_number||'—')+'</b></div>';
+  h+='<div><span>Ngày phát hành</span><b>'+esc(q.issued_date||'—')+'</b></div>';
+  h+='<div><span>Hiệu lực đến</span><b>'+esc(q.valid_until||'—')+'</b></div>';
   h+='</div>';
-  // Contact
-  h+='<div class="qt-contact">';
-  h+='<div><strong>LIÊN HỆ</strong>'+esc(PARTY_B_INFO.representative_name)+' · '+esc(PARTY_B_INFO.phone)+'</div>';
-  h+='<div><strong>ĐỊA CHỈ</strong>'+esc(PARTY_B_INFO.address)+'</div>';
+  h+='</div></div></div>';
+
+  // CONTACT STRIP
+  h+='<div class="qt-strip">';
+  h+='<div><span class="dot"></span>'+esc(PARTY_B_INFO.representative_name)+'</div>';
+  h+='<div><span class="dot"></span>'+esc(PARTY_B_INFO.phone)+'</div>';
+  h+='<div><span class="dot"></span>'+esc(PARTY_B_INFO.address)+'</div>';
   h+='</div>';
-  // Body
+
+  // BODY
   h+='<div class="qt-body">';
-  h+='<div class="qt-to"><strong>KÍNH GỬI:</strong> '+esc(c.company_full_name||c.name||'Quý khách')+(c.name&&c.company_full_name?' ('+esc(c.name)+')':'')+(c.representative_name?' — '+esc((c.representative_salutation||'')+' '+c.representative_name):'')+'</div>';
-  h+='<p style="font-size:12.5px;margin:0 0 12px;">HC Agency trân trọng gửi tới Quý khách báo giá các gói dịch vụ sau:</p>';
+  h+='<div class="qt-greeting">Kính gửi <b>'+clientDisplay+'</b>'+(c.representative_name?' — '+esc((c.representative_salutation||'')+' '+c.representative_name):'')+',<br>Cảm ơn quý khách đã tin tưởng HC Agency. Dưới đây là báo giá dịch vụ được thiết kế riêng theo nhu cầu doanh nghiệp'+budgetLine+'.</div>';
 
-  if(q.package_type==='fanpage'||q.package_type==='combo'){
-    h+='<div class="qt-section-title">1. DỊCH VỤ TẠO &amp; THIẾT LẬP FANPAGE</div>';
-    if(pkg){
-      h+='<div class="qt-package">';
-      h+='<h4>'+esc(pkg.name.toUpperCase())+'</h4>';
-      h+='<div class="price">'+ff(pkg.price)+'Đ</div>';
-      h+='<ul>';pkg.features.forEach(function(f){h+='<li>'+esc(f)+'</li>';});h+='</ul>';
-      h+='</div>';
-    }
-    h+='<div class="qt-note">Phương thức thanh toán: Thanh toán trước 1.500.000đ khi ký hợp đồng, phần còn lại sau khi hoàn thành Fanpage trong 3-5 ngày.</div>';
+  // Fanpage section
+  if(hasFanpage&&pkg){
+    sectionIdx++;
+    h+='<div class="qt-section">';
+    h+='<div class="qt-section-head"><div class="qt-section-icon">📘</div><div><h3>Gói vận hành Fanpage</h3><p>Thiết kế fanpage, viết bài, bàn giao trong 3–5 ngày</p></div></div>';
+    h+='<div class="qt-package">';
+    h+='<div class="qt-package-head"><div><h4 class="qt-package-name">'+esc(pkg.name)+(pkg.id===2?' — Nâng cao':' — Cơ bản')+'</h4><span class="qt-package-tag">'+(pkg.id===2?'Premium':'Recommended')+'</span></div>';
+    h+='<div class="qt-package-price"><small>Chỉ từ</small>'+ff(pkg.price)+'đ<span class="unit">/gói (thanh toán 1 lần)</span></div></div>';
+    h+='<ul class="qt-package-features">';pkg.features.forEach(function(f){h+='<li><span>'+esc(f)+'</span></li>';});h+='</ul>';
+    h+='</div></div>';
   }
 
-  if(q.package_type==='ads'||q.package_type==='combo'){
-    h+='<div class="qt-section-title">'+((q.package_type==='combo')?'2. ':'')+'DỊCH VỤ CHẠY QUẢNG CÁO FACEBOOK</div>';
-    h+='<table class="qt-table"><thead><tr><th>Bậc ngân sách quảng cáo</th><th style="text-align:right;">Giá hỗ trợ</th></tr></thead><tbody>';
-    AD_FEE_TIERS.forEach(function(t){
+  // Ads section
+  if(hasAds){
+    sectionIdx++;
+    h+='<div class="qt-section">';
+    h+='<div class="qt-section-head"><div class="qt-section-icon">📊</div><div><h3>Phí hỗ trợ quảng cáo theo ngân sách</h3><p>'+(hideLow?'Dành cho khách hàng ngân sách từ 30.000.000đ/tháng':'Tính theo ngân sách chi Meta thực tế mỗi tháng')+'</p></div></div>';
+    h+='<div class="qt-tier-wrap"><table class="qt-tier-table"><thead><tr><th>Mức ngân sách</th><th>Phí dịch vụ</th></tr></thead><tbody>';
+    tiers.forEach(function(t){
       var isCurrent=tier&&t===tier;
-      h+='<tr'+(isCurrent?' style="background:#ffd84d;"':'')+'><td>'+esc(t.label)+'</td><td>'+esc(t.display)+'</td></tr>';
+      h+='<tr'+(isCurrent?' class="current"':'')+'><td>'+esc(t.label)+'</td><td>'+esc(t.display)+'</td></tr>';
     });
-    h+='</tbody></table>';
+    h+='</tbody></table></div>';
     if(q.monthly_budget){
-      h+='<div class="qt-payment"><strong>ÁP DỤNG CHO QUÝ KHÁCH:</strong><br>';
-      h+='Ngân sách dự kiến: <strong>'+ff(q.monthly_budget)+'đ/tháng</strong> → Phí hỗ trợ: <strong>'+ff(tot.adFee)+'đ/tháng</strong>';
-      h+='</div>';
+      h+='<div class="qt-applied">Ngân sách dự kiến <b>'+ff(q.monthly_budget)+'đ/tháng</b> → áp dụng phí <b>'+ff(tot.adFee)+'đ/tháng</b>.</div>';
     }
-    h+='<div class="qt-note">Giá hỗ trợ bao gồm: Tiền công chạy và hỗ trợ tư vấn chiến lược quảng cáo, lên nội dung bài chạy quảng cáo.</div>';
   }
 
-  // Tổng
-  h+='<div class="qt-total"><span>TỔNG BÁO GIÁ</span><span>'+ff(tot.total)+'Đ'+(q.package_type!=='fanpage'?' <span style="font-size:11px;font-weight:500;">(phí QC/tháng)</span>':'')+'</span></div>';
+  // TOTAL
+  var totalLabel=q.package_type==='fanpage'?'Gói Fanpage':(q.package_type==='ads'?'Phí quảng cáo':'Gói Fanpage + Phí quảng cáo');
+  var totalUnit=q.package_type==='fanpage'?'(thanh toán 1 lần, chưa bao gồm VAT)':'/tháng (chưa bao gồm VAT)';
+  h+='<div class="qt-total"><div class="qt-total-lbl"><small>TỔNG CHI PHÍ DỊCH VỤ</small><b>'+esc(totalLabel)+'</b></div><div class="qt-total-val">'+ff(tot.total)+'đ<small>'+esc(totalUnit)+'</small></div></div>';
 
-  if(q.note){h+='<div class="qt-payment"><strong>GHI CHÚ:</strong><br>'+esc(q.note)+'</div>';}
+  // Ghi chú
+  if(q.note){h+='<div class="qt-note"><b>Ghi chú:</b> '+esc(q.note)+'</div>';}
 
-  // Ưu đãi
-  h+='<div class="qt-section-title">ƯU ĐÃI &amp; CAM KẾT</div>';
-  h+='<ul style="font-size:12px;line-height:1.7;margin:0;padding-left:20px;">';
-  h+='<li>Cam kết ra khách hàng tiềm năng thật – người có nhu cầu thực sự với sản phẩm/dịch vụ của bạn.</li>';
-  h+='<li>Cam kết tối ưu chi phí quảng cáo, không lãng phí ngân sách.</li>';
-  h+='<li>Tặng kèm hỗ trợ tư vấn 1:1 giải đáp mọi thắc mắc trong quá trình kinh doanh online.</li>';
-  h+='<li>Đồng hành phân tích sản phẩm, tối ưu nội dung và chiến lược quảng cáo.</li>';
-  h+='<li>Cam kết báo cáo minh bạch, cung cấp số liệu chi tiết về kết quả quảng cáo.</li>';
-  h+='</ul>';
+  // COMMIT GRID
+  h+='<div class="qt-commit">';
+  h+='<div class="qt-commit-card"><h4>HC Agency cam kết</h4><ul>';
+  h+='<li>Ra khách hàng tiềm năng thật, đúng đối tượng</li>';
+  h+='<li>Tối ưu chi phí, không lãng phí ngân sách</li>';
+  h+='<li>Báo cáo minh bạch, số liệu chi tiết hàng tuần</li>';
+  h+='<li>Account Manager chuyên trách, hỗ trợ 1:1</li>';
+  h+='</ul></div>';
+  h+='<div class="qt-commit-card"><h4>Phạm vi công việc</h4><ul>';
+  h+='<li>Lập kế hoạch &amp; target audience</li>';
+  h+='<li>Thiết kế creative, viết content chạy QC</li>';
+  h+='<li>A/B test &amp; tối ưu conversion</li>';
+  h+='<li>Tư vấn chiến lược sản phẩm &amp; nội dung</li>';
+  h+='</ul></div>';
+  h+='</div>';
 
-  // Thanh toán
-  h+='<div class="qt-section-title" style="margin-top:16px;">THÔNG TIN CHUYỂN KHOẢN</div>';
-  h+='<div class="qt-payment">';
-  h+='<strong>Ngân hàng:</strong> '+esc(PARTY_B_INFO.bank_name)+' — '+esc(PARTY_B_INFO.bank_branch)+'<br>';
-  h+='<strong>Số tài khoản:</strong> '+esc(PARTY_B_INFO.bank_account_no)+'<br>';
-  h+='<strong>Chủ tài khoản:</strong> '+esc(PARTY_B_INFO.bank_account_name)+'<br>';
-  h+='<strong>Nội dung:</strong> '+esc((c.name||'KH').toUpperCase())+' - '+esc(q.quote_number||'BAOGIA');
+  // PAYMENT
+  h+='<div class="qt-pay-grid">';
+  h+='<div class="qt-pay-card"><h4>Thông tin thanh toán</h4>';
+  h+='<div class="qt-pay-row"><span>Ngân hàng</span><b>'+esc(PARTY_B_INFO.bank_name)+'</b></div>';
+  h+='<div class="qt-pay-row"><span>Chi nhánh</span><b>'+esc(PARTY_B_INFO.bank_branch)+'</b></div>';
+  h+='<div class="qt-pay-row"><span>Số tài khoản</span><b>'+esc(PARTY_B_INFO.bank_account_no)+'</b></div>';
+  h+='<div class="qt-pay-row"><span>Chủ tài khoản</span><b>'+esc(PARTY_B_INFO.bank_account_name)+'</b></div>';
+  h+='<div class="qt-pay-row"><span>Nội dung CK</span><b>'+esc(ctContent)+'</b></div>';
+  h+='</div>';
+  h+='<div class="qt-qr"><img src="'+esc(qrUrl)+'" alt="VietQR"><div class="qt-qr-lbl">Quét để chuyển khoản</div></div>';
   h+='</div>';
 
   h+='</div>'; // body
 
-  // Footer
+  // FOOTER
   h+='<div class="qt-footer">';
-  h+='<div><strong>HC AGENCY</strong><br>'+esc(PARTY_B_INFO.company_name)+'<br>MST: '+esc(PARTY_B_INFO.tax_code)+'</div>';
-  h+='<div style="text-align:right;"><strong>CẢM ƠN QUÝ KHÁCH</strong><br>Hotline: '+esc(PARTY_B_INFO.phone)+'<br>Tận tâm · Uy tín · Trách nhiệm</div>';
+  h+='<p class="qt-thanks">Rất mong được đồng hành cùng quý khách</p>';
+  h+='<p class="qt-thanks-sub">HC Agency — tăng trưởng bền vững cùng doanh nghiệp của bạn</p>';
+  h+='<div class="qt-sign">';
+  h+='<div class="qt-sign-col"><small>ĐẠI DIỆN BÊN A</small><b>'+clientDisplay+'</b><div class="line">Ký, ghi rõ họ tên</div></div>';
+  h+='<div class="qt-sign-col right"><small>ĐẠI DIỆN BÊN B</small><b>'+esc(PARTY_B_INFO.company_name)+'</b><div class="line">Ký, ghi rõ họ tên</div></div>';
+  h+='</div>';
   h+='</div>';
 
-  h+='</div>'; // page
+  h+='</div>'; // qt-doc
   return h;
 }
 
