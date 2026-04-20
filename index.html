@@ -61,7 +61,18 @@ table{width:100%;border-collapse:collapse;min-width:500px;}th{text-align:left;pa
 .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:10px;}.form-group{display:flex;flex-direction:column;gap:4px;}.form-group label{font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px;}
 .form-group input,.form-group select{padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--radius);background:var(--bg2);color:var(--tx1);font-size:13px;font-family:inherit;outline:none;transition:border .15s;}.form-group input:focus,.form-group select:focus{border-color:var(--blue);}
 .btn{padding:8px 16px;border:none;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;font-family:inherit;}.btn:disabled{opacity:.5;cursor:not-allowed;}
-.btn-primary{background:var(--blue);color:#fff;}.btn-primary:hover:not(:disabled){opacity:.9;}.btn-red{background:var(--red);color:#fff;}.btn-red:hover:not(:disabled){opacity:.9;}.btn-green{background:var(--green);color:#fff;}.btn-green:hover:not(:disabled){opacity:.9;}.btn-ghost{background:transparent;color:var(--tx2);border:1px solid var(--bd2);}.btn-ghost:hover{background:var(--bg2);}.btn-sm{padding:4px 10px;font-size:11px;}
+.btn-primary{background:var(--blue);color:#fff;}.btn-primary:hover:not(:disabled){opacity:.9;}.btn-red{background:var(--red);color:#fff;}.btn-red:hover:not(:disabled){opacity:.9;}.btn-green{background:var(--green);color:#fff;}.btn-green:hover:not(:disabled){opacity:.9;}.btn-purple{background:var(--purple);color:#fff;}.btn-purple:hover:not(:disabled){opacity:.9;}.btn-ghost{background:transparent;color:var(--tx2);border:1px solid var(--bd2);}.btn-ghost:hover{background:var(--bg2);}.btn-sm{padding:6px 12px;font-size:12px;min-height:32px;}
+/* Action menu (used in tables to hide secondary actions behind ⋯) */
+.qt-action-wrap{position:relative;display:inline-flex;gap:6px;align-items:center;}
+.qt-action-more{width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--bd2);background:var(--bg1);color:var(--tx2);border-radius:10px;cursor:pointer;font-size:16px;line-height:1;}
+.qt-action-more:hover{background:var(--bg2);color:var(--tx1);}
+.qt-action-menu{position:absolute;right:0;top:calc(100% + 6px);min-width:180px;background:var(--bg1);border:1px solid var(--bd1);border-radius:12px;box-shadow:0 14px 32px rgba(15,23,42,.12);padding:6px;z-index:80;display:none;}
+.qt-action-menu.open{display:block;}
+.qt-action-menu button{display:flex;width:100%;gap:10px;align-items:center;padding:9px 12px;background:none;border:none;border-radius:8px;font-size:13px;color:var(--tx1);cursor:pointer;text-align:left;font-family:inherit;}
+.qt-action-menu button:hover{background:var(--bg2);}
+.qt-action-menu button.danger{color:var(--red-tx);}
+.qt-action-menu button.danger:hover{background:var(--red-bg);}
+.qt-action-menu .sep{height:1px;background:var(--bd1);margin:4px 0;}
 .btn-row{display:flex;gap:8px;margin-top:12px;}
 .toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:var(--radius);font-size:13px;font-weight:500;z-index:999;animation:slideIn .3s;box-shadow:0 4px 12px rgba(0,0,0,.15);}.toast-ok{background:var(--green);color:#fff;}.toast-err{background:var(--red);color:#fff;}@keyframes slideIn{from{transform:translateX(100px);opacity:0;}to{transform:translateX(0);opacity:1;}}
 /* Modal (HC) */
@@ -837,6 +848,11 @@ function isMissingColumnError(err){return !!(err&&err.message&&(/column .* does 
 function invoiceDomId(clientId){return String(clientId).replace(/[^A-Za-z0-9_-]/g,'_');}
 function monthKey(month){return (month||'').substring(0,7);}
 function normalizeMoneyInput(v){return metaNum(String(v||'').replace(/[^0-9]/g,''));}
+function formatMoneyInput(el){
+  if(!el)return;
+  var raw=String(el.value||'').replace(/[^0-9]/g,'');
+  el.value=raw?parseInt(raw,10).toLocaleString('vi-VN'):'';
+}
 function getMonthlyFeeRecord(clientId,month){var mk=monthKey(month);for(var i=0;i<monthlyFeeData.length;i++){var r=monthlyFeeData[i];if(r.client_id===clientId&&r.month===mk)return r;}return null;}
 function getEffectiveServiceFee(clientId,month,baseFee){var rec=getMonthlyFeeRecord(clientId,month);return rec?metaNum(rec.service_fee):metaNum(baseFee);}
 function getClientVatFlag(c){return !!(c&&c.has_vat);}
@@ -3592,18 +3608,47 @@ function p3Quotation(tabH){
     h+='<td style="text-align:right;font-weight:600;">'+ff(tot.total)+'đ</td>';
     h+='<td style="font-size:12px;'+(isExpired?'color:var(--red);':'')+'">'+esc(q.valid_until||'—')+(isExpired?' ⚠':'')+'</td>';
     h+='<td><span class="badge '+stMeta.class+'">'+stMeta.label+'</span></td>';
-    h+='<td style="white-space:nowrap;">';
-    h+='<button class="btn btn-sm" onclick="previewQuotation(\''+q.id+'\')" title="Xem trước">👁️</button> ';
-    h+='<button class="btn btn-sm btn-primary" onclick="openQuotationModal(\''+q.id+'\')" title="Sửa">✏️</button> ';
-    if(q.status==='draft')h+='<button class="btn btn-sm" style="background:var(--blue);color:#fff;border:none;" onclick="updateQuotationStatus(\''+q.id+'\',\'sent\')" title="Đánh dấu đã gửi">📤</button> ';
-    if(q.status==='sent')h+='<button class="btn btn-sm btn-green" onclick="updateQuotationStatus(\''+q.id+'\',\'accepted\')" title="Khách chốt">✓</button> ';
-    if(q.status==='accepted'&&c.status==='prospect')h+='<button class="btn btn-sm" style="background:var(--purple);color:#fff;border:none;" onclick="convertQuotationToContract(\''+q.id+'\')" title="Chuyển thành hợp đồng">📄→HĐ</button> ';
-    h+='<button class="btn btn-sm btn-red" onclick="deleteQuotation(\''+q.id+'\')" title="Xoá">🗑</button>';
-    h+='</td></tr>';
+    var primaryBtn='';
+    if(q.status==='draft')primaryBtn='<button class="btn btn-sm btn-primary" onclick="updateQuotationStatus(\''+q.id+'\',\'sent\')">Gửi báo giá</button>';
+    else if(q.status==='sent')primaryBtn='<button class="btn btn-sm btn-green" onclick="updateQuotationStatus(\''+q.id+'\',\'accepted\')">Đánh dấu chốt</button>';
+    else if(q.status==='accepted'&&c.status==='prospect')primaryBtn='<button class="btn btn-sm btn-purple" onclick="convertQuotationToContract(\''+q.id+'\')">Tạo hợp đồng</button>';
+    else primaryBtn='<button class="btn btn-sm btn-ghost" onclick="previewQuotation(\''+q.id+'\')">Xem</button>';
+    h+='<td style="white-space:nowrap;text-align:right;">';
+    h+='<div class="qt-action-wrap">'+primaryBtn;
+    h+='<button class="qt-action-more" onclick="toggleQuotationMenu(event,\''+q.id+'\')" aria-label="Thao tác khác" title="Thao tác khác">⋯</button>';
+    h+='<div class="qt-action-menu" id="qt-menu-'+q.id+'" onclick="event.stopPropagation();">';
+    h+='<button onclick="previewQuotation(\''+q.id+'\');closeQuotationMenus();">Xem trước</button>';
+    h+='<button onclick="openQuotationModal(\''+q.id+'\');closeQuotationMenus();">Sửa báo giá</button>';
+    if(q.status!=='draft')h+='<button onclick="updateQuotationStatus(\''+q.id+'\',\'draft\');closeQuotationMenus();">Chuyển về nháp</button>';
+    h+='<div class="sep"></div>';
+    h+='<button class="danger" onclick="deleteQuotation(\''+q.id+'\');closeQuotationMenus();">Xoá báo giá</button>';
+    h+='</div></div></td></tr>';
   });
   h+='</tbody></table></div>';
   return h;
 }
+
+// ═══ POPOVER ⋯ TRONG BẢNG BÁO GIÁ ═══
+function closeQuotationMenus(){
+  document.querySelectorAll('.qt-action-menu.open').forEach(function(el){el.classList.remove('open');});
+}
+function toggleQuotationMenu(ev,id){
+  ev.stopPropagation();
+  var m=document.getElementById('qt-menu-'+id);if(!m)return;
+  var wasOpen=m.classList.contains('open');
+  closeQuotationMenus();
+  if(!wasOpen)m.classList.add('open');
+}
+document.addEventListener('click',closeQuotationMenus);
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape')return;
+  if(quotationModalId){closeQuotationModal();return;}
+  if(quotationPreviewId){closeQuotationPreview();return;}
+  if(contractModalClientId){closeContractModal();return;}
+  if(contractHistoryClientId){closeContractHistory();return;}
+  if(newProspectModalOpen){closeNewProspectModal();return;}
+  closeQuotationMenus();
+});
 
 // ═══ MỞ MODAL: TẠO/SỬA BÁO GIÁ ═══
 function openQuotationModal(id){
@@ -3651,6 +3696,8 @@ function fillQuotationDefaults(id){
     set('qt-support-fee','');
     check('qt-hide-low',false);
   }
+  formatMoneyInput(document.getElementById('qt-budget'));
+  formatMoneyInput(document.getElementById('qt-support-fee'));
   onQuotationPackageChange();
   onQuotationBudgetChange();
   onQuotationClientChange();
@@ -3683,7 +3730,7 @@ function onQuotationBudgetChange(){
   var tier=findAdTier(b);
   var tierLabel=document.getElementById('qt-tier-label');
   if(tierLabel)tierLabel.textContent=tier?tier.label+' → '+tier.display:'Nhập ngân sách để xem bậc phí';
-  if(feeInput&&(!feeInput.dataset.touched||feeInput.dataset.touched==='0'))feeInput.value=auto||'';
+  if(feeInput&&(!feeInput.dataset.touched||feeInput.dataset.touched==='0')){feeInput.value=auto?auto.toLocaleString('vi-VN'):'';}
   var hideChk=document.getElementById('qt-hide-low');
   if(hideChk&&(!hideChk.dataset.touched||hideChk.dataset.touched==='0'))hideChk.checked=b>=30000000;
   recalcQuotationPreview();
@@ -3749,8 +3796,8 @@ function renderQuotationModal(){
   h+='<div id="qt-ad-group" style="margin-top:14px;padding:12px;background:var(--bg2);border-radius:var(--radius);">';
   h+='<div style="font-size:13px;font-weight:600;margin-bottom:8px;">📣 Gói chạy quảng cáo</div>';
   h+='<div class="hc-form-grid">';
-  h+='<div><label>Ngân sách dự kiến/tháng (VNĐ)</label><input id="qt-budget" type="number" class="fi" oninput="onQuotationBudgetChange()" placeholder="VD: 20000000"></div>';
-  h+='<div><label>Phí hỗ trợ/tháng (VNĐ)</label><input id="qt-support-fee" type="number" class="fi" oninput="onQuotationFeeManualChange()" placeholder="Tự tính theo bậc"></div>';
+  h+='<div><label>Ngân sách dự kiến/tháng (VNĐ)</label><input id="qt-budget" type="text" inputmode="numeric" autocomplete="off" class="fi" oninput="formatMoneyInput(this);onQuotationBudgetChange()" placeholder="VD: 20.000.000"></div>';
+  h+='<div><label>Phí hỗ trợ/tháng (VNĐ)</label><input id="qt-support-fee" type="text" inputmode="numeric" autocomplete="off" class="fi" oninput="formatMoneyInput(this);onQuotationFeeManualChange()" placeholder="Tự tính theo bậc"></div>';
   h+='<div style="grid-column:1/-1;font-size:11px;color:var(--tx3);" id="qt-tier-label">Nhập ngân sách để xem bậc phí</div>';
   h+='<div style="grid-column:1/-1;padding:8px 10px;background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius);"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:12.5px;color:var(--tx2);margin:0;"><input type="checkbox" id="qt-hide-low" onchange="onQuotationHideLowChange()" style="width:15px;height:15px;cursor:pointer;margin:0;"><span>Ẩn các bậc dưới 30tr khi in báo giá <span style="color:var(--tx3);">(tự bật khi ngân sách ≥ 30tr)</span></span></label></div>';
   h+='</div></div>';
@@ -3760,10 +3807,10 @@ function renderQuotationModal(){
   h+='<div id="qt-total-box" style="margin-top:14px;padding:14px 16px;background:var(--blue-bg);border-radius:var(--radius);text-align:right;"></div>';
   h+='</div>';
   h+='<div class="hc-modal-foot" style="gap:8px;flex-wrap:wrap;">';
-  h+='<button class="btn" onclick="closeQuotationModal()">Đóng</button>';
-  if(isEdit)h+='<button class="btn" onclick="previewQuotation(quotationModalId)">👁️ Xem trước</button>';
-  h+='<button class="btn btn-primary" onclick="saveQuotation(this,false)">💾 Lưu nháp</button>';
-  h+='<button class="btn btn-green" onclick="saveQuotation(this,true)">📤 Lưu &amp; đánh dấu đã gửi</button>';
+  h+='<button class="btn btn-ghost" onclick="closeQuotationModal()">Đóng</button>';
+  if(isEdit)h+='<button class="btn btn-ghost" onclick="previewQuotation(quotationModalId)">Xem trước</button>';
+  h+='<button class="btn btn-ghost" onclick="saveQuotation(this,false)">Lưu nháp</button>';
+  h+='<button class="btn btn-primary" onclick="saveQuotation(this,true)">Lưu &amp; gửi</button>';
   h+='</div>';
   h+='</div></div>';
   return h;
@@ -3919,7 +3966,7 @@ function quotationPrintCss(){
     +'.qt-hero-sub{font-size:14px;color:#475569;margin:0 0 16px;}'
     +'.qt-badge-box{display:inline-flex;gap:18px;background:rgba(255,255,255,.7);border:1px solid rgba(37,99,235,.14);border-radius:12px;padding:10px 18px;}'
     +'.qt-badge-box div{display:flex;flex-direction:column;gap:2px;}'
-    +'.qt-badge-box span{font-size:10px;color:#94a3b8;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;}'
+    +'.qt-badge-box span{font-size:10px;color:#64748b;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;}'
     +'.qt-badge-box b{font-size:13px;color:#0f172a;font-weight:600;}'
     // CONTACT STRIP
     +'.qt-strip{background:#f8fafc;padding:12px 44px;display:flex;gap:24px;flex-wrap:wrap;font-size:12.5px;color:#475569;border-bottom:1px solid rgba(15,23,42,.08);}'
@@ -3927,22 +3974,22 @@ function quotationPrintCss(){
     +'.qt-strip .dot{width:5px;height:5px;background:#2563eb;border-radius:50%;flex-shrink:0;}'
     // BODY
     +'.qt-body{padding:36px 44px 20px;background:#fff;}'
-    +'.qt-greeting{background:linear-gradient(180deg,#f8fbff 0%,#eff6ff 100%);border:1px solid rgba(37,99,235,.14);padding:16px 20px;border-radius:12px;margin-bottom:28px;font-size:13.5px;line-height:1.6;color:#0f172a;}'
+    +'.qt-greeting{background:#f8fafc;border:1px solid rgba(15,23,42,.08);padding:16px 20px;border-radius:12px;margin-bottom:28px;font-size:13.5px;line-height:1.6;color:#0f172a;}'
     +'.qt-greeting b{color:#1d4ed8;}'
     // SECTION
     +'.qt-section{margin-bottom:28px;page-break-inside:avoid;}'
     +'.qt-section-head{display:flex;gap:14px;align-items:center;margin-bottom:16px;}'
     +'.qt-section-icon{width:40px;height:40px;background:#eff6ff;color:#2563eb;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:1px solid rgba(37,99,235,.14);}'
     +'.qt-section-head h3{margin:0;color:#0f172a;font-size:17px;font-weight:600;letter-spacing:-.01em;}'
-    +'.qt-section-head p{margin:2px 0 0;color:#94a3b8;font-size:12px;}'
+    +'.qt-section-head p{margin:2px 0 0;color:#64748b;font-size:12px;}'
     // PACKAGE CARD
     +'.qt-package{background:#fff;border:1px solid rgba(15,23,42,.08);border-radius:12px;padding:20px 22px;box-shadow:0 8px 24px rgba(15,23,42,.06);}'
     +'.qt-package-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid rgba(15,23,42,.08);}'
     +'.qt-package-name{font-size:15px;font-weight:600;color:#0f172a;margin:0 0 4px;letter-spacing:-.01em;}'
     +'.qt-package-tag{display:inline-block;background:#f3f0ff;color:#4338ca;padding:3px 10px;border-radius:20px;font-size:10px;letter-spacing:.5px;font-weight:600;text-transform:uppercase;}'
     +'.qt-package-price{background:linear-gradient(180deg,#f8fbff 0%,#edf4ff 100%);border:1px solid rgba(37,99,235,.22);color:#1d4ed8;padding:10px 16px;border-radius:12px;font-weight:700;font-size:17px;white-space:nowrap;text-align:right;letter-spacing:-.01em;min-width:160px;}'
-    +'.qt-package-price small{display:block;font-size:9px;color:#94a3b8;letter-spacing:1px;font-weight:500;margin-bottom:2px;text-transform:uppercase;}'
-    +'.qt-package-price .unit{display:block;font-size:10px;color:#94a3b8;margin-top:2px;text-transform:none;letter-spacing:0;font-weight:500;}'
+    +'.qt-package-price small{display:block;font-size:9px;color:#64748b;letter-spacing:1px;font-weight:500;margin-bottom:2px;text-transform:uppercase;}'
+    +'.qt-package-price .unit{display:block;font-size:10px;color:#64748b;margin-top:2px;text-transform:none;letter-spacing:0;font-weight:500;}'
     +'.qt-package-features{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:8px;}'
     +'.qt-package-features li{display:flex;gap:10px;font-size:13px;color:#0f172a;line-height:1.5;}'
     +'.qt-package-features li::before{content:"";color:#2563eb;background:#eff6ff;width:18px;height:18px;border-radius:50%;flex-shrink:0;margin-top:1px;background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2710%27 height=%2710%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%232563eb%27 stroke-width=%273%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpolyline points=%2720 6 9 17 4 12%27/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:center;}'
@@ -3983,19 +4030,19 @@ function quotationPrintCss(){
     +'.qt-pay-card h4::before{content:"";width:3px;height:12px;background:#2563eb;border-radius:2px;}'
     +'.qt-pay-row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid rgba(15,23,42,.08);font-size:13px;}'
     +'.qt-pay-row:last-child{border:none;}'
-    +'.qt-pay-row span{color:#94a3b8;}'
+    +'.qt-pay-row span{color:#64748b;}'
     +'.qt-pay-row b{color:#0f172a;font-weight:600;text-align:right;}'
     +'.qt-qr{background:linear-gradient(180deg,#f8fbff 0%,#edf4ff 100%);border:1px solid rgba(37,99,235,.16);border-radius:12px;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;}'
     +'.qt-qr img{width:100%;max-width:160px;height:auto;display:block;border-radius:8px;background:#fff;padding:4px;}'
     +'.qt-qr-lbl{font-size:10px;color:#1d4ed8;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;}'
     // FOOTER
-    +'.qt-footer{background:linear-gradient(180deg,#f8fbff 0%,#f2f5fa 100%);padding:26px 44px 24px;border-top:1px solid rgba(15,23,42,.08);}'
+    +'.qt-footer{background:#f8fafc;padding:26px 44px 24px;border-top:1px solid rgba(15,23,42,.08);}'
     +'.qt-thanks{color:#1d4ed8;font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0;text-align:center;}'
     +'.qt-thanks-sub{color:#475569;font-size:12.5px;margin:4px 0 0;text-align:center;}'
     +'.qt-sign{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:40px;}'
-    +'.qt-sign-col small{display:block;color:#94a3b8;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;font-weight:600;}'
+    +'.qt-sign-col small{display:block;color:#64748b;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;font-weight:600;}'
     +'.qt-sign-col b{color:#0f172a;font-size:13px;font-weight:600;}'
-    +'.qt-sign-col .line{border-top:1px dashed rgba(15,23,42,.14);margin-top:52px;padding-top:6px;font-size:11px;color:#94a3b8;text-align:center;}'
+    +'.qt-sign-col .line{border-top:1px dashed rgba(15,23,42,.14);margin-top:52px;padding-top:6px;font-size:11px;color:#64748b;text-align:center;}'
     +'.qt-sign-col.right{text-align:right;}'
     +'.qt-sign-col.right .line{text-align:center;}';
 }
