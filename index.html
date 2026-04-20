@@ -2826,6 +2826,13 @@ var clientId=document.getElementById('new-tk-client').value||null;
 var staffId=document.getElementById('new-tk-staff').value||null;
 var isShared=document.getElementById('new-tk-shared').value==='true';
 if(!name){toast('Vui lòng nhập tên tài khoản quảng cáo.',false);btn.disabled=false;return;}
+// Chống tạo trùng fb_account_id — kiểm tra local trước, rồi double-check DB
+if(fbid){
+var dupLocal=adList.find(function(a){return a.fb_account_id===fbid;});
+if(dupLocal){toast('Tài khoản đã tồn tại: '+dupLocal.account_name+' ('+fbid+')',false);btn.disabled=false;return;}
+var{data:dupDb}=await sb2.from('ad_account').select('id,account_name').eq('fb_account_id',fbid).maybeSingle();
+if(dupDb){toast('DB đã có tài khoản với FB ID này: '+dupDb.account_name,false);btn.disabled=false;return;}
+}
 var ins={account_name:name,fb_account_id:fbid,client_id:clientId,is_shared:isShared,account_status:1};
 var r=await sb2.from('ad_account').insert(ins).select('id').single();
 btn.disabled=false;
