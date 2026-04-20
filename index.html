@@ -1643,9 +1643,9 @@ var isExp=expandedSalaryStaffId===s.id;
 h+='<tr'+(isExp?' style="background:var(--bg2);"':'')+'>';
 h+='<td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';cursor:pointer;" onclick="toggleSalaryExpand(\''+s.id+'\')">'+esc(s.avatar_initials)+'</div></td>';
 h+='<td style="font-weight:500;cursor:pointer;" onclick="toggleSalaryExpand(\''+s.id+'\')">'+esc(s.full_name)+(isCEO?' <span style="font-size:10px;padding:2px 6px;border-radius:6px;background:var(--amber-bg);color:var(--amber-tx);margin-left:4px;">CEO</span>':'')+'<div style="font-size:11px;color:var(--tx3);margin-top:2px;">'+comm.detail.length+' khách hàng · Click để xem chi tiết</div></td>';
-h+='<td style="text-align:right;"><input type="number" class="mono" style="width:110px;text-align:right;border:1px solid var(--bd1);border-radius:6px;padding:5px 8px;font-size:12px;" value="'+baseVal+'" oninput="onSalaryEdit(\''+s.id+'\',\'base_salary\',this.value)"></td>';
+h+='<td style="text-align:right;"><input type="text" inputmode="numeric" class="mono" style="width:110px;text-align:right;border:1px solid var(--bd1);border-radius:6px;padding:5px 8px;font-size:12px;" value="'+(baseVal?baseVal.toLocaleString('vi-VN'):'')+'" oninput="fmtSalaryInput(this,\''+s.id+'\',\'base_salary\')"></td>';
 h+='<td style="text-align:right;" class="mono"><span style="color:'+(commVal>0?'var(--green)':'var(--tx3)')+';font-weight:500;">'+ff(commVal)+'</span>'+(isCEO?'':'<div style="font-size:10px;color:var(--tx3);">tự động</div>')+'</td>';
-h+='<td style="text-align:right;"><input type="number" class="mono" style="width:110px;text-align:right;border:1px solid var(--bd1);border-radius:6px;padding:5px 8px;font-size:12px;" value="'+bonusVal+'" oninput="onSalaryEdit(\''+s.id+'\',\'bonus\',this.value)"></td>';
+h+='<td style="text-align:right;"><input type="text" inputmode="numeric" class="mono" style="width:110px;text-align:right;border:1px solid var(--bd1);border-radius:6px;padding:5px 8px;font-size:12px;" value="'+(bonusVal?bonusVal.toLocaleString('vi-VN'):'')+'" oninput="fmtSalaryInput(this,\''+s.id+'\',\'bonus\')"></td>';
 h+='<td style="text-align:right;font-weight:600;" class="mono">'+ff(total)+'</td>';
 h+='<td><input type="text" style="width:100%;min-width:160px;border:1px solid var(--bd1);border-radius:6px;padding:5px 8px;font-size:12px;" placeholder="VD: Thưởng dự án Mysterise" value="'+esc(noteVal)+'" oninput="onSalaryEdit(\''+s.id+'\',\'note\',this.value)"></td>';
 h+='</tr>';
@@ -4729,6 +4729,22 @@ async function svsl(btn){if(!needAuth())return;btn.disabled=true;var m=document.
 // ═══ HANDLERS BẢNG LƯƠNG TỰ ĐỘNG ═══
 function toggleSalaryExpand(staffId){
 expandedSalaryStaffId=(expandedSalaryStaffId===staffId)?null:staffId;render();}
+
+// Format số có dấu chấm ngàn khi nhập (4000000 → 4.000.000), giữ vị trí con trỏ
+function fmtSalaryInput(el,staffId,field){
+var raw=(el.value||'').replace(/\D/g,'');
+var num=parseInt(raw)||0;
+var caret=el.selectionStart||0;
+var digitsBefore=((el.value||'').slice(0,caret).match(/\d/g)||[]).length;
+var formatted=num?num.toLocaleString('vi-VN'):'';
+el.value=formatted;
+if(digitsBefore>0){
+var newCaret=0,seen=0;
+for(var i=0;i<formatted.length;i++){if(/\d/.test(formatted[i]))seen++;newCaret=i+1;if(seen>=digitsBefore)break;}
+try{el.setSelectionRange(newCaret,newCaret);}catch(e){}
+}
+onSalaryEdit(staffId,field,String(num));
+}
 
 // Autosave debounce 800ms khi user sửa lương cứng/thưởng/ghi chú
 function onSalaryEdit(staffId,field,value){
