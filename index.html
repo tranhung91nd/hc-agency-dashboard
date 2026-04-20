@@ -1859,7 +1859,7 @@ prospects.forEach(function(c,i){
     h+='<button class="btn" style="background:var(--amber);color:#fff;border:none;" onclick="openQuotationForClient(\''+c.id+'\')">💰 Tạo báo giá</button>';
     h+='<button class="btn" style="background:var(--green);color:#fff;border:none;" onclick="convertProspectToActive(\''+c.id+'\')">✓ Chốt ký — chuyển thành khách chính thức</button>';
     h+='<button class="btn" onclick="openContractModal(\''+c.id+'\')">📄 Xuất hợp đồng</button>';
-    h+='<button class="btn btn-red" style="margin-left:auto;" onclick="deleteProspect(\''+c.id+'\')">🗑 Xóa khách</button>';
+    h+='<button class="btn btn-red" style="margin-left:auto;" onclick="deleteProspect(\''+c.id+'\')">Xóa khách</button>';
     h+='</div>';
     h+='</td></tr>';
   }
@@ -3291,7 +3291,7 @@ return{ok:true,imported:imp,capOnlyCount:capOnlyCount};}
 
 // ═══ A2: NHÂN SỰ ═══
 function a2(){
-var h='<div class="form-card"><h3>Thêm nhân sự</h3><div class="form-row"><div class="form-group"><label>Họ tên</label><input type="text" id="sf" placeholder="Nguyễn Văn A"></div><div class="form-group"><label>Tên ngắn</label><input type="text" id="ss" placeholder="Văn A"></div><div class="form-group"><label>Mã</label><input type="text" id="sc2" placeholder="vana"></div></div>';
+var h='<div class="form-card"><h3>Thêm nhân sự</h3><div class="form-row"><div class="form-group"><label>Họ tên</label><input type="text" id="sf" placeholder="VD: Nguyễn Văn A"></div><div class="form-group"><label>Tên ngắn</label><input type="text" id="ss" placeholder="VD: Văn A"></div><div class="form-group"><label>Mã</label><input type="text" id="sc2" placeholder="VD: vana"></div></div>';
 h+='<div class="form-row"><div class="form-group"><label>Viết tắt</label><input type="text" id="si" placeholder="VA" maxlength="3"></div><div class="form-group"><label>Màu</label><select id="scl"><option value="purple">Tím</option><option value="teal">Xanh lá</option><option value="coral">Cam</option><option value="pink">Hồng</option><option value="blue">Xanh dương</option><option value="amber">Vàng</option></select></div><div class="form-group"><label>Ngân sách/tháng</label><input type="number" id="sb2" placeholder="250000000"></div></div>';
 h+='<div class="form-row"><div class="form-group"><label>Từ khóa chiến dịch</label><input type="text" id="skw" placeholder="VD: Thư, KL (dùng cho Tài khoản dùng chung)"></div></div>';
 h+='<div class="btn-row"><button class="btn btn-primary" onclick="svs(this)">Thêm</button></div></div>';
@@ -4591,7 +4591,7 @@ function renderNewProspectModal(){
   h+='<div class="hc-form-grid">';
   h+='<div><label>Tên viết tắt <span style="color:var(--red);">*</span></label><input id="np-name" placeholder="VD: HOHA" class="fi"></div>';
   h+='<div><label>Mã viết tắt (dùng cho số Hợp đồng)</label><input id="np-prefix" placeholder="VD: HOHA" class="fi" style="text-transform:uppercase;"></div>';
-  h+='<div style="grid-column:1/-1;"><label>Tên công ty đầy đủ</label><input id="np-company-full" placeholder="CÔNG TY CỔ PHẦN ..." class="fi"></div>';
+  h+='<div style="grid-column:1/-1;"><label>Tên công ty đầy đủ</label><input id="np-company-full" placeholder="VD: CÔNG TY CỔ PHẦN ABC" class="fi"></div>';
   h+='<div style="grid-column:1/-1;"><label>Địa chỉ</label><input id="np-address" class="fi"></div>';
   h+='<div><label>Mã số thuế</label><input id="np-tax" class="fi"></div>';
   h+='<div><label>Điện thoại</label><input id="np-phone" class="fi"></div>';
@@ -4670,7 +4670,7 @@ function renderContractHistoryModal(){
   h+='<div class="hc-modal" role="dialog" aria-modal="true" aria-labelledby="ch-modal-title" style="max-width:760px;">';
   h+='<div class="hc-modal-head"><h3 id="ch-modal-title">Lịch sử hợp đồng — '+esc(c.name)+'</h3><button class="hc-modal-close" aria-label="Đóng" onclick="closeContractHistory()">×</button></div>';
   h+='<div class="hc-modal-body">';
-  if(!ctrs.length){h+='<div style="text-align:center;padding:30px;color:var(--tx3);">Chưa có hợp đồng nào.</div>';}
+  if(!ctrs.length){h+='<div class="empty-state" role="status"><div class="empty-state-icon" aria-hidden="true">📄</div><div class="empty-state-title">Chưa có hợp đồng nào với khách này</div><div class="empty-state-desc">Tạo hợp đồng từ tab "Thêm hợp đồng" hoặc từ phiếu báo giá đã duyệt để lịch sử hiển thị tại đây.</div></div>';}
   else{
     h+='<div class="table-wrap"><table><thead><tr><th>Số Hợp đồng</th><th>Ngày ký</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>';
     ctrs.forEach(function(ct){
@@ -4709,7 +4709,12 @@ async function dlt(btn,id){
 function a5(){
 var h='<div class="form-card"><h3>Nhập lương</h3><div class="form-row"><div class="form-group"><label>Tháng</label><input type="month" id="slm" value="'+gm()+'"></div><div class="form-group"><label>Nhân sự</label><select id="sls">';staffList.forEach(function(s){h+='<option value="'+s.id+'">'+esc(s.short_name)+'</option>';});h+='</select></div><div class="form-group"><label>Lương cơ bản</label><input type="number" id="slb" placeholder="0"></div></div>';
 h+='<div class="form-row"><div class="form-group"><label>Thưởng</label><input type="number" id="slx" placeholder="0" value="0"></div><div class="form-group"><label>Ghi chú</label><input type="text" id="sln" placeholder=""></div></div><div class="btn-row"><button class="btn btn-primary" onclick="svsl(this)">Lưu</button></div></div>';
-h+='<div class="section-title">Lịch sử lương</div><div class="table-wrap"><table><tr><th>Tháng</th><th>Nhân viên</th><th style="text-align:right;">Lương cơ bản</th><th style="text-align:right;">Thưởng</th><th style="text-align:right;">Tổng</th><th></th></tr>';
+h+='<div class="section-title">Lịch sử lương</div>';
+if(!salaryData.length){
+h+='<div class="empty-state" role="status"><div class="empty-state-icon" aria-hidden="true">💰</div><div class="empty-state-title">Chưa có bản ghi lương nào</div><div class="empty-state-desc">Nhập lương cơ bản và thưởng cho nhân sự bằng form ở trên. Lịch sử 20 tháng gần nhất sẽ hiển thị tại đây.</div></div>';
+return h;
+}
+h+='<div class="table-wrap"><table><tr><th>Tháng</th><th>Nhân viên</th><th style="text-align:right;">Lương cơ bản</th><th style="text-align:right;">Thưởng</th><th style="text-align:right;">Tổng</th><th></th></tr>';
 salaryData.slice(0,20).forEach(function(s){h+='<tr><td>T'+parseInt(s.month.split('-')[1])+'/'+s.month.split('-')[0]+'</td><td>'+(s.staff?esc(s.staff.short_name):'—')+'</td><td class="mono" style="text-align:right;">'+ff(s.base_salary)+'</td><td class="mono" style="text-align:right;">'+ff(s.bonus)+'</td><td class="mono" style="text-align:right;font-weight:500;">'+ff(s.total)+'</td><td><button class="btn btn-red btn-sm" onclick="dlsl(this,\''+s.id+'\')">Xóa</button></td></tr>';});
 h+='</table></div>';return h;}
 async function svsl(btn){if(!needAuth())return;btn.disabled=true;var m=document.getElementById('slm').value,si=document.getElementById('sls').value,b=parseInt(document.getElementById('slb').value)||0,x=parseInt(document.getElementById('slx').value)||0,n=document.getElementById('sln').value;if(!b){toast('Vui lòng nhập lương cơ bản.',false);btn.disabled=false;return;}var r=await sb2.from('salary').upsert({staff_id:si,month:m,base_salary:b,bonus:x,total:b+x,note:n},{onConflict:'staff_id,month'});btn.disabled=false;if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã lưu',true);document.getElementById('slb').value='';document.getElementById('slx').value='0';document.getElementById('sln').value='';await loadLight();}}
@@ -4817,7 +4822,7 @@ h+='</div><div style="font-size:11px;color:var(--tx3);margin-top:10px;">Thông t
 // User roles management
 h+='<div class="form-card"><h3>Phân quyền tài khoản</h3>';
 h+='<div style="padding:10px 14px;background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;">Nếu email không có trong danh sách này, tài khoản sẽ mặc định là Admin (toàn quyền). Thêm email vào đây để giới hạn quyền.</div>';
-h+='<div class="form-row"><div class="form-group"><label>Email</label><input type="email" id="ur-email" placeholder="linh.kt@hcagency.vn"></div><div class="form-group"><label>Tên hiển thị</label><input type="text" id="ur-name" placeholder="Ngọc Linh"></div></div>';
+h+='<div class="form-row"><div class="form-group"><label>Email</label><input type="email" id="ur-email" placeholder="VD: linh.kt@hcagency.vn"></div><div class="form-group"><label>Tên hiển thị</label><input type="text" id="ur-name" placeholder="VD: Ngọc Linh"></div></div>';
 h+='<div class="form-row"><div class="form-group"><label>Mật khẩu đăng nhập</label><input type="text" id="ur-pass" placeholder="Tạo mật khẩu cho tài khoản này" style="font-family:monospace;"></div><div class="form-group"><label>Vai trò</label><select id="ur-role"><option value="accountant">Kế toán</option><option value="viewer">Chỉ xem</option></select></div></div>';
 var pageNames={0:'Tổng quan',1:'Tài khoản Quảng cáo',2:'Nhân sự',3:'Khách hàng','4.0':'Tài chính — Thu chi','4.1':'Tài chính — Đối soát',6:'Cảnh báo'};
 h+='<div style="font-size:12px;font-weight:500;color:var(--tx2);margin:8px 0 6px;">Quyền truy cập trang</div>';
