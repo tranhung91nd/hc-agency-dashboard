@@ -898,6 +898,7 @@ tr:hover td{background:#f8fbff;}
   accent-color:var(--blue);
   margin:0;
 }
+.staff-spend-table thead th{white-space:nowrap;}
 #ad-table .spend-bar,
 #ad-table .bal-track{
   height:4px;
@@ -1344,8 +1345,8 @@ h+='<div style="font-size:12px;color:var(--tx2);margin-top:4px;">Trung bình '+f
 var fcDiff=forecast-totalBudget;h+='<div style="font-size:12px;margin-top:4px;font-weight:500;color:'+(fcDiff>=0?'var(--green)':'var(--red)')+';">'+(fcDiff>=0?'Vượt ngân sách +':'Thiếu ')+fm(Math.abs(fcDiff))+'</div></div></div>';
 // Staff performance table
 h+='<div class="section-title">Chi tiêu Quảng cáo theo nhân sự</div><div class="table-wrap"><table class="staff-spend-table">';
-h+='<colgroup><col style="width:18%;"><col style="width:10%;"><col style="width:10%;"><col style="width:18%;"><col style="width:10%;"><col style="width:12%;"><col style="width:8%;"><col style="width:8%;"><col style="width:6%;"></colgroup>';
-h+='<thead><tr><th>Nhân sự</th><th style="text-align:right;">Ngân sách</th><th style="text-align:right;">Đã chi</th><th>Tiến độ</th><th style="text-align:right;">TB/ngày</th><th style="text-align:right;">Dự kiến cuối tháng</th><th style="text-align:right;">Cao nhất</th><th style="text-align:right;">Thấp nhất</th><th style="text-align:right;">Tỷ trọng</th></tr></thead><tbody>';
+h+='<colgroup><col style="width:15%;"><col style="width:10%;"><col style="width:10%;"><col style="width:15%;"><col style="width:10%;"><col style="width:10%;"><col style="width:10%;"><col style="width:10%;"><col style="width:10%;"></colgroup>';
+h+='<thead><tr><th>Nhân sự</th><th style="text-align:right;">Ngân sách</th><th style="text-align:right;">Đã chi</th><th>Tiến độ</th><th style="text-align:right;">TB/ngày</th><th style="text-align:right;">Dự kiến</th><th style="text-align:right;">Cao nhất</th><th style="text-align:right;">Thấp nhất</th><th style="text-align:right;">Tỷ trọng</th></tr></thead><tbody>';
 staffList.forEach(function(s){
 var c=sc(s.color_code),sp=st[s.id]||0;
 var pc=s.monthly_budget>0?Math.round(sp/s.monthly_budget*100):0;
