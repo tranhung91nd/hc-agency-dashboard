@@ -890,6 +890,14 @@ tr:hover td{background:#f8fbff;}
 #ad-table tbody tr:last-child td{
   border-bottom:none;
 }
+#ad-table thead th input[type="checkbox"],
+#ad-table tbody td input[type="checkbox"].ad-check{
+  width:18px;
+  height:18px;
+  cursor:pointer;
+  accent-color:var(--blue);
+  margin:0;
+}
 #ad-table .spend-bar,
 #ad-table .bal-track{
   height:4px;
@@ -1335,7 +1343,9 @@ h+='<div class="overview-card"><div style="font-size:11px;color:var(--tx3);">D�
 h+='<div style="font-size:12px;color:var(--tx2);margin-top:4px;">Trung bình '+fm(avgDay)+'/ngày × '+daysInMonth+' ngày</div>';
 var fcDiff=forecast-totalBudget;h+='<div style="font-size:12px;margin-top:4px;font-weight:500;color:'+(fcDiff>=0?'var(--green)':'var(--red)')+';">'+(fcDiff>=0?'Vượt ngân sách +':'Thiếu ')+fm(Math.abs(fcDiff))+'</div></div></div>';
 // Staff performance table
-h+='<div class="section-title">Chi tiêu Quảng cáo theo nhân sự</div><div class="table-wrap"><table><thead><tr><th></th><th>Nhân sự</th><th style="text-align:right;">Ngân sách</th><th style="text-align:right;">Đã chi</th><th>Tiến độ</th><th style="text-align:right;">Trung bình/ngày</th><th style="text-align:right;">Dự kiến cuối tháng</th><th style="text-align:right;">Cao nhất</th><th style="text-align:right;">Thấp nhất</th><th style="text-align:right;">Tỷ trọng</th></tr></thead><tbody>';
+h+='<div class="section-title">Chi tiêu Quảng cáo theo nhân sự</div><div class="table-wrap"><table class="staff-spend-table">';
+h+='<colgroup><col style="width:18%;"><col style="width:10%;"><col style="width:10%;"><col style="width:18%;"><col style="width:10%;"><col style="width:12%;"><col style="width:8%;"><col style="width:8%;"><col style="width:6%;"></colgroup>';
+h+='<thead><tr><th>Nhân sự</th><th style="text-align:right;">Ngân sách</th><th style="text-align:right;">Đã chi</th><th>Tiến độ</th><th style="text-align:right;">TB/ngày</th><th style="text-align:right;">Dự kiến cuối tháng</th><th style="text-align:right;">Cao nhất</th><th style="text-align:right;">Thấp nhất</th><th style="text-align:right;">Tỷ trọng</th></tr></thead><tbody>';
 staffList.forEach(function(s){
 var c=sc(s.color_code),sp=st[s.id]||0;
 var pc=s.monthly_budget>0?Math.round(sp/s.monthly_budget*100):0;
@@ -1346,22 +1356,21 @@ var hi=0,lo=Infinity;
 dates.filter(function(d){return d.substring(0,7)===cm;}).forEach(function(d){
 var bs=gdbs(d),v=bs[s.id]?bs[s.id].t:0;if(v>hi)hi=v;if(v<lo)lo=v;});
 if(lo===Infinity)lo=0;
-h+='<tr><td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div></td>';
-h+='<td style="font-weight:500;">'+esc(s.short_name)+'</td>';
+h+='<tr><td><div style="display:flex;align-items:center;gap:10px;"><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div><span style="font-weight:500;">'+esc(s.short_name)+'</span></div></td>';
 h+='<td class="mono" style="text-align:right;">'+fm(s.monthly_budget)+'</td>';
 h+='<td class="mono" style="text-align:right;font-weight:500;color:var(--teal);">'+fm(sp)+'</td>';
-h+='<td><div class="bar-track" style="width:100px;display:inline-block;vertical-align:middle;"><div class="bar-fill" style="width:'+Math.min(pc,100)+'%;background:'+c.c+';"></div></div> <span style="font-size:11px;color:var(--tx3);">'+pc+'%</span></td>';
+h+='<td><div style="display:flex;align-items:center;gap:10px;"><div class="bar-track" style="flex:1;max-width:140px;"><div class="bar-fill" style="width:'+Math.min(pc,100)+'%;background:'+c.c+';"></div></div><span class="mono" style="font-size:12px;color:var(--tx2);min-width:34px;text-align:right;">'+pc+'%</span></div></td>';
 h+='<td class="mono" style="text-align:right;">'+fm(avg)+'</td>';
 h+='<td class="mono" style="text-align:right;color:var(--tx2);">'+fm(fc2)+'</td>';
 h+='<td class="mono" style="text-align:right;color:var(--teal);">'+fm(hi)+'</td>';
 h+='<td class="mono" style="text-align:right;color:var(--amber);">'+fm(lo)+'</td>';
-h+='<td class="mono" style="text-align:right;">'+contr+'%</td></tr>';});
+h+='<td class="mono" style="text-align:right;font-weight:500;">'+contr+'%</td></tr>';});
 // Total row
 var totalAvg=Math.round(tot/nd);
-h+='</tbody><tfoot><tr style="background:var(--bg2);font-weight:600;"><td></td><td>Tổng</td>';
+h+='</tbody><tfoot><tr style="background:var(--bg2);font-weight:600;"><td>Tổng</td>';
 h+='<td class="mono" style="text-align:right;">'+fm(totalBudget)+'</td>';
-h+='<td class="mono" style="text-align:right;">'+fm(tot)+'</td>';
-h+='<td><div class="bar-track" style="width:100px;display:inline-block;vertical-align:middle;"><div class="bar-fill" style="width:'+Math.min(pctTarget,100)+'%;background:var(--green);"></div></div> <span style="font-size:11px;color:var(--tx3);">'+pctTarget+'%</span></td>';
+h+='<td class="mono" style="text-align:right;color:var(--teal);">'+fm(tot)+'</td>';
+h+='<td><div style="display:flex;align-items:center;gap:10px;"><div class="bar-track" style="flex:1;max-width:140px;"><div class="bar-fill" style="width:'+Math.min(pctTarget,100)+'%;background:var(--green);"></div></div><span class="mono" style="font-size:12px;color:var(--tx2);min-width:34px;text-align:right;">'+pctTarget+'%</span></div></td>';
 h+='<td class="mono" style="text-align:right;">'+fm(totalAvg)+'</td>';
 h+='<td class="mono" style="text-align:right;">'+fm(forecast)+'</td>';
 h+='<td></td><td></td><td class="mono" style="text-align:right;">100%</td></tr></tfoot></table></div>';
