@@ -2927,7 +2927,9 @@ if(fourDays.indexOf(r.report_date)<0)return;
 var key=r.ad_account_id+'|'+r.campaign_id;
 var st=latestStatus[key];
 if(st&&st.status!=='ACTIVE')return;
-if(!camps[key])camps[key]={aid:r.ad_account_id,cid:r.campaign_id,name:r.campaign_name,days:0,spend:0,mess:0,leads:0,ad:r.ad_account};
+if(!camps[key])camps[key]={aid:r.ad_account_id,cid:r.campaign_id,name:r.campaign_name,days:0,spend:0,mess:0,leads:0,ad:r.ad_account,type:r.campaign_type||null};
+// Nếu dòng hiện tại có campaign_type mà aggregate chưa có → update (quét mới ghi đè quét cũ)
+if(!camps[key].type&&r.campaign_type)camps[key].type=r.campaign_type;
 if(r.spend>0)camps[key].days++;
 camps[key].spend+=r.spend||0;
 camps[key].mess+=r.mess_count||0;
@@ -2940,8 +2942,9 @@ Object.keys(camps).forEach(function(k){
 var c=camps[k];
 if(c.days<4)return;
 if(!c.ad||!c.ad.max_mess_cost)return;
-// Chỉ cảnh báo camp có mess (không phải camp form)
-if(c.mess===0&&c.leads>0)return;
+// Chỉ cảnh báo camp loại "mess" (cuộc trò chuyện / CTWA / Messenger)
+// Camp chưa phân loại (type=null, chưa quét lại sau deploy) → bỏ qua để tránh false-positive
+if(c.type!=='mess')return;
 var costPerMess=c.mess>0?Math.round(c.spend/c.mess):Infinity;
 if(costPerMess>c.ad.max_mess_cost){
 var acc=adList.find(function(a){return a.id===c.aid;});
@@ -2958,8 +2961,9 @@ Object.keys(camps).forEach(function(k){
 var c=camps[k];
 if(c.days<4)return;
 if(!c.ad||!c.ad.max_lead_cost)return;
-// Chỉ cảnh báo camp có lead (không phải camp mess)
-if(c.leads===0&&c.mess>0)return;
+// Chỉ cảnh báo camp loại "form" (mẫu phản hồi tức thì / Instant Form)
+// Camp chưa phân loại (type=null, chưa quét lại sau deploy) → bỏ qua để tránh false-positive
+if(c.type!=='form')return;
 var costPerLead=c.leads>0?Math.round(c.spend/c.leads):Infinity;
 if(costPerLead>c.ad.max_lead_cost){
 var acc=adList.find(function(a){return a.id===c.aid;});
@@ -3058,36 +3062,64 @@ await sb2.from('daily_spend').insert(restoreS);
 }
 return{saved:saved,errors:errors};
 }
-function parseMessRows(a,campBody,insBody){
+// Phân loại campaign theo optimization_goal + destination_type của ad set
+// Trả về: 'mess' | 'form' | 'engagement' | 'other'
+function classifyCampaign(optGoal,destType){
+var g=(optGoal||'').toUpperCase();
+var d=(destType||'').toUpperCase();
+// Ưu tiên destination_type (chính xác hơn cho CTWA/Messenger)
+if(d==='MESSENGER'||d==='CTWA_LINK'||d==='INSTAGRAM_DIRECT'||d==='WHATSAPP')return'mess';
+if(d==='ON_AD')return'form'; // Instant Form (Mẫu phản hồi tức thì)
+// Fallback theo optimization_goal
+if(g==='CONVERSATIONS'||g==='REPLIES')return'mess';
+if(g==='LEAD_GENERATION'||g==='QUALITY_LEAD')return'form';
+if(g==='POST_ENGAGEMENT'||g==='PAGE_LIKES'||g==='LINK_CLICKS'||g==='REACH'||g==='IMPRESSIONS'||g==='VIDEO_VIEWS'||g==='THRUPLAY'||g==='LANDING_PAGE_VIEWS')return'engagement';
+return'other';
+}
+function parseMessRows(a,campBody,insBody,adsetsBody){
 var activeIds=new Set();
 (campBody.data||[]).forEach(function(c){activeIds.add(c.id);});
+// Build map campaign_id → {optimization_goal, destination_type, type}
+// Nếu 1 campaign có nhiều ad set khác loại, ưu tiên cái KHÔNG phải 'other'
+var campMeta={};
+((adsetsBody&&adsetsBody.data)||[]).forEach(function(s){
+var cid=s.campaign_id;if(!cid)return;
+var t=classifyCampaign(s.optimization_goal,s.destination_type);
+if(!campMeta[cid]||campMeta[cid].type==='other'){
+campMeta[cid]={optimization_goal:s.optimization_goal||null,destination_type:s.destination_type||null,type:t};
+}});
 return (insBody.data||[]).map(function(r){
 var spend=Math.round(parseFloat(r.spend||0)),messCount=0,leadCount=0;
 if(r.actions){r.actions.forEach(function(act){
 if(act.action_type&&(act.action_type.indexOf('messaging_conversation_started')>=0||act.action_type==='onsite_conversion.messaging_conversation_started_7d'))messCount+=parseInt(act.value)||0;
 if(act.action_type&&(act.action_type==='lead'||act.action_type==='leadgen_grouped'))leadCount+=parseInt(act.value)||0;
 });}
-return{ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount,lead_count:leadCount,campaign_status:activeIds.has(r.campaign_id)?'ACTIVE':'PAUSED'};
+var meta=campMeta[r.campaign_id]||{optimization_goal:null,destination_type:null,type:null};
+return{ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount,lead_count:leadCount,campaign_status:activeIds.has(r.campaign_id)?'ACTIVE':'PAUSED',campaign_type:meta.type,optimization_goal:meta.optimization_goal,destination_type:meta.destination_type};
 });
 }
 async function fetchCampaignMessBatch(accounts,d3,d1){
 var allRows=[],errors=0;
-for(var b=0;b<accounts.length;b+=25){
-var chunk=accounts.slice(b,b+25);
+// 3 requests/account (campaigns + insights + adsets) → chunk 16 để <50 requests/batch
+for(var b=0;b<accounts.length;b+=16){
+var chunk=accounts.slice(b,b+16);
 var batchReqs=[];
 chunk.forEach(function(a){
 batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/campaigns?fields=id,effective_status&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=500'});
 batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/insights?level=campaign&fields=campaign_id,campaign_name,spend,actions&time_range={"since":"'+d3+'","until":"'+d1+'"}&time_increment=1&limit=500'});
+batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/adsets?fields=campaign_id,optimization_goal,destination_type&limit=500'});
 });
 try{
 var bResp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
 var bResults=await bResp.json();
 for(var j=0;j<chunk.length;j++){
 try{
-var campBody=JSON.parse((bResults[j*2]&&bResults[j*2].body)||'{}');
-var insBody=JSON.parse((bResults[j*2+1]&&bResults[j*2+1].body)||'{}');
+var campBody=JSON.parse((bResults[j*3]&&bResults[j*3].body)||'{}');
+var insBody=JSON.parse((bResults[j*3+1]&&bResults[j*3+1].body)||'{}');
+var adsetsBody=JSON.parse((bResults[j*3+2]&&bResults[j*3+2].body)||'{}');
 if(campBody.error||insBody.error){errors++;continue;}
-allRows=allRows.concat(parseMessRows(chunk[j],campBody,insBody));
+// adsetsBody.error không fatal — vẫn quét được spend/mess/lead, chỉ mất phân loại
+allRows=allRows.concat(parseMessRows(chunk[j],campBody,insBody,adsetsBody));
 }catch(e2){errors++;}}
 }catch(e){errors+=chunk.length;}}
 return{rows:allRows,errors:errors};
