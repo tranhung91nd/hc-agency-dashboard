@@ -625,6 +625,32 @@
 
   /* ONBOARDING */
   .onboard-card { background: #fff; border: 1px solid var(--border); box-shadow: var(--shadow); }
+
+  /* ===== THEME SYNC v2 — fix hardcoded colors ===== */
+
+  /* TODAY BOX — từ vàng → xanh corporate */
+  .today-box {
+    background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+    border: 1px solid #bfdbfe;
+  }
+  .today-box h3 { color: var(--blue-tx); }
+
+  /* RUN HERO — từ teal-navy → navy HC Agency */
+  .run-hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  }
+  .run-hero h2 { color: #60a5fa; }
+  .run-stat-num { color: #60a5fa; }
+
+  /* LAW CARDS 1-8 — pastel nhẹ, cùng tông HC Agency thay vì cầu vồng */
+  .law-1 { background: linear-gradient(135deg, #eff6ff, #fff); }  /* blue */
+  .law-2 { background: linear-gradient(135deg, #ecfeff, #fff); }  /* cyan */
+  .law-3 { background: linear-gradient(135deg, #ecfdf5, #fff); }  /* emerald */
+  .law-4 { background: linear-gradient(135deg, #f5f3ff, #fff); }  /* violet nhạt */
+  .law-5 { background: linear-gradient(135deg, #fffbeb, #fff); }  /* amber nhạt */
+  .law-6 { background: linear-gradient(135deg, #f8fafc, #fff); }  /* slate */
+  .law-7 { background: linear-gradient(135deg, #fff1f2, #fff); }  /* rose nhạt */
+  .law-8 { background: linear-gradient(135deg, #f0fdf4, #fff); }  /* green nhạt */
 </style>
 </head>
 <body>
