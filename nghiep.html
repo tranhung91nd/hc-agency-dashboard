@@ -579,39 +579,113 @@
   .tag-supplier { background: #ecfdf5; color: #047857; }
   .tag-world { background: #fff7ed; color: #b45309; }
 
-  /* HEADER — dark navy solid */
-  header { background: #0f172a; }
+  /* HEADER — trắng sáng, không dark navy nữa (HC Agency style) */
+  header {
+    background: #fff !important;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 0 rgba(15,23,42,0.04);
+  }
+  .header-top { padding: 14px 24px; }
 
-  /* NAV — blue active */
-  nav button { color: rgba(255,255,255,0.55); }
-  nav button:hover { color: #cbd5e1; }
-  nav button.active {
-    color: #fff;
-    border-bottom-color: var(--blue);
-    background: rgba(37,99,235,0.15);
+  /* LOGO — text đen, emoji giữ màu */
+  .logo { color: var(--text); font-weight: 700; }
+  .logo span { filter: none; }
+
+  /* HEADER interactive — outline nhạt thay vì nền xanh đậm */
+  .icon-btn {
+    background: #fff;
+    border: 1px solid var(--border);
+    color: var(--text-light);
+    border-radius: 10px;
+  }
+  .icon-btn:hover { background: var(--bg2); color: var(--text); border-color: var(--blue); }
+  .goal-badge {
+    background: var(--blue-bg);
+    border: 1px solid #bfdbfe;
+    color: var(--blue-tx);
   }
 
-  /* HEADER interactive */
-  .logo { color: #60a5fa; }
-  .icon-btn { background: rgba(37,99,235,0.15); border-color: rgba(96,165,250,0.3); color: #93c5fd; }
-  .icon-btn:hover { background: rgba(37,99,235,0.3); color: #fff; }
-  .goal-badge { background: rgba(37,99,235,0.2); border-color: #60a5fa; color: #dbeafe; }
+  /* NAV — tabs ngang đơn giản, active underline blue */
+  nav {
+    background: #fff;
+    border-top: 1px solid var(--border);
+    padding: 0 20px;
+  }
+  nav button {
+    color: var(--text-light);
+    font-weight: 500;
+    padding: 12px 16px;
+    border-bottom: 2px solid transparent;
+  }
+  nav button:hover { color: var(--text); }
+  nav button.active {
+    color: var(--blue);
+    border-bottom-color: var(--blue);
+    background: transparent;
+    font-weight: 600;
+  }
 
-  /* QUOTE BOX */
-  .quote-box { background: linear-gradient(135deg,#0f172a 0%,#1e293b 100%); }
-  .quote-source { color: #60a5fa; }
+  /* TODAY BOX — card trắng với accent blue trái, không pastel */
+  .today-box {
+    background: #fff !important;
+    border: 1px solid var(--border) !important;
+    border-left: 3px solid var(--blue) !important;
+    box-shadow: var(--shadow);
+  }
+  .today-box h3 { color: var(--text) !important; }
 
-  /* GOAL HERO */
-  .goal-hero { background: linear-gradient(135deg,#0f172a 0%,#1e293b 100%); }
-  .goal-hero h1 { color: #60a5fa; }
+  /* QUOTE BOX — nhẹ, không dark navy đè */
+  .quote-box {
+    background: var(--bg2) !important;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .quote-box p { color: var(--text); }
+  .quote-source { color: var(--blue) !important; }
 
-  /* REINVEST — giữ green vì ý nghĩa "tái đầu tư" */
-  .reinvest-calc { background: linear-gradient(135deg,#065f46 0%,#047857 100%); }
-  .reinvest-calc h3, .reinvest-amount { color: #86efac; }
+  /* GOAL HERO — card trắng, accent blue */
+  .goal-hero {
+    background: #fff !important;
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--blue);
+    color: var(--text);
+  }
+  .goal-hero h1 { color: var(--blue) !important; }
+  .goal-hero p { color: var(--text-light); opacity: 1; }
 
-  /* LAW CARDS — accent blue thay gold */
-  .law-number { color: var(--blue); }
-  .law-card:hover { border-color: var(--blue); }
+  /* RUN HERO — trắng, không navy */
+  .run-hero {
+    background: #fff !important;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--blue);
+    color: var(--text) !important;
+  }
+  .run-hero h2 { color: var(--blue) !important; }
+  .run-hero::before { opacity: 0.04; }
+  .run-stat-num { color: var(--blue) !important; }
+  .run-stat-lbl { color: var(--text-light); opacity: 1; }
+
+  /* REINVEST — giữ nhẹ green vì ý nghĩa "tái đầu tư", không đè mạnh */
+  .reinvest-calc {
+    background: #f0fdf4 !important;
+    border: 1px solid #bbf7d0;
+    color: var(--text);
+  }
+  .reinvest-calc h3 { color: #047857 !important; }
+  .reinvest-amount { color: #047857 !important; }
+
+  /* LAW CARDS — tất cả trắng, chỉ khác biệt ở số bên cạnh */
+  .law-1, .law-2, .law-3, .law-4,
+  .law-5, .law-6, .law-7, .law-8 {
+    background: #fff !important;
+    border: 1px solid var(--border);
+  }
+  .law-card { transition: all 0.15s; }
+  .law-card:hover {
+    border-color: var(--blue);
+    box-shadow: 0 8px 20px rgba(37,99,235,0.08);
+  }
+  .law-number { color: var(--blue); font-weight: 700; }
 
   /* STAT NUMBERS */
   .stat-number { color: var(--blue); }
@@ -625,32 +699,6 @@
 
   /* ONBOARDING */
   .onboard-card { background: #fff; border: 1px solid var(--border); box-shadow: var(--shadow); }
-
-  /* ===== THEME SYNC v2 — fix hardcoded colors ===== */
-
-  /* TODAY BOX — từ vàng → xanh corporate */
-  .today-box {
-    background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
-    border: 1px solid #bfdbfe;
-  }
-  .today-box h3 { color: var(--blue-tx); }
-
-  /* RUN HERO — từ teal-navy → navy HC Agency */
-  .run-hero {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-  }
-  .run-hero h2 { color: #60a5fa; }
-  .run-stat-num { color: #60a5fa; }
-
-  /* LAW CARDS 1-8 — pastel nhẹ, cùng tông HC Agency thay vì cầu vồng */
-  .law-1 { background: linear-gradient(135deg, #eff6ff, #fff); }  /* blue */
-  .law-2 { background: linear-gradient(135deg, #ecfeff, #fff); }  /* cyan */
-  .law-3 { background: linear-gradient(135deg, #ecfdf5, #fff); }  /* emerald */
-  .law-4 { background: linear-gradient(135deg, #f5f3ff, #fff); }  /* violet nhạt */
-  .law-5 { background: linear-gradient(135deg, #fffbeb, #fff); }  /* amber nhạt */
-  .law-6 { background: linear-gradient(135deg, #f8fafc, #fff); }  /* slate */
-  .law-7 { background: linear-gradient(135deg, #fff1f2, #fff); }  /* rose nhạt */
-  .law-8 { background: linear-gradient(135deg, #f0fdf4, #fff); }  /* green nhạt */
 </style>
 </head>
 <body>
