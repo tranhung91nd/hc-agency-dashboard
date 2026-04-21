@@ -1,16 +1,18 @@
 #!/bin/bash
-# Sync ~/Downloads/index.html -> repo, commit, push
+# Sync ~/Downloads/{index,nghiep}.html -> repo, commit, push
 set -e
 REPO="$HOME/hc-agency-dashboard"
-SRC="$HOME/Downloads/index.html"
+DL="$HOME/Downloads"
 MSG="${1:-update $(date +%Y-%m-%d\ %H:%M)}"
 
 cd "$REPO"
 
-# Sync file từ Downloads (nếu có thay đổi)
-if [ -f "$SRC" ]; then
-  cp "$SRC" "$REPO/index.html"
-fi
+# Sync files từ Downloads (nếu file tồn tại)
+for f in index.html nghiep.html; do
+  if [ -f "$DL/$f" ]; then
+    cp "$DL/$f" "$REPO/$f"
+  fi
+done
 
 # Nếu không có thay đổi → thoát
 if git diff --quiet && git diff --cached --quiet; then
