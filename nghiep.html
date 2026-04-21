@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quản Trị Kết Quả – 8 Quy Luật Thành Công</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     /* HC Agency theme — mapped từ gold/purple/cream → blue/navy/light */
@@ -1268,6 +1269,121 @@
 
 <script>
 // ============================================================
+// SUPABASE CLOUD SYNC (dùng chung project HC Agency)
+// ============================================================
+const SB_URL = 'https://eqsnohwymgmdvbqwflas.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxc25vaHd5bWdtZHZicXdmbGFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzU1NzUsImV4cCI6MjA5MTIxMTU3NX0.0cv-j9zJUfVAj9LBG8VFHNO0Jke4JjehBKSzDVd1nA0';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+let authUser = null;
+let cloudReady = false;
+let cloudSaveTimer = null;
+let cloudSaving = false;
+
+function showCloudStatus(state, email) {
+  let el = document.getElementById('cloud-status-badge');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'cloud-status-badge';
+    el.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:999;padding:8px 14px;border-radius:20px;font-size:12px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.08);cursor:pointer;transition:all .2s;';
+    document.body.appendChild(el);
+  }
+  if (state === 'synced') {
+    el.style.background = '#ecfdf5'; el.style.color = '#047857'; el.style.border = '1px solid #a7f3d0';
+    el.textContent = '☁ Đã đồng bộ · ' + (email || '');
+    el.onclick = () => { if (confirm('Đăng xuất tài khoản ' + email + '?')) sb.auth.signOut().then(() => location.reload()); };
+  } else if (state === 'saving') {
+    el.style.background = '#eff6ff'; el.style.color = '#1d4ed8'; el.style.border = '1px solid #bfdbfe';
+    el.textContent = '☁ Đang lưu...';
+    el.onclick = null;
+  } else if (state === 'local') {
+    el.style.background = '#fef3c7'; el.style.color = '#b45309'; el.style.border = '1px solid #fde68a';
+    el.textContent = '💾 Lưu local · bấm để đăng nhập';
+    el.onclick = () => { window.location.href = '/'; };
+  } else if (state === 'error') {
+    el.style.background = '#fee2e2'; el.style.color = '#b91c1c'; el.style.border = '1px solid #fecaca';
+    el.textContent = '⚠️ Lỗi đồng bộ';
+    el.onclick = null;
+  }
+}
+
+async function cloudFetch() {
+  if (!cloudReady || !authUser) return null;
+  const { data, error } = await sb.from('karmic_data')
+    .select('data')
+    .eq('user_id', authUser.id)
+    .maybeSingle();
+  if (error) { console.error('[karmic] fetch error', error); showCloudStatus('error'); return null; }
+  return data ? data.data : null;
+}
+
+async function cloudSave(data) {
+  if (!cloudReady || !authUser) return;
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(async () => {
+    cloudSaving = true;
+    showCloudStatus('saving');
+    const { error } = await sb.from('karmic_data').upsert({
+      user_id: authUser.id,
+      data: data,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+    cloudSaving = false;
+    if (error) { console.error('[karmic] save error', error); showCloudStatus('error'); }
+    else showCloudStatus('synced', authUser.email);
+  }, 800);
+}
+
+async function initCloudSync() {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) {
+      showCloudStatus('local');
+      return;
+    }
+    authUser = session.user;
+    cloudReady = true;
+
+    // Fetch từ cloud
+    const cloudData = await cloudFetch();
+
+    if (cloudData) {
+      // Cloud có data → dùng cloud (nguồn sự thật)
+      db = migrateData(cloudData);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+      if (typeof renderAll === 'function') renderAll();
+      console.log('[karmic] loaded from cloud');
+    } else {
+      // Cloud trống → migrate từ localStorage lên cloud (lần đầu)
+      const localRaw = localStorage.getItem(STORAGE_KEY);
+      if (localRaw) {
+        const parsed = migrateData(JSON.parse(localRaw));
+        await sb.from('karmic_data').insert({ user_id: authUser.id, data: parsed });
+        console.log('[karmic] migrated localStorage → cloud');
+      }
+    }
+
+    showCloudStatus('synced', authUser.email);
+
+    // Realtime: lắng nghe thay đổi từ thiết bị khác
+    sb.channel('karmic_' + authUser.id)
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'karmic_data', filter: 'user_id=eq.' + authUser.id },
+        (payload) => {
+          if (cloudSaving) return; // đừng reload khi chính mình vừa save
+          const newData = payload.new.data;
+          db = migrateData(newData);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+          if (typeof renderAll === 'function') renderAll();
+          console.log('[karmic] synced from other device');
+        })
+      .subscribe();
+  } catch (e) {
+    console.error('[karmic] init error', e);
+    showCloudStatus('error');
+  }
+}
+
+// ============================================================
 // DATA STORE + MIGRATION
 // ============================================================
 const STORAGE_KEY = 'quan_ly_nghiep_v3';
@@ -1321,6 +1437,7 @@ function loadData() {
 
 function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  cloudSave(data); // debounced cloud upsert nếu đã login
 }
 
 let db = loadData();
@@ -1546,12 +1663,16 @@ function handleImport(e) {
   e.target.value = ''; // reset
 }
 
-function resetData() {
+async function resetData() {
   document.getElementById('settings-menu').style.display = 'none';
   if (!confirm('⚠️ XÓA TOÀN BỘ dữ liệu? Hành động này không thể hoàn tác. Hãy Export trước nếu muốn sao lưu.')) return;
   if (!confirm('Xác nhận lần cuối: xóa tất cả mục tiêu, đối tác, nhật ký, buổi chạy, cam kết?')) return;
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(OLD_KEY);
+  // Xoá row trên cloud nếu đã login
+  if (cloudReady && authUser) {
+    try { await sb.from('karmic_data').delete().eq('user_id', authUser.id); } catch(e) {}
+  }
   db = getDefaultData();
   saveData(db);
   location.reload();
@@ -2537,6 +2658,7 @@ function checkDailyReminder() {
 
 window.addEventListener('load', () => {
   if (db.onboarded) checkDailyReminder();
+  initCloudSync(); // khởi động đồng bộ Supabase (async, không block UI)
 });
 </script>
 </body>
