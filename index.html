@@ -2290,6 +2290,7 @@ h+='<button class="btn btn-primary btn-sm" id="btn-doi-soat" onclick="runReconci
 h+='<span style="font-size:12px;color:var(--tx3);white-space:nowrap;">'+rd.dateRange+' · '+rd.vcbRows.length+' FB + '+rd.mv4bRows.length+' MV4B</span>';
 h+='<span style="flex:1;"></span>';
 h+='<button class="btn btn-ghost btn-sm" onclick="showVcbHistoryModal(this)" style="font-size:11px;">Lịch sử upload</button>';
+h+='<button class="btn btn-ghost btn-sm" onclick="showEaaHelperModal(this)" style="font-size:11px;color:var(--green);">Lấy EAA từ FB</button>';
 h+='<button class="btn btn-ghost btn-sm" onclick="checkMetaTokenPermissions(this)" style="font-size:11px;">Token Meta</button>';
 h+='</div>';
 h+='<div id="token-check-result"></div>';
@@ -2615,7 +2616,8 @@ render();
 async function showVcbHistoryModal(btn){
 var el=document.getElementById('vcb-history-wrap');
 if(!el)return;
-if(el.innerHTML){el.innerHTML='';return;}
+if(el.getAttribute('data-view')==='history'){el.innerHTML='';el.removeAttribute('data-view');return;}
+el.setAttribute('data-view','history');
 if(btn){btn.disabled=true;}
 var q=await sb2.from('vcb_statement').select('*').eq('user_id',authUser.id).order('uploaded_at',{ascending:false}).limit(50);
 if(btn){btn.disabled=false;}
@@ -2644,7 +2646,82 @@ if(!ok)return;
 toast('Đã xoá audit log',true);
 // Refresh lịch sử modal
 var el=document.getElementById('vcb-history-wrap');
-if(el){el.innerHTML='';showVcbHistoryModal();}
+if(el){el.innerHTML='';el.removeAttribute('data-view');showVcbHistoryModal();}
+}
+
+// ═══ EAA Token Helper (lấy session token từ tab Facebook) ═══
+// Graph API token thường bị Meta chặn lấy refCode/invoice từ /activities.
+// EAA (session token) có full quyền user → gọi cùng endpoint nhưng trả đủ dữ liệu.
+// Port từ content-hook.js (lexcom-lite extension).
+var EAA_SNIPPET=`(function(){var P=[/"accessToken"\\s*:\\s*"(EAA[A-Za-z0-9_\\-]{30,})"/,/"access_token"\\s*:\\s*"(EAA[A-Za-z0-9_\\-]{30,})"/,/"token"\\s*:\\s*"(EAA[A-Za-z0-9_\\-]{30,})"/,/\\bEAA[A-Za-z0-9_\\-]{30,}/];function f(t){for(var i=0;i<P.length;i++){var m=String(t).match(P[i]);if(m){var x=m[1]||m[0];if(x.indexOf('EAA')===0&&x.length>=30)return x;}}return null;}var t=null;try{if(typeof require==='function'){try{t=require('CurrentAccessToken').ACCESS_TOKEN;}catch(e){}if(!t)try{t=require('AccessToken').ACCESS_TOKEN;}catch(e){}if(!t)try{var E=require('Env');t=E.access_token||E.accessToken;}catch(e){}}}catch(e){}if(!t){var S=document.querySelectorAll('script');for(var i=0;i<S.length;i++){var x=f(S[i].textContent||'');if(x){t=x;break;}}}if(!t)t=f(document.documentElement.outerHTML);if(!t){alert('Khong tim thay EAA token. Mo tab adsmanager.facebook.com/adsmanager/manage/campaigns roi chay lai snippet nay.');return;}navigator.clipboard.writeText(t).then(function(){console.log('%c\u2713 EAA token da copy vao clipboard','color:green;font-weight:700;font-size:14px;');console.log('Length:',t.length,'First 20:',t.slice(0,20)+'...');alert('\u2713 Da copy EAA token ('+t.length+' chars).\\n\\nQuay lai dashboard -> Paste vao o EAA -> Luu.');},function(){prompt('Copy token (Ctrl+C):',t);});})();`;
+
+function showEaaHelperModal(btn){
+var el=document.getElementById('vcb-history-wrap');
+if(!el)return;
+if(el.getAttribute('data-view')==='eaa'){el.innerHTML='';el.removeAttribute('data-view');return;}
+el.setAttribute('data-view','eaa');
+var h='<div style="margin-top:12px;padding:16px;background:var(--bg2);border:1px solid var(--bd1);border-radius:10px;">';
+h+='<div style="font-weight:600;font-size:13px;margin-bottom:6px;">Lấy EAA token từ tab Facebook</div>';
+h+='<div style="font-size:11px;color:var(--tx3);line-height:1.6;margin-bottom:10px;">Graph API token (app) thường bị Meta chặn quyền billing → <code>/activities</code> trả rỗng refCode. EAA (session token của user đang login FB) có đủ quyền → gọi cùng endpoint trả đủ mã giao dịch + invoice.</div>';
+h+='<div style="font-size:11px;color:var(--tx2);line-height:1.8;margin-bottom:10px;padding:8px 10px;background:var(--bg1);border-radius:6px;border:1px solid var(--bd1);">';
+h+='<b>Bước 1:</b> <a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:underline;">Mở tab Ads Manager</a> (cần đang đăng nhập FB). Đợi trang load xong.<br>';
+h+='<b>Bước 2:</b> Trên tab đó nhấn <code>Cmd+Opt+J</code> (Mac) hoặc <code>F12</code> → tab Console<br>';
+h+='<b>Bước 3:</b> Bấm "Copy snippet" bên dưới → Paste vào Console → Enter<br>';
+h+='<b>Bước 4:</b> Token tự copy vào clipboard. Quay lại đây, paste vào ô bên dưới → Lưu.';
+h+='</div>';
+h+='<textarea id="eaa-snippet" readonly style="width:100%;min-height:70px;padding:8px;font-family:monospace;font-size:10px;background:var(--bg1);border:1px solid var(--bd1);border-radius:6px;resize:vertical;color:var(--tx2);"></textarea>';
+h+='<div style="display:flex;gap:8px;margin-top:8px;align-items:center;">';
+h+='<button class="btn btn-ghost btn-sm" onclick="copyEaaSnippet(this)">Copy snippet</button>';
+h+='<span style="font-size:10px;color:var(--tx3);">Đoạn JS extract EAA từ internal FB modules</span>';
+h+='</div>';
+h+='<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--bd1);">';
+h+='<label style="font-size:11px;color:var(--tx3);font-weight:500;">Paste EAA token vào đây:</label>';
+h+='<div style="display:flex;gap:6px;margin-top:5px;">';
+h+='<input type="password" id="eaa-paste" class="fi" style="flex:1;font-family:monospace;font-size:11px;" placeholder="EAABsb..." autocomplete="off"/>';
+h+='<button class="btn btn-primary btn-sm" onclick="saveEaaToken(this)">Lưu + Đối soát</button>';
+h+='</div>';
+h+='<div style="font-size:10px;color:var(--tx3);margin-top:4px;">Token sẽ lưu vào app_settings (cần quyền admin). Hết hạn sau ~24h, cần lấy lại.</div>';
+h+='</div>';
+h+='</div>';
+el.innerHTML=h;
+// Set textarea value AFTER insert (tránh escape issues với backslash trong regex)
+var ta=document.getElementById('eaa-snippet');
+if(ta)ta.value=EAA_SNIPPET;
+}
+
+function copyEaaSnippet(btn){
+var t=document.getElementById('eaa-snippet');
+if(!t)return;
+t.select();t.setSelectionRange(0,99999);
+var ok=false;
+try{ok=document.execCommand('copy');}catch(e){}
+if(ok){toast('✓ Đã copy snippet. Paste vào Console tab FB (Cmd+Opt+J).',true);return;}
+// Fallback clipboard API
+if(navigator.clipboard){
+navigator.clipboard.writeText(t.value).then(function(){toast('✓ Đã copy snippet.',true);},function(){toast('Copy thất bại. Select thủ công rồi Cmd+C.',false);});
+}else{toast('Browser không hỗ trợ copy. Select thủ công rồi Cmd+C.',false);}
+}
+
+async function saveEaaToken(btn){
+var input=document.getElementById('eaa-paste');
+if(!input)return;
+var tok=input.value.trim();
+if(!tok){toast('Dán token vào ô đã.',false);return;}
+if(tok.indexOf('EAA')!==0){toast('Token phải bắt đầu bằng "EAA". Dán có vẻ sai.',false);return;}
+if(tok.length<30){toast('Token quá ngắn ('+tok.length+' chars). Có thể bạn dán thiếu.',false);return;}
+if(!isAdmin()){toast('Chỉ admin mới lưu được token chung. Nhờ admin làm giúp.',false);return;}
+btn.disabled=true;btn.textContent='Đang lưu...';
+var ok=await saveAppSetting('META_TOKEN',tok);
+if(!ok){btn.disabled=false;btn.textContent='Lưu + Đối soát';return;}
+META_TOKEN=tok;
+input.value='';
+toast('✓ Đã lưu EAA token. Đang đối soát lại...',true);
+// Đóng modal
+var el=document.getElementById('vcb-history-wrap');
+if(el){el.innerHTML='';el.removeAttribute('data-view');}
+// Chạy đối soát ngay để test
+var doiSoatBtn=document.getElementById('btn-doi-soat');
+await runReconciliation(doiSoatBtn);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
