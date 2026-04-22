@@ -2256,7 +2256,7 @@ h+='</table></div>';return h;}
 
 // ═══ ĐỐI SOÁT Vietcombank ═══
 function p4DoiSoat(){
-var h='<div class="page-sub">So khớp sao kê Vietcombank với Meta Billing theo mã tham chiếu từng giao dịch</div>';
+var h='<div class="page-sub">So khớp sao kê Vietcombank với Meta Billing: ưu tiên mã tham chiếu, fallback theo số tiền × 1.011 (phí FX VCB) ± ngày</div>';
 if(!authUser){
 h+='<div class="form-card" style="text-align:center;padding:24px;color:var(--tx3);font-size:13px;">Đăng nhập để xem sao kê</div>';
 return h;
@@ -2274,9 +2274,10 @@ h+='<div class="form-card"><div style="text-align:center;padding:30px 20px;">';
 h+='<div style="font-size:15px;font-weight:500;margin-bottom:6px;">Chưa có sao kê nào</div>';
 h+='<div style="font-size:12px;color:var(--tx3);margin-bottom:16px;">Upload file sao kê Vietcombank đầu tiên để bắt đầu đối soát</div>';
 h+='<input type="file" id="vcb-file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleVcbUpload(this.files[0])">';
+h+='<input type="file" id="ext-json-file" accept=".json" style="display:none;" onchange="handleExtensionJsonImport(this.files[0])">';
 h+='<button class="btn btn-primary" onclick="document.getElementById(\'vcb-file\').click()">+ Upload sao kê đầu tiên</button>';
 h+='<div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">';
-h+='<button class="btn btn-ghost btn-sm" onclick="checkMetaTokenPermissions(this)">Kiểm tra quyền Meta Token</button>';
+h+='<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'ext-json-file\').click()" style="color:var(--blue);">Import JSON từ extension</button>';
 h+='</div><div id="token-check-result"></div>';
 h+='</div></div>';
 return h;
@@ -2285,13 +2286,13 @@ return h;
 h+='<div class="form-card" style="padding:14px 18px;margin-bottom:16px;">';
 h+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">';
 h+='<input type="file" id="vcb-file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleVcbUpload(this.files[0])">';
+h+='<input type="file" id="ext-json-file" accept=".json" style="display:none;" onchange="handleExtensionJsonImport(this.files[0])">';
 h+='<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'vcb-file\').click()">+ Thêm sao kê</button>';
 h+='<button class="btn btn-primary btn-sm" id="btn-doi-soat" onclick="runReconciliation(this)">'+(rd.reconciled?'Đối soát lại':'Đối soát với Meta')+'</button>';
 h+='<span style="font-size:12px;color:var(--tx3);white-space:nowrap;">'+rd.dateRange+' · '+rd.vcbRows.length+' FB + '+rd.mv4bRows.length+' MV4B</span>';
 h+='<span style="flex:1;"></span>';
+h+='<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'ext-json-file\').click()" style="font-size:11px;color:var(--blue);" title="Nhập file JSON xuất từ extension HC Agency (nút ⬇️ Xuất lịch sử)">Import JSON từ extension'+(window.extensionMetaTxns&&window.extensionMetaTxns.length?' ('+window.extensionMetaTxns.length+')':'')+'</button>';
 h+='<button class="btn btn-ghost btn-sm" onclick="showVcbHistoryModal(this)" style="font-size:11px;">Lịch sử upload</button>';
-h+='<button class="btn btn-ghost btn-sm" onclick="showEaaHelperModal(this)" style="font-size:11px;color:var(--green);">Lấy EAA từ FB</button>';
-h+='<button class="btn btn-ghost btn-sm" onclick="checkMetaTokenPermissions(this)" style="font-size:11px;">Token Meta</button>';
 h+='</div>';
 h+='<div id="token-check-result"></div>';
 h+='<div id="vcb-history-wrap"></div>';
@@ -2382,7 +2383,13 @@ h+='<td style="background:rgba(37,99,235,0.03);"><a href="'+billLink+'" target="
 h+='<td style="background:rgba(37,99,235,0.03);"><span style="font-size:10px;padding:3px 8px;border-radius:6px;background:var(--bg3);color:var(--tx3);">'+(m.isSpendFallback?'daily_spend':'—')+'</span></td>';}
 h+='<td style="background:rgba(37,99,235,0.03);border-right:2px solid rgba(37,99,235,0.15);font-size:11px;">'+esc(m.accountName||'—')+'</td>';
 h+='<td class="mono" style="text-align:right;color:var(--amber);">'+(diffVal>0?'+':'')+ff(diffVal)+'</td>';
-h+='<td><span class="badge '+(refMatch?(r.pctDiff>2?'b-amber':'b-green'):'b-amber')+'">'+(refMatch?(r.pctDiff>2?'Khớp mã, lệch số':'Khớp'):'Lệch mã')+'</span></td>';
+// Xác định loại match: ref (mã trùng) | fx (khớp theo số tiền × 1.011)
+var matchBy=r._matchBy||(refMatch?'ref':'');
+var badgeCls,badgeText;
+if(matchBy==='ref'){badgeCls=r.pctDiff>2?'b-amber':'b-green';badgeText=r.pctDiff>2?'Khớp mã, lệch số':'Khớp mã';}
+else if(matchBy==='fx'){badgeCls='b-blue';badgeText='Khớp FX (1.011)';}
+else{badgeCls='b-amber';badgeText='Lệch mã';}
+h+='<td><span class="badge '+badgeCls+'">'+badgeText+'</span></td>';
 }else{
 h+='<td style="background:rgba(37,99,235,0.03);text-align:right;color:var(--tx3);">—</td>';
 h+='<td style="background:rgba(37,99,235,0.03);color:var(--tx3);font-size:11px;">—</td>';
@@ -2886,6 +2893,12 @@ return out;
 
 async function fetchMetaBilling(dateRange){
 var results=[];
+// ═══ Nguồn 0: JSON import từ extension HC Agency ═══
+// Nếu người dùng đã bấm "Import JSON từ extension" thì dùng luôn, bỏ qua Supabase/activities.
+if(window.extensionMetaTxns&&window.extensionMetaTxns.length){
+  console.log('[Billing] Extension JSON: '+window.extensionMetaTxns.length+' giao dịch');
+  return window.extensionMetaTxns.slice();
+}
 var mapped=adList.filter(function(a){return a.fb_account_id;});
 if(!mapped.length){toast('Chưa có Tài khoản nào ghép Meta',false);return results;}
 var minDate=dateRange[0],maxDate=dateRange[dateRange.length-1];
@@ -2934,19 +2947,173 @@ var acc=adList.find(function(a){return a.id===ds.ad_account_id;});
 results.push({transId:'',amount:ds.spend_amount,time:isoDate,refCode:'',accountFbId:acc?acc.fb_account_id:'',accountName:acc?acc.account_name:'',accountId:acc?acc.fb_account_id:'',paymentAccountId:acc?acc.fb_account_id:'',invoiceId:'',chargeType:'spend',sinceTs:'',untilTs:'',isSpendFallback:true});});});
 return results;}
 
+// ═══ IMPORT JSON TỪ EXTENSION HC AGENCY ═══
+// Extension (lexcom-lite) có nút "⬇️ Xuất lịch sử" → file meta-bill-history-*.json
+// Dashboard import file này → flatten thành metaTxns → dùng cho đối soát VCB.
+// Lưu in-memory (window.extensionMetaTxns); không ghi Supabase để giữ scope tối thiểu.
+window.extensionMetaTxns=window.extensionMetaTxns||null;
+
+// Chuyển billHistory[actId].{months,days}.events[] thành flat metaTxns array.
+// Slim event shape (xem popup.js slimify):
+//   t  = event_time (ISO string, VD: "2026-04-13T01:46:27+0000")
+//   et = event_type ("ad_account_billing_charge" …)
+//   am = amount (number, VD VND), cu = currency ("VND")
+//   tr = tracking_id (dùng cho link Billing Hub)
+//   iv = vat_invoice_id, at = action_type, pm = payment_name
+//   dt = date_time_in_timezone (string VN, VD: "13/4/2026 lúc 08:46")
+function flattenExtensionBillHistory(billHistory){
+  var out=[];
+  if(!billHistory||typeof billHistory!=='object')return out;
+  Object.keys(billHistory).forEach(function(actId){
+    var rec=billHistory[actId]||{};
+    var name=rec.name||'';
+    var fbId=(String(actId).indexOf('act_')===0)?actId:('act_'+actId);
+    // Gom events từ cả months và days, dedupe theo (tr, t, am)
+    var seen={};
+    [rec.months,rec.days].forEach(function(bkt){
+      if(!bkt)return;
+      Object.keys(bkt).forEach(function(k){
+        var evs=(bkt[k]&&bkt[k].events)||[];
+        evs.forEach(function(e){
+          var et=String(e.et||'');
+          if(et.indexOf('billing_charge')<0)return;
+          if(typeof e.am!=='number'||e.am<=0)return;
+          if(e.cu&&e.cu!=='VND')return; // scope: VND (FX 1.011)
+          // Parse event_time (ISO với TZ offset) → ms
+          var msEvent=0,dateIso='';
+          if(e.t){
+            var d=new Date(e.t);
+            if(!isNaN(d.getTime())){
+              msEvent=d.getTime();
+              // Lấy ngày theo múi giờ VN (+07:00) — khớp với VCB hạch toán theo giờ VN
+              var vn=new Date(msEvent+7*3600*1000);
+              dateIso=vn.toISOString().slice(0,10);
+            }
+          }
+          if(!dateIso&&e.dt){
+            // Fallback: parse "13/4/2026 lúc 08:46" → 2026-04-13
+            var mm=String(e.dt).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if(mm){
+              dateIso=mm[3]+'-'+String(mm[2]).padStart(2,'0')+'-'+String(mm[1]).padStart(2,'0');
+              if(!msEvent)msEvent=new Date(dateIso+'T00:00:00+07:00').getTime();
+            }
+          }
+          var key=(e.tr||'')+'|'+(e.t||'')+'|'+Math.round(e.am);
+          if(seen[key])return;
+          seen[key]=true;
+          out.push({
+            transId:e.tr||'',
+            amount:Number(e.am)||0,
+            time:dateIso,
+            refCode:'', // /activities không trả refCode → để rỗng, khớp theo FX
+            accountFbId:fbId,
+            accountName:name,
+            accountId:fbId,
+            paymentAccountId:String(fbId).replace('act_',''),
+            invoiceId:e.iv||'',
+            chargeType:e.at||e.te||'',
+            sinceTs:'',untilTs:'',
+            _eventMs:msEvent, // dùng cho fuzzy date compare
+          });
+        });
+      });
+    });
+  });
+  return out;
+}
+
+async function handleExtensionJsonImport(file){
+  if(!file)return;
+  try{
+    toast('Đang đọc file extension...',true);
+    var text=await file.text();
+    var json=JSON.parse(text);
+    var bh=json&&json.billHistory?json.billHistory:null;
+    if(!bh){toast('File không đúng định dạng (thiếu billHistory)',false);return;}
+    var flat=flattenExtensionBillHistory(bh);
+    if(!flat.length){toast('File không có giao dịch billing charge nào',false);return;}
+    window.extensionMetaTxns=flat;
+    var nAct=Object.keys(bh).length;
+    var total=flat.reduce(function(s,m){return s+m.amount;},0);
+    toast('Đã import: '+flat.length+' giao dịch / '+nAct+' TK / '+ff(total),true);
+    // Nếu đã có VCB rồi thì chạy đối soát lại ngay
+    if(reconcileData&&reconcileData.vcbRows&&reconcileData.vcbRows.length){
+      var matched=matchVcbToMeta(reconcileData.vcbRows,flat);
+      reconcileData.matched=matched;
+      reconcileData.totalMeta=matched.reduce(function(t,m){return t+(m.meta?m.meta.amount:0);},0);
+      reconcileData.reconciled=true;
+      reconcileData._source='extension-json';
+      var nMatch=matched.filter(function(m){return m.meta;}).length;
+      toast('Đối soát xong: '+nMatch+'/'+reconcileData.vcbRows.length+' khớp',true);
+    }
+    render();
+  }catch(e){
+    console.error('[ExtImport]',e);
+    toast('Lỗi đọc file: '+e.message,false);
+  }
+}
+
 function matchVcbToMeta(vcbRows,metaTxns){
-// Chỉ match khi VCB.refCode === Meta.refCode (2 mã tham chiếu giống nhau).
-// Bỏ fallback theo số tiền → tránh ghép nhầm 2 giao dịch cùng giá nhưng khác campaign.
+// B1: match theo refCode (VCB.refCode === Meta.refCode) — chính xác nhất.
+// B2: fallback match theo số tiền × hệ số FX VCB (1.011 = phí 1.1%), ngày ±3.
+//   Áp dụng khi Meta data không có refCode (VD: từ /activities, từ extension JSON).
+var FX=1.011,PCT_TOL=0.003,DAY_TOL=3;
 var used={};
 var metaByRef={};
 metaTxns.forEach(function(m,i){if(m.refCode){var k=m.refCode.toUpperCase();if(!metaByRef[k])metaByRef[k]={idx:i,meta:m};}});
-return vcbRows.map(function(v){
-var k=(v.refCode||'').toUpperCase();
-if(k&&metaByRef[k]&&!used[metaByRef[k].idx]){
-var mi=metaByRef[k];used[mi.idx]=true;
-var d=Math.abs(v.debit-mi.meta.amount);
-return{vcb:v,meta:mi.meta,diff:d,pctDiff:v.debit>0?(d/v.debit*100):0};}
-return{vcb:v,meta:null,diff:0,pctDiff:0};});}
+// Chuẩn bị ms cho fuzzy theo date
+function vcbDateMs(dstr){
+  var p=String(dstr||'').split('/');
+  if(p.length!==3)return 0;
+  var iso=p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');
+  return new Date(iso+'T00:00:00+07:00').getTime();
+}
+function metaDateMs(m){
+  if(m._eventMs)return Number(m._eventMs);
+  if(m.time&&/^\d{4}-\d{2}-\d{2}/.test(m.time))return new Date(m.time+'T00:00:00+07:00').getTime();
+  return 0;
+}
+var result=vcbRows.map(function(v){
+  var k=(v.refCode||'').toUpperCase();
+  if(k&&metaByRef[k]&&!used[metaByRef[k].idx]){
+    var mi=metaByRef[k];used[mi.idx]=true;
+    var d=Math.abs(v.debit-mi.meta.amount);
+    return{vcb:v,meta:mi.meta,diff:d,pctDiff:v.debit>0?(d/v.debit*100):0,_matchBy:'ref'};
+  }
+  return{vcb:v,meta:null,diff:0,pctDiff:0,_pending:true};
+});
+// Pass 2: fuzzy FX cho các VCB chưa khớp
+var ONE_DAY=86400000;
+result.forEach(function(r){
+  if(!r._pending)return;
+  var v=r.vcb;
+  var vMs=vcbDateMs(v.date);
+  var best=-1,bestScore=Infinity;
+  for(var i=0;i<metaTxns.length;i++){
+    if(used[i])continue;
+    var m=metaTxns[i];
+    var expected=m.amount*FX;
+    if(expected<=0)continue;
+    var pctDiff=Math.abs(v.debit-expected)/expected;
+    if(pctDiff>PCT_TOL)continue;
+    var mMs=metaDateMs(m);
+    var dayDiff=(vMs&&mMs)?Math.abs(vMs-mMs)/ONE_DAY:999;
+    if(dayDiff>DAY_TOL)continue;
+    var score=pctDiff*1000+dayDiff;
+    if(score<bestScore){bestScore=score;best=i;}
+  }
+  if(best>=0){
+    used[best]=true;
+    var mi=metaTxns[best];
+    var d=Math.abs(v.debit-mi.amount);
+    r.meta=mi;
+    r.diff=d;
+    r.pctDiff=v.debit>0?(d/v.debit*100):0;
+    r._matchBy='fx';
+  }
+  delete r._pending;
+});
+return result;}
 
 function loadXLSX(){
 if(window.XLSX)return Promise.resolve(window.XLSX);
