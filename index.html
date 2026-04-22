@@ -2295,6 +2295,7 @@ h+='<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'ext-
 if(window.extensionMetaTxns&&window.extensionMetaTxns.length){
   h+='<button class="btn btn-ghost btn-sm" onclick="clearExtensionMetaTxns()" style="font-size:11px;color:var(--red);" title="Xoá dữ liệu Meta đã import">×</button>';
 }
+h+='<button class="btn btn-ghost btn-sm" onclick="showEaaHelperModal(this)" style="font-size:11px;color:var(--blue);" title="Lấy EAA token từ Facebook để đối soát tự động qua /activities API">🔑 Token Meta'+(META_TOKEN?' ✓':'')+'</button>';
 h+='<button class="btn btn-ghost btn-sm" onclick="showVcbHistoryModal(this)" style="font-size:11px;">Lịch sử upload</button>';
 h+='</div>';
 // ═══ Banner cảnh báo lỗ hổng dữ liệu Meta (khi import từ extension) ═══
