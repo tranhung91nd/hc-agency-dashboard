@@ -1128,7 +1128,7 @@ function sc(c){return CL[c]||CL.blue;}
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,finTab=0,reconcileData=null,vcbSavedStatements=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20;
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,finTab=0,reconcileData=null,vcbSavedStatements=null,vcbLoadingTxns=false,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20;
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -2256,91 +2256,67 @@ h+='</table></div>';return h;}
 
 // ═══ ĐỐI SOÁT Vietcombank ═══
 function p4DoiSoat(){
-// Trigger load list sao kê đã lưu lần đầu vào page
-if(authUser&&vcbSavedStatements===null){vcbSavedStatements=[];setTimeout(refreshVcbStatements,0);}
 var h='<div class="page-sub">So khớp sao kê Vietcombank với Meta Billing theo mã tham chiếu từng giao dịch</div>';
-h+='<div class="form-card"><div style="text-align:center;padding:20px 0;">';
+if(!authUser){
+h+='<div class="form-card" style="text-align:center;padding:24px;color:var(--tx3);font-size:13px;">Đăng nhập để xem sao kê</div>';
+return h;
+}
+// Tự động load dữ liệu tích luỹ lần đầu vào page
+if(reconcileData===null&&!vcbLoadingTxns){vcbLoadingTxns=true;setTimeout(loadAllVcbTransactionsAndRender,0);}
 if(!reconcileData){
-h+='<div style="font-size:14px;font-weight:500;margin-bottom:8px;">Upload sao kê Vietcombank</div>';
-h+='<div style="font-size:12px;color:var(--tx3);margin-bottom:14px;">Hỗ trợ .xlsx — Export từ app Vietcombank hoặc Internet Banking</div>';
+h+='<div class="form-card" style="text-align:center;padding:40px 20px;color:var(--tx3);font-size:13px;">Đang tải giao dịch...</div>';
+return h;
+}
+var rd=reconcileData;
+// ═══ Empty state: chưa có giao dịch nào ═══
+if(!rd.vcbRows.length&&!rd.mv4bRows.length){
+h+='<div class="form-card"><div style="text-align:center;padding:30px 20px;">';
+h+='<div style="font-size:15px;font-weight:500;margin-bottom:6px;">Chưa có sao kê nào</div>';
+h+='<div style="font-size:12px;color:var(--tx3);margin-bottom:16px;">Upload file sao kê Vietcombank đầu tiên để bắt đầu đối soát</div>';
 h+='<input type="file" id="vcb-file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleVcbUpload(this.files[0])">';
-h+='<button class="btn btn-primary" onclick="document.getElementById(\'vcb-file\').click()">Chọn file sao kê Vietcombank</button>';
+h+='<button class="btn btn-primary" onclick="document.getElementById(\'vcb-file\').click()">+ Upload sao kê đầu tiên</button>';
 h+='<div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">';
 h+='<button class="btn btn-ghost btn-sm" onclick="checkMetaTokenPermissions(this)">Kiểm tra quyền Meta Token</button>';
-h+='<button class="btn btn-ghost btn-sm" onclick="showMetaSyncStatus(this)">Trạng thái đồng bộ Meta</button>';
+h+='</div><div id="token-check-result"></div>';
+h+='</div></div>';
+return h;
+}
+// ═══ Header compact: upload + đối soát + stats ═══
+h+='<div class="form-card" style="padding:14px 18px;margin-bottom:16px;">';
+h+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">';
+h+='<input type="file" id="vcb-file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleVcbUpload(this.files[0])">';
+h+='<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'vcb-file\').click()">+ Thêm sao kê</button>';
+h+='<button class="btn btn-primary btn-sm" id="btn-doi-soat" onclick="runReconciliation(this)">'+(rd.reconciled?'Đối soát lại':'Đối soát với Meta')+'</button>';
+h+='<span style="font-size:12px;color:var(--tx3);white-space:nowrap;">'+rd.dateRange+' · '+rd.vcbRows.length+' FB + '+rd.mv4bRows.length+' MV4B</span>';
+h+='<span style="flex:1;"></span>';
+h+='<button class="btn btn-ghost btn-sm" onclick="showVcbHistoryModal(this)" style="font-size:11px;">Lịch sử upload</button>';
+h+='<button class="btn btn-ghost btn-sm" onclick="checkMetaTokenPermissions(this)" style="font-size:11px;">Token Meta</button>';
 h+='</div>';
 h+='<div id="token-check-result"></div>';
-h+='<div id="meta-sync-status"></div>';
-// ═══ List sao kê đã lưu (Phase 2) — nhóm theo tháng ═══
-if(vcbSavedStatements&&vcbSavedStatements.length>0){
-h+='<div style="margin-top:20px;padding:16px;background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;text-align:left;max-width:720px;margin-left:auto;margin-right:auto;">';
-h+='<div style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:12px;letter-spacing:0.3px;text-transform:uppercase;">Sao kê đã lưu ('+vcbSavedStatements.length+')</div>';
-// Nhóm theo tháng (YYYY-MM từ date_from, fallback uploaded_at)
-var vcbByMonth={};
-vcbSavedStatements.forEach(function(s){
-var raw=s.date_from||(s.uploaded_at||'').slice(0,10)||'';
-var key=raw?raw.slice(0,7):'—';
-if(!vcbByMonth[key])vcbByMonth[key]={items:[],fbTxn:0,mv4bTxn:0,fbAmt:0,mv4bAmt:0};
-var g=vcbByMonth[key];
-g.items.push(s);
-g.fbTxn+=Number(s.total_fb_txn||0);
-g.mv4bTxn+=Number(s.total_mv4b_txn||0);
-g.fbAmt+=Number(s.total_fb_amount||0);
-g.mv4bAmt+=Number(s.total_mv4b_amount||0);
-});
-var vcbMonthKeys=Object.keys(vcbByMonth).sort().reverse();
-vcbMonthKeys.forEach(function(mk,mi){
-var g=vcbByMonth[mk];
-var label;
-if(mk==='—'){label='Chưa xác định tháng';}
-else{var mp=mk.split('-');label='Tháng '+parseInt(mp[1],10)+'/'+mp[0];}
-h+='<details'+(mi===0?' open':'')+' style="margin-bottom:8px;border:1px solid var(--bd1);border-radius:10px;background:var(--bg1);overflow:hidden;">';
-h+='<summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;user-select:none;">';
-h+='<span style="flex:1;">'+label+'</span>';
-h+='<span style="font-size:11px;color:var(--tx3);font-weight:500;white-space:nowrap;">'+g.items.length+' sao kê · '+g.fbTxn+' FB · <span class="mono" style="color:var(--red);">'+ff(g.fbAmt)+'</span></span>';
-h+='</summary>';
-h+='<div style="padding:4px 10px 10px;display:flex;flex-direction:column;gap:6px;">';
-g.items.forEach(function(s){
-var safeName=String(s.file_name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
-h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd1);border-radius:10px;">';
-h+='<div style="flex:1;min-width:0;">';
-h+='<div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(s.file_name||'—')+'</div>';
-h+='<div style="font-size:11px;color:var(--tx3);margin-top:2px;">'+(s.date_from||'—')+' → '+(s.date_to||'—')+' · '+s.total_fb_txn+' FB + '+s.total_mv4b_txn+' MV4B · <span class="mono" style="color:var(--red);">'+ff(s.total_fb_amount)+'</span></div>';
+h+='<div id="vcb-history-wrap"></div>';
 h+='</div>';
-h+='<button class="btn btn-primary btn-sm" onclick="loadVcbFromSupabase(\''+s.id+'\')">Mở</button>';
-h+='<button class="btn btn-ghost btn-sm" onclick="confirmDeleteVcbStatement(\''+s.id+'\',\''+safeName+'\')" style="color:var(--red);">Xóa</button>';
-h+='</div>';
-});
-h+='</div></details>';
-});
-h+='</div>';
-}
-}else{
-h+='<div style="display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap;">';
-h+='<span class="badge b-green">Đã upload</span>';
-h+='<span style="font-size:13px;font-weight:500;">'+esc(reconcileData.fileName)+'</span>';
-h+='<span style="font-size:11px;color:var(--tx3);">'+reconcileData.dateRange+' · '+reconcileData.vcbRows.length+' giao dịch FB · '+reconcileData.mv4bRows.length+' MV4B</span>';
-if(reconcileData.statementId){
-h+='<button class="btn btn-ghost btn-sm" onclick="reconcileData=null;render()">Đóng (giữ lưu)</button>';
-h+='<button class="btn btn-ghost btn-sm" onclick="confirmDeleteVcbStatement(\''+reconcileData.statementId+'\',\''+String(reconcileData.fileName||'').replace(/\x27/g,"\\x27")+'\')" style="color:var(--red);">Xóa khỏi cloud</button>';
-}else{
-h+='<button class="btn btn-ghost btn-sm" onclick="reconcileData=null;render()">Đóng</button>';
-}
-h+='</div>';}
-h+='</div></div>';
-if(!reconcileData)return h;
-var rd=reconcileData,matched=rd.matched,totalVcb=rd.totalVcb,totalMeta=rd.totalMeta,diff=totalVcb-totalMeta;
+// ═══ KPIs ═══
+var matched=rd.matched||[],totalVcb=rd.totalVcb||0,totalMeta=rd.totalMeta||0;
 var matchedCount=matched.filter(function(m){return m.meta;}).length;
 var pct=rd.vcbRows.length>0?Math.round(matchedCount/rd.vcbRows.length*100):0;
 h+='<div class="kpi-grid kpi-4" style="grid-template-columns:repeat(4,1fr);">';
 h+='<div class="kpi"><div class="kpi-label">Vietcombank đã trừ</div><div class="kpi-value" style="color:var(--red);">'+ff(totalVcb)+'</div><div class="kpi-note">'+rd.vcbRows.length+' lần trừ tiền</div></div>';
+if(rd.reconciled){
+var diff=Math.abs(totalVcb-totalMeta);
 h+='<div class="kpi"><div class="kpi-label">Meta billing</div><div class="kpi-value" style="color:var(--blue);">'+ff(totalMeta)+'</div><div class="kpi-note">'+matchedCount+' giao dịch khớp mã</div></div>';
-h+='<div class="kpi"><div class="kpi-label">Phí ngoại tệ</div><div class="kpi-value" style="color:var(--amber);">'+ff(Math.abs(diff))+'</div><div class="kpi-note">~'+((totalMeta>0?Math.abs(diff)/totalMeta*100:0).toFixed(1))+'% phí MasterCard</div></div>';
-h+='<div class="kpi"><div class="kpi-label">Khớp mã</div><div class="kpi-value" style="color:var(--green);">'+matchedCount+'/'+rd.vcbRows.length+'</div><div style="height:6px;border-radius:3px;background:var(--bd1);margin-top:6px;"><div style="height:6px;border-radius:3px;background:var(--green);width:'+pct+'%;"></div></div></div></div>';
+h+='<div class="kpi"><div class="kpi-label">Chênh lệch</div><div class="kpi-value" style="color:var(--amber);">'+ff(diff)+'</div><div class="kpi-note">~'+((totalMeta>0?diff/totalMeta*100:0).toFixed(1))+'%</div></div>';
+h+='<div class="kpi"><div class="kpi-label">Khớp mã</div><div class="kpi-value" style="color:var(--green);">'+matchedCount+'/'+rd.vcbRows.length+'</div><div style="height:6px;border-radius:3px;background:var(--bd1);margin-top:6px;"><div style="height:6px;border-radius:3px;background:var(--green);width:'+pct+'%;"></div></div></div>';
+}else{
+h+='<div class="kpi" style="opacity:.5;"><div class="kpi-label">Meta billing</div><div class="kpi-value">—</div><div class="kpi-note">Bấm "Đối soát" để lấy</div></div>';
+h+='<div class="kpi" style="opacity:.5;"><div class="kpi-label">Chênh lệch</div><div class="kpi-value">—</div><div class="kpi-note">—</div></div>';
+h+='<div class="kpi" style="opacity:.5;"><div class="kpi-label">Khớp mã</div><div class="kpi-value">—</div><div class="kpi-note">Chưa đối soát</div></div>';
+}
+h+='</div>';
+// ═══ Filter strip + bảng ═══
 h+='<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">';
 h+='<span style="font-size:12px;color:var(--tx3);">Lọc:</span>';
 h+='<select class="fi" id="rec-filter" onchange="renderRecTable()"><option value="all">Tất cả ('+matched.length+')</option><option value="diff">Chênh lệch lớn (&gt;2%)</option><option value="mv4b">Phí MV4B / tích xanh ('+rd.mv4bRows.length+')</option><option value="nomatch">Không khớp</option></select>';
-var cards={};matched.forEach(function(m){if(m.card)cards[m.card]=1;});rd.mv4bRows.forEach(function(m){if(m.card)cards[m.card]=1;});
+var cards={};matched.forEach(function(m){if(m.vcb&&m.vcb.card)cards[m.vcb.card]=1;});rd.mv4bRows.forEach(function(m){if(m.card)cards[m.card]=1;});
 var cardKeys=Object.keys(cards).sort();
 h+='<select class="fi" id="rec-card-filter" onchange="renderRecTable()"><option value="">Tất cả thẻ</option>';
 cardKeys.forEach(function(c){h+='<option value="'+c+'">...'+c+'</option>';});
@@ -2487,23 +2463,13 @@ vcbSavedStatements=await loadVcbStatements();
 render();
 }
 
+// ═══ PHASE 3: Upload append-only + dedupe ═══
+// Parse file → so sánh với DB → chỉ chèn dòng MỚI → giữ tích luỹ qua nhiều lần upload.
 async function handleVcbUpload(file){
 if(!file)return;
 if(!authUser){toast('Cần đăng nhập để lưu sao kê',false);return;}
-toast('Đang tính hash file...',true);
+toast('Đang đọc file...',true);
 try{
-var fileHash=await fileHashHex(file);
-// Check duplicate
-var dupQ=await sb2.from('vcb_statement').select('id,file_name,uploaded_at').eq('user_id',authUser.id).eq('file_md5',fileHash).maybeSingle();
-if(dupQ.data){
-if(confirm('File này đã upload trước đó ("'+dupQ.data.file_name+'").\n\nOK = Tải lại dữ liệu đã lưu\nCancel = Thay thế bằng upload mới')){
-await loadVcbFromSupabase(dupQ.data.id);
-return;
-}else{
-await deleteVcbStatement(dupQ.data.id);
-}
-}
-toast('Đang phân tích sao kê...',true);
 var data=await file.arrayBuffer();
 var XLSX=await loadXLSX();
 var wb=XLSX.read(data,{type:'array'});
@@ -2512,61 +2478,162 @@ var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
 var startRow=-1;
 for(var i=0;i<Math.min(20,rows.length);i++){if(String(rows[i][1]||'').indexOf('STT')>=0){startRow=i+1;break;}}
 if(startRow<0){toast('Không nhận dạng được format sao kê Vietcombank',false);return;}
-var vcbRows=[],mv4bRows=[],otherRows=[],allDates=[];
+var parsedRows=[],allDates=[];
 for(var j=startRow;j<rows.length;j++){
 var row=rows[j];var stt=row[1];if(!stt||isNaN(parseInt(stt)))continue;
-var dateDoc=String(row[2]||''),debitRaw=row[3],creditRaw=row[4],detail=String(row[6]||'');
+var dateDoc=String(row[2]||''),debitRaw=row[3],detail=String(row[6]||'');
 var date=dateDoc.split('\n')[0].trim();if(!date||date.length<8)continue;
 var debit=parseFloat(String(debitRaw).replace(/,/g,''))||0;
-var credit=parseFloat(String(creditRaw).replace(/,/g,''))||0;
 var isFb=detail.indexOf('FACEBK')>=0;
-if(!isFb){if(debit||credit)otherRows.push({date:date,debit:debit,credit:credit,detail:detail});continue;}
+if(!isFb)continue;
 var refMatch=detail.match(/FACEBK\s*\*(\S+)/);
 var refCode=refMatch?refMatch[1].replace(/\s+/g,''):'';
-var cardMatch=detail.match(/\.{3,}(\d{4})\./)||detail.match(/\.(\d{4})\./);
 var card='';
-if(!card){var docParts=dateDoc.split('\n');if(docParts.length>1){var docNum=docParts[1]||'';var cm=docNum.match(/(\d{4})\s*-/);if(cm)card=cm[1];}}
+var docParts=dateDoc.split('\n');
+if(docParts.length>1){var docNum=docParts[1]||'';var cm=docNum.match(/(\d{4})\s*-/);if(cm)card=cm[1];}
 var isMv4b=refCode.indexOf('MV4B')>=0||refCode==='MV4B';
-var entry={date:date,debit:debit,refCode:refCode,card:card,detail:detail,isMv4b:isMv4b};
-if(isMv4b)mv4bRows.push(entry);else vcbRows.push(entry);
-if(allDates.indexOf(date)<0)allDates.push(date);}
+parsedRows.push({date:date,debit:debit,refCode:refCode,card:card,detail:detail,isMv4b:isMv4b});
+if(allDates.indexOf(date)<0)allDates.push(date);
+}
 allDates.sort();
+if(!parsedRows.length){toast('File không có giao dịch FACEBK nào',false);return;}
 
-// ═══ Lưu Supabase ═══
-toast('Đang lưu '+(vcbRows.length+mv4bRows.length)+' giao dịch vào Supabase...',true);
-var totalFbAmt=vcbRows.reduce(function(t,v){return t+v.debit;},0);
-var totalMv4bAmt=mv4bRows.reduce(function(t,v){return t+v.debit;},0);
+// ═══ Dedupe với DB: load toàn bộ key đã có ═══
+toast('Đang kiểm tra trùng lặp ('+parsedRows.length+' giao dịch)...',true);
+var dedupKey=function(dateIso,refCode,debit,detail){
+return (dateIso||'')+'|'+(refCode||'')+'|'+Math.round(debit)+'|'+String(detail||'').slice(0,60);
+};
+var existingKeys={};
+var existQ=await sb2.from('vcb_transaction').select('tx_date_iso,ref_code,debit,description').eq('user_id',authUser.id);
+if(existQ.error){toast('Lỗi truy vấn DB: '+existQ.error.message,false);return;}
+(existQ.data||[]).forEach(function(t){existingKeys[dedupKey(t.tx_date_iso,t.ref_code,t.debit,t.description)]=true;});
+
+var toInsert=[],skipped=0;
+parsedRows.forEach(function(r){
+var dateIso=vcbDateToIso(r.date);
+var k=dedupKey(dateIso,r.refCode,r.debit,r.detail);
+if(existingKeys[k]){skipped++;return;}
+existingKeys[k]=true; // phòng trùng trong cùng 1 file
+toInsert.push(r);
+});
+
+if(!toInsert.length){
+toast('Tất cả '+parsedRows.length+' giao dịch đã tồn tại — không có gì mới',true);
+return;
+}
+
+// ═══ Audit log: vcb_statement (statement_id trên txn cho phép null) ═══
+toast('Đang lưu '+toInsert.length+' giao dịch mới'+(skipped>0?' ('+skipped+' trùng, bỏ qua)':'')+'...',true);
+var fileHash=await fileHashHex(file);
 var isoDates=allDates.map(vcbDateToIso).filter(Boolean).sort();
+var insertedFb=toInsert.filter(function(r){return!r.isMv4b;});
+var insertedMv4b=toInsert.filter(function(r){return r.isMv4b;});
+var totalFbAmt=insertedFb.reduce(function(t,v){return t+v.debit;},0);
+var totalMv4bAmt=insertedMv4b.reduce(function(t,v){return t+v.debit;},0);
+var statementId=null;
 var stmtIns=await sb2.from('vcb_statement').insert({
 user_id:authUser.id,file_name:file.name,file_md5:fileHash,
 date_from:isoDates[0]||null,date_to:isoDates[isoDates.length-1]||null,
-total_fb_txn:vcbRows.length,total_mv4b_txn:mv4bRows.length,
-total_fb_amount:totalFbAmt,total_mv4b_amount:totalMv4bAmt
+total_fb_txn:insertedFb.length,total_mv4b_txn:insertedMv4b.length,
+total_fb_amount:Math.round(totalFbAmt),total_mv4b_amount:Math.round(totalMv4bAmt)
 }).select().single();
-if(stmtIns.error){toast('Lưu cloud thất bại: '+stmtIns.error.message+' (chạy SQL Phase 2 chưa?)',false);return;}
-var statementId=stmtIns.data.id;
-var allTxnRows=vcbRows.concat(mv4bRows).map(function(r){return{
+if(stmtIns.error){console.warn('[VCB] stmt insert:',stmtIns.error.message);}
+else statementId=stmtIns.data.id;
+
+var txnRows=toInsert.map(function(r){return{
 statement_id:statementId,user_id:authUser.id,
 tx_date:r.date,tx_date_iso:vcbDateToIso(r.date),
 description:r.detail,ref_code:r.refCode,card_last4:r.card,
 debit:Math.round(r.debit),credit:0,is_mv4b:r.isMv4b
 };});
-for(var k=0;k<allTxnRows.length;k+=500){
-var chunk=allTxnRows.slice(k,k+500);
+var insertedCount=0;
+for(var k=0;k<txnRows.length;k+=500){
+var chunk=txnRows.slice(k,k+500);
 var ins=await sb2.from('vcb_transaction').insert(chunk);
-if(ins.error){console.warn('[VCB chunk]',ins.error.message);toast('Một phần giao dịch không lưu được: '+ins.error.message,false);}
+if(ins.error){console.warn('[VCB chunk]',ins.error.message);toast('Lỗi lưu '+chunk.length+' dòng: '+ins.error.message,false);}
+else insertedCount+=chunk.length;
 }
-vcbSavedStatements=await loadVcbStatements();
 
-toast('Đã lưu. Đang lấy Meta Billing...',true);
-var metaTxns=await fetchMetaBilling(allDates);
-var matched=matchVcbToMeta(vcbRows,metaTxns);
-var totalVcb=totalFbAmt;
-var totalMeta=matched.reduce(function(t,m){return t+(m.meta?m.meta.amount:0);},0);
-reconcileData={statementId:statementId,fileName:file.name,vcbRows:vcbRows,mv4bRows:mv4bRows,otherRows:otherRows,matched:matched,totalVcb:totalVcb,totalMeta:totalMeta,dateRange:allDates.length?(allDates[0]+' — '+allDates[allDates.length-1]):''};
-toast('Đối soát xong: '+matched.filter(function(m){return m.meta;}).length+'/'+vcbRows.length+' khớp mã',true);
-render();
+toast('Đã thêm '+insertedCount+' GD mới'+(skipped>0?' (bỏ qua '+skipped+' trùng)':''),true);
+// Reload toàn bộ dữ liệu tích luỹ → render
+await loadAllVcbTransactionsAndRender();
 }catch(e){toast('Lỗi: '+e.message,false);}}
+
+// ═══ Load toàn bộ vcb_transaction của user → build reconcileData ═══
+async function loadAllVcbTransactionsAndRender(){
+if(!authUser){reconcileData=null;vcbLoadingTxns=false;render();return;}
+try{
+var r=await sb2.from('vcb_transaction').select('*').eq('user_id',authUser.id).order('tx_date_iso',{ascending:false}).limit(5000);
+if(r.error){toast('Lỗi tải giao dịch: '+r.error.message,false);vcbLoadingTxns=false;render();return;}
+var txns=r.data||[];
+var vcbRows=txns.filter(function(t){return!t.is_mv4b;}).map(function(t){return{date:t.tx_date,debit:Number(t.debit||0),refCode:t.ref_code||'',card:t.card_last4||'',detail:t.description||'',isMv4b:false,txId:t.id};});
+var mv4bRows=txns.filter(function(t){return t.is_mv4b;}).map(function(t){return{date:t.tx_date,debit:Number(t.debit||0),refCode:t.ref_code||'',card:t.card_last4||'',detail:t.description||'',isMv4b:true};});
+var allDates=Array.from(new Set(txns.map(function(t){return t.tx_date;}).filter(Boolean))).sort();
+var totalVcb=vcbRows.reduce(function(t,v){return t+v.debit;},0);
+reconcileData={
+vcbRows:vcbRows,mv4bRows:mv4bRows,otherRows:[],
+allDates:allDates,
+matched:vcbRows.map(function(v){return{vcb:v,meta:null,diff:0,pctDiff:0};}),
+totalVcb:totalVcb,totalMeta:0,
+dateRange:allDates.length?(allDates[0]+' — '+allDates[allDates.length-1]):'—',
+reconciled:false
+};
+}finally{vcbLoadingTxns=false;render();}
+}
+
+// ═══ Đối soát: fetch Meta + match ═══
+async function runReconciliation(btn){
+if(!reconcileData||!reconcileData.vcbRows.length){toast('Chưa có giao dịch để đối soát',false);return;}
+if(btn){btn.disabled=true;btn.textContent='Đang đối soát...';}
+toast('Đang lấy Meta Billing ('+reconcileData.allDates.length+' ngày)...',true);
+try{
+var metaTxns=await fetchMetaBilling(reconcileData.allDates);
+var matched=matchVcbToMeta(reconcileData.vcbRows,metaTxns);
+var totalMeta=matched.reduce(function(t,m){return t+(m.meta?m.meta.amount:0);},0);
+reconcileData.matched=matched;
+reconcileData.totalMeta=totalMeta;
+reconcileData.reconciled=true;
+toast('Đối soát xong: '+matched.filter(function(m){return m.meta;}).length+'/'+reconcileData.vcbRows.length+' khớp mã',true);
+}catch(e){toast('Lỗi đối soát: '+e.message,false);}
+if(btn){btn.disabled=false;}
+render();
+}
+
+// ═══ Lịch sử upload (modal collapsible) ═══
+async function showVcbHistoryModal(btn){
+var el=document.getElementById('vcb-history-wrap');
+if(!el)return;
+if(el.innerHTML){el.innerHTML='';return;}
+if(btn){btn.disabled=true;}
+var q=await sb2.from('vcb_statement').select('*').eq('user_id',authUser.id).order('uploaded_at',{ascending:false}).limit(50);
+if(btn){btn.disabled=false;}
+if(q.error){el.innerHTML='<div style="padding:10px;color:var(--red);font-size:11px;">'+esc(q.error.message)+'</div>';return;}
+var stmts=q.data||[];
+if(!stmts.length){el.innerHTML='<div style="padding:10px;color:var(--tx3);font-size:11px;">Chưa có file upload nào.</div>';return;}
+var h='<div style="margin-top:12px;padding:12px;background:var(--bg2);border:1px solid var(--bd1);border-radius:10px;">';
+h+='<div style="font-size:11px;color:var(--tx3);font-weight:500;margin-bottom:6px;">Lịch sử upload ('+stmts.length+' file) — xoá file KHÔNG xoá giao dịch</div>';
+h+='<div style="display:flex;flex-direction:column;gap:4px;">';
+stmts.forEach(function(s){
+var safeName=String(s.file_name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg1);border-radius:6px;font-size:11px;">';
+h+='<span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(s.file_name||'—')+'</span>';
+h+='<span style="color:var(--tx3);">'+(s.date_from||'—')+' → '+(s.date_to||'—')+'</span>';
+h+='<span style="color:var(--tx3);">'+s.total_fb_txn+' GD</span>';
+h+='<button class="btn btn-ghost btn-sm" onclick="confirmDeleteVcbStatementOnly(\''+s.id+'\',\''+safeName+'\')" style="color:var(--red);font-size:10px;padding:2px 8px;">Xoá file</button>';
+h+='</div>';
+});
+h+='</div></div>';
+el.innerHTML=h;
+}
+async function confirmDeleteVcbStatementOnly(statementId,fileName){
+if(!confirm('Xoá bản ghi upload "'+fileName+'"?\n\nLưu ý: chỉ xoá audit log, toàn bộ giao dịch vẫn giữ nguyên trong bảng.'))return;
+var ok=await deleteVcbStatement(statementId);
+if(!ok)return;
+toast('Đã xoá audit log',true);
+// Refresh lịch sử modal
+var el=document.getElementById('vcb-history-wrap');
+if(el){el.innerHTML='';showVcbHistoryModal();}
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // META /activities ENGINE (Phase 1) — port từ Lexcom Lite extension
@@ -2922,7 +2989,7 @@ return'<div style="display:flex;align-items:center;justify-content:center;min-he
 +'<div style="text-align:center;margin-top:16px;font-size:11px;color:var(--tx3);">HC Agency &copy; 2026</div>'
 +'</div></div>';}
 async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){var firstPage=typeof userAllowedPages[0]==='string'?parseInt(userAllowedPages[0]):userAllowedPages[0];curPage=firstPage;}else{curPage=0;}toast('Đăng nhập thành công! ('+userRole+')',true);autoSync();render();}}
-async function doLogout(){await sb2.auth.signOut();authUser=null;userRole='guest';userAllowedPages=null;META_TOKEN='';curPage=0;reconcileData=null;vcbSavedStatements=null;toast('Đã đăng xuất',true);render();}
+async function doLogout(){await sb2.auth.signOut();authUser=null;userRole='guest';userAllowedPages=null;META_TOKEN='';curPage=0;reconcileData=null;vcbSavedStatements=null;vcbLoadingTxns=false;toast('Đã đăng xuất',true);render();}
 async function checkAuth(){var{data}=await sb2.auth.getSession();if(data.session){authUser=data.session.user;await loadUserRole();}}
 async function loadUserRole(){
 if(!authUser){userRole='guest';userAllowedPages=null;return;}
