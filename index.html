@@ -134,6 +134,80 @@ html[data-theme="dark"] .hc-modal-foot{background:var(--bg3);}
 html[data-theme="dark"] .hc-confirm{background:var(--bg2);}
 html[data-theme="dark"] .empty-state{background:var(--bg2);}
 html[data-theme="dark"] tr:hover td{background:var(--bg3);}
+
+/* ===== DARK MODE POLISH — fix hardcoded light bg/gradients để đọc được chữ ===== */
+/* Sticky table headers — phần quan trọng nhất (các trang Tổng quan, Nhân sự, Khách hàng) */
+html[data-theme="dark"] th{
+  background:rgba(30,41,59,0.96);
+  color:var(--tx1);
+  border-bottom-color:rgba(255,255,255,0.08);
+}
+html[data-theme="dark"] #ad-table thead th{background:var(--bg2);}
+html[data-theme="dark"] tr:hover td{background:var(--bg3);}
+
+/* Nav item active trong sidebar */
+html[data-theme="dark"] .nav-item.active{
+  background:linear-gradient(180deg,rgba(37,99,235,0.22) 0%,rgba(37,99,235,0.14) 100%);
+  color:#93c5fd;
+  box-shadow:inset 0 0 0 1px rgba(37,99,235,0.32), var(--shadow-sm);
+}
+html[data-theme="dark"] .nav-item:hover{background:rgba(37,99,235,0.10);}
+
+/* Tabs active — day-btn, admin-tab (các tab như "Cảnh báo Form", "Chi tiêu theo nhân sự") */
+html[data-theme="dark"] .day-btn.active,
+html[data-theme="dark"] .admin-tab.active{
+  background:linear-gradient(180deg,rgba(37,99,235,0.24) 0%,rgba(37,99,235,0.14) 100%);
+  color:#93c5fd;
+  border-color:rgba(37,99,235,0.38);
+  box-shadow:inset 0 0 0 1px rgba(37,99,235,0.22);
+}
+html[data-theme="dark"] .day-btn:hover,
+html[data-theme="dark"] .admin-tab:hover,
+html[data-theme="dark"] .btn-ghost:hover{background:var(--bg2);}
+
+/* Staff card active (trang Nhân sự) */
+html[data-theme="dark"] .staff-card.active{
+  background:linear-gradient(180deg,rgba(37,99,235,0.16) 0%,rgba(37,99,235,0.10) 100%);
+  border-color:rgba(37,99,235,0.38);
+}
+
+/* Logout bar (nền xanh lá chỉ ra role) */
+html[data-theme="dark"] .logout-bar{
+  background:linear-gradient(180deg,rgba(5,150,105,0.18) 0%,rgba(5,150,105,0.10) 100%);
+  border-color:rgba(5,150,105,0.32);
+}
+
+/* Count pill ở toolbar (VD "31/32 khách hàng") */
+html[data-theme="dark"] .ad-toolbar-count{
+  background:rgba(30,41,59,0.75);
+  border-color:rgba(255,255,255,0.10);
+  color:var(--tx2);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* Panel AI */
+html[data-theme="dark"] .xp-head,
+html[data-theme="dark"] .xp-footer,
+html[data-theme="dark"] .xp-tabs{background:rgba(15,23,42,0.96);}
+html[data-theme="dark"] .ai-panel{
+  background:rgba(15,23,42,0.94);
+  border-color:rgba(255,255,255,0.08);
+}
+html[data-theme="dark"] .ai-header,
+html[data-theme="dark"] .ai-input-bar,
+html[data-theme="dark"] .ai-quick{background:rgba(15,23,42,0.94);}
+html[data-theme="dark"] .ai-msgs{background:linear-gradient(180deg,#0b1220 0%,#0f172a 100%);}
+html[data-theme="dark"] .ai-bubble{border-color:rgba(255,255,255,0.08);}
+
+/* Inline fee input (Khách hàng, ô fee) */
+html[data-theme="dark"] .inline-fee-input{
+  background:var(--bg2);
+  color:var(--tx1);
+  border-color:var(--bd2);
+}
+
+/* Invoice/quotation giữ nguyên light (vì là view dạng "tài liệu in") — không đụng */
+
 /* ===== A11Y: REDUCED MOTION ===== */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important;}
