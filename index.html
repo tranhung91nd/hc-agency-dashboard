@@ -2568,6 +2568,157 @@ toast('Đối soát xong: '+matched.filter(function(m){return m.meta;}).length+'
 render();
 }catch(e){toast('Lỗi: '+e.message,false);}}
 
+// ═══════════════════════════════════════════════════════════════════════════
+// META /activities ENGINE (Phase 1) — port từ Lexcom Lite extension
+// Thay thế /transactions đã chết bằng /act_<id>/activities?category=ACCOUNT_BILLING_CHARGES
+// Safe-merge: chunkDays 7+1 song song → dedupe theo tracking_id.
+// Auto-split khi gặp throttle (FB code 1/2/4/17/32/368/613) tới max depth 6.
+// ═══════════════════════════════════════════════════════════════════════════
+var META_BILLING_FIELDS='event_time,event_type,translated_event_type,extra_data,actor_id,actor_name,object_id,object_name,object_type,date_time_in_timezone,application_id,application_name';
+var META_BILLING_EVENT_TYPES=['ad_account_billing_charge','ad_account_billing_chargeback','ad_account_billing_chargeback_reversal','ad_account_billing_decline','ad_account_billing_refund','funding_event_successful','funding_event_initiated','add_funding_source','remove_funding_source'];
+var META_REF_REGEX=/([A-Z0-9]{6,12}(?:42|F2|K2|Y2|G2|U2|X2|B2|N2|T2|62|82))/i;
+
+function mbSleepMs(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function mbSplitRangeByDays(since,until,chunkDays){var step=chunkDays*86400,out=[];for(var s=since;s<=until;s+=step){var u=Math.min(s+step-1,until);out.push({since:s,until:u});}return out;}
+async function mbParallelLimit(tasks,limit){var results=new Array(tasks.length),idx=0;async function worker(){while(idx<tasks.length){var i=idx++;try{results[i]=await tasks[i]();}catch(e){results[i]={__error:e.message};}}}var n=Math.min(limit||5,tasks.length);var workers=[];for(var i=0;i<n;i++)workers.push(worker());await Promise.all(workers);return results;}
+async function mbPaginateGraph(url,max){var items=[],cur=url,n=0,maxN=max||30;while(cur&&n<maxN){var res=await fetch(cur);var d=await res.json();if(d.error){var err=new Error('FB '+d.error.code+': '+d.error.message);err.fbCode=d.error.code;throw err;}if(Array.isArray(d.data))items.push.apply(items,d.data);cur=(d.paging&&d.paging.next)||null;n++;}return items;}
+
+async function mbFetchBillingChunk(clean,since,until,token,depth,withCategory){
+if(depth===undefined)depth=0;
+if(withCategory===undefined)withCategory=true;
+var base='https://graph.facebook.com/v21.0/act_'+clean+'/activities';
+var qs='access_token='+encodeURIComponent(token)+'&fields='+encodeURIComponent(META_BILLING_FIELDS)+'&since='+since+'&until='+until+'&limit=500';
+if(withCategory)qs+='&category=ACCOUNT_BILLING_CHARGES';
+var url=base+'?'+qs;
+var attempt=0;
+while(attempt<3){
+try{return await mbPaginateGraph(url,30);}
+catch(e){
+var msg=e.message||'',code=e.fbCode||null;
+var throttle=[1,2,4,17,32,368,613].indexOf(code)>=0;
+var categoryBad=code===100&&/category/i.test(msg);
+if(categoryBad&&withCategory){return await mbFetchBillingChunk(clean,since,until,token,depth,false);}
+if(throttle&&(until-since)>=86400*2&&depth<6){
+if(code===368)await mbSleepMs(3000);
+var mid=Math.floor((since+until)/2);
+var a=await mbFetchBillingChunk(clean,since,mid,token,depth+1,withCategory);
+var b=await mbFetchBillingChunk(clean,mid+1,until,token,depth+1,withCategory);
+return a.concat(b);
+}
+attempt++;
+if(attempt<3&&throttle){await mbSleepMs(code===368?10000:500*Math.pow(2,attempt));continue;}
+throw e;
+}
+}
+return[];
+}
+
+function mbParseBillingEvent(a){
+var ex=null;
+if(typeof a.extra_data==='string'){try{ex=JSON.parse(a.extra_data);}catch(_){ex=null;}}
+if(!ex)ex={};
+a._extra=ex;
+var nv=ex.new_value,amt=null;
+if(typeof nv==='number')amt=nv;
+else if(typeof nv==='string'&&/^-?\d+(\.\d+)?$/.test(nv))amt=parseFloat(nv);
+else if(nv&&typeof nv==='object')amt=parseFloat(nv.amount)||null;
+else if(ex.amount)amt=parseFloat(ex.amount);
+if(amt==null&&ex.old_value!=null){
+if(typeof ex.old_value==='number')amt=ex.old_value;
+else if(typeof ex.old_value==='object')amt=parseFloat(ex.old_value.amount)||null;
+}
+a._amount=amt;
+a._currency=ex.currency||(nv&&nv.currency)||(ex.old_value&&ex.old_value.currency)||null;
+a._tracking_id=ex.transaction_id||ex.tracking_id||ex.fbtrace_id||null;
+a._vat_invoice_id=ex.vat_invoice_id||ex.invoice_id||ex.invoice_num||null;
+// Extract ref code từ bất kỳ string nào trong extra_data (payment_option / description / pm_name)
+var refCode='';
+var candidates=[ex.payment_option,ex.pm_name,ex.payment_method_name,ex.description,a.extra_data,a.object_name];
+for(var i=0;i<candidates.length;i++){
+var c=candidates[i];if(!c)continue;
+if(typeof c==='object')c=JSON.stringify(c);
+var m=String(c).match(META_REF_REGEX);
+if(m){refCode=m[1].toUpperCase();break;}
+}
+a._ref_code=refCode;
+return a;
+}
+
+function mbBillingDedupKey(a){
+if(a._tracking_id)return a._tracking_id;
+return[a.event_time,a.event_type,a.object_id,a._amount==null?'':a._amount].join('|');
+}
+
+async function mbFetchActivitiesForAccount(clean,sinceTs,untilTs,token){
+// Safe-merge: chunkDays 7 + 1 song song → dedupe
+var strategies=[7,1];
+var runs=await Promise.allSettled(strategies.map(async function(chunkDays){
+var subs=mbSplitRangeByDays(sinceTs,untilTs,chunkDays);
+var all=[];
+for(var i=0;i<subs.length;i++){
+try{
+var raw=await mbFetchBillingChunk(clean,subs[i].since,subs[i].until,token);
+all=all.concat(raw);
+}catch(e){console.warn('[Activities '+clean+' '+chunkDays+'d]',e.message);}
+}
+return all;
+}));
+var merged=new Map();
+for(var i=0;i<runs.length;i++){
+if(runs[i].status!=='fulfilled')continue;
+var events=runs[i].value;
+for(var j=0;j<events.length;j++){
+var a=events[j];
+var et=a.event_type||'';
+if(META_BILLING_EVENT_TYPES.indexOf(et)<0&&et.indexOf('billing')<0&&et.indexOf('funding')<0)continue;
+mbParseBillingEvent(a);
+var key=mbBillingDedupKey(a);
+if(!merged.has(key))merged.set(key,a);
+}
+}
+var out=[];merged.forEach(function(v){out.push(v);});
+return out;
+}
+
+async function fetchMetaBillingActivities(mapped,sinceTs,untilTs){
+if(!META_TOKEN){console.warn('[Activities] Thiếu META_TOKEN');return[];}
+var tasks=mapped.map(function(a){return async function(){
+var clean=String(a.fb_account_id||'').replace(/^act_/,'');
+if(!clean)return{acc:a,events:[]};
+var events=await mbFetchActivitiesForAccount(clean,sinceTs,untilTs,META_TOKEN);
+return{acc:a,events:events};
+};});
+var results=await mbParallelLimit(tasks,5);
+var out=[];var errCount=0;
+results.forEach(function(r){
+if(!r||r.__error){errCount++;return;}
+if(!r.events||!r.events.length)return;
+var acc=r.acc;
+var payAccId=acc.fb_account_id;
+r.events.forEach(function(a){
+var amt=typeof a._amount==='number'?Math.round(Math.abs(a._amount)):0;
+if((a._currency||'').toUpperCase()==='USD')amt=Math.round(amt*25000);
+var dt=a.date_time_in_timezone||(a.event_time?new Date(a.event_time*1000).toISOString().slice(0,10):'');
+out.push({
+transId:a._tracking_id||a.id||'',
+amount:amt,
+time:dt,
+refCode:a._ref_code||'',
+accountFbId:payAccId,
+accountName:acc.account_name||'',
+accountId:payAccId,
+paymentAccountId:payAccId,
+invoiceId:a._vat_invoice_id||'',
+chargeType:a.event_type||'',
+sinceTs:String(sinceTs),
+untilTs:String(untilTs)
+});
+});
+});
+console.log('[Activities] '+mapped.length+' TK → '+out.length+' events ('+errCount+' lỗi)');
+return out;
+}
+
 async function fetchMetaBilling(dateRange){
 var results=[];
 var mapped=adList.filter(function(a){return a.fb_account_id;});
@@ -2580,9 +2731,10 @@ var until=maxParts[2]+'-'+(maxParts[1].length<2?'0':'')+maxParts[1]+'-'+(maxPart
 var sinceTs=Math.floor(new Date(since+'T00:00:00+07:00').getTime()/1000)-172800;
 var untilTs=Math.floor(new Date(until+'T23:59:59+07:00').getTime()/1000)+172800;
 var dateRangeStr=sinceTs+'_'+untilTs;
-// ═══ LOCAL SCRAPER DATA ═══
-// Nguồn chính: bảng meta_billing_transactions (fill bởi ~/Downloads/meta-billing-scraper).
-// Graph API /transactions đã bị Meta khoá nên chỉ dùng làm fallback.
+// ═══ PIPELINE: Supabase (scraper) → /activities (Phase 1) → daily_spend (cuối) ═══
+// 1. Supabase meta_billing_transactions (fill bởi ~/Downloads/meta-billing-scraper): ưu tiên cao nhất, có đủ refCode + VAT invoice.
+// 2. /act_<id>/activities?category=ACCOUNT_BILLING_CHARGES (real-time qua META_TOKEN): phòng khi scraper chưa chạy.
+// 3. daily_spend từ ads_insights: fallback cuối, không có refCode nên match kém.
 var assetIds=mapped.map(function(a){return (a.fb_account_id||'').replace('act_','');}).filter(Boolean);
 if(assetIds.length){
 try{
@@ -2597,40 +2749,15 @@ console.log('[Billing] Supabase: '+sbq.data.length+' giao dịch từ local scra
 return results;}
 }catch(e){console.warn('[Billing] Supabase query error:',e.message);}
 }
-for(var i=0;i<mapped.length;i+=50){
-var chunk=mapped.slice(i,i+50);
-var batchReqs=chunk.map(function(a){
-return{method:'GET',relative_url:a.fb_account_id+'/transactions?fields=id,time,billing_amount,fatura_id,charge_type,payment_option,product_type&time_start='+sinceTs+'&time_stop='+untilTs+'&limit=500'};});
+// PHASE 1: /activities engine — thay thế /transactions đã bị Meta khoá
+toast('Đang lấy Meta billing activities ('+mapped.length+' TK)...',true);
 try{
-var resp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
-var bResults=await resp.json();
-for(var k=0;k<bResults.length;k++){
-try{
-var httpCode=bResults[k].code||200;
-var body=JSON.parse(bResults[k].body||'{}');
-if(body.error){console.warn('[Billing] Tài khoản '+chunk[k].fb_account_id+':',body.error.message);continue;}
-if(!body.data||!body.data.length)continue;
-body.data.forEach(function(tx){
-var acc=chunk[k];
-var amt=0;
-if(tx.billing_amount){
-if(typeof tx.billing_amount==='object')amt=Math.round(Math.abs(parseFloat(tx.billing_amount.amount||tx.billing_amount.value||0)));
-else amt=Math.round(Math.abs(parseFloat(tx.billing_amount)));
-if(tx.billing_amount.currency==='USD')amt=Math.round(amt*25000);
-}else if(tx.amount){amt=Math.round(Math.abs(parseFloat(tx.amount)));}
-var refCode='';
-if(tx.payment_option){
-var po=typeof tx.payment_option==='string'?tx.payment_option:JSON.stringify(tx.payment_option);
-var rm=po.match(/([A-Z0-9]{6,12}(?:42|F2|K2|Y2|G2|U2|X2|B2|N2|T2|62|82))/i);
-if(rm)refCode=rm[1];}
-var payAccId=acc?acc.fb_account_id:'';
-results.push({transId:tx.id||'',amount:amt,time:tx.time||'',refCode:refCode,accountFbId:payAccId,accountName:acc?acc.account_name:'',accountId:payAccId,paymentAccountId:payAccId,invoiceId:tx.fatura_id||'',chargeType:tx.charge_type||'',sinceTs:String(sinceTs),untilTs:String(untilTs)});
-});}catch(e){console.warn('[Billing] parse error:',e.message);}}
-}catch(e){console.warn('Meta billing batch error:',e.message);}}
-if(!results.length){
-toast('Meta API không trả dữ liệu billing — đang fallback so khớp theo daily_spend',false);
+var actResults=await fetchMetaBillingActivities(mapped,sinceTs,untilTs);
+if(actResults&&actResults.length){console.log('[Billing] /activities: '+actResults.length+' events');return actResults;}
+}catch(e){console.warn('[Billing] /activities error:',e.message);}
+// Fallback cuối: daily_spend (không có refCode, so khớp kém)
+toast('Meta /activities không trả dữ liệu billing — fallback so khớp theo daily_spend',false);
 return fallbackDailySpend(dateRange,dateRangeStr);}
-return results;}
 
 function fallbackDailySpend(dateRange,dateRangeStr){
 var results=[];
