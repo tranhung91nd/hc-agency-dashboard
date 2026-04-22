@@ -2271,14 +2271,38 @@ h+='<button class="btn btn-ghost btn-sm" onclick="showMetaSyncStatus(this)">Tr�
 h+='</div>';
 h+='<div id="token-check-result"></div>';
 h+='<div id="meta-sync-status"></div>';
-// ═══ List sao kê đã lưu (Phase 2) ═══
+// ═══ List sao kê đã lưu (Phase 2) — nhóm theo tháng ═══
 if(vcbSavedStatements&&vcbSavedStatements.length>0){
-h+='<div style="margin-top:20px;padding:16px;background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;text-align:left;max-width:700px;margin-left:auto;margin-right:auto;">';
+h+='<div style="margin-top:20px;padding:16px;background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;text-align:left;max-width:720px;margin-left:auto;margin-right:auto;">';
 h+='<div style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:12px;letter-spacing:0.3px;text-transform:uppercase;">Sao kê đã lưu ('+vcbSavedStatements.length+')</div>';
-h+='<div style="display:flex;flex-direction:column;gap:6px;">';
+// Nhóm theo tháng (YYYY-MM từ date_from, fallback uploaded_at)
+var vcbByMonth={};
 vcbSavedStatements.forEach(function(s){
+var raw=s.date_from||(s.uploaded_at||'').slice(0,10)||'';
+var key=raw?raw.slice(0,7):'—';
+if(!vcbByMonth[key])vcbByMonth[key]={items:[],fbTxn:0,mv4bTxn:0,fbAmt:0,mv4bAmt:0};
+var g=vcbByMonth[key];
+g.items.push(s);
+g.fbTxn+=Number(s.total_fb_txn||0);
+g.mv4bTxn+=Number(s.total_mv4b_txn||0);
+g.fbAmt+=Number(s.total_fb_amount||0);
+g.mv4bAmt+=Number(s.total_mv4b_amount||0);
+});
+var vcbMonthKeys=Object.keys(vcbByMonth).sort().reverse();
+vcbMonthKeys.forEach(function(mk,mi){
+var g=vcbByMonth[mk];
+var label;
+if(mk==='—'){label='Chưa xác định tháng';}
+else{var mp=mk.split('-');label='Tháng '+parseInt(mp[1],10)+'/'+mp[0];}
+h+='<details'+(mi===0?' open':'')+' style="margin-bottom:8px;border:1px solid var(--bd1);border-radius:10px;background:var(--bg1);overflow:hidden;">';
+h+='<summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;user-select:none;">';
+h+='<span style="flex:1;">'+label+'</span>';
+h+='<span style="font-size:11px;color:var(--tx3);font-weight:500;white-space:nowrap;">'+g.items.length+' sao kê · '+g.fbTxn+' FB · <span class="mono" style="color:var(--red);">'+ff(g.fbAmt)+'</span></span>';
+h+='</summary>';
+h+='<div style="padding:4px 10px 10px;display:flex;flex-direction:column;gap:6px;">';
+g.items.forEach(function(s){
 var safeName=String(s.file_name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
-h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg1);border:1px solid var(--bd1);border-radius:10px;">';
+h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd1);border-radius:10px;">';
 h+='<div style="flex:1;min-width:0;">';
 h+='<div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(s.file_name||'—')+'</div>';
 h+='<div style="font-size:11px;color:var(--tx3);margin-top:2px;">'+(s.date_from||'—')+' → '+(s.date_to||'—')+' · '+s.total_fb_txn+' FB + '+s.total_mv4b_txn+' MV4B · <span class="mono" style="color:var(--red);">'+ff(s.total_fb_amount)+'</span></div>';
@@ -2287,7 +2311,9 @@ h+='<button class="btn btn-primary btn-sm" onclick="loadVcbFromSupabase(\''+s.id
 h+='<button class="btn btn-ghost btn-sm" onclick="confirmDeleteVcbStatement(\''+s.id+'\',\''+safeName+'\')" style="color:var(--red);">Xóa</button>';
 h+='</div>';
 });
-h+='</div></div>';
+h+='</div></details>';
+});
+h+='</div>';
 }
 }else{
 h+='<div style="display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap;">';
