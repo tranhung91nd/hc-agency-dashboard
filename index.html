@@ -2488,9 +2488,11 @@ var isFb=detail.indexOf('FACEBK')>=0;
 if(!isFb)continue;
 var refMatch=detail.match(/FACEBK\s*\*(\S+)/);
 var refCode=refMatch?refMatch[1].replace(/\s+/g,''):'';
+// Đuôi thẻ: tìm pattern "...NNNN." trong description (NNNN = 4 chữ số giữa 3 dấu chấm và 1 dấu chấm)
+// VD: "UHHT..703557..20260330.      .222806...1796.20260331.DG:FACEBK" → 1796
 var card='';
-var docParts=dateDoc.split('\n');
-if(docParts.length>1){var docNum=docParts[1]||'';var cm=docNum.match(/(\d{4})\s*-/);if(cm)card=cm[1];}
+var cm=detail.match(/\.{3}(\d{4})\./);
+if(cm)card=cm[1];
 var isMv4b=refCode.indexOf('MV4B')>=0||refCode==='MV4B';
 parsedRows.push({date:date,debit:debit,refCode:refCode,card:card,detail:detail,isMv4b:isMv4b});
 if(allDates.indexOf(date)<0)allDates.push(date);

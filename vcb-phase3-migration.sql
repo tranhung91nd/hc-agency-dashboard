@@ -22,3 +22,10 @@ create index if not exists idx_vcb_txn_dedupe
 
 create index if not exists idx_vcb_txn_user_date
   on vcb_transaction (user_id, tx_date_iso desc);
+
+-- 4. Backfill card_last4 từ description (fix bug: trước đây lấy nhầm doc prefix "5254" làm đuôi thẻ)
+-- Pattern thực: "...NNNN.YYYYMMDD.DG:FACEBK" → NNNN là 4 số đuôi thẻ thật
+-- VD: "UHHT..703557..20260330.      .222806...1796.20260331.DG:FACEBK" → 1796
+update vcb_transaction
+set card_last4 = substring(description from '\.{3}(\d{4})\.')
+where description ~ '\.{3}\d{4}\.';
