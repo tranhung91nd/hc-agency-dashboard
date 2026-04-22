@@ -2728,32 +2728,41 @@ if(a._tracking_id)return a._tracking_id;
 return[a.event_time,a.event_type,a.object_id,a._amount==null?'':a._amount].join('|');
 }
 
-async function mbFetchActivitiesForAccount(clean,sinceTs,untilTs,token){
-// Safe-merge: chunkDays 7 + 1 song song → dedupe
-var strategies=[7,1];
-var runs=await Promise.allSettled(strategies.map(async function(chunkDays){
-var subs=mbSplitRangeByDays(sinceTs,untilTs,chunkDays);
+// Fetch tất cả chunks của 1 strategy SONG SONG (limit concurrency để tránh FB throttle)
+async function mbFetchChunksParallel(clean,subs,token,concurrency){
+var tasks=subs.map(function(s){return function(){
+return mbFetchBillingChunk(clean,s.since,s.until,token);
+};});
+var results=await mbParallelLimit(tasks,concurrency||4);
 var all=[];
-for(var i=0;i<subs.length;i++){
-try{
-var raw=await mbFetchBillingChunk(clean,subs[i].since,subs[i].until,token);
-all=all.concat(raw);
-}catch(e){console.warn('[Activities '+clean+' '+chunkDays+'d]',e.message);}
+for(var i=0;i<results.length;i++){
+var r=results[i];
+if(r&&Array.isArray(r))all=all.concat(r);
+else if(r&&r.__error)console.warn('[Activities '+clean+' chunk#'+i+']',r.__error);
 }
 return all;
-}));
+}
+
+async function mbFetchActivitiesForAccount(clean,sinceTs,untilTs,token){
+// Fast path: thử chunk 7 ngày SONG SONG trước
+// Strategy 1d vốn chỉ để phòng FB silent-cap — với ACCOUNT_BILLING_CHARGES (~1-5 events/ngày) không bao giờ chạm cap.
+// Chỉ fallback xuống 1d khi 7d trả rỗng (hiếm gặp).
+var subs7=mbSplitRangeByDays(sinceTs,untilTs,7);
+var raw7=await mbFetchChunksParallel(clean,subs7,token,4);
+var rawFinal=raw7;
+if(raw7.length===0){
+// Fallback: thử chunk 1d song song (chỉ khi 7d rỗng — rare case)
+var subs1=mbSplitRangeByDays(sinceTs,untilTs,1);
+rawFinal=await mbFetchChunksParallel(clean,subs1,token,4);
+}
 var merged=new Map();
-for(var i=0;i<runs.length;i++){
-if(runs[i].status!=='fulfilled')continue;
-var events=runs[i].value;
-for(var j=0;j<events.length;j++){
-var a=events[j];
+for(var j=0;j<rawFinal.length;j++){
+var a=rawFinal[j];
 var et=a.event_type||'';
 if(META_BILLING_EVENT_TYPES.indexOf(et)<0&&et.indexOf('billing')<0&&et.indexOf('funding')<0)continue;
 mbParseBillingEvent(a);
 var key=mbBillingDedupKey(a);
 if(!merged.has(key))merged.set(key,a);
-}
 }
 var out=[];merged.forEach(function(v){out.push(v);});
 return out;
@@ -2767,7 +2776,7 @@ if(!clean)return{acc:a,events:[]};
 var events=await mbFetchActivitiesForAccount(clean,sinceTs,untilTs,META_TOKEN);
 return{acc:a,events:events};
 };});
-var results=await mbParallelLimit(tasks,5);
+var results=await mbParallelLimit(tasks,8);
 var out=[];var errCount=0;
 results.forEach(function(r){
 if(!r||r.__error){errCount++;return;}
