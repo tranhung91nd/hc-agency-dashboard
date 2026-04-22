@@ -1128,7 +1128,7 @@ function sc(c){return CL[c]||CL.blue;}
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,finTab=0,reconcileData=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20;
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,finTab=0,reconcileData=null,vcbSavedStatements=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20;
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -2256,6 +2256,8 @@ h+='</table></div>';return h;}
 
 // ═══ ĐỐI SOÁT Vietcombank ═══
 function p4DoiSoat(){
+// Trigger load list sao kê đã lưu lần đầu vào page
+if(authUser&&vcbSavedStatements===null){vcbSavedStatements=[];setTimeout(refreshVcbStatements,0);}
 var h='<div class="page-sub">So khớp sao kê Vietcombank với Meta Billing theo mã tham chiếu từng giao dịch</div>';
 h+='<div class="form-card"><div style="text-align:center;padding:20px 0;">';
 if(!reconcileData){
@@ -2269,12 +2271,35 @@ h+='<button class="btn btn-ghost btn-sm" onclick="showMetaSyncStatus(this)">Tr�
 h+='</div>';
 h+='<div id="token-check-result"></div>';
 h+='<div id="meta-sync-status"></div>';
+// ═══ List sao kê đã lưu (Phase 2) ═══
+if(vcbSavedStatements&&vcbSavedStatements.length>0){
+h+='<div style="margin-top:20px;padding:16px;background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;text-align:left;max-width:700px;margin-left:auto;margin-right:auto;">';
+h+='<div style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:12px;letter-spacing:0.3px;text-transform:uppercase;">Sao kê đã lưu ('+vcbSavedStatements.length+')</div>';
+h+='<div style="display:flex;flex-direction:column;gap:6px;">';
+vcbSavedStatements.forEach(function(s){
+var safeName=String(s.file_name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg1);border:1px solid var(--bd1);border-radius:10px;">';
+h+='<div style="flex:1;min-width:0;">';
+h+='<div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(s.file_name||'—')+'</div>';
+h+='<div style="font-size:11px;color:var(--tx3);margin-top:2px;">'+(s.date_from||'—')+' → '+(s.date_to||'—')+' · '+s.total_fb_txn+' FB + '+s.total_mv4b_txn+' MV4B · <span class="mono" style="color:var(--red);">'+ff(s.total_fb_amount)+'</span></div>';
+h+='</div>';
+h+='<button class="btn btn-primary btn-sm" onclick="loadVcbFromSupabase(\''+s.id+'\')">Mở</button>';
+h+='<button class="btn btn-ghost btn-sm" onclick="confirmDeleteVcbStatement(\''+s.id+'\',\''+safeName+'\')" style="color:var(--red);">Xóa</button>';
+h+='</div>';
+});
+h+='</div></div>';
+}
 }else{
 h+='<div style="display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap;">';
 h+='<span class="badge b-green">Đã upload</span>';
 h+='<span style="font-size:13px;font-weight:500;">'+esc(reconcileData.fileName)+'</span>';
 h+='<span style="font-size:11px;color:var(--tx3);">'+reconcileData.dateRange+' · '+reconcileData.vcbRows.length+' giao dịch FB · '+reconcileData.mv4bRows.length+' MV4B</span>';
-h+='<button class="btn btn-ghost btn-sm" onclick="reconcileData=null;render()">Xóa & upload lại</button>';
+if(reconcileData.statementId){
+h+='<button class="btn btn-ghost btn-sm" onclick="reconcileData=null;render()">Đóng (giữ lưu)</button>';
+h+='<button class="btn btn-ghost btn-sm" onclick="confirmDeleteVcbStatement(\''+reconcileData.statementId+'\',\''+String(reconcileData.fileName||'').replace(/\x27/g,"\\x27")+'\')" style="color:var(--red);">Xóa khỏi cloud</button>';
+}else{
+h+='<button class="btn btn-ghost btn-sm" onclick="reconcileData=null;render()">Đóng</button>';
+}
 h+='</div>';}
 h+='</div></div>';
 if(!reconcileData)return h;
@@ -2373,10 +2398,86 @@ var pid=(meta.paymentAccountId||meta.accountFbId||'').replace('act_','');
 var dateParam=(meta.sinceTs&&meta.untilTs)?(meta.sinceTs+'_'+meta.untilTs):'';
 return'https://business.facebook.com/billing_hub/payment_activity/transaction_details?asset_id='+pid+'&business_id='+META_BUSINESS_ID+'&placement=ads_manager&global_scope_id='+META_GLOBAL_SCOPE_ID+'&payment_account_id='+pid+'&transaction_id='+encodeURIComponent(meta.transId)+(dateParam?'&date='+dateParam:'');}
 
+// ═══ VCB PERSISTENCE (Phase 2) ═══
+// Lưu sao kê + từng giao dịch lên Supabase để reload không mất.
+async function fileHashHex(file){
+var buf=await file.arrayBuffer();
+var h=await crypto.subtle.digest('SHA-256',buf);
+return Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,'0');}).join('').slice(0,32);
+}
+function vcbDateToIso(s){
+var p=String(s||'').split('/');
+if(p.length!==3)return null;
+return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');
+}
+async function loadVcbStatements(){
+if(!authUser)return[];
+var r=await sb2.from('vcb_statement').select('*').order('uploaded_at',{ascending:false});
+if(r.error){console.warn('[VCB]',r.error.message);return[];}
+return r.data||[];
+}
+async function loadVcbStatementDetail(statementId){
+if(!authUser)return null;
+var sq=await sb2.from('vcb_statement').select('*').eq('id',statementId).single();
+var tq=await sb2.from('vcb_transaction').select('*').eq('statement_id',statementId).order('id');
+if(sq.error||tq.error){console.warn('[VCB]',(sq.error||tq.error).message);return null;}
+var stmt=sq.data,txns=tq.data||[];
+var vcbRows=txns.filter(function(t){return!t.is_mv4b;}).map(function(t){return{date:t.tx_date,debit:Number(t.debit||0),refCode:t.ref_code||'',card:t.card_last4||'',detail:t.description||'',isMv4b:false};});
+var mv4bRows=txns.filter(function(t){return t.is_mv4b;}).map(function(t){return{date:t.tx_date,debit:Number(t.debit||0),refCode:t.ref_code||'',card:t.card_last4||'',detail:t.description||'',isMv4b:true};});
+var ad=Array.from(new Set(txns.map(function(t){return t.tx_date;}).filter(Boolean))).sort();
+return{stmt:stmt,vcbRows:vcbRows,mv4bRows:mv4bRows,allDates:ad};
+}
+async function deleteVcbStatement(statementId){
+if(!authUser||!statementId)return false;
+var r=await sb2.from('vcb_statement').delete().eq('id',statementId);
+if(r.error){toast('Xóa thất bại: '+r.error.message,false);return false;}
+return true;
+}
+async function loadVcbFromSupabase(statementId){
+toast('Đang tải sao kê đã lưu...',true);
+var loaded=await loadVcbStatementDetail(statementId);
+if(!loaded){toast('Lỗi tải sao kê',false);return;}
+var stmt=loaded.stmt,vcbRows=loaded.vcbRows,mv4bRows=loaded.mv4bRows,allDates=loaded.allDates;
+toast('Đang lấy Meta Billing...',true);
+var metaTxns=await fetchMetaBilling(allDates);
+var matched=matchVcbToMeta(vcbRows,metaTxns);
+var totalVcb=vcbRows.reduce(function(t,v){return t+v.debit;},0);
+var totalMeta=matched.reduce(function(t,m){return t+(m.meta?m.meta.amount:0);},0);
+reconcileData={statementId:stmt.id,fileName:stmt.file_name,vcbRows:vcbRows,mv4bRows:mv4bRows,otherRows:[],matched:matched,totalVcb:totalVcb,totalMeta:totalMeta,dateRange:allDates.length?(allDates[0]+' — '+allDates[allDates.length-1]):''};
+toast('Đã tải: '+matched.filter(function(m){return m.meta;}).length+'/'+vcbRows.length+' khớp mã',true);
+render();
+}
+async function confirmDeleteVcbStatement(statementId,fileName){
+if(!confirm('Xóa sao kê "'+fileName+'"?\n\nToàn bộ giao dịch đã lưu sẽ mất.'))return;
+var ok=await deleteVcbStatement(statementId);
+if(!ok)return;
+if(reconcileData&&reconcileData.statementId===statementId)reconcileData=null;
+vcbSavedStatements=await loadVcbStatements();
+toast('Đã xóa sao kê',true);
+render();
+}
+async function refreshVcbStatements(){
+vcbSavedStatements=await loadVcbStatements();
+render();
+}
+
 async function handleVcbUpload(file){
 if(!file)return;
-toast('Đang phân tích sao kê...',true);
+if(!authUser){toast('Cần đăng nhập để lưu sao kê',false);return;}
+toast('Đang tính hash file...',true);
 try{
+var fileHash=await fileHashHex(file);
+// Check duplicate
+var dupQ=await sb2.from('vcb_statement').select('id,file_name,uploaded_at').eq('user_id',authUser.id).eq('file_md5',fileHash).maybeSingle();
+if(dupQ.data){
+if(confirm('File này đã upload trước đó ("'+dupQ.data.file_name+'").\n\nOK = Tải lại dữ liệu đã lưu\nCancel = Thay thế bằng upload mới')){
+await loadVcbFromSupabase(dupQ.data.id);
+return;
+}else{
+await deleteVcbStatement(dupQ.data.id);
+}
+}
+toast('Đang phân tích sao kê...',true);
 var data=await file.arrayBuffer();
 var XLSX=await loadXLSX();
 var wb=XLSX.read(data,{type:'array'});
@@ -2404,12 +2505,39 @@ var entry={date:date,debit:debit,refCode:refCode,card:card,detail:detail,isMv4b:
 if(isMv4b)mv4bRows.push(entry);else vcbRows.push(entry);
 if(allDates.indexOf(date)<0)allDates.push(date);}
 allDates.sort();
-toast('Đã parse '+vcbRows.length+' giao dịch FB + '+mv4bRows.length+' MV4B. Đang lấy Meta Billing...',true);
+
+// ═══ Lưu Supabase ═══
+toast('Đang lưu '+(vcbRows.length+mv4bRows.length)+' giao dịch vào Supabase...',true);
+var totalFbAmt=vcbRows.reduce(function(t,v){return t+v.debit;},0);
+var totalMv4bAmt=mv4bRows.reduce(function(t,v){return t+v.debit;},0);
+var isoDates=allDates.map(vcbDateToIso).filter(Boolean).sort();
+var stmtIns=await sb2.from('vcb_statement').insert({
+user_id:authUser.id,file_name:file.name,file_md5:fileHash,
+date_from:isoDates[0]||null,date_to:isoDates[isoDates.length-1]||null,
+total_fb_txn:vcbRows.length,total_mv4b_txn:mv4bRows.length,
+total_fb_amount:totalFbAmt,total_mv4b_amount:totalMv4bAmt
+}).select().single();
+if(stmtIns.error){toast('Lưu cloud thất bại: '+stmtIns.error.message+' (chạy SQL Phase 2 chưa?)',false);return;}
+var statementId=stmtIns.data.id;
+var allTxnRows=vcbRows.concat(mv4bRows).map(function(r){return{
+statement_id:statementId,user_id:authUser.id,
+tx_date:r.date,tx_date_iso:vcbDateToIso(r.date),
+description:r.detail,ref_code:r.refCode,card_last4:r.card,
+debit:Math.round(r.debit),credit:0,is_mv4b:r.isMv4b
+};});
+for(var k=0;k<allTxnRows.length;k+=500){
+var chunk=allTxnRows.slice(k,k+500);
+var ins=await sb2.from('vcb_transaction').insert(chunk);
+if(ins.error){console.warn('[VCB chunk]',ins.error.message);toast('Một phần giao dịch không lưu được: '+ins.error.message,false);}
+}
+vcbSavedStatements=await loadVcbStatements();
+
+toast('Đã lưu. Đang lấy Meta Billing...',true);
 var metaTxns=await fetchMetaBilling(allDates);
 var matched=matchVcbToMeta(vcbRows,metaTxns);
-var totalVcb=vcbRows.reduce(function(t,v){return t+v.debit;},0);
+var totalVcb=totalFbAmt;
 var totalMeta=matched.reduce(function(t,m){return t+(m.meta?m.meta.amount:0);},0);
-reconcileData={fileName:file.name,vcbRows:vcbRows,mv4bRows:mv4bRows,otherRows:otherRows,matched:matched,totalVcb:totalVcb,totalMeta:totalMeta,dateRange:allDates.length?(allDates[0]+' — '+allDates[allDates.length-1]):''};
+reconcileData={statementId:statementId,fileName:file.name,vcbRows:vcbRows,mv4bRows:mv4bRows,otherRows:otherRows,matched:matched,totalVcb:totalVcb,totalMeta:totalMeta,dateRange:allDates.length?(allDates[0]+' — '+allDates[allDates.length-1]):''};
 toast('Đối soát xong: '+matched.filter(function(m){return m.meta;}).length+'/'+vcbRows.length+' khớp mã',true);
 render();
 }catch(e){toast('Lỗi: '+e.message,false);}}
@@ -2641,7 +2769,7 @@ return'<div style="display:flex;align-items:center;justify-content:center;min-he
 +'<div style="text-align:center;margin-top:16px;font-size:11px;color:var(--tx3);">HC Agency &copy; 2026</div>'
 +'</div></div>';}
 async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){var firstPage=typeof userAllowedPages[0]==='string'?parseInt(userAllowedPages[0]):userAllowedPages[0];curPage=firstPage;}else{curPage=0;}toast('Đăng nhập thành công! ('+userRole+')',true);autoSync();render();}}
-async function doLogout(){await sb2.auth.signOut();authUser=null;userRole='guest';userAllowedPages=null;META_TOKEN='';curPage=0;toast('Đã đăng xuất',true);render();}
+async function doLogout(){await sb2.auth.signOut();authUser=null;userRole='guest';userAllowedPages=null;META_TOKEN='';curPage=0;reconcileData=null;vcbSavedStatements=null;toast('Đã đăng xuất',true);render();}
 async function checkAuth(){var{data}=await sb2.auth.getSession();if(data.session){authUser=data.session.user;await loadUserRole();}}
 async function loadUserRole(){
 if(!authUser){userRole='guest';userAllowedPages=null;return;}
