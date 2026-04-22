@@ -2333,13 +2333,14 @@ if(filter==='nomatch')rows=rows.filter(function(r){return!r.meta;});}
 if(cardFilter)rows=rows.filter(function(r){return(r.vcb||r).card===cardFilter||(r.isMv4b&&r.vcb.card===cardFilter);});
 var h='<div class="table-wrap"><table style="min-width:900px;"><thead><tr>';
 h+='<th colspan="4" style="text-align:center;background:rgba(220,38,38,0.06);color:var(--red);border-right:2px solid rgba(220,38,38,0.15);">Sao kê Vietcombank</th>';
-h+='<th colspan="3" style="text-align:center;background:rgba(37,99,235,0.06);color:var(--blue);border-right:2px solid rgba(37,99,235,0.15);">Meta Billing</th>';
+h+='<th colspan="4" style="text-align:center;background:rgba(37,99,235,0.06);color:var(--blue);border-right:2px solid rgba(37,99,235,0.15);">Meta Billing</th>';
 h+='<th colspan="2" style="text-align:center;">Kết quả</th></tr><tr>';
 h+='<th style="background:rgba(220,38,38,0.03);">Ngày trừ</th>';
 h+='<th style="background:rgba(220,38,38,0.03);text-align:right;">Số tiền Vietcombank</th>';
 h+='<th style="background:rgba(220,38,38,0.03);">Mã tham chiếu</th>';
 h+='<th style="background:rgba(220,38,38,0.03);border-right:2px solid rgba(220,38,38,0.15);">Thẻ</th>';
 h+='<th style="background:rgba(37,99,235,0.03);text-align:right;">Số tiền Meta</th>';
+h+='<th style="background:rgba(37,99,235,0.03);">Mã tham chiếu</th>';
 h+='<th style="background:rgba(37,99,235,0.03);">Hoá đơn VAT</th>';
 h+='<th style="background:rgba(37,99,235,0.03);border-right:2px solid rgba(37,99,235,0.15);">Tài khoản quảng cáo</th>';
 h+='<th style="text-align:right;">Chênh lệch</th><th></th></tr></thead><tbody>';
@@ -2359,11 +2360,19 @@ h+='<td style="background:rgba(220,38,38,0.03);"><span style="font-family:monosp
 h+='<td style="background:rgba(220,38,38,0.03);border-right:2px solid rgba(220,38,38,0.15);"><span style="display:inline-flex;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:500;background:'+(isMv4b?'var(--purple-bg);color:var(--purple-tx)':'var(--bg3);color:var(--tx3)')+';">'+esc(v.card||'—')+'</span></td>';
 if(isMv4b){
 h+='<td style="background:rgba(37,99,235,0.03);text-align:right;color:var(--tx3);">—</td>';
+h+='<td style="background:rgba(37,99,235,0.03);color:var(--tx3);">—</td>';
 h+='<td style="background:rgba(37,99,235,0.03);font-size:11px;color:var(--tx3);">Phí tích xanh / xác minh</td>';
 h+='<td style="background:rgba(37,99,235,0.03);border-right:2px solid rgba(37,99,235,0.15);">—</td>';
 h+='<td style="text-align:right;">—</td><td><span class="badge b-purple">MV4B</span></td>';
 }else if(m){
 h+='<td class="mono" style="background:rgba(37,99,235,0.03);text-align:right;color:var(--blue);">'+ff(m.amount)+'</td>';
+var vRef=(v.refCode||'').toUpperCase(),mRef=(m.refCode||'').toUpperCase();
+var refMatch=vRef&&mRef&&vRef===mRef;
+if(mRef){
+h+='<td style="background:rgba(37,99,235,0.03);"><span style="font-family:monospace;font-size:11px;color:'+(refMatch?'var(--green-tx)':'var(--amber-tx)')+';background:'+(refMatch?'var(--green-bg)':'var(--amber-bg)')+';padding:2px 6px;border-radius:4px;">'+esc(mRef)+'</span></td>';
+}else{
+h+='<td style="background:rgba(37,99,235,0.03);color:var(--tx3);font-size:11px;">—</td>';
+}
 if(m.transId){
 var billLink=buildBillingLink(m);
 var linkLabel=m.invoiceId||m.transId.substring(0,18)+'...';
@@ -2372,9 +2381,10 @@ h+='<td style="background:rgba(37,99,235,0.03);"><a href="'+billLink+'" target="
 h+='<td style="background:rgba(37,99,235,0.03);"><span style="font-size:10px;padding:3px 8px;border-radius:6px;background:var(--bg3);color:var(--tx3);">'+(m.isSpendFallback?'daily_spend':'—')+'</span></td>';}
 h+='<td style="background:rgba(37,99,235,0.03);border-right:2px solid rgba(37,99,235,0.15);font-size:11px;">'+esc(m.accountName||'—')+'</td>';
 h+='<td class="mono" style="text-align:right;color:var(--amber);">'+(diffVal>0?'+':'')+ff(diffVal)+'</td>';
-h+='<td><span class="badge '+(r.pctDiff>2?'b-amber':'b-green')+'">'+(r.pctDiff>2?'>2%':'Khớp')+'</span></td>';
+h+='<td><span class="badge '+(refMatch?(r.pctDiff>2?'b-amber':'b-green'):'b-amber')+'">'+(refMatch?(r.pctDiff>2?'Khớp mã, lệch số':'Khớp'):'Lệch mã')+'</span></td>';
 }else{
 h+='<td style="background:rgba(37,99,235,0.03);text-align:right;color:var(--tx3);">—</td>';
+h+='<td style="background:rgba(37,99,235,0.03);color:var(--tx3);font-size:11px;">—</td>';
 h+='<td style="background:rgba(37,99,235,0.03);color:var(--tx3);font-size:11px;">Chưa tìm thấy</td>';
 h+='<td style="background:rgba(37,99,235,0.03);border-right:2px solid rgba(37,99,235,0.15);">—</td>';
 h+='<td style="text-align:right;">—</td><td><span class="badge b-red">Không khớp</span></td>';}
@@ -2384,7 +2394,7 @@ h+='</tbody><tfoot><tr style="background:var(--bg2);font-weight:600;"><td>Tổng
 h+='<td class="mono" style="text-align:right;color:var(--red);">'+ff(sumVcb)+'</td>';
 h+='<td colspan="2" style="border-right:2px solid rgba(220,38,38,0.15);font-size:11px;color:var(--tx3);">'+rows.length+' giao dịch</td>';
 h+='<td class="mono" style="text-align:right;color:var(--blue);">'+ff(sumMeta)+'</td>';
-h+='<td colspan="2" style="border-right:2px solid rgba(37,99,235,0.15);"></td>';
+h+='<td colspan="3" style="border-right:2px solid rgba(37,99,235,0.15);"></td>';
 h+='<td class="mono" style="text-align:right;color:var(--amber);">'+(sumDiff>0?'+':'')+ff(sumDiff)+'</td>';
 h+='<td></td></tr></tfoot></table></div>';
 return h;}
@@ -2839,23 +2849,17 @@ results.push({transId:'',amount:ds.spend_amount,time:isoDate,refCode:'',accountF
 return results;}
 
 function matchVcbToMeta(vcbRows,metaTxns){
+// Chỉ match khi VCB.refCode === Meta.refCode (2 mã tham chiếu giống nhau).
+// Bỏ fallback theo số tiền → tránh ghép nhầm 2 giao dịch cùng giá nhưng khác campaign.
 var used={};
 var metaByRef={};
 metaTxns.forEach(function(m,i){if(m.refCode){var k=m.refCode.toUpperCase();if(!metaByRef[k])metaByRef[k]={idx:i,meta:m};}});
 return vcbRows.map(function(v){
-var k=v.refCode.toUpperCase();
-if(metaByRef[k]&&!used[metaByRef[k].idx]){
+var k=(v.refCode||'').toUpperCase();
+if(k&&metaByRef[k]&&!used[metaByRef[k].idx]){
 var mi=metaByRef[k];used[mi.idx]=true;
 var d=Math.abs(v.debit-mi.meta.amount);
 return{vcb:v,meta:mi.meta,diff:d,pctDiff:v.debit>0?(d/v.debit*100):0};}
-var bestMatch=null,bestDiff=Infinity;
-for(var i=0;i<metaTxns.length;i++){
-if(used[i])continue;
-var m=metaTxns[i];
-var amtDiff=Math.abs(v.debit-m.amount);
-var pctDiff=v.debit>0?(amtDiff/v.debit*100):100;
-if(pctDiff<5&&amtDiff<bestDiff){bestDiff=amtDiff;bestMatch={idx:i,meta:m,diff:amtDiff,pctDiff:pctDiff};}}
-if(bestMatch){used[bestMatch.idx]=true;return{vcb:v,meta:bestMatch.meta,diff:bestMatch.diff,pctDiff:bestMatch.pctDiff};}
 return{vcb:v,meta:null,diff:0,pctDiff:0};});}
 
 function loadXLSX(){
