@@ -2291,9 +2291,29 @@ h+='<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'vcb-
 h+='<button class="btn btn-primary btn-sm" id="btn-doi-soat" onclick="runReconciliation(this)">'+(rd.reconciled?'Đối soát lại':'Đối soát với Meta')+'</button>';
 h+='<span style="font-size:12px;color:var(--tx3);white-space:nowrap;">'+rd.dateRange+' · '+rd.vcbRows.length+' FB + '+rd.mv4bRows.length+' MV4B</span>';
 h+='<span style="flex:1;"></span>';
-h+='<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'ext-json-file\').click()" style="font-size:11px;color:var(--blue);" title="Nhập file JSON xuất từ extension HC Agency (nút ⬇️ Xuất lịch sử)">Import JSON từ extension'+(window.extensionMetaTxns&&window.extensionMetaTxns.length?' ('+window.extensionMetaTxns.length+')':'')+'</button>';
+h+='<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'ext-json-file\').click()" style="font-size:11px;color:var(--blue);" title="Có thể import NHIỀU file: dashboard tự gộp và dedupe theo transaction_id. Lấy thêm tháng trước ở extension rồi import lại để khớp đầu kỳ.">Import JSON từ extension'+(window.extensionMetaTxns&&window.extensionMetaTxns.length?' ('+window.extensionMetaTxns.length+')':'')+'</button>';
+if(window.extensionMetaTxns&&window.extensionMetaTxns.length){
+  h+='<button class="btn btn-ghost btn-sm" onclick="clearExtensionMetaTxns()" style="font-size:11px;color:var(--red);" title="Xoá dữ liệu Meta đã import">×</button>';
+}
 h+='<button class="btn btn-ghost btn-sm" onclick="showVcbHistoryModal(this)" style="font-size:11px;">Lịch sử upload</button>';
 h+='</div>';
+// ═══ Banner cảnh báo lỗ hổng dữ liệu Meta (khi import từ extension) ═══
+if(rd.reconciled&&rd._coverageGap){
+  var g=rd._coverageGap;
+  if(g.headGap||g.tailGap){
+    h+='<div style="margin-top:10px;padding:10px 12px;background:var(--amber-bg);border-left:3px solid var(--amber);border-radius:6px;font-size:12px;color:var(--amber-tx);">';
+    h+='<div style="font-weight:600;margin-bottom:4px;">⚠ Dữ liệu Meta chưa phủ đủ khoảng VCB</div>';
+    h+='<div style="font-size:11px;">VCB sao kê: <b>'+esc(g.vcbRange[0])+'</b> → <b>'+esc(g.vcbRange[1])+'</b> · Meta đã có: <b>'+esc(g.metaRange[0])+'</b> → <b>'+esc(g.metaRange[1])+'</b></div>';
+    if(g.headGap){
+      h+='<div style="font-size:11px;margin-top:3px;">• VCB đầu kỳ thường là tiền của Meta charge <b>trước đó 3-10 ngày</b>. Cần lấy thêm Meta từ <b>'+esc(g.headGap.from)+'</b> → <b>'+esc(g.headGap.to)+'</b>.</div>';
+    }
+    if(g.tailGap){
+      h+='<div style="font-size:11px;margin-top:3px;">• Thiếu Meta cuối kỳ: <b>'+esc(g.tailGap.from)+'</b> → <b>'+esc(g.tailGap.to)+'</b></div>';
+    }
+    h+='<div style="font-size:11px;margin-top:6px;opacity:.85;">Cách khắc phục: mở extension HC Agency → chạy "Lấy hoá đơn hàng loạt" cho tháng trước → bấm "⬇️ Xuất lịch sử" → import JSON mới ở đây (sẽ tự gộp).</div>';
+    h+='</div>';
+  }
+}
 h+='<div id="token-check-result"></div>';
 h+='<div id="vcb-history-wrap"></div>';
 h+='</div>';
@@ -2613,7 +2633,14 @@ var totalMeta=matched.reduce(function(t,m){return t+(m.meta?m.meta.amount:0);},0
 reconcileData.matched=matched;
 reconcileData.totalMeta=totalMeta;
 reconcileData.reconciled=true;
-toast('Đối soát xong: '+matched.filter(function(m){return m.meta;}).length+'/'+reconcileData.vcbRows.length+' khớp mã',true);
+reconcileData._coverageGap=checkMetaCoverageGap(reconcileData.vcbRows,metaTxns);
+var nMatch=matched.filter(function(m){return m.meta;}).length;
+var nMiss=reconcileData.vcbRows.length-nMatch;
+var msg='Đối soát: '+nMatch+'/'+reconcileData.vcbRows.length+' khớp';
+if(reconcileData._coverageGap&&reconcileData._coverageGap.headGap&&nMiss>0){
+  msg+=' · Xem banner ⚠ để lấy thêm Meta đầu kỳ';
+}
+toast(msg,nMiss===0);
 }catch(e){toast('Lỗi đối soát: '+e.message,false);}
 if(btn){btn.disabled=false;}
 render();
@@ -2662,6 +2689,14 @@ if(el){el.innerHTML='';el.removeAttribute('data-view');showVcbHistoryModal();}
 // Port từ content-hook.js (lexcom-lite extension).
 var EAA_SNIPPET=`(function(){var P=[/"accessToken"\\s*:\\s*"(EAA[A-Za-z0-9_\\-]{30,})"/,/"access_token"\\s*:\\s*"(EAA[A-Za-z0-9_\\-]{30,})"/,/"token"\\s*:\\s*"(EAA[A-Za-z0-9_\\-]{30,})"/,/\\bEAA[A-Za-z0-9_\\-]{30,}/];function f(t){for(var i=0;i<P.length;i++){var m=String(t).match(P[i]);if(m){var x=m[1]||m[0];if(x.indexOf('EAA')===0&&x.length>=30)return x;}}return null;}var t=null;try{if(typeof require==='function'){try{t=require('CurrentAccessToken').ACCESS_TOKEN;}catch(e){}if(!t)try{t=require('AccessToken').ACCESS_TOKEN;}catch(e){}if(!t)try{var E=require('Env');t=E.access_token||E.accessToken;}catch(e){}}}catch(e){}if(!t){var S=document.querySelectorAll('script');for(var i=0;i<S.length;i++){var x=f(S[i].textContent||'');if(x){t=x;break;}}}if(!t)t=f(document.documentElement.outerHTML);if(!t){alert('Khong tim thay EAA token. Mo tab adsmanager.facebook.com/adsmanager/manage/campaigns roi chay lai snippet nay.');return;}navigator.clipboard.writeText(t).then(function(){console.log('%c\u2713 EAA token da copy vao clipboard','color:green;font-weight:700;font-size:14px;');console.log('Length:',t.length,'First 20:',t.slice(0,20)+'...');alert('\u2713 Da copy EAA token ('+t.length+' chars).\\n\\nQuay lai dashboard -> Paste vao o EAA -> Luu.');},function(){prompt('Copy token (Ctrl+C):',t);});})();`;
 
+// Bookmarklet: user kéo link vào bookmark bar, bấm trên tab Facebook → tự mở app kèm token trong URL fragment.
+// URL fragment (#eaa=...) KHÔNG gửi tới server → an toàn hơn query param.
+function buildEaaBookmarkletHref(){
+var appUrl=location.origin+location.pathname;
+var body="(function(){var APP="+JSON.stringify(appUrl)+";var P=[/\"accessToken\"\\s*:\\s*\"(EAA[A-Za-z0-9_\\-]{30,})\"/,/\"access_token\"\\s*:\\s*\"(EAA[A-Za-z0-9_\\-]{30,})\"/,/\"token\"\\s*:\\s*\"(EAA[A-Za-z0-9_\\-]{30,})\"/,/\\bEAA[A-Za-z0-9_\\-]{30,}/];function f(t){for(var i=0;i<P.length;i++){var m=String(t).match(P[i]);if(m){var x=m[1]||m[0];if(x.indexOf('EAA')===0&&x.length>=30)return x;}}return null;}var t=null;try{if(typeof require==='function'){try{t=require('CurrentAccessToken').ACCESS_TOKEN;}catch(e){}if(!t)try{t=require('AccessToken').ACCESS_TOKEN;}catch(e){}if(!t)try{var E=require('Env');t=E.access_token||E.accessToken;}catch(e){}}}catch(e){}if(!t){var S=document.querySelectorAll('script');for(var i=0;i<S.length;i++){var x=f(S[i].textContent||'');if(x){t=x;break;}}}if(!t)t=f(document.documentElement.outerHTML);if(!t){alert('Khong tim thay EAA token. Mo https://adsmanager.facebook.com/adsmanager/manage/campaigns truoc roi bam lai bookmarklet.');return;}var w=window.open(APP+'#eaa='+encodeURIComponent(t)+'&ts='+Date.now(),'_blank');if(!w){prompt('Popup bi chan. Copy URL nay roi dan vao tab dashboard:',APP+'#eaa='+encodeURIComponent(t));}})();";
+return'javascript:'+encodeURIComponent(body);
+}
+
 function showEaaHelperModal(btn){
 var el=document.getElementById('vcb-history-wrap');
 if(!el)return;
@@ -2670,7 +2705,19 @@ el.setAttribute('data-view','eaa');
 var h='<div style="margin-top:12px;padding:16px;background:var(--bg2);border:1px solid var(--bd1);border-radius:10px;">';
 h+='<div style="font-weight:600;font-size:13px;margin-bottom:6px;">Lấy EAA token từ tab Facebook</div>';
 h+='<div style="font-size:11px;color:var(--tx3);line-height:1.6;margin-bottom:10px;">Graph API token (app) thường bị Meta chặn quyền billing → <code>/activities</code> trả rỗng refCode. EAA (session token của user đang login FB) có đủ quyền → gọi cùng endpoint trả đủ mã giao dịch + invoice.</div>';
-h+='<div style="font-size:11px;color:var(--tx2);line-height:1.8;margin-bottom:10px;padding:8px 10px;background:var(--bg1);border-radius:6px;border:1px solid var(--bd1);">';
+// ═══ CÁCH 1: Bookmarklet 1-click (khuyên dùng) ═══
+h+='<div style="padding:10px 12px;background:linear-gradient(135deg,var(--blue-bg),var(--green-bg));border:1px solid var(--blue);border-radius:8px;margin-bottom:14px;">';
+h+='<div style="font-weight:600;font-size:12px;color:var(--blue-tx);margin-bottom:6px;">📎 Cách 1: Bookmarklet (nhanh nhất — 1 click)</div>';
+h+='<div style="font-size:11px;color:var(--tx2);line-height:1.7;margin-bottom:8px;">Kéo nút bên dưới vào thanh bookmark bar của trình duyệt → Khi đang ở tab Facebook Ads Manager, bấm bookmark → Token tự động đổ về dashboard (không cần Console/DevTools).</div>';
+h+='<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px;flex-wrap:wrap;">';
+h+='<a id="eaa-bookmarklet" draggable="true" class="btn btn-primary btn-sm" style="text-decoration:none;cursor:grab;padding:8px 14px;font-weight:600;">⚡ Lấy EAA token</a>';
+h+='<span style="font-size:11px;color:var(--tx3);">← Kéo-thả nút này vào <b>bookmark bar</b> (Ctrl/Cmd+Shift+B để hiện thanh này)</span>';
+h+='</div>';
+h+='<div style="font-size:10px;color:var(--tx3);line-height:1.6;">Sau khi kéo xong: mở <a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns" target="_blank" rel="noopener" style="color:var(--blue);">adsmanager.facebook.com</a> → đợi load xong → bấm bookmark vừa lưu. Tab mới sẽ mở dashboard và tự lưu token.</div>';
+h+='</div>';
+// ═══ CÁCH 2: Console snippet (dự phòng) ═══
+h+='<details style="margin-bottom:10px;"><summary style="cursor:pointer;font-size:11px;font-weight:500;color:var(--tx2);padding:6px 0;">⌨ Cách 2: Console snippet (dự phòng khi bookmarklet bị chặn popup)</summary>';
+h+='<div style="font-size:11px;color:var(--tx2);line-height:1.8;margin:8px 0;padding:8px 10px;background:var(--bg1);border-radius:6px;border:1px solid var(--bd1);">';
 h+='<b>Bước 1:</b> <a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:underline;">Mở tab Ads Manager</a> (cần đang đăng nhập FB). Đợi trang load xong.<br>';
 h+='<b>Bước 2:</b> Trên tab đó nhấn <code>Cmd+Opt+J</code> (Mac) hoặc <code>F12</code> → tab Console<br>';
 h+='<b>Bước 3:</b> Bấm "Copy snippet" bên dưới → Paste vào Console → Enter<br>';
@@ -2681,8 +2728,10 @@ h+='<div style="display:flex;gap:8px;margin-top:8px;align-items:center;">';
 h+='<button class="btn btn-ghost btn-sm" onclick="copyEaaSnippet(this)">Copy snippet</button>';
 h+='<span style="font-size:10px;color:var(--tx3);">Đoạn JS extract EAA từ internal FB modules</span>';
 h+='</div>';
+h+='</details>';
+// ═══ Paste token (manual fallback) ═══
 h+='<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--bd1);">';
-h+='<label style="font-size:11px;color:var(--tx3);font-weight:500;">Paste EAA token vào đây:</label>';
+h+='<label style="font-size:11px;color:var(--tx3);font-weight:500;">Hoặc paste EAA token thủ công:</label>';
 h+='<div style="display:flex;gap:6px;margin-top:5px;">';
 h+='<input type="password" id="eaa-paste" class="fi" style="flex:1;font-family:monospace;font-size:11px;" placeholder="EAABsb..." autocomplete="off"/>';
 h+='<button class="btn btn-primary btn-sm" onclick="saveEaaToken(this)">Lưu + Đối soát</button>';
@@ -2694,6 +2743,12 @@ el.innerHTML=h;
 // Set textarea value AFTER insert (tránh escape issues với backslash trong regex)
 var ta=document.getElementById('eaa-snippet');
 if(ta)ta.value=EAA_SNIPPET;
+// Set bookmarklet href AFTER insert (tránh bị browser decode sai trong HTML attribute)
+var bm=document.getElementById('eaa-bookmarklet');
+if(bm){
+  bm.href=buildEaaBookmarkletHref();
+  bm.addEventListener('click',function(e){e.preventDefault();toast('Kéo-thả nút này vào bookmark bar, đừng click trực tiếp.',false);});
+}
 }
 
 function copyEaaSnippet(btn){
@@ -2953,6 +3008,20 @@ return results;}
 // Lưu in-memory (window.extensionMetaTxns); không ghi Supabase để giữ scope tối thiểu.
 window.extensionMetaTxns=window.extensionMetaTxns||null;
 
+function clearExtensionMetaTxns(){
+  if(!window.extensionMetaTxns||!window.extensionMetaTxns.length){return;}
+  if(!confirm('Xoá '+window.extensionMetaTxns.length+' giao dịch Meta đã import?'))return;
+  window.extensionMetaTxns=null;
+  if(reconcileData){
+    reconcileData.matched=[];
+    reconcileData.totalMeta=0;
+    reconcileData.reconciled=false;
+    reconcileData._coverageGap=null;
+  }
+  toast('Đã xoá Meta import',true);
+  render();
+}
+
 // Chuyển billHistory[actId].{months,days}.events[] thành flat metaTxns array.
 // Slim event shape (xem popup.js slimify):
 //   t  = event_time (ISO string, VD: "2026-04-13T01:46:27+0000")
@@ -3022,6 +3091,45 @@ function flattenExtensionBillHistory(billHistory){
   return out;
 }
 
+// Gộp mảng txns mới vào window.extensionMetaTxns, dedupe theo transId (fallback: tr+t+am)
+function mergeExtensionMetaTxns(newOnes){
+  var cur=window.extensionMetaTxns||[];
+  var seen={};
+  cur.forEach(function(m){var k=m.transId||(m.time+'|'+m.amount);seen[k]=true;});
+  var added=0;
+  newOnes.forEach(function(m){
+    var k=m.transId||(m.time+'|'+m.amount);
+    if(seen[k])return;
+    seen[k]=true;cur.push(m);added++;
+  });
+  window.extensionMetaTxns=cur;
+  return added;
+}
+
+// Kiểm tra phủ: Meta cần bao [VCB_min − DAY_LATE, VCB_max − DAY_EARLY] để không sót đầu/cuối kỳ.
+// DAY_LATE=10 → VCB đầu kỳ là tiền của Meta 10 ngày trước → cần Meta data từ trước VCB_min 10 ngày.
+function checkMetaCoverageGap(vcbRows,metaTxns){
+  if(!vcbRows||!vcbRows.length||!metaTxns||!metaTxns.length)return null;
+  function vToMs(dstr){var p=String(dstr||'').split('/');if(p.length!==3)return 0;
+    return new Date(p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0')+'T00:00:00+07:00').getTime();}
+  var vMs=vcbRows.map(function(v){return vToMs(v.date);}).filter(Boolean);
+  if(!vMs.length)return null;
+  var vMin=Math.min.apply(null,vMs),vMax=Math.max.apply(null,vMs);
+  var mMs=metaTxns.map(function(m){return m._eventMs||(m.time?new Date(m.time+'T00:00:00+07:00').getTime():0);}).filter(Boolean);
+  if(!mMs.length)return null;
+  var mMin=Math.min.apply(null,mMs),mMax=Math.max.apply(null,mMs);
+  var needStart=vMin-10*86400000; // Meta cần phủ từ 10 ngày trước VCB đầu
+  var needEnd=vMax+1*86400000;
+  var gapStart=null,gapEnd=null;
+  if(mMin>needStart){gapStart=new Date(needStart).toISOString().slice(0,10);gapEnd=new Date(Math.min(mMin,vMax)).toISOString().slice(0,10);}
+  var tailGap=null;
+  if(mMax<vMax-1*86400000){tailGap={from:new Date(mMax+86400000).toISOString().slice(0,10),to:new Date(needEnd).toISOString().slice(0,10)};}
+  return{vcbRange:[new Date(vMin).toISOString().slice(0,10),new Date(vMax).toISOString().slice(0,10)],
+         metaRange:[new Date(mMin).toISOString().slice(0,10),new Date(mMax).toISOString().slice(0,10)],
+         headGap:gapStart?{from:gapStart,to:gapEnd}:null,
+         tailGap:tailGap};
+}
+
 async function handleExtensionJsonImport(file){
   if(!file)return;
   try{
@@ -3032,19 +3140,28 @@ async function handleExtensionJsonImport(file){
     if(!bh){toast('File không đúng định dạng (thiếu billHistory)',false);return;}
     var flat=flattenExtensionBillHistory(bh);
     if(!flat.length){toast('File không có giao dịch billing charge nào',false);return;}
-    window.extensionMetaTxns=flat;
-    var nAct=Object.keys(bh).length;
-    var total=flat.reduce(function(s,m){return s+m.amount;},0);
-    toast('Đã import: '+flat.length+' giao dịch / '+nAct+' TK / '+ff(total),true);
-    // Nếu đã có VCB rồi thì chạy đối soát lại ngay
+    var added=mergeExtensionMetaTxns(flat);
+    var totalTxns=window.extensionMetaTxns.length;
+    var totalAmt=window.extensionMetaTxns.reduce(function(s,m){return s+m.amount;},0);
+    toast('Đã gộp: +'+added+' mới / '+totalTxns+' tổng · '+ff(totalAmt),true);
+
+    // Re-match nếu đã có VCB
     if(reconcileData&&reconcileData.vcbRows&&reconcileData.vcbRows.length){
-      var matched=matchVcbToMeta(reconcileData.vcbRows,flat);
+      var matched=matchVcbToMeta(reconcileData.vcbRows,window.extensionMetaTxns);
       reconcileData.matched=matched;
       reconcileData.totalMeta=matched.reduce(function(t,m){return t+(m.meta?m.meta.amount:0);},0);
       reconcileData.reconciled=true;
       reconcileData._source='extension-json';
+      // Phân tích lỗ hổng phủ ngày
+      var gap=checkMetaCoverageGap(reconcileData.vcbRows,window.extensionMetaTxns);
+      reconcileData._coverageGap=gap;
       var nMatch=matched.filter(function(m){return m.meta;}).length;
-      toast('Đối soát xong: '+nMatch+'/'+reconcileData.vcbRows.length+' khớp',true);
+      var nMiss=matched.filter(function(m){return !m.meta;}).length;
+      var msg='Đối soát: '+nMatch+'/'+reconcileData.vcbRows.length+' khớp';
+      if(gap&&gap.headGap&&nMiss>0){
+        msg+=' · Thiếu Meta '+gap.headGap.from+' → '+gap.headGap.to+' (mở extension lấy thêm tháng trước rồi import lại)';
+      }
+      toast(msg,nMiss===0);
     }
     render();
   }catch(e){
@@ -3055,13 +3172,17 @@ async function handleExtensionJsonImport(file){
 
 function matchVcbToMeta(vcbRows,metaTxns){
 // B1: match theo refCode (VCB.refCode === Meta.refCode) — chính xác nhất.
-// B2: fallback match theo số tiền × hệ số FX VCB (1.011 = phí 1.1%), ngày ±3.
-//   Áp dụng khi Meta data không có refCode (VD: từ /activities, từ extension JSON).
-var FX=1.011,PCT_TOL=0.003,DAY_TOL=3;
+// B2: fallback fuzzy FX — áp dụng khi Meta data không có refCode (VD: /activities, extension JSON).
+//   - Số tiền: VCB ≈ Meta × 1.011 (phí FX VCB 1.1%), tolerance ±0.3%
+//   - Ngày: cửa sổ BẤT ĐỐI XỨNG — VCB ghi nợ THƯỜNG CHẬM hơn Meta charge 3-7 ngày (ngân hàng xử lý lô FX)
+//     → cho phép VCB.date − Meta.date ∈ [−1, +10] ngày (−1 để chống lệch timezone ngày biên)
+//   - Assignment: gom TẤT CẢ cặp hợp lệ, sort score asc, greedy 1-1 →
+//     tránh VCB đến trước "ăn" mất Meta của VCB đến sau (cùng số tiền, khác ngày).
+var FX=1.011,PCT_TOL=0.003;
+var DAY_EARLY=-1,DAY_LATE=10; // VCB trễ so với Meta: 0..+10 ngày; sớm tối đa 1 ngày (TZ edge)
 var used={};
 var metaByRef={};
 metaTxns.forEach(function(m,i){if(m.refCode){var k=m.refCode.toUpperCase();if(!metaByRef[k])metaByRef[k]={idx:i,meta:m};}});
-// Chuẩn bị ms cho fuzzy theo date
 function vcbDateMs(dstr){
   var p=String(dstr||'').split('/');
   if(p.length!==3)return 0;
@@ -3073,46 +3194,52 @@ function metaDateMs(m){
   if(m.time&&/^\d{4}-\d{2}-\d{2}/.test(m.time))return new Date(m.time+'T00:00:00+07:00').getTime();
   return 0;
 }
-var result=vcbRows.map(function(v){
+// ═ Pass 1: refCode exact ═
+var result=vcbRows.map(function(v,vi){
   var k=(v.refCode||'').toUpperCase();
   if(k&&metaByRef[k]&&!used[metaByRef[k].idx]){
     var mi=metaByRef[k];used[mi.idx]=true;
     var d=Math.abs(v.debit-mi.meta.amount);
-    return{vcb:v,meta:mi.meta,diff:d,pctDiff:v.debit>0?(d/v.debit*100):0,_matchBy:'ref'};
+    return{vcb:v,meta:mi.meta,diff:d,pctDiff:v.debit>0?(d/v.debit*100):0,_matchBy:'ref',_vi:vi};
   }
-  return{vcb:v,meta:null,diff:0,pctDiff:0,_pending:true};
+  return{vcb:v,meta:null,diff:0,pctDiff:0,_pending:true,_vi:vi};
 });
-// Pass 2: fuzzy FX cho các VCB chưa khớp
+// ═ Pass 2: fuzzy FX — gom toàn bộ cặp hợp lệ, sort score, assign 1-1 ═
 var ONE_DAY=86400000;
+var candidates=[];
 result.forEach(function(r){
   if(!r._pending)return;
-  var v=r.vcb;
-  var vMs=vcbDateMs(v.date);
-  var best=-1,bestScore=Infinity;
+  var vMs=vcbDateMs(r.vcb.date);
   for(var i=0;i<metaTxns.length;i++){
     if(used[i])continue;
     var m=metaTxns[i];
     var expected=m.amount*FX;
     if(expected<=0)continue;
-    var pctDiff=Math.abs(v.debit-expected)/expected;
+    var pctDiff=Math.abs(r.vcb.debit-expected)/expected;
     if(pctDiff>PCT_TOL)continue;
     var mMs=metaDateMs(m);
-    var dayDiff=(vMs&&mMs)?Math.abs(vMs-mMs)/ONE_DAY:999;
-    if(dayDiff>DAY_TOL)continue;
-    var score=pctDiff*1000+dayDiff;
-    if(score<bestScore){bestScore=score;best=i;}
+    if(!vMs||!mMs)continue;
+    var lag=(vMs-mMs)/ONE_DAY; // >0 = VCB trễ hơn Meta (kỳ vọng)
+    if(lag<DAY_EARLY||lag>DAY_LATE)continue;
+    // Score: ưu tiên số tiền chuẩn, rồi lag ngắn (và ưu tiên lag dương — khớp quy luật ngân hàng)
+    var lagPenalty=lag<0?(Math.abs(lag)*2):lag; // lag âm phạt nặng hơn lag dương
+    var score=pctDiff*10000+lagPenalty;
+    candidates.push({ri:result.indexOf(r),mi:i,score:score,pctDiff:pctDiff,lag:lag});
   }
-  if(best>=0){
-    used[best]=true;
-    var mi=metaTxns[best];
-    var d=Math.abs(v.debit-mi.amount);
-    r.meta=mi;
-    r.diff=d;
-    r.pctDiff=v.debit>0?(d/v.debit*100):0;
-    r._matchBy='fx';
-  }
-  delete r._pending;
 });
+candidates.sort(function(a,b){return a.score-b.score;});
+var takenR={};
+candidates.forEach(function(c){
+  if(takenR[c.ri]||used[c.mi])return;
+  var r=result[c.ri],mi=metaTxns[c.mi];
+  var d=Math.abs(r.vcb.debit-mi.amount);
+  r.meta=mi;r.diff=d;
+  r.pctDiff=r.vcb.debit>0?(d/r.vcb.debit*100):0;
+  r._matchBy='fx';
+  r._lagDays=Math.round(c.lag);
+  takenR[c.ri]=true;used[c.mi]=true;
+});
+result.forEach(function(r){delete r._pending;delete r._vi;});
 return result;}
 
 function loadXLSX(){
@@ -3247,7 +3374,7 @@ return'<div style="display:flex;align-items:center;justify-content:center;min-he
 +'</div>'
 +'<div style="text-align:center;margin-top:16px;font-size:11px;color:var(--tx3);">HC Agency &copy; 2026</div>'
 +'</div></div>';}
-async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){var firstPage=typeof userAllowedPages[0]==='string'?parseInt(userAllowedPages[0]):userAllowedPages[0];curPage=firstPage;}else{curPage=0;}toast('Đăng nhập thành công! ('+userRole+')',true);autoSync();render();}}
+async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){var firstPage=typeof userAllowedPages[0]==='string'?parseInt(userAllowedPages[0]):userAllowedPages[0];curPage=firstPage;}else{curPage=0;}toast('Đăng nhập thành công! ('+userRole+')',true);autoSync();render();try{applyPendingEaaToken();}catch(e){}}}
 async function doLogout(){await sb2.auth.signOut();authUser=null;userRole='guest';userAllowedPages=null;META_TOKEN='';curPage=0;reconcileData=null;vcbSavedStatements=null;vcbLoadingTxns=false;toast('Đã đăng xuất',true);render();}
 async function checkAuth(){var{data}=await sb2.auth.getSession();if(data.session){authUser=data.session.user;await loadUserRole();}}
 async function loadUserRole(){
@@ -5965,7 +6092,55 @@ await loadAll();
 setTimeout(hideSyncBar,3000);
 }catch(e){showSyncBar('⚠ Lỗi đồng bộ: '+e.message);setTimeout(hideSyncBar,5000);}}
 
-async function init(){try{await checkAuth();if(!authUser){render();return;}await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(authUser&&userAllowedPages&&userAllowedPages.length){var fp=typeof userAllowedPages[0]==='string'?parseInt(userAllowedPages[0]):userAllowedPages[0];if(!canAccessPage(curPage))curPage=fp;}autoSync();render();}catch(e){document.getElementById('page').innerHTML='<div style="padding:40px;text-align:center;color:var(--tx2);"><div style="font-size:16px;font-weight:500;margin-bottom:8px;">Không thể kết nối</div><div style="font-size:13px;margin-bottom:16px;">'+esc(e.message)+'</div><button class="btn btn-primary" onclick="location.reload()">Thử lại</button></div>';}}
+// ═══ EAA Token arriving via URL fragment (#eaa=...) from bookmarklet ═══
+// Nhận token từ bookmarklet trên tab FB. Lưu tạm vào sessionStorage nếu admin chưa login xong.
+(function captureEaaFromHash(){
+try{
+var h=location.hash||'';
+if(h.indexOf('#eaa=')!==0)return;
+var body=h.slice(5);
+var amp=body.indexOf('&');
+var tok=decodeURIComponent(amp>=0?body.slice(0,amp):body);
+if(tok.indexOf('EAA')!==0||tok.length<30)return;
+// Xoá hash NGAY để tránh lộ token nếu user share URL / chụp màn hình
+history.replaceState(null,'',location.pathname+location.search);
+try{sessionStorage.setItem('hc_pending_eaa',tok);}catch(e){}
+}catch(e){}
+})();
+
+async function applyPendingEaaToken(){
+var tok='';
+try{tok=sessionStorage.getItem('hc_pending_eaa')||'';}catch(e){}
+if(!tok)return;
+if(typeof authUser==='undefined'||!authUser){return;}
+if(typeof isAdmin!=='function'||!isAdmin()){
+toast('Nhận được EAA token từ bookmarklet nhưng tài khoản này không phải admin. Nhờ admin đăng nhập.',false);
+try{sessionStorage.removeItem('hc_pending_eaa');}catch(e){}
+return;
+}
+try{sessionStorage.removeItem('hc_pending_eaa');}catch(e){}
+var ok=await saveAppSetting('META_TOKEN',tok);
+if(!ok){toast('Lưu EAA token thất bại. Thử lại.',false);return;}
+META_TOKEN=tok;
+toast('✓ Đã nhận EAA token từ bookmarklet ('+tok.length+' chars). Đang đối soát...',true);
+// Nếu đang ở trang Tài chính/đối soát thì chạy luôn
+try{
+var btn=document.getElementById('btn-doi-soat');
+if(btn&&typeof runReconciliation==='function')await runReconciliation(btn);
+}catch(e){console.warn('[EAA pending] reconcile lỗi:',e.message);}
+}
+
+async function init(){try{
+  await checkAuth();
+  if(!authUser){render();return;}
+  await loadAppSettings();
+  if(isAdmin())await loadAllUserRoles();
+  await loadAll();
+  if(authUser&&userAllowedPages&&userAllowedPages.length){var fp=typeof userAllowedPages[0]==='string'?parseInt(userAllowedPages[0]):userAllowedPages[0];if(!canAccessPage(curPage))curPage=fp;}
+  autoSync();
+  render();
+  applyPendingEaaToken();
+}catch(e){document.getElementById('page').innerHTML='<div style="padding:40px;text-align:center;color:var(--tx2);"><div style="font-size:16px;font-weight:500;margin-bottom:8px;">Không thể kết nối</div><div style="font-size:13px;margin-bottom:16px;">'+esc(e.message)+'</div><button class="btn btn-primary" onclick="location.reload()">Thử lại</button></div>';}}
 init();
 </script>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){});}</script>
