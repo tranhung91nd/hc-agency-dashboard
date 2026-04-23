@@ -1975,49 +1975,6 @@ if(!confirm('Xóa khoản phạt này?'))return;
 var r=await sb2.from('penalty').delete().eq('id',id);
 if(r.error){toast('Lỗi: '+r.error.message,false);return;}
 toast('Đã xóa',true);await loadAll();render();}
-// ═══ AI GHI PHẠT — parse câu tự nhiên thành JSON, xác nhận trước khi lưu ═══
-async function askAIPenalty(){
-if(!isAdmin()){toast('Chỉ admin mới ghi phạt được',false);return;}
-var rawModel=document.getElementById('ai-model')?document.getElementById('ai-model').value:'gpt-4o-mini';
-var userMsg=prompt('Mô tả khoản phạt bằng câu tự nhiên:\n\nVí dụ:\n  • Phạt Sơn 30k ngày 20/4 do quên báo cáo\n  • Phạt Anh Thư 60k hôm qua, set lỗi độ tuổi\n  • Phạt Nhi 30000 today, rep tin nhắn chậm\n\nCó thể nhập NHIỀU dòng, mỗi dòng 1 phạt.');
-if(!userMsg||!userMsg.trim())return;
-if(!CLAUDE_KEY&&!OPENAI_KEY){toast('Chưa cấu hình API key AI. Vào Admin → Cài đặt API Key.',false);return;}
-var staffHint=staffList.map(function(s){return'id="'+s.id+'" short="'+s.short_name+'" full="'+s.full_name+'"';}).join('\n');
-var todayStr=td();
-var systemPrompt='Bạn là trợ lý parse câu tự nhiên tiếng Việt thành JSON ghi phạt nhân sự.\n\nDanh sách nhân sự:\n'+staffHint+'\n\nHôm nay là '+todayStr+'. Nếu user nói "hôm nay" → '+todayStr+'; "hôm qua" → ngày trước đó; "20/4" → 2026-04-20 (năm hiện tại nếu không nói rõ).\n\nĐơn vị tiền: "k" hoặc "ngàn" = ×1000, "tr" hoặc "triệu" = ×1000000. "30k" = 30000.\n\nChỉ trả về JSON MẢNG thuần, KHÔNG markdown, KHÔNG code fence, VD:\n[{"staff_id":"uuid-đã-match","penalty_date":"2026-04-20","amount":30000,"reason":"quên báo cáo"}]\n\nNếu không match được nhân sự → dùng "staff_id":null và điền "staff_name_raw" là tên thô.';
-toast('Đang parse bằng AI...',true);
-try{
-var isClaude=rawModel.indexOf('claude')===0;
-var resp;
-if(isClaude){
-resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':CLAUDE_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:rawModel,system:systemPrompt,messages:[{role:'user',content:userMsg}],max_tokens:1200})});
-}else{
-resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},body:JSON.stringify({model:rawModel,messages:[{role:'system',content:systemPrompt},{role:'user',content:userMsg}],max_completion_tokens:1200,response_format:{type:'json_object'}})});
-}
-var data=await resp.json();
-if(data.error){toast('Lỗi AI: '+data.error.message,false);return;}
-var text=isClaude?data.content[0].text:data.choices[0].message.content;
-// Parse: tìm mảng [ ... ]
-var match=text.match(/\[[\s\S]*\]/);if(!match){
-// Có thể AI wrap trong object {items:[...]}
-try{var obj=JSON.parse(text);if(Array.isArray(obj))match=[text];else if(obj&&Array.isArray(obj.items))match=[JSON.stringify(obj.items)];else if(obj&&Array.isArray(obj.penalties))match=[JSON.stringify(obj.penalties)];}catch(e){}
-}
-if(!match){toast('AI không trả về JSON hợp lệ. Thử lại.',false);console.warn('[AI penalty] raw:',text);return;}
-var items;try{items=JSON.parse(match[0]);}catch(e){toast('Parse JSON lỗi: '+e.message,false);console.warn('[AI penalty] raw:',text);return;}
-if(!Array.isArray(items)||!items.length){toast('AI không phát hiện phạt nào',false);return;}
-// Validate + confirm
-var preview=items.map(function(it,i){
-var sname='—';if(it.staff_id){var s=allStaff.find(function(x){return x.id===it.staff_id;});if(s)sname=s.short_name;else sname='(id không khớp)';}else if(it.staff_name_raw)sname=it.staff_name_raw+' (chưa gán)';
-return(i+1)+'. '+sname+' · '+it.penalty_date+' · '+ff(it.amount)+' · '+(it.reason||'(không ghi lý do)');
-}).join('\n');
-if(!confirm('AI phát hiện '+items.length+' khoản phạt:\n\n'+preview+'\n\nLưu vào DB?'))return;
-// Insert
-var rows=items.map(function(it){return{staff_id:it.staff_id||null,staff_name_raw:it.staff_id?null:(it.staff_name_raw||null),penalty_date:it.penalty_date,amount:Number(it.amount)||0,reason:it.reason||'',created_by:authUser?authUser.email:null};});
-var r=await sb2.from('penalty').insert(rows);
-if(r.error){toast('Lỗi lưu: '+r.error.message,false);return;}
-toast('Đã lưu '+items.length+' khoản phạt',true);
-await loadAll();render();
-}catch(e){toast('Lỗi: '+e.message,false);console.error(e);}}
 // ═══ IMPORT XLSX — parse file "PHẠT TEAM" nhiều sheet theo tháng ═══
 async function importPenaltiesFromXLSX(file){
 if(!isAdmin()){toast('Chỉ admin mới import được',false);return;}
@@ -5282,82 +5239,253 @@ var input=document.getElementById('ai-input');var msg=input.value.trim();if(!msg
 if(!ensureKey())return;
 input.value='';addAIMsg('user',msg);
 document.getElementById('ai-send-btn').disabled=true;
-// Intent: ghi phạt (contains "phạt" + số tiền)
-if(isPenaltyIntent(msg)){
-await handlePenaltyFromChat(msg);
+// Dispatcher: kiểm tra intent trước, nếu không match thì fallback về chat phân tích
+var intent=matchIntent(msg);
+if(intent){
+await intent.handle(msg);
 document.getElementById('ai-send-btn').disabled=false;
 return;}
 addTyping();var reply=await callGPT(msg);removeTyping();
 addAIMsg('bot',formatAIReply(reply));
 document.getElementById('ai-send-btn').disabled=false;}
 
-function isPenaltyIntent(msg){
-var lower=msg.toLowerCase();
-// Phải có "phạt" + 1 con số
-return /\bphạt\b/.test(lower)&&/\d/.test(lower);}
+// ═══ INTENT REGISTRY: mỗi action có 1 regex + 1 handler ═══
+var intentHandlers=[]; // populated below
+function matchIntent(msg){for(var i=0;i<intentHandlers.length;i++){if(intentHandlers[i].match(msg))return intentHandlers[i];}return null;}
 
 // Parse mọi format JSON AI có thể trả về: mảng, object wrap, single object...
-function tryParsePenalty(text){
+function tryParseJsonArray(text){
 if(!text)return null;
-// Bỏ markdown fence
 var clean=text.replace(/```(?:json)?\s*|```\s*/g,'').trim();
-// 1. Match mảng trực tiếp
 var m=clean.match(/\[[\s\S]*\]/);
 if(m){try{var arr=JSON.parse(m[0]);if(Array.isArray(arr)&&arr.length)return arr;}catch(e){}}
-// 2. Parse as JSON object
 var obj;try{obj=JSON.parse(clean);}catch(e){return null;}
 if(Array.isArray(obj))return obj;
 if(!obj||typeof obj!=='object')return null;
-// 3. Tìm bất kỳ array nào trong object (items, penalties, data, records, list, result…)
+// Tìm mảng trong object
 for(var k in obj){if(Array.isArray(obj[k])&&obj[k].length&&typeof obj[k][0]==='object')return obj[k];}
-// 4. Object có key singular ('penalty', 'item'…) chứa object → wrap
-var singularKeys=['penalty','item','data','record','result'];
-for(var i=0;i<singularKeys.length;i++){var sk=singularKeys[i];if(obj[sk]&&typeof obj[sk]==='object'&&!Array.isArray(obj[sk])){if(obj[sk].amount!=null||obj[sk].penalty_date)return[obj[sk]];}}
-// 5. Top-level là 1 penalty object
-if(obj.amount!=null||obj.penalty_date||obj.staff_id||obj.staff_name_raw)return[obj];
+// Key singular chứa object → wrap
+var singularKeys=['penalty','item','data','record','result','transaction','salary'];
+for(var i=0;i<singularKeys.length;i++){var sk=singularKeys[i];if(obj[sk]&&typeof obj[sk]==='object'&&!Array.isArray(obj[sk]))return[obj[sk]];}
+// Top-level là 1 object payload
+if(obj.amount!=null||obj.penalty_date||obj.txn_date||obj.month)return[obj];
 return null;}
+
+// Shared AI parse call
+async function callAIParse(systemPrompt,userMsg){
+var model=getAIModel();var isC=isClaude(model);var resp;
+if(isC){resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':CLAUDE_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:model,system:systemPrompt,messages:[{role:'user',content:userMsg}],max_tokens:1000})});}
+else{resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},body:JSON.stringify({model:model,messages:[{role:'system',content:systemPrompt},{role:'user',content:userMsg}],max_completion_tokens:1000,response_format:{type:'json_object'}})});}
+var data=await resp.json();
+if(data.error)throw new Error(data.error.message||'unknown');
+return isC?data.content[0].text:data.choices[0].message.content;}
+
+// Shared error render (collapsible raw response)
+function renderAIParseFail(text,hint){
+return'⚠ AI không hiểu. '+hint+'<br><br><details style="margin-top:6px;"><summary style="cursor:pointer;color:var(--tx3);font-size:11px;">Xem AI trả về gì</summary><pre style="white-space:pre-wrap;font-size:11px;color:var(--tx3);margin-top:4px;">'+esc((text||'').substring(0,500))+'</pre></details>';}
+
+// Shared confirm/cancel UI
+function confirmBtnsHTML(){return'<button class="btn btn-primary btn-sm" onclick="confirmPending(this)">✓ Xác nhận ghi</button> <button class="btn btn-ghost btn-sm" onclick="cancelPending(this)">✗ Huỷ</button>';}
+
+// ═══ PENDING ACTION DISPATCHER ═══
+window._pendingAction=null; // {type, items, preview, render}
+
+async function confirmPending(btn){
+var p=window._pendingAction;if(!p){addAIMsg('bot','⚠ Không còn dữ liệu chờ.');return;}
+if(btn){btn.disabled=true;btn.textContent='Đang lưu...';}
+try{
+if(p.type==='penalty'){
+var rows=p.items.map(function(it){return{staff_id:it.staff_id||null,staff_name_raw:it.staff_id?null:(it.staff_name_raw||null),penalty_date:it.penalty_date,amount:Number(it.amount)||0,reason:it.reason||'',created_by:authUser?authUser.email:null};});
+var r=await sb2.from('penalty').insert(rows);if(r.error)throw new Error(r.error.message);
+addAIMsg('bot','✅ Đã lưu <b>'+p.items.length+'</b> khoản phạt vào Sổ phạt.');
+}else if(p.type==='transaction'){
+var rows=p.items.map(function(it){return{txn_date:it.txn_date,txn_type:it.txn_type,amount:Number(it.amount)||0,category:it.category||'other',client_id:it.client_id||null,staff_id:it.staff_id||null,note:it.note||'',month:it.month||(it.txn_date||'').substring(0,7)};});
+var r=await sb2.from('transaction').insert(rows);if(r.error)throw new Error(r.error.message);
+addAIMsg('bot','✅ Đã ghi <b>'+p.items.length+'</b> giao dịch vào Tài chính.');
+}else if(p.type==='salary'){
+var rows=p.items.map(function(it){var o={staff_id:it.staff_id,month:it.month};if(it.base_salary!=null)o.base_salary=Number(it.base_salary);if(it.bonus!=null)o.bonus=Number(it.bonus);if(it.note)o.note=it.note;return o;});
+var r=await sb2.from('salary').upsert(rows,{onConflict:'staff_id,month'});if(r.error)throw new Error(r.error.message);
+addAIMsg('bot','✅ Đã cập nhật lương cho <b>'+p.items.length+'</b> mục.');
+}else if(p.type==='client'){
+var rows=p.items.map(function(it){return{name:it.name,status:it.status||'prospect',payment_status:it.payment_status||'unpaid',service_fee:Number(it.service_fee)||0,has_vat:!!it.has_vat,contact_person:it.contact_person||null,phone:it.phone||null,email_invoice:it.email_invoice||null,industry:it.industry||null,prospect_note:it.note||null};});
+var r=await sb2.from('client').insert(rows);if(r.error)throw new Error(r.error.message);
+addAIMsg('bot','✅ Đã tạo <b>'+p.items.length+'</b> khách hàng.');
+}else if(p.type==='assignment'){
+var rows=p.items.map(function(it){return{ad_account_id:it.ad_account_id,staff_id:it.staff_id,client_id:it.client_id||null,start_date:it.start_date||td(),end_date:it.end_date||null};});
+var r=await sb2.from('assignment').insert(rows);if(r.error)throw new Error(r.error.message);
+addAIMsg('bot','✅ Đã gán <b>'+p.items.length+'</b> tài khoản.');
+}else if(p.type==='daily_spend'){
+var rows=p.items.map(function(it){return{ad_account_id:it.ad_account_id,report_date:it.report_date,spend_amount:Number(it.spend_amount)||0,staff_id:it.staff_id||null};});
+var r=await sb2.from('daily_spend').insert(rows);if(r.error)throw new Error(r.error.message);
+addAIMsg('bot','✅ Đã ghi <b>'+p.items.length+'</b> dòng chi tiêu TK.');
+}
+window._pendingAction=null;await loadAll();render();
+}catch(e){addAIMsg('bot','⚠ Lỗi lưu: '+esc(e.message));if(btn){btn.disabled=false;btn.textContent='✓ Xác nhận ghi';}}}
+
+function cancelPending(){window._pendingAction=null;addAIMsg('bot','Đã huỷ.');}
+
+// ═══ ACTION 1: GHI PHẠT ═══
+function isPenaltyIntent(msg){var l=msg.toLowerCase();return/\bphạt\b/.test(l)&&/\d/.test(l);}
 
 async function handlePenaltyFromChat(userMsg){
 if(!isAdmin()){addAIMsg('bot','⚠ Chỉ admin mới ghi phạt được.');return;}
 addTyping();
-var rawModel=getAIModel();
 var staffHint=staffList.map(function(s){return'id="'+s.id+'" short="'+s.short_name+'" full="'+s.full_name+'"';}).join('\n');
 var todayStr=td();
-var systemPrompt='Bạn là trợ lý parse câu tự nhiên tiếng Việt thành JSON ghi phạt nhân sự.\n\nDanh sách nhân sự:\n'+staffHint+'\n\nHôm nay là '+todayStr+'. Nếu user nói "hôm nay" → '+todayStr+'; "hôm qua" → ngày trước đó; "20/4" → 2026-04-20 (năm hiện tại nếu không nói rõ).\n\nĐơn vị tiền: "k" hoặc "ngàn" = ×1000, "tr" hoặc "triệu" = ×1000000. "30k" = 30000.\n\nTrả về JSON object với KEY DUY NHẤT là "penalties", chứa mảng các khoản phạt:\n{"penalties":[{"staff_id":"uuid-đã-match","penalty_date":"2026-04-20","amount":30000,"reason":"quên báo cáo"}]}\n\nNếu không match được nhân sự → dùng "staff_id":null và điền "staff_name_raw" là tên thô. KHÔNG markdown, KHÔNG code fence.';
+var systemPrompt='Bạn là trợ lý parse câu tự nhiên tiếng Việt thành JSON ghi phạt nhân sự.\n\nDanh sách nhân sự:\n'+staffHint+'\n\nHôm nay là '+todayStr+'. "hôm nay"→'+todayStr+'; "hôm qua"→ngày trước đó; "20/4"→2026-04-20.\n\nĐơn vị tiền: "k"/"ngàn"=×1000, "tr"/"triệu"=×1000000. "30k"=30000.\n\nTrả về JSON: {"penalties":[{"staff_id":"uuid-đã-match","penalty_date":"YYYY-MM-DD","amount":N,"reason":"lý do"}]}\nKhông match được → "staff_id":null + "staff_name_raw":"tên thô". KHÔNG markdown.';
 try{
-var isC=isClaude(rawModel);var resp;
-if(isC){resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':CLAUDE_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:rawModel,system:systemPrompt,messages:[{role:'user',content:userMsg}],max_tokens:1200})});}
-else{resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},body:JSON.stringify({model:rawModel,messages:[{role:'system',content:systemPrompt},{role:'user',content:userMsg}],max_completion_tokens:1200,response_format:{type:'json_object'}})});}
-var data=await resp.json();
-removeTyping();
-if(data.error){addAIMsg('bot','⚠ Lỗi AI: '+esc(data.error.message||'unknown'));return;}
-var text=isC?data.content[0].text:data.choices[0].message.content;
-console.log('[AI penalty] raw response:',text);
-var items=tryParsePenalty(text);
-if(!items||!items.length){addAIMsg('bot','⚠ AI không hiểu câu này. Thử rõ hơn, VD: "Phạt Sơn 30k ngày 20/4 do quên báo cáo".<br><br><details style="margin-top:6px;"><summary style="cursor:pointer;color:var(--tx3);font-size:11px;">Xem AI trả về gì</summary><pre style="white-space:pre-wrap;font-size:11px;color:var(--tx3);margin-top:4px;">'+esc(text.substring(0,500))+'</pre></details>');return;}
-// Validate: phải có amount + penalty_date
-items=items.filter(function(it){return it&&(it.amount!=null)&&it.penalty_date;});
-if(!items.length){addAIMsg('bot','⚠ AI trả về thiếu dữ liệu (cần: số tiền + ngày). Thử lại.');return;}
-window._pendingPenalty=items;
+var text=await callAIParse(systemPrompt,userMsg);removeTyping();
+console.log('[AI penalty] raw:',text);
+var items=tryParseJsonArray(text);
+if(!items)return addAIMsg('bot',renderAIParseFail(text,'Thử rõ hơn: "Phạt Sơn 30k ngày 20/4 do quên báo cáo".'));
+items=items.filter(function(it){return it&&it.amount!=null&&it.penalty_date;});
+if(!items.length)return addAIMsg('bot','⚠ Thiếu dữ liệu (cần: số tiền + ngày). Thử lại.');
+window._pendingAction={type:'penalty',items:items};
 var preview=items.map(function(it,i){
 var sname='—';if(it.staff_id){var s=allStaff.find(function(x){return x.id===it.staff_id;});sname=s?s.short_name:'(id không khớp)';}else if(it.staff_name_raw)sname=it.staff_name_raw+' (chưa gán)';
 return'<b>'+(i+1)+'.</b> '+esc(sname)+' · '+esc(it.penalty_date)+' · <span style="color:var(--red);font-weight:600;">'+ff(it.amount)+'</span> · '+esc(it.reason||'(không ghi lý do)');
 }).join('<br>');
-var html='🤖 Phát hiện <b>'+items.length+'</b> khoản phạt:<br><br>'+preview+'<br><br><button class="btn btn-primary btn-sm" onclick="confirmPendingPenalty(this)">✓ Xác nhận ghi</button> <button class="btn btn-ghost btn-sm" onclick="cancelPendingPenalty(this)">✗ Huỷ</button>';
-addAIMsg('bot',html);
+addAIMsg('bot','🤖 Phát hiện <b>'+items.length+'</b> khoản phạt:<br><br>'+preview+'<br><br>'+confirmBtnsHTML());
 }catch(e){removeTyping();addAIMsg('bot','⚠ Lỗi: '+esc(e.message));}}
 
-async function confirmPendingPenalty(btn){
-var items=window._pendingPenalty;if(!items){addAIMsg('bot','⚠ Không còn dữ liệu chờ ghi.');return;}
-if(btn){btn.disabled=true;btn.textContent='Đang lưu...';}
-var rows=items.map(function(it){return{staff_id:it.staff_id||null,staff_name_raw:it.staff_id?null:(it.staff_name_raw||null),penalty_date:it.penalty_date,amount:Number(it.amount)||0,reason:it.reason||'',created_by:authUser?authUser.email:null};});
-var r=await sb2.from('penalty').insert(rows);
-if(r.error){addAIMsg('bot','⚠ Lỗi lưu: '+esc(r.error.message));if(btn){btn.disabled=false;btn.textContent='✓ Xác nhận ghi';}return;}
-addAIMsg('bot','✅ Đã lưu <b>'+items.length+'</b> khoản phạt vào Sổ phạt.');
-window._pendingPenalty=null;
-await loadAll();render();}
+// ═══ ACTION 2: GHI THU/CHI ═══
+function isTransactionIntent(msg){var l=msg.toLowerCase();return/(^|\s)(thu|chi|trả)\s/.test(l)&&/\d/.test(l);}
 
-function cancelPendingPenalty(btn){window._pendingPenalty=null;addAIMsg('bot','Đã huỷ.');}
+async function handleTransactionFromChat(userMsg){
+if(!isAdmin()){addAIMsg('bot','⚠ Chỉ admin mới ghi giao dịch.');return;}
+addTyping();
+var staffHint=staffList.map(function(s){return'id="'+s.id+'" short="'+s.short_name+'"';}).join('\n');
+var clientHint=clientList.filter(function(c){return c.status!=='prospect';}).map(function(c){return'id="'+c.id+'" name="'+c.name+'"';}).join('\n');
+var todayStr=td();
+var systemPrompt='Bạn là trợ lý parse câu tự nhiên tiếng Việt thành JSON ghi thu/chi.\n\nKhách hàng:\n'+clientHint+'\n\nNhân sự:\n'+staffHint+'\n\nHôm nay: '+todayStr+'. "k"=×1000, "tr"=×1000000.\n\ntxn_type: "thu"→"income", "chi"/"trả"→"expense".\n\ncategory (chọn 1):\n- service_fee: phí dịch vụ (thu từ khách)\n- salary: lương/thưởng nhân viên (chi)\n- rent: vận hành, văn phòng, điện, nước, internet… (chi)\n- other: khác\n\nNếu "thu từ X" → client_id=X. Nếu "chi lương/thưởng Y" → staff_id=Y, category=salary.\n\nTrả về JSON: {"transactions":[{"txn_date":"YYYY-MM-DD","txn_type":"income|expense","amount":N,"category":"...","client_id":"uuid hoặc null","staff_id":"uuid hoặc null","note":"mô tả","month":"YYYY-MM"}]}\nKHÔNG markdown.';
+try{
+var text=await callAIParse(systemPrompt,userMsg);removeTyping();
+console.log('[AI txn] raw:',text);
+var items=tryParseJsonArray(text);
+if(!items)return addAIMsg('bot',renderAIParseFail(text,'VD: "Thu 10tr từ Getfit hôm nay" / "Chi 500k tiền điện".'));
+items=items.filter(function(it){return it&&it.amount!=null&&it.txn_date&&(it.txn_type==='income'||it.txn_type==='expense');});
+if(!items.length)return addAIMsg('bot','⚠ Thiếu dữ liệu (cần: số tiền + ngày + loại thu/chi).');
+window._pendingAction={type:'transaction',items:items};
+var catMap={service_fee:'Phí dịch vụ',salary:'Lương',rent:'Vận hành',other:'Khác'};
+var preview=items.map(function(it,i){
+var who='—';if(it.client_id){var c=clientList.find(function(x){return x.id===it.client_id;});if(c)who=c.name;}else if(it.staff_id){var s=allStaff.find(function(x){return x.id===it.staff_id;});if(s)who=s.short_name;}
+var sign=it.txn_type==='income'?'+':'−';var color=it.txn_type==='income'?'var(--green)':'var(--red)';
+return'<b>'+(i+1)+'.</b> '+esc(it.txn_date)+' · <span style="color:'+color+';font-weight:600;">'+sign+ff(it.amount)+'</span> · '+esc(catMap[it.category]||it.category||'—')+' · '+esc(who)+' · '+esc(it.note||'(không ghi chú)');
+}).join('<br>');
+addAIMsg('bot','💰 Phát hiện <b>'+items.length+'</b> giao dịch:<br><br>'+preview+'<br><br>'+confirmBtnsHTML());
+}catch(e){removeTyping();addAIMsg('bot','⚠ Lỗi: '+esc(e.message));}}
+
+// ═══ ACTION 3: CẬP NHẬT LƯƠNG (base_salary / bonus / note) ═══
+function isSalaryIntent(msg){var l=msg.toLowerCase();return/\b(thưởng|lương cứng|set lương|cập nhật lương|tăng lương)\b/.test(l)&&/\d/.test(l);}
+
+async function handleSalaryFromChat(userMsg){
+if(!isAdmin()){addAIMsg('bot','⚠ Chỉ admin.');return;}
+addTyping();
+var staffHint=staffList.map(function(s){return'id="'+s.id+'" short="'+s.short_name+'" full="'+s.full_name+'"';}).join('\n');
+var todayStr=td();var cm=lm();
+var systemPrompt='Bạn là trợ lý parse câu tự nhiên thành JSON cập nhật bảng lương.\n\nNhân sự:\n'+staffHint+'\n\nHôm nay: '+todayStr+'. Tháng hiện tại: '+cm+'. Nếu user không nói tháng → dùng '+cm+'.\n\n"k"=×1000, "tr"=×1000000.\n\nTrường có thể set:\n- base_salary: lương cứng\n- bonus: thưởng\n- note: ghi chú\n\n"Thưởng X 1tr" → bonus.\n"Set lương cứng X 5tr" / "Lương cứng X 5tr" → base_salary.\n\nChỉ điền trường user muốn đổi, KHÔNG điền null.\n\nTrả về JSON: {"salaries":[{"staff_id":"uuid","month":"YYYY-MM","base_salary":N,"bonus":N,"note":"..."}]}\nKHÔNG markdown.';
+try{
+var text=await callAIParse(systemPrompt,userMsg);removeTyping();
+console.log('[AI salary] raw:',text);
+var items=tryParseJsonArray(text);
+if(!items)return addAIMsg('bot',renderAIParseFail(text,'VD: "Thưởng Sơn 1tr T4" / "Set lương cứng Nhi 5tr".'));
+items=items.filter(function(it){return it&&it.staff_id&&it.month&&(it.base_salary!=null||it.bonus!=null||it.note);});
+if(!items.length)return addAIMsg('bot','⚠ Thiếu dữ liệu (cần: nhân sự + tháng + ít nhất 1 trường).');
+window._pendingAction={type:'salary',items:items};
+var preview=items.map(function(it,i){
+var s=allStaff.find(function(x){return x.id===it.staff_id;});var sname=s?s.short_name:'(id không khớp)';
+var parts=[];if(it.base_salary!=null)parts.push('lương cứng: <span style="color:var(--blue-tx);">'+ff(it.base_salary)+'</span>');if(it.bonus!=null)parts.push('thưởng: <span style="color:var(--green);">'+ff(it.bonus)+'</span>');if(it.note)parts.push('ghi chú: '+esc(it.note));
+return'<b>'+(i+1)+'.</b> '+esc(sname)+' · T'+parseInt(it.month.split('-')[1])+'/'+it.month.split('-')[0]+' · '+parts.join(' · ');
+}).join('<br>');
+addAIMsg('bot','💼 Cập nhật lương <b>'+items.length+'</b> mục:<br><br>'+preview+'<br><br>'+confirmBtnsHTML());
+}catch(e){removeTyping();addAIMsg('bot','⚠ Lỗi: '+esc(e.message));}}
+
+// ═══ ACTION 4: TẠO KHÁCH HÀNG ═══
+function isClientIntent(msg){var l=msg.toLowerCase();return/\b(tạo|thêm|new)\s+(khách|khach|client)\b/.test(l);}
+
+async function handleClientFromChat(userMsg){
+if(!isAdmin()){addAIMsg('bot','⚠ Chỉ admin.');return;}
+addTyping();
+var systemPrompt='Bạn là trợ lý parse câu tự nhiên thành JSON tạo khách hàng mới.\n\nstatus:\n- "prospect": khách tiềm năng (mặc định nếu không rõ)\n- "active": khách chính thức đã ký hợp đồng\n\npayment_status: "paid" / "unpaid" (mặc định unpaid).\n\nĐơn vị tiền: "k"=×1000, "tr"=×1000000.\n\nTrả về JSON: {"clients":[{"name":"Tên KH","status":"prospect|active","payment_status":"paid|unpaid","service_fee":N,"has_vat":true|false,"contact_person":"...","phone":"...","email_invoice":"...","industry":"...","note":"ghi chú"}]}\n\nChỉ trường "name" bắt buộc. Các trường khác điền nếu user có đề cập, bỏ qua nếu không.\nKHÔNG markdown.';
+try{
+var text=await callAIParse(systemPrompt,userMsg);removeTyping();
+console.log('[AI client] raw:',text);
+var items=tryParseJsonArray(text);
+if(!items)return addAIMsg('bot',renderAIParseFail(text,'VD: "Tạo khách tiềm năng ABC Corp, SĐT 0987654321, phí 3tr".'));
+items=items.filter(function(it){return it&&it.name;});
+if(!items.length)return addAIMsg('bot','⚠ Thiếu tên khách hàng.');
+window._pendingAction={type:'client',items:items};
+var preview=items.map(function(it,i){
+var parts=[];if(it.phone)parts.push('SĐT: '+it.phone);if(it.service_fee)parts.push('phí: '+ff(it.service_fee));if(it.industry)parts.push(it.industry);
+var statusBadge=it.status==='active'?'<span style="color:var(--green);">chính thức</span>':'<span style="color:var(--amber-tx);">tiềm năng</span>';
+return'<b>'+(i+1)+'.</b> '+esc(it.name)+' · '+statusBadge+(parts.length?' · '+esc(parts.join(' · ')):'');
+}).join('<br>');
+addAIMsg('bot','👤 Tạo <b>'+items.length+'</b> khách hàng:<br><br>'+preview+'<br><br>'+confirmBtnsHTML());
+}catch(e){removeTyping();addAIMsg('bot','⚠ Lỗi: '+esc(e.message));}}
+
+// ═══ ACTION 5: GÁN TK CHO NHÂN SỰ ═══
+function isAssignIntent(msg){var l=msg.toLowerCase();return/\b(gán|assign)\b/.test(l)&&/\btk\b|\btài khoản\b|\baccount\b/.test(l);}
+
+async function handleAssignFromChat(userMsg){
+if(!isAdmin()){addAIMsg('bot','⚠ Chỉ admin.');return;}
+addTyping();
+var staffHint=staffList.map(function(s){return'id="'+s.id+'" short="'+s.short_name+'"';}).join('\n');
+var activeAds=adList.filter(function(a){return a.account_status===1;});
+var adHint=activeAds.slice(0,100).map(function(a){return'id="'+a.id+'" name="'+(a.account_name||'').replace(/"/g,'\\"')+'"';}).join('\n');
+var clientHint=clientList.filter(function(c){return c.status!=='prospect';}).map(function(c){return'id="'+c.id+'" name="'+(c.name||'').replace(/"/g,'\\"')+'"';}).join('\n');
+var todayStr=td();
+var systemPrompt='Bạn là trợ lý parse câu tự nhiên thành JSON gán Tài khoản quảng cáo cho nhân sự.\n\nNhân sự:\n'+staffHint+'\n\nTài khoản quảng cáo (ad accounts):\n'+adHint+'\n\nKhách hàng:\n'+clientHint+'\n\nHôm nay: '+todayStr+'. "hôm nay"→'+todayStr+', "20/4"→2026-04-20.\n\nTrả về JSON: {"assignments":[{"ad_account_id":"uuid","staff_id":"uuid","client_id":"uuid hoặc null","start_date":"YYYY-MM-DD","end_date":null}]}\n\nMatch ad account theo name (ưu tiên fuzzy match). Nếu không match được → KHÔNG điền, bỏ qua dòng đó.\nKHÔNG markdown.';
+try{
+var text=await callAIParse(systemPrompt,userMsg);removeTyping();
+console.log('[AI assign] raw:',text);
+var items=tryParseJsonArray(text);
+if(!items)return addAIMsg('bot',renderAIParseFail(text,'VD: "Gán TK Getfit cho Sơn từ hôm nay".'));
+items=items.filter(function(it){return it&&it.ad_account_id&&it.staff_id&&it.start_date;});
+if(!items.length)return addAIMsg('bot','⚠ Không match được TK hoặc NS. Kiểm tra tên TK/NS.');
+window._pendingAction={type:'assignment',items:items};
+var preview=items.map(function(it,i){
+var a=adList.find(function(x){return x.id===it.ad_account_id;});var aname=a?a.account_name:'(TK không khớp)';
+var s=allStaff.find(function(x){return x.id===it.staff_id;});var sname=s?s.short_name:'(NS không khớp)';
+var cname='';if(it.client_id){var c=clientList.find(function(x){return x.id===it.client_id;});if(c)cname=' · KH: '+c.name;}
+return'<b>'+(i+1)+'.</b> '+esc(aname)+' → <span style="color:var(--blue-tx);">'+esc(sname)+'</span>'+esc(cname)+' · từ '+esc(it.start_date);
+}).join('<br>');
+addAIMsg('bot','🔗 Gán <b>'+items.length+'</b> tài khoản:<br><br>'+preview+'<br><br>'+confirmBtnsHTML());
+}catch(e){removeTyping();addAIMsg('bot','⚠ Lỗi: '+esc(e.message));}}
+
+// ═══ ACTION 6: GHI DAILY SPEND (chi tiêu TK) ═══
+function isDailySpendIntent(msg){var l=msg.toLowerCase();return/\b(ghi spend|ghi chi tiêu tk|chi tiêu tk|spend)\b/.test(l)&&/\d/.test(l);}
+
+async function handleDailySpendFromChat(userMsg){
+if(!isAdmin()){addAIMsg('bot','⚠ Chỉ admin.');return;}
+addTyping();
+var staffHint=staffList.map(function(s){return'id="'+s.id+'" short="'+s.short_name+'"';}).join('\n');
+var activeAds=adList.filter(function(a){return a.account_status===1;});
+var adHint=activeAds.slice(0,100).map(function(a){return'id="'+a.id+'" name="'+(a.account_name||'').replace(/"/g,'\\"')+'"';}).join('\n');
+var todayStr=td();
+var systemPrompt='Bạn là trợ lý parse câu tự nhiên thành JSON ghi chi tiêu hàng ngày của TK quảng cáo.\n\nNhân sự:\n'+staffHint+'\n\nTài khoản quảng cáo:\n'+adHint+'\n\nHôm nay: '+todayStr+'. "k"=×1000, "tr"=×1000000.\n\nTrả về JSON: {"spends":[{"ad_account_id":"uuid","report_date":"YYYY-MM-DD","spend_amount":N,"staff_id":"uuid hoặc null"}]}\n\nMatch TK theo name (fuzzy). Không match được → bỏ dòng đó.\nKHÔNG markdown.';
+try{
+var text=await callAIParse(systemPrompt,userMsg);removeTyping();
+console.log('[AI daily_spend] raw:',text);
+var items=tryParseJsonArray(text);
+if(!items)return addAIMsg('bot',renderAIParseFail(text,'VD: "Ghi spend 500k cho TK Getfit hôm nay".'));
+items=items.filter(function(it){return it&&it.ad_account_id&&it.report_date&&it.spend_amount!=null;});
+if(!items.length)return addAIMsg('bot','⚠ Thiếu dữ liệu (cần: TK + ngày + số tiền).');
+window._pendingAction={type:'daily_spend',items:items};
+var preview=items.map(function(it,i){
+var a=adList.find(function(x){return x.id===it.ad_account_id;});var aname=a?a.account_name:'(TK không khớp)';
+var sname='';if(it.staff_id){var s=allStaff.find(function(x){return x.id===it.staff_id;});if(s)sname=' · '+s.short_name;}
+return'<b>'+(i+1)+'.</b> '+esc(aname)+' · '+esc(it.report_date)+' · <span style="color:var(--red);font-weight:600;">'+ff(it.spend_amount)+'</span>'+esc(sname);
+}).join('<br>');
+addAIMsg('bot','📊 Ghi <b>'+items.length+'</b> dòng chi tiêu TK:<br><br>'+preview+'<br><br>'+confirmBtnsHTML());
+}catch(e){removeTyping();addAIMsg('bot','⚠ Lỗi: '+esc(e.message));}}
+
+// Đăng ký intent theo thứ tự ưu tiên (specific → general)
+intentHandlers.push({match:isPenaltyIntent,handle:handlePenaltyFromChat});
+intentHandlers.push({match:isSalaryIntent,handle:handleSalaryFromChat});
+intentHandlers.push({match:isClientIntent,handle:handleClientFromChat});
+intentHandlers.push({match:isAssignIntent,handle:handleAssignFromChat});
+intentHandlers.push({match:isDailySpendIntent,handle:handleDailySpendFromChat});
+intentHandlers.push({match:isTransactionIntent,handle:handleTransactionFromChat});
 
 function askAI(q){document.getElementById('ai-input').value=q;sendAI();}
 
