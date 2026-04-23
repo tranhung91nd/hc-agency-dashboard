@@ -1356,7 +1356,7 @@ page.querySelectorAll('.table-wrap table').forEach(function(tbl){if(tbl.querySel
 async function fetchPaged(query){var all=[],from=0,size=1000;while(true){var{data,error}=await query.range(from,from+size-1);if(error)return{data:all,error:error};all=all.concat(data||[]);if(!data||data.length<size)break;from+=size;}return{data:all,error:null};}
 async function loadAll(){try{
  var minDate=new Date(Date.now()-180*86400000).toISOString().substring(0,10);
- var[s,c,aa,ds,sal,tx,mr,sc2,asgn,cmess,mf,ctr,qt]=await Promise.all([
+ var[s,c,aa,ds,sal,tx,mr,sc2,asgn,cmess,mf,ctr,qt,pnl]=await Promise.all([
 sb2.from('staff').select('*').order('monthly_budget',{ascending:false}),
 sb2.from('client').select('*').order('name'),
 sb2.from('ad_account').select('*,client(name)').order('account_name'),
@@ -1369,7 +1369,8 @@ sb2.from('assignment').select('*').order('start_date',{ascending:false}),
 fetchPaged(sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,max_lead_cost,client(name))').order('report_date',{ascending:false})),
  sb2.from('client_monthly_fee').select('*').order('month',{ascending:false}),
  sb2.from('contract').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
- sb2.from('quotation').select('*,client(name,company_full_name)').order('created_at',{ascending:false})
+ sb2.from('quotation').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
+ sb2.from('penalty').select('*').order('penalty_date',{ascending:false})
 ]);
 var errs=[];
  [['staff',s],['client',c],['ad_account',aa],['daily_spend',ds],['salary',sal],['transaction',tx],['monthly_revenue',mr],['staff_client',sc2],['assignment',asgn],['campaign_daily_mess',cmess]].forEach(function(pair){if(pair[1].error)errs.push(pair[0]+': '+pair[1].error.message);});
@@ -1383,6 +1384,8 @@ var errs=[];
  scData=sc2.data||[];assignData=asgn.data||[];campaignMessData=cmess.data||[];monthlyFeeData=mf.error?[]:(mf.data||[]);
  contractList=ctr.error?[]:(ctr.data||[]);
  quotationList=(qt&&!qt.error)?(qt.data||[]):[];
+ // penaltyData — nếu table chưa tồn tại (user chưa chạy migration) thì im lặng để không vỡ app
+ penaltyData=(typeof pnl!=='undefined'&&pnl&&!pnl.error)?(pnl.data||[]):[];
  var ds2=new Set();dailyData.forEach(function(d){ds2.add(d.report_date);});
 dates=Array.from(ds2).sort();if(dates.length)cDay=dates.length-1;
 if(!finMonth)finMonth=lm();if(!adViewDate)adViewDate=td();if(!rptMonth)rptMonth=lm();if(!clientMonth)clientMonth=lm();
@@ -1776,6 +1779,8 @@ h+='<tr><td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+es
 h+='</table></div>';
 // ═══ BẢNG LƯƠNG THÁNG ═══
 h+=renderSalaryTable();
+// ═══ SỔ PHẠT ═══
+h+=renderPenaltyTable();
 var ms=new Set();monthlyRevData.forEach(function(r){ms.add(r.month);});var sm=Array.from(ms).sort();
 if(sm.length){h+='<div class="section-title">Chi tiêu lịch sử</div><div class="table-wrap"><table><tr><th>Tháng</th>';staffList.forEach(function(s){h+='<th style="text-align:right;">'+esc(s.short_name)+'</th>';});h+='<th style="text-align:right;">Tổng</th></tr>';
 sm.forEach(function(m){var tt=0;h+='<tr><td>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</td>';staffList.forEach(function(s){var rv=monthlyRevData.find(function(r){return r.staff_id===s.id&&r.month===m;}),v=rv?rv.total_spend:0;tt+=v;h+='<td class="mono" style="text-align:right;">'+fm(v)+'</td>';});h+='<td class="mono" style="text-align:right;font-weight:600;">'+fm(tt)+'</td></tr>';});h+='</table></div>';}
@@ -1797,7 +1802,7 @@ var h='<div class="section-title" style="display:flex;align-items:center;justify
 monthArr.forEach(function(m){h+='<option value="'+m+'"'+(m===salaryMonth?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
 h+='</select><button class="btn btn-ghost btn-sm" onclick="recomputeAllCommissions(this)">🔄 Tính lại hoa hồng</button></div></div>';
 h+='<div style="font-size:12px;color:var(--tx3);margin-bottom:10px;">Hoa hồng tự động: <b>1%</b> ngân sách nếu khách quản lý dưới 90 ngày · <b>2%</b> nếu từ 90 ngày trở lên (tính đến cuối tháng). Tự động lưu khi chỉnh sửa.</div>';
-h+='<div class="table-wrap"><table><thead><tr><th></th><th>Nhân sự</th><th style="text-align:right;">Lương cứng</th><th style="text-align:right;">Hoa hồng Quảng cáo</th><th style="text-align:right;">Thưởng khác</th><th style="text-align:right;">Tổng</th><th style="min-width:180px;">Ghi chú thưởng</th></tr></thead><tbody>';
+h+='<div class="table-wrap"><table><thead><tr><th></th><th>Nhân sự</th><th style="text-align:right;">Lương cứng</th><th style="text-align:right;">Hoa hồng Quảng cáo</th><th style="text-align:right;">Thưởng khác</th><th style="text-align:right;">Phạt</th><th style="text-align:right;">Tổng</th><th style="min-width:180px;">Ghi chú thưởng</th></tr></thead><tbody>';
 var grandTotal=0;
 staffList.forEach(function(s){
 var c=sc(s.color_code);
@@ -1811,7 +1816,9 @@ var baseVal=row&&row.base_salary!=null?Number(row.base_salary):(isCEO?0:(Number(
 var commVal=row&&row.commission!=null?Number(row.commission):comm.total;
 var bonusVal=row&&row.bonus!=null?Number(row.bonus):0;
 var noteVal=row&&row.note?row.note:'';
-var total=baseVal+commVal+bonusVal;grandTotal+=total;
+// Tổng phạt trong tháng (trừ vào lương)
+var penVal=0;penaltyData.forEach(function(p){if(p.staff_id===s.id&&(p.penalty_date||'').substring(0,7)===salaryMonth)penVal+=Number(p.amount)||0;});
+var total=baseVal+commVal+bonusVal-penVal;grandTotal+=total;
 var isExp=expandedSalaryStaffId===s.id;
 h+='<tr'+(isExp?' style="background:var(--bg2);"':'')+'>';
 h+='<td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';cursor:pointer;" onclick="toggleSalaryExpand(\''+s.id+'\')">'+esc(s.avatar_initials)+'</div></td>';
@@ -1819,12 +1826,13 @@ h+='<td style="font-weight:500;cursor:pointer;" onclick="toggleSalaryExpand(\''+
 h+='<td style="text-align:right;"><input type="text" inputmode="numeric" class="mono" style="width:110px;text-align:right;border:1px solid var(--bd1);border-radius:6px;padding:5px 8px;font-size:12px;" value="'+(baseVal?baseVal.toLocaleString('vi-VN'):'')+'" oninput="fmtSalaryInput(this,\''+s.id+'\',\'base_salary\')"></td>';
 h+='<td style="text-align:right;" class="mono"><span style="color:'+(commVal>0?'var(--green)':'var(--tx3)')+';font-weight:500;">'+ff(commVal)+'</span>'+(isCEO?'':'<div style="font-size:10px;color:var(--tx3);">tự động</div>')+'</td>';
 h+='<td style="text-align:right;"><input type="text" inputmode="numeric" class="mono" style="width:110px;text-align:right;border:1px solid var(--bd1);border-radius:6px;padding:5px 8px;font-size:12px;" value="'+(bonusVal?bonusVal.toLocaleString('vi-VN'):'')+'" oninput="fmtSalaryInput(this,\''+s.id+'\',\'bonus\')"></td>';
+h+='<td style="text-align:right;" class="mono"><span style="color:'+(penVal>0?'var(--red)':'var(--tx3)')+';font-weight:500;" title="Tổng phạt tháng này từ Sổ phạt (tự động trừ vào tổng lương)">'+(penVal>0?'−'+ff(penVal):'—')+'</span></td>';
 h+='<td style="text-align:right;font-weight:600;" class="mono">'+ff(total)+'</td>';
 h+='<td><input type="text" style="width:100%;min-width:160px;border:1px solid var(--bd1);border-radius:6px;padding:5px 8px;font-size:12px;" placeholder="VD: Thưởng dự án Mysterise" value="'+esc(noteVal)+'" oninput="onSalaryEdit(\''+s.id+'\',\'note\',this.value)"></td>';
 h+='</tr>';
 // Expanded row: chi tiết hoa hồng
 if(isExp){
-h+='<tr><td colspan="7" style="background:var(--bg2);padding:12px 20px;">';
+h+='<tr><td colspan="8" style="background:var(--bg2);padding:12px 20px;">';
 if(comm.detail.length){
 h+='<div style="font-size:12px;font-weight:500;margin-bottom:8px;color:var(--tx2);">Chi tiết hoa hồng quảng cáo — '+comm.detail.length+' khách hàng</div>';
 h+='<table style="width:100%;font-size:12px;"><thead><tr style="color:var(--tx3);font-size:11px;text-transform:uppercase;"><th style="text-align:left;padding:4px 8px;">Khách hàng</th><th style="text-align:right;padding:4px 8px;">Ngày quản lý</th><th style="text-align:right;padding:4px 8px;">Spend tháng</th><th style="text-align:right;padding:4px 8px;">% hoa hồng</th><th style="text-align:right;padding:4px 8px;">Số tiền</th></tr></thead><tbody>';
@@ -1836,9 +1844,226 @@ h+='</tbody></table>';
 h+='<div style="font-size:12px;color:var(--tx3);text-align:center;padding:10px;">'+(isCEO?'CEO không nhận hoa hồng quảng cáo tự động':'Không có dữ liệu khách hàng quản lý trong tháng này')+'</div>';}
 h+='</td></tr>';}
 });
-h+='<tr style="border-top:2px solid var(--bd1);background:var(--bg2);"><td colspan="5" style="text-align:right;font-weight:600;padding:10px;">Tổng chi lương tháng</td><td style="text-align:right;font-weight:600;padding:10px;color:var(--red);" class="mono">'+ff(grandTotal)+'</td><td></td></tr>';
+h+='<tr style="border-top:2px solid var(--bd1);background:var(--bg2);"><td colspan="6" style="text-align:right;font-weight:600;padding:10px;">Tổng chi lương tháng (đã trừ phạt)</td><td style="text-align:right;font-weight:600;padding:10px;color:var(--red);" class="mono">'+ff(grandTotal)+'</td><td></td></tr>';
 h+='</tbody></table></div>';
 return h;}
+
+// ═══════════════════════════════════════════════════════════════════
+// SỔ PHẠT — quản lý phạt nhân sự, tự động trừ vào bảng lương tháng
+// ═══════════════════════════════════════════════════════════════════
+function staffByFuzzyName(rawName){
+var n=(rawName||'').toLowerCase().trim();if(!n)return null;
+// exact short_name
+var m=allStaff.find(function(s){return(s.short_name||'').toLowerCase().trim()===n;});if(m)return m;
+// exact full_name
+m=allStaff.find(function(s){return(s.full_name||'').toLowerCase().trim()===n;});if(m)return m;
+// contains
+m=allStaff.find(function(s){var sn=(s.short_name||'').toLowerCase(),fn=(s.full_name||'').toLowerCase();return sn&&(sn.indexOf(n)>=0||n.indexOf(sn)>=0);});if(m)return m;
+m=allStaff.find(function(s){var fn=(s.full_name||'').toLowerCase();return fn&&(fn.indexOf(n)>=0||n.indexOf(fn)>=0);});
+return m||null;}
+function renderPenaltyTable(){
+if(!penaltyMonth)penaltyMonth=lm();
+// Tập tháng hiện có + 6 tháng gần nhất
+var monthSet=new Set();
+penaltyData.forEach(function(p){if(p.penalty_date)monthSet.add(p.penalty_date.substring(0,7));});
+monthSet.add(lm());
+var td2=new Date();for(var i=0;i<6;i++){var my=td2.getFullYear(),mm=td2.getMonth()+1-i;while(mm<=0){mm+=12;my-=1;}monthSet.add(my+'-'+String(mm).padStart(2,'0'));}
+var monthArr=Array.from(monthSet).sort().reverse();
+var h='<div class="section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;"><div>Sổ phạt <span style="font-size:11px;font-weight:400;color:var(--tx3);margin-left:6px;">Tự động trừ vào bảng lương tháng</span></div>';
+h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+h+='<select class="fi" style="width:140px;" onchange="penaltyMonth=this.value;render();">';
+monthArr.forEach(function(m){h+='<option value="'+m+'"'+(m===penaltyMonth?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
+h+='</select>';
+if(authUser&&isAdmin()){
+h+='<button class="btn btn-ghost btn-sm" onclick="askAIPenalty()" title="Gõ câu tự nhiên cho AI, VD: Phạt Sơn 30k ngày 20/4 do quên báo cáo">🤖 AI ghi phạt</button>';
+h+='<input type="file" id="penalty-xlsx" accept=".xlsx,.xls" style="display:none;" onchange="importPenaltiesFromXLSX(this.files[0])">';
+h+='<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'penalty-xlsx\').click()" title="Import file Excel phạt (từ T2/2026 trở đi)">📥 Import Excel</button>';
+}
+h+='</div></div>';
+// Form nhập phạt
+if(authUser&&isAdmin()){
+h+='<div class="form-card" style="padding:12px 14px;margin-bottom:10px;">';
+h+='<div class="form-row"><div class="form-group"><label>Nhân sự</label><select id="pn-staff">';
+staffList.forEach(function(s){h+='<option value="'+s.id+'">'+esc(s.short_name)+'</option>';});
+h+='</select></div>';
+h+='<div class="form-group"><label>Ngày</label><input type="date" id="pn-date" value="'+td()+'"></div>';
+h+='<div class="form-group"><label>Số tiền</label><input type="number" id="pn-amount" placeholder="30000"></div></div>';
+h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Lý do</label><input type="text" id="pn-reason" placeholder="VD: Quên báo cáo, đi làm muộn…"></div></div>';
+h+='<div class="btn-row"><button class="btn btn-primary btn-sm" onclick="savePenalty(this)">Ghi phạt</button></div></div>';
+}
+// Pivot table: dòng = ngày, cột = nhân sự + Note
+var monthRows=penaltyData.filter(function(p){return(p.penalty_date||'').substring(0,7)===penaltyMonth;});
+if(!monthRows.length){
+h+='<div class="empty-state" role="status"><div class="empty-state-icon" aria-hidden="true">📒</div><div class="empty-state-title">Chưa có phạt nào trong tháng này</div><div class="empty-state-desc">Nhập phạt ở form trên, hoặc nhờ AI ghi bằng câu tự nhiên.</div></div>';
+return h;}
+// Build date set
+var dateSet=new Set();monthRows.forEach(function(p){dateSet.add(p.penalty_date);});
+var dateArr=Array.from(dateSet).sort();
+// Columns: staffList (active) + any extra staff_id hoặc raw_name có trong dữ liệu nhưng không active
+var colStaff=staffList.slice();var extraNameSet=new Set();
+monthRows.forEach(function(p){
+if(p.staff_id){if(!colStaff.find(function(s){return s.id===p.staff_id;})){var inactive=allStaff.find(function(s){return s.id===p.staff_id;});if(inactive)colStaff.push(inactive);}}
+else if(p.staff_name_raw)extraNameSet.add(p.staff_name_raw);
+});
+var extraNames=Array.from(extraNameSet);
+h+='<div class="table-wrap"><table><thead><tr><th>Ngày</th>';
+colStaff.forEach(function(s){h+='<th style="text-align:right;">'+esc(s.short_name)+(s.is_active?'':' <span style="font-size:10px;color:var(--tx3);">(cũ)</span>')+'</th>';});
+extraNames.forEach(function(n){h+='<th style="text-align:right;color:var(--tx3);">'+esc(n)+' <span style="font-size:10px;">(chưa gán)</span></th>';});
+h+='<th>Lý do</th>'+(authUser&&isAdmin()?'<th></th>':'')+'</tr></thead><tbody>';
+var totals={};colStaff.forEach(function(s){totals[s.id]=0;});var extraTotals={};extraNames.forEach(function(n){extraTotals[n]=0;});var grandTot=0;
+dateArr.forEach(function(d){
+var dayRows=monthRows.filter(function(p){return p.penalty_date===d;});
+var reasons=dayRows.map(function(r){return r.reason||'';}).filter(function(x){return x;}).join(' · ');
+// Map theo staff_id
+var byStaff={},byExtra={};dayRows.forEach(function(p){
+if(p.staff_id){if(!byStaff[p.staff_id])byStaff[p.staff_id]=[];byStaff[p.staff_id].push(p);}
+else if(p.staff_name_raw){if(!byExtra[p.staff_name_raw])byExtra[p.staff_name_raw]=[];byExtra[p.staff_name_raw].push(p);}
+});
+h+='<tr><td>'+fd(d)+'</td>';
+colStaff.forEach(function(s){
+var arr=byStaff[s.id]||[];var sum=arr.reduce(function(acc,p){return acc+(Number(p.amount)||0);},0);
+totals[s.id]+=sum;grandTot+=sum;
+if(sum){h+='<td style="text-align:right;" class="mono"><span style="color:var(--red);font-weight:500;" title="'+esc(arr.map(function(r){return r.reason||'(không ghi lý do)';}).join(' · '))+'">'+ff(sum)+'</span>'+(authUser&&isAdmin()&&arr.length===1?' <button onclick="deletePenalty(\''+arr[0].id+'\')" style="font-size:10px;border:0;background:none;color:var(--tx3);cursor:pointer;" title="Xóa">×</button>':'')+'</td>';}
+else h+='<td></td>';
+});
+extraNames.forEach(function(n){
+var arr=byExtra[n]||[];var sum=arr.reduce(function(acc,p){return acc+(Number(p.amount)||0);},0);
+extraTotals[n]+=sum;grandTot+=sum;
+if(sum)h+='<td style="text-align:right;" class="mono" style="color:var(--amber-tx);">'+ff(sum)+'</td>';else h+='<td></td>';
+});
+h+='<td style="font-size:12px;color:var(--tx2);">'+esc(reasons)+'</td>';
+if(authUser&&isAdmin())h+='<td></td>';
+h+='</tr>';
+});
+// Total row
+h+='<tr style="border-top:2px solid var(--bd1);background:var(--bg2);font-weight:600;"><td>TỔNG</td>';
+colStaff.forEach(function(s){h+='<td style="text-align:right;" class="mono">'+(totals[s.id]?'<span style="color:var(--red);">'+ff(totals[s.id])+'</span>':'—')+'</td>';});
+extraNames.forEach(function(n){h+='<td style="text-align:right;" class="mono">'+(extraTotals[n]?ff(extraTotals[n]):'—')+'</td>';});
+h+='<td style="text-align:right;" class="mono" colspan="'+(authUser&&isAdmin()?'2':'1')+'"><span style="color:var(--red);">Tổng tháng: '+ff(grandTot)+'</span></td>';
+h+='</tr>';
+h+='</tbody></table></div>';
+if(extraNames.length){
+h+='<div style="margin-top:10px;padding:8px 12px;background:var(--amber-bg);color:var(--amber-tx);border-radius:6px;font-size:11px;">⚠ Có '+extraNames.length+' tên chưa gán được vào Nhân sự trong hệ thống: <b>'+esc(extraNames.join(', '))+'</b>. Vào Supabase → table <code>penalty</code> → set cột <code>staff_id</code> để khớp, hoặc thêm nhân sự mới (nếu đó là nhân sự đang hoạt động).</div>';
+}
+return h;
+}
+async function savePenalty(btn){
+if(!needAuth())return;
+var sid=document.getElementById('pn-staff').value;
+var d=document.getElementById('pn-date').value;
+var amt=parseInt(document.getElementById('pn-amount').value,10);
+var rs=document.getElementById('pn-reason').value.trim();
+if(!sid||!d||!amt||amt<=0){toast('Thiếu thông tin: Nhân sự / Ngày / Số tiền',false);return;}
+if(btn){btn.disabled=true;btn.textContent='Đang lưu...';}
+var r=await sb2.from('penalty').insert({staff_id:sid,penalty_date:d,amount:amt,reason:rs,created_by:authUser?authUser.email:null});
+if(btn){btn.disabled=false;btn.textContent='Ghi phạt';}
+if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+toast('Đã ghi phạt '+ff(amt),true);
+document.getElementById('pn-amount').value='';document.getElementById('pn-reason').value='';
+await loadAll();render();}
+async function deletePenalty(id){
+if(!needAuth())return;
+if(!confirm('Xóa khoản phạt này?'))return;
+var r=await sb2.from('penalty').delete().eq('id',id);
+if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+toast('Đã xóa',true);await loadAll();render();}
+// ═══ AI GHI PHẠT — parse câu tự nhiên thành JSON, xác nhận trước khi lưu ═══
+async function askAIPenalty(){
+if(!isAdmin()){toast('Chỉ admin mới ghi phạt được',false);return;}
+var rawModel=document.getElementById('ai-model')?document.getElementById('ai-model').value:'gpt-4o-mini';
+var userMsg=prompt('Mô tả khoản phạt bằng câu tự nhiên:\n\nVí dụ:\n  • Phạt Sơn 30k ngày 20/4 do quên báo cáo\n  • Phạt Anh Thư 60k hôm qua, set lỗi độ tuổi\n  • Phạt Nhi 30000 today, rep tin nhắn chậm\n\nCó thể nhập NHIỀU dòng, mỗi dòng 1 phạt.');
+if(!userMsg||!userMsg.trim())return;
+if(!CLAUDE_KEY&&!OPENAI_KEY){toast('Chưa cấu hình API key AI. Vào Admin → Cài đặt API Key.',false);return;}
+var staffHint=staffList.map(function(s){return'id="'+s.id+'" short="'+s.short_name+'" full="'+s.full_name+'"';}).join('\n');
+var todayStr=td();
+var systemPrompt='Bạn là trợ lý parse câu tự nhiên tiếng Việt thành JSON ghi phạt nhân sự.\n\nDanh sách nhân sự:\n'+staffHint+'\n\nHôm nay là '+todayStr+'. Nếu user nói "hôm nay" → '+todayStr+'; "hôm qua" → ngày trước đó; "20/4" → 2026-04-20 (năm hiện tại nếu không nói rõ).\n\nĐơn vị tiền: "k" hoặc "ngàn" = ×1000, "tr" hoặc "triệu" = ×1000000. "30k" = 30000.\n\nChỉ trả về JSON MẢNG thuần, KHÔNG markdown, KHÔNG code fence, VD:\n[{"staff_id":"uuid-đã-match","penalty_date":"2026-04-20","amount":30000,"reason":"quên báo cáo"}]\n\nNếu không match được nhân sự → dùng "staff_id":null và điền "staff_name_raw" là tên thô.';
+toast('Đang parse bằng AI...',true);
+try{
+var isClaude=rawModel.indexOf('claude')===0;
+var resp;
+if(isClaude){
+resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':CLAUDE_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:rawModel,system:systemPrompt,messages:[{role:'user',content:userMsg}],max_tokens:1200})});
+}else{
+resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},body:JSON.stringify({model:rawModel,messages:[{role:'system',content:systemPrompt},{role:'user',content:userMsg}],max_completion_tokens:1200,response_format:{type:'json_object'}})});
+}
+var data=await resp.json();
+if(data.error){toast('Lỗi AI: '+data.error.message,false);return;}
+var text=isClaude?data.content[0].text:data.choices[0].message.content;
+// Parse: tìm mảng [ ... ]
+var match=text.match(/\[[\s\S]*\]/);if(!match){
+// Có thể AI wrap trong object {items:[...]}
+try{var obj=JSON.parse(text);if(Array.isArray(obj))match=[text];else if(obj&&Array.isArray(obj.items))match=[JSON.stringify(obj.items)];else if(obj&&Array.isArray(obj.penalties))match=[JSON.stringify(obj.penalties)];}catch(e){}
+}
+if(!match){toast('AI không trả về JSON hợp lệ. Thử lại.',false);console.warn('[AI penalty] raw:',text);return;}
+var items;try{items=JSON.parse(match[0]);}catch(e){toast('Parse JSON lỗi: '+e.message,false);console.warn('[AI penalty] raw:',text);return;}
+if(!Array.isArray(items)||!items.length){toast('AI không phát hiện phạt nào',false);return;}
+// Validate + confirm
+var preview=items.map(function(it,i){
+var sname='—';if(it.staff_id){var s=allStaff.find(function(x){return x.id===it.staff_id;});if(s)sname=s.short_name;else sname='(id không khớp)';}else if(it.staff_name_raw)sname=it.staff_name_raw+' (chưa gán)';
+return(i+1)+'. '+sname+' · '+it.penalty_date+' · '+ff(it.amount)+' · '+(it.reason||'(không ghi lý do)');
+}).join('\n');
+if(!confirm('AI phát hiện '+items.length+' khoản phạt:\n\n'+preview+'\n\nLưu vào DB?'))return;
+// Insert
+var rows=items.map(function(it){return{staff_id:it.staff_id||null,staff_name_raw:it.staff_id?null:(it.staff_name_raw||null),penalty_date:it.penalty_date,amount:Number(it.amount)||0,reason:it.reason||'',created_by:authUser?authUser.email:null};});
+var r=await sb2.from('penalty').insert(rows);
+if(r.error){toast('Lỗi lưu: '+r.error.message,false);return;}
+toast('Đã lưu '+items.length+' khoản phạt',true);
+await loadAll();render();
+}catch(e){toast('Lỗi: '+e.message,false);console.error(e);}}
+// ═══ IMPORT XLSX — parse file "PHẠT TEAM" nhiều sheet theo tháng ═══
+async function importPenaltiesFromXLSX(file){
+if(!isAdmin()){toast('Chỉ admin mới import được',false);return;}
+if(!file)return;
+try{
+var XLSX=await loadXLSX();
+var buf=await file.arrayBuffer();
+var wb=XLSX.read(new Uint8Array(buf),{type:'array'});
+var allRows=[],skipped=[];
+var MIN_MONTH='2026-02';
+wb.SheetNames.forEach(function(name){
+// Parse tháng từ tên sheet: "T3.2026", "T12.2024", "T2.2026"
+var m=name.match(/^T(\d{1,2})[\s.\/-]?(\d{4})$/i);if(!m){skipped.push(name+' (tên sheet không phải dạng T<M>.<YYYY>)');return;}
+var month=parseInt(m[1],10),year=parseInt(m[2],10);
+if(month<1||month>12){skipped.push(name);return;}
+var mk=year+'-'+String(month).padStart(2,'0');
+if(mk<MIN_MONTH){skipped.push(name+' (< '+MIN_MONTH+')');return;}
+var ws=wb.Sheets[name];var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+if(!rows.length)return;
+var header=rows[0]||[];
+// header[0]="Ngày", header[1..N-2]=tên nhân sự, header[N-1]="Note"
+var staffCols=[];
+for(var c=1;c<header.length;c++){var hv=String(header[c]||'').trim();if(!hv||/^note|lý do|ghi chú/i.test(hv))continue;staffCols.push({idx:c,name:hv});}
+// Note column = cuối
+var noteIdx=-1;for(var c2=header.length-1;c2>=1;c2--){if(/^note|lý do|ghi chú/i.test(String(header[c2]||'').trim())){noteIdx=c2;break;}}
+// Cuối tháng theo sheet để clamp ngày
+var lastDayOfSheet=new Date(year,month,0).getDate();
+for(var r=1;r<rows.length;r++){
+var row=rows[r];var dateCell=row[0];
+if(!dateCell||typeof dateCell==='string'&&/tổng/i.test(dateCell))continue;
+// Lấy DAY từ cell. Tháng/năm DÙNG THEO TÊN SHEET (file Excel thường có year lệch vì clone sheet cũ)
+var day=null;
+if(typeof dateCell==='number'){var parsed=XLSX.SSF.parse_date_code(dateCell);if(parsed&&parsed.d)day=parsed.d;}
+else if(typeof dateCell==='string'){var dm=dateCell.match(/\b(\d{1,2})[\/.\-](\d{1,2})(?:[\/.\-](\d{2,4}))?\b/);if(dm)day=parseInt(dm[1],10);else{var dmi=dateCell.match(/^(\d{1,2})$/);if(dmi)day=parseInt(dmi[1],10);}}
+if(!day||day<1||day>lastDayOfSheet)continue;
+var d=mk+'-'+String(day).padStart(2,'0');
+var reason=noteIdx>=0?String(row[noteIdx]||'').trim():'';
+staffCols.forEach(function(col){
+var val=row[col.idx];if(val===''||val==null)return;
+var num=Number(val);if(!num||isNaN(num)||num<=0)return;
+var s=staffByFuzzyName(col.name);
+allRows.push({staff_id:s?s.id:null,staff_name_raw:s?null:col.name,penalty_date:d,amount:Math.round(num),reason:reason,created_by:authUser?authUser.email:null});
+});
+}
+});
+if(!allRows.length){toast('File không có dòng phạt hợp lệ (từ T2/2026)',false);return;}
+var unmatched=allRows.filter(function(r){return!r.staff_id;}).length;
+if(!confirm('Import '+allRows.length+' khoản phạt từ '+(wb.SheetNames.length-skipped.length)+' sheet?'+(skipped.length?'\n\nBỏ qua sheet: '+skipped.join(', '):'')+(unmatched?'\n\n⚠ '+unmatched+' dòng chưa khớp nhân sự (sẽ lưu với staff_name_raw).':'')))return;
+// Batch insert 500 rows/lần
+var batches=chunkArray(allRows,500),saved=0,errs=0;
+for(var i=0;i<batches.length;i++){var r=await sb2.from('penalty').insert(batches[i]);if(r.error){errs+=batches[i].length;console.warn('[Penalty import]',r.error.message);}else saved+=batches[i].length;}
+toast('Import xong: '+saved+' OK'+(errs?', '+errs+' lỗi':''),!errs);
+await loadAll();render();
+}catch(e){toast('Lỗi đọc file: '+e.message,false);console.error(e);}}
 
 // ═══ P3: KHÁCH HÀNG ═══
 function p3(){
@@ -2929,10 +3154,16 @@ var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.fb_accoun
 try{
 var bResp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
 var bResults=await bResp.json();
+if(!Array.isArray(bResults)){
+var em=(bResults&&bResults.error&&bResults.error.message)||'Batch không phải mảng';
+console.warn('[Shared spend sync]',date,'batch-level error:',em);
+errors+=chunk.length;continue;
+}
 for(var j=0;j<chunk.length;j++){
+var accId=chunk[j].fb_account_id;
 try{
 var body=JSON.parse((bResults[j]&&bResults[j].body)||'{}');
-if(body.error){errors++;continue;}
+if(body.error){console.warn('[Shared spend sync]',date,'acc='+accId,'code='+body.error.code,body.error.message);errors++;continue;}
 rows=rows.concat(buildSharedSpendRows(chunk[j],body.data||[],date));
 }catch(e){errors++;}
 }
@@ -2996,7 +3227,12 @@ return{ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_nam
 });
 }
 async function fetchCampaignMessBatch(accounts,d3,d1){
-var allRows=[],errors=0;
+var allRows=[],errors=0,errorSamples=[];
+function pushErr(accId,phase,msg,code){
+errors++;
+if(errorSamples.length<5)errorSamples.push({accId:accId,phase:phase,msg:msg,code:code});
+console.warn('[Mess sync]',phase,'acc='+accId,'code='+code,msg);
+}
 // 3 requests/account (campaigns + insights + adsets) → chunk 16 để <50 requests/batch
 for(var b=0;b<accounts.length;b+=16){
 var chunk=accounts.slice(b,b+16);
@@ -3009,17 +3245,28 @@ batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/adsets?fields=campai
 try{
 var bResp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
 var bResults=await bResp.json();
+// Batch-level error (token invalid, app blocked, rate limit) — toàn bộ chunk fail, bResults là object thay vì array
+if(!Array.isArray(bResults)){
+var em=(bResults&&bResults.error&&bResults.error.message)||'Batch API trả về không phải mảng';
+var ec=(bResults&&bResults.error&&bResults.error.code)||0;
+chunk.forEach(function(a){pushErr(a.fb_account_id,'batch',em,ec);});
+continue;
+}
 for(var j=0;j<chunk.length;j++){
+var accId=chunk[j].fb_account_id;
 try{
-var campBody=JSON.parse((bResults[j*3]&&bResults[j*3].body)||'{}');
-var insBody=JSON.parse((bResults[j*3+1]&&bResults[j*3+1].body)||'{}');
-var adsetsBody=JSON.parse((bResults[j*3+2]&&bResults[j*3+2].body)||'{}');
-if(campBody.error||insBody.error){errors++;continue;}
+var campRaw=bResults[j*3],insRaw=bResults[j*3+1],adsRaw=bResults[j*3+2];
+var campBody=JSON.parse((campRaw&&campRaw.body)||'{}');
+var insBody=JSON.parse((insRaw&&insRaw.body)||'{}');
+var adsetsBody=JSON.parse((adsRaw&&adsRaw.body)||'{}');
+if(campBody.error){pushErr(accId,'campaigns',campBody.error.message,campBody.error.code);continue;}
+if(insBody.error){pushErr(accId,'insights',insBody.error.message,insBody.error.code);continue;}
 // adsetsBody.error không fatal — vẫn quét được spend/mess/lead, chỉ mất phân loại
+if(adsetsBody.error)console.warn('[Mess sync] adsets non-fatal acc='+accId,adsetsBody.error.message);
 allRows=allRows.concat(parseMessRows(chunk[j],campBody,insBody,adsetsBody));
-}catch(e2){errors++;}}
-}catch(e){errors+=chunk.length;}}
-return{rows:allRows,errors:errors};
+}catch(e2){pushErr(accId,'parse',e2.message,0);}}
+}catch(e){chunk.forEach(function(a){pushErr(a.fb_account_id,'network',e.message,0);});}}
+return{rows:allRows,errors:errors,errorSamples:errorSamples};
 }
 async function syncCampaignMess(btn,skipRefresh){
 var oldText=btn?btn.textContent:'Quét giá Messenger';
@@ -3039,7 +3286,19 @@ var upsert=await sb2.from('campaign_daily_mess').upsert(batches[i],{onConflict:'
 if(upsert.error){errors+=batches[i].length;console.warn('[Mess sync upsert]',upsert.error.message);}
 else saved+=batches[i].length;
 }
-toast('Quét xong: '+saved+' dòng'+(errors?' · '+errors+' lỗi':''),!errors);
+// Rút gọn lý do lỗi đầu tiên cho user (chi tiết đầy đủ ở console)
+var hint='';
+if(errors&&result.errorSamples&&result.errorSamples.length){
+var s0=result.errorSamples[0];
+var codeHint='';
+if(s0.code===190)codeHint=' — Token hết hạn/thu hồi';
+else if(s0.code===200||s0.code===100)codeHint=' — Thiếu quyền ads_read';
+else if(s0.code===17||s0.code===4||s0.code===32||s0.code===613)codeHint=' — Rate limit, thử lại sau 1-2 phút';
+else if(s0.code===803)codeHint=' — Tài khoản không truy cập được';
+hint=' ('+s0.phase+(s0.code?' #'+s0.code:'')+codeHint+')';
+console.warn('[Mess sync] Mẫu lỗi:',result.errorSamples);
+}
+toast('Quét xong: '+saved+' dòng'+(errors?' · '+errors+' lỗi'+hint:''),!errors);
 if(!skipRefresh)await loadAll();
 }catch(e){toast('Lỗi quét giá Messenger: '+e.message,false);}
 finally{if(btn){btn.disabled=false;btn.textContent=oldText;}}}
@@ -4944,6 +5203,13 @@ var t=base+comm.total+bonus;sumTotal+=t;
 summary+=s.short_name+(isCEO?' (CEO)':'')+': cứng '+ff(base)+' + hoa hồng '+ff(comm.total)+' + thưởng '+ff(bonus)+' = '+ff(t)+(row&&row.note?' ['+row.note+']':'')+'\n';
 });
 summary+='Tổng chi lương: '+ff(sumTotal)+'\n';
+// Sổ phạt tháng hiện tại
+var penByStaff={};penaltyData.filter(function(p){return(p.penalty_date||'').substring(0,7)===smo;}).forEach(function(p){
+var sid=p.staff_id||'_raw_'+p.staff_name_raw;if(!penByStaff[sid])penByStaff[sid]={name:p.staff_id?((allStaff.find(function(s){return s.id===p.staff_id;})||{}).short_name||'?'):p.staff_name_raw,total:0,entries:[]};
+penByStaff[sid].total+=Number(p.amount)||0;penByStaff[sid].entries.push(fd(p.penalty_date)+' '+ff(p.amount)+(p.reason?' ('+p.reason+')':''));});
+var penKeys=Object.keys(penByStaff);
+if(penKeys.length){summary+='\n== SỔ PHẠT THÁNG '+smo+' (đã trừ vào lương) ==\n';penKeys.forEach(function(k){var p=penByStaff[k];summary+=p.name+': '+ff(p.total)+' ('+p.entries.length+' lần) — '+p.entries.slice(0,3).join('; ')+(p.entries.length>3?'…':'')+'\n';});}
+else summary+='\n== SỔ PHẠT ==\nKhông có phạt nào trong tháng.\n';
 var balAlerts=getBalanceAlerts();
 if(balAlerts.length){summary+='\n== CẢNH BÁO Tài khoản SẮP HẾT TIỀN (số dư < '+ff(BALANCE_ALERT_THRESHOLD)+'đ) ==\n';
 balAlerts.forEach(function(al){var dl=al.days_left===null?'chưa xác định':(al.days_left<1?'<1 ngày':'~'+al.days_left.toFixed(1)+' ngày');summary+=al.account_name+' ('+(al.client_name||'chưa gán Khách hàng')+'): còn '+ff(al.balance)+'đ, chi TB '+ff(Math.round(al.avg_daily))+'đ/ngày → còn chạy '+dl+', Nhân sự '+(al.staff?al.staff.short_name:'—')+'\n';});}
@@ -5033,7 +5299,12 @@ function hideSyncBar(){var bar=document.getElementById('sync-bar');if(bar){bar.c
 async function syncOneDate(date,mapped){
 var normal=mapped.filter(function(a){return!a.is_shared;});
 var shared=mapped.filter(function(a){return a.is_shared;});
-var saved=0,errors=0;
+var saved=0,errors=0,errorSamples=[];
+function pushErr(accId,phase,msg,code){
+errors++;
+if(errorSamples.length<3)errorSamples.push({accId:accId,phase:phase,msg:msg,code:code});
+console.warn('[Spend sync]',date,phase,'acc='+accId,'code='+code,msg);
+}
 // Batch 50 Tài khoản thường
 for(var b=0;b<normal.length;b+=50){
 var chunk=normal.slice(b,b+50);
@@ -5041,21 +5312,31 @@ var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.fb_accoun
 try{
 var bResp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
 var bResults=await bResp.json();
+// Batch-level failure (token invalid, app block, …) — KHÔNG xoá data cũ
+if(!Array.isArray(bResults)){
+var em=(bResults&&bResults.error&&bResults.error.message)||'Batch không phải mảng';
+var ec=(bResults&&bResults.error&&bResults.error.code)||0;
+chunk.forEach(function(a){pushErr(a.fb_account_id,'batch',em,ec);});
+continue;
+}
 var upsertRows=[];
 for(var j=0;j<bResults.length;j++){
-try{var body=JSON.parse(bResults[j].body||'{}');
+var accId=chunk[j].fb_account_id;
+try{
+var body=JSON.parse((bResults[j]&&bResults[j].body)||'{}');
+if(body.error){pushErr(accId,'insights',body.error.message,body.error.code);continue;}
 var spend=0;if(body.data&&body.data.length)spend=Math.round(parseFloat(body.data[0].spend));
 upsertRows.push({ad_account_id:chunk[j].id,report_date:date,spend_amount:spend});
-}catch(e){errors++;}}
+}catch(e){pushErr(accId,'parse',e.message,0);}}
 if(upsertRows.length){
 await sb2.from('daily_spend').delete().in('ad_account_id',upsertRows.map(function(r){return r.ad_account_id;})).eq('report_date',date).is('staff_id',null);
 var ubatches=chunkArray(upsertRows,200);
 for(var ub=0;ub<ubatches.length;ub++){var ur=await sb2.from('daily_spend').insert(ubatches[ub]);if(!ur.error)saved+=ubatches[ub].length;else errors+=ubatches[ub].length;}}
-}catch(e){errors+=chunk.length;}}
+}catch(e){chunk.forEach(function(a){pushErr(a.fb_account_id,'network',e.message,0);});}}
 // Tài khoản dùng chung: batch Meta API + insert DB theo lô
 var sharedResult=await replaceSharedSpendRows(shared,date);
 saved+=sharedResult.saved;errors+=sharedResult.errors;
-return{saved:saved,errors:errors};}
+return{saved:saved,errors:errors,errorSamples:errorSamples};}
 
 async function autoSync(){
 try{
@@ -5075,9 +5356,21 @@ showSyncBar('Đang đồng bộ chi tiêu hôm qua và hôm nay...');
 var results=await Promise.all([syncOneDate(yest,mapped),syncOneDate(today,mapped)]);
 var r1=results[0],r2=results[1];
 var totalSaved=r1.saved+r2.saved,totalErrors=r1.errors+r2.errors;
+// Nếu có lỗi, lấy mẫu đầu tiên để gợi ý nguyên nhân
+var spendHint='';
+var firstSample=(r1.errorSamples&&r1.errorSamples[0])||(r2.errorSamples&&r2.errorSamples[0]);
+if(totalErrors&&firstSample){
+var codeHint='';
+if(firstSample.code===190)codeHint=' — Token hết hạn/thu hồi';
+else if(firstSample.code===200||firstSample.code===100)codeHint=' — Thiếu quyền ads_read';
+else if(firstSample.code===17||firstSample.code===4||firstSample.code===32||firstSample.code===613)codeHint=' — Rate limit';
+else if(firstSample.code===803)codeHint=' — Tài khoản không truy cập được';
+spendHint=' ('+firstSample.phase+(firstSample.code?' #'+firstSample.code:'')+codeHint+')';
+console.warn('[Spend sync] Mẫu lỗi r1:',r1.errorSamples,'r2:',r2.errorSamples);
+}
 showSyncBar('Đang quét giá Messenger chiến dịch...');
 await syncCampaignMess(null,true);
-showSyncBar('✓ Đồng bộ xong: '+totalSaved+' OK'+(totalErrors?', '+totalErrors+' lỗi':''),true);
+showSyncBar('✓ Đồng bộ xong: '+totalSaved+' OK'+(totalErrors?', '+totalErrors+' lỗi'+spendHint:''),true);
 await loadAll();
 setTimeout(hideSyncBar,3000);
 }catch(e){showSyncBar('⚠ Lỗi đồng bộ: '+e.message);setTimeout(hideSyncBar,5000);}}
