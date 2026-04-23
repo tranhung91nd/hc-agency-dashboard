@@ -1128,7 +1128,7 @@ function sc(c){return CL[c]||CL.blue;}
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},penaltyMonth='',clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20;
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},penaltyMonth='',hrTab=0,clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20;
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -1777,14 +1777,21 @@ h+='<div class="table-wrap"><table><tr><th></th><th>Họ tên</th><th>Ngân sác
 staffList.forEach(function(s){var c=sc(s.color_code),sal=salaryData.find(function(x){return x.staff_id===s.id;});
 h+='<tr><td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div></td><td style="font-weight:500;">'+esc(s.full_name)+'</td><td class="mono">'+fm(s.monthly_budget)+'</td><td class="mono" style="color:'+c.c+';font-weight:500;">'+fm(st[s.id])+'</td><td class="mono">'+(sal?fm(sal.total):'—')+'</td></tr>';});
 h+='</table></div>';
-// ═══ BẢNG LƯƠNG THÁNG ═══
+// ═══ SUB-TABS: Bảng lương | Sổ phạt ═══
+h+='<div class="admin-tabs" role="tablist" style="margin-top:16px;">';
+h+='<div class="admin-tab'+(hrTab===0?' active':'')+'" role="tab" tabindex="0" aria-selected="'+(hrTab===0)+'" onclick="setHrTab(0)">Bảng lương</div>';
+h+='<div class="admin-tab'+(hrTab===1?' active':'')+'" role="tab" tabindex="0" aria-selected="'+(hrTab===1)+'" onclick="setHrTab(1)">Sổ phạt</div>';
+h+='</div>';
+if(hrTab===0){
 h+=renderSalaryTable();
-// ═══ SỔ PHẠT ═══
-h+=renderPenaltyTable();
 var ms=new Set();monthlyRevData.forEach(function(r){ms.add(r.month);});var sm=Array.from(ms).sort();
 if(sm.length){h+='<div class="section-title">Chi tiêu lịch sử</div><div class="table-wrap"><table><tr><th>Tháng</th>';staffList.forEach(function(s){h+='<th style="text-align:right;">'+esc(s.short_name)+'</th>';});h+='<th style="text-align:right;">Tổng</th></tr>';
 sm.forEach(function(m){var tt=0;h+='<tr><td>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</td>';staffList.forEach(function(s){var rv=monthlyRevData.find(function(r){return r.staff_id===s.id&&r.month===m;}),v=rv?rv.total_spend:0;tt+=v;h+='<td class="mono" style="text-align:right;">'+fm(v)+'</td>';});h+='<td class="mono" style="text-align:right;font-weight:600;">'+fm(tt)+'</td></tr>';});h+='</table></div>';}
+}else{
+h+=renderPenaltyTable();
+}
 return h;}
+function setHrTab(i){hrTab=i;render();}
 
 // ═══ BẢNG LƯƠNG THÁNG (inline edit + autosave) ═══
 function renderSalaryTable(){
@@ -1891,14 +1898,8 @@ h+='<div class="form-group"><label>Số tiền</label><input type="number" id="p
 h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Lý do</label><input type="text" id="pn-reason" placeholder="VD: Quên báo cáo, đi làm muộn…"></div></div>';
 h+='<div class="btn-row"><button class="btn btn-primary btn-sm" onclick="savePenalty(this)">Ghi phạt</button></div></div>';
 }
-// Pivot table: dòng = ngày, cột = nhân sự + Note
+// Pivot table: dòng = MỌI ngày trong tháng, cột = nhân sự + Lý do
 var monthRows=penaltyData.filter(function(p){return(p.penalty_date||'').substring(0,7)===penaltyMonth;});
-if(!monthRows.length){
-h+='<div class="empty-state" role="status"><div class="empty-state-icon" aria-hidden="true">📒</div><div class="empty-state-title">Chưa có phạt nào trong tháng này</div><div class="empty-state-desc">Nhập phạt ở form trên, hoặc nhờ AI ghi bằng câu tự nhiên.</div></div>';
-return h;}
-// Build date set
-var dateSet=new Set();monthRows.forEach(function(p){dateSet.add(p.penalty_date);});
-var dateArr=Array.from(dateSet).sort();
 // Columns: staffList (active) + any extra staff_id hoặc raw_name có trong dữ liệu nhưng không active
 var colStaff=staffList.slice();var extraNameSet=new Set();
 monthRows.forEach(function(p){
@@ -1906,7 +1907,12 @@ if(p.staff_id){if(!colStaff.find(function(s){return s.id===p.staff_id;})){var in
 else if(p.staff_name_raw)extraNameSet.add(p.staff_name_raw);
 });
 var extraNames=Array.from(extraNameSet);
-h+='<div class="table-wrap"><table><thead><tr><th>Ngày</th>';
+// Build FULL date array (all days of month)
+var pmY=parseInt(penaltyMonth.split('-')[0]),pmM=parseInt(penaltyMonth.split('-')[1]);
+var lastDay=new Date(pmY,pmM,0).getDate();
+var dateArr=[];for(var di=1;di<=lastDay;di++){dateArr.push(penaltyMonth+'-'+String(di).padStart(2,'0'));}
+var todayStr=td();
+h+='<div class="table-wrap"><table><thead><tr><th style="width:70px;">Ngày</th>';
 colStaff.forEach(function(s){h+='<th style="text-align:right;">'+esc(s.short_name)+(s.is_active?'':' <span style="font-size:10px;color:var(--tx3);">(cũ)</span>')+'</th>';});
 extraNames.forEach(function(n){h+='<th style="text-align:right;color:var(--tx3);">'+esc(n)+' <span style="font-size:10px;">(chưa gán)</span></th>';});
 h+='<th>Lý do</th>'+(authUser&&isAdmin()?'<th></th>':'')+'</tr></thead><tbody>';
@@ -1919,7 +1925,9 @@ var byStaff={},byExtra={};dayRows.forEach(function(p){
 if(p.staff_id){if(!byStaff[p.staff_id])byStaff[p.staff_id]=[];byStaff[p.staff_id].push(p);}
 else if(p.staff_name_raw){if(!byExtra[p.staff_name_raw])byExtra[p.staff_name_raw]=[];byExtra[p.staff_name_raw].push(p);}
 });
-h+='<tr><td>'+fd(d)+'</td>';
+var isToday=(d===todayStr);
+var rowStyle=isToday?' style="background:var(--blue-bg);"':(dayRows.length?'':' style="color:var(--tx3);"');
+h+='<tr'+rowStyle+'><td'+(isToday?' style="font-weight:600;color:var(--blue-tx);"':'')+'>'+fd(d)+'</td>';
 colStaff.forEach(function(s){
 var arr=byStaff[s.id]||[];var sum=arr.reduce(function(acc,p){return acc+(Number(p.amount)||0);},0);
 totals[s.id]+=sum;grandTot+=sum;
