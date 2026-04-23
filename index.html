@@ -5271,9 +5271,12 @@ for(var i=0;i<singularKeys.length;i++){var sk=singularKeys[i];if(obj[sk]&&typeof
 if(obj.amount!=null||obj.penalty_date||obj.txn_date||obj.month)return[obj];
 return null;}
 
-// Shared AI parse call
+// Chọn model rẻ nhất cùng provider với model user đang chọn (dùng cho action parse)
+function getParseModel(){var sel=getAIModel();return isClaude(sel)?'claude-haiku-4-5-20251001':'gpt-5.4-nano';}
+
+// Shared AI parse call — hard-code dùng model rẻ (Nano/Haiku) vì task chỉ là NL → JSON
 async function callAIParse(systemPrompt,userMsg){
-var model=getAIModel();var isC=isClaude(model);var resp;
+var model=getParseModel();var isC=isClaude(model);var resp;
 if(isC){resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':CLAUDE_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:model,system:systemPrompt,messages:[{role:'user',content:userMsg}],max_tokens:1000})});}
 else{resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},body:JSON.stringify({model:model,messages:[{role:'system',content:systemPrompt},{role:'user',content:userMsg}],max_completion_tokens:1000,response_format:{type:'json_object'}})});}
 var data=await resp.json();
