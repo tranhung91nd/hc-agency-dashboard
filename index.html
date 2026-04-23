@@ -1882,7 +1882,7 @@ h+='<select class="fi" style="width:140px;" onchange="penaltyMonth=this.value;re
 monthArr.forEach(function(m){h+='<option value="'+m+'"'+(m===penaltyMonth?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
 h+='</select>';
 if(authUser&&isAdmin()){
-h+='<button class="btn btn-ghost btn-sm" onclick="askAIPenalty()" title="Gõ câu tự nhiên cho AI, VD: Phạt Sơn 30k ngày 20/4 do quên báo cáo">🤖 AI ghi phạt</button>';
+h+='<span style="font-size:11px;color:var(--tx3);">💡 Gõ "Phạt Sơn 30k ngày 20/4…" trong <b>HC AI</b> để ghi nhanh</span>';
 h+='<input type="file" id="penalty-xlsx" accept=".xlsx,.xls" style="display:none;" onchange="importPenaltiesFromXLSX(this.files[0])">';
 h+='<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'penalty-xlsx\').click()" title="Import file Excel phạt (từ T2/2026 trở đi)">📥 Import Excel</button>';
 }
@@ -5282,9 +5282,60 @@ var input=document.getElementById('ai-input');var msg=input.value.trim();if(!msg
 if(!ensureKey())return;
 input.value='';addAIMsg('user',msg);
 document.getElementById('ai-send-btn').disabled=true;
+// Intent: ghi phạt (contains "phạt" + số tiền)
+if(isPenaltyIntent(msg)){
+await handlePenaltyFromChat(msg);
+document.getElementById('ai-send-btn').disabled=false;
+return;}
 addTyping();var reply=await callGPT(msg);removeTyping();
 addAIMsg('bot',formatAIReply(reply));
 document.getElementById('ai-send-btn').disabled=false;}
+
+function isPenaltyIntent(msg){
+var lower=msg.toLowerCase();
+// Phải có "phạt" + 1 con số
+return /\bphạt\b/.test(lower)&&/\d/.test(lower);}
+
+async function handlePenaltyFromChat(userMsg){
+if(!isAdmin()){addAIMsg('bot','⚠ Chỉ admin mới ghi phạt được.');return;}
+addTyping();
+var rawModel=getAIModel();
+var staffHint=staffList.map(function(s){return'id="'+s.id+'" short="'+s.short_name+'" full="'+s.full_name+'"';}).join('\n');
+var todayStr=td();
+var systemPrompt='Bạn là trợ lý parse câu tự nhiên tiếng Việt thành JSON ghi phạt nhân sự.\n\nDanh sách nhân sự:\n'+staffHint+'\n\nHôm nay là '+todayStr+'. Nếu user nói "hôm nay" → '+todayStr+'; "hôm qua" → ngày trước đó; "20/4" → 2026-04-20 (năm hiện tại nếu không nói rõ).\n\nĐơn vị tiền: "k" hoặc "ngàn" = ×1000, "tr" hoặc "triệu" = ×1000000. "30k" = 30000.\n\nChỉ trả về JSON MẢNG thuần, KHÔNG markdown, KHÔNG code fence, VD:\n[{"staff_id":"uuid-đã-match","penalty_date":"2026-04-20","amount":30000,"reason":"quên báo cáo"}]\n\nNếu không match được nhân sự → dùng "staff_id":null và điền "staff_name_raw" là tên thô.';
+try{
+var isC=isClaude(rawModel);var resp;
+if(isC){resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':CLAUDE_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:rawModel,system:systemPrompt,messages:[{role:'user',content:userMsg}],max_tokens:1200})});}
+else{resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},body:JSON.stringify({model:rawModel,messages:[{role:'system',content:systemPrompt},{role:'user',content:userMsg}],max_completion_tokens:1200,response_format:{type:'json_object'}})});}
+var data=await resp.json();
+removeTyping();
+if(data.error){addAIMsg('bot','⚠ Lỗi AI: '+esc(data.error.message||'unknown'));return;}
+var text=isC?data.content[0].text:data.choices[0].message.content;
+var match=text.match(/\[[\s\S]*\]/);
+if(!match){try{var obj=JSON.parse(text);if(Array.isArray(obj))match=[text];else if(obj&&Array.isArray(obj.items))match=[JSON.stringify(obj.items)];else if(obj&&Array.isArray(obj.penalties))match=[JSON.stringify(obj.penalties)];}catch(e){}}
+if(!match){addAIMsg('bot','⚠ AI không hiểu. Thử rõ hơn: "Phạt Sơn 30k ngày 20/4 do quên báo cáo".');return;}
+var items;try{items=JSON.parse(match[0]);}catch(e){addAIMsg('bot','⚠ Parse JSON lỗi: '+esc(e.message));return;}
+if(!Array.isArray(items)||!items.length){addAIMsg('bot','⚠ Không phát hiện phạt nào trong câu.');return;}
+window._pendingPenalty=items;
+var preview=items.map(function(it,i){
+var sname='—';if(it.staff_id){var s=allStaff.find(function(x){return x.id===it.staff_id;});sname=s?s.short_name:'(id không khớp)';}else if(it.staff_name_raw)sname=it.staff_name_raw+' (chưa gán)';
+return'<b>'+(i+1)+'.</b> '+esc(sname)+' · '+esc(it.penalty_date)+' · <span style="color:var(--red);font-weight:600;">'+ff(it.amount)+'</span> · '+esc(it.reason||'(không ghi lý do)');
+}).join('<br>');
+var html='🤖 Phát hiện <b>'+items.length+'</b> khoản phạt:<br><br>'+preview+'<br><br><button class="btn btn-primary btn-sm" onclick="confirmPendingPenalty(this)">✓ Xác nhận ghi</button> <button class="btn btn-ghost btn-sm" onclick="cancelPendingPenalty(this)">✗ Huỷ</button>';
+addAIMsg('bot',html);
+}catch(e){removeTyping();addAIMsg('bot','⚠ Lỗi: '+esc(e.message));}}
+
+async function confirmPendingPenalty(btn){
+var items=window._pendingPenalty;if(!items){addAIMsg('bot','⚠ Không còn dữ liệu chờ ghi.');return;}
+if(btn){btn.disabled=true;btn.textContent='Đang lưu...';}
+var rows=items.map(function(it){return{staff_id:it.staff_id||null,staff_name_raw:it.staff_id?null:(it.staff_name_raw||null),penalty_date:it.penalty_date,amount:Number(it.amount)||0,reason:it.reason||'',created_by:authUser?authUser.email:null};});
+var r=await sb2.from('penalty').insert(rows);
+if(r.error){addAIMsg('bot','⚠ Lỗi lưu: '+esc(r.error.message));if(btn){btn.disabled=false;btn.textContent='✓ Xác nhận ghi';}return;}
+addAIMsg('bot','✅ Đã lưu <b>'+items.length+'</b> khoản phạt vào Sổ phạt.');
+window._pendingPenalty=null;
+await loadAll();render();}
+
+function cancelPendingPenalty(btn){window._pendingPenalty=null;addAIMsg('bot','Đã huỷ.');}
 
 function askAI(q){document.getElementById('ai-input').value=q;sendAI();}
 
