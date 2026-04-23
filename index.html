@@ -5296,13 +5296,34 @@ var lower=msg.toLowerCase();
 // Phải có "phạt" + 1 con số
 return /\bphạt\b/.test(lower)&&/\d/.test(lower);}
 
+// Parse mọi format JSON AI có thể trả về: mảng, object wrap, single object...
+function tryParsePenalty(text){
+if(!text)return null;
+// Bỏ markdown fence
+var clean=text.replace(/```(?:json)?\s*|```\s*/g,'').trim();
+// 1. Match mảng trực tiếp
+var m=clean.match(/\[[\s\S]*\]/);
+if(m){try{var arr=JSON.parse(m[0]);if(Array.isArray(arr)&&arr.length)return arr;}catch(e){}}
+// 2. Parse as JSON object
+var obj;try{obj=JSON.parse(clean);}catch(e){return null;}
+if(Array.isArray(obj))return obj;
+if(!obj||typeof obj!=='object')return null;
+// 3. Tìm bất kỳ array nào trong object (items, penalties, data, records, list, result…)
+for(var k in obj){if(Array.isArray(obj[k])&&obj[k].length&&typeof obj[k][0]==='object')return obj[k];}
+// 4. Object có key singular ('penalty', 'item'…) chứa object → wrap
+var singularKeys=['penalty','item','data','record','result'];
+for(var i=0;i<singularKeys.length;i++){var sk=singularKeys[i];if(obj[sk]&&typeof obj[sk]==='object'&&!Array.isArray(obj[sk])){if(obj[sk].amount!=null||obj[sk].penalty_date)return[obj[sk]];}}
+// 5. Top-level là 1 penalty object
+if(obj.amount!=null||obj.penalty_date||obj.staff_id||obj.staff_name_raw)return[obj];
+return null;}
+
 async function handlePenaltyFromChat(userMsg){
 if(!isAdmin()){addAIMsg('bot','⚠ Chỉ admin mới ghi phạt được.');return;}
 addTyping();
 var rawModel=getAIModel();
 var staffHint=staffList.map(function(s){return'id="'+s.id+'" short="'+s.short_name+'" full="'+s.full_name+'"';}).join('\n');
 var todayStr=td();
-var systemPrompt='Bạn là trợ lý parse câu tự nhiên tiếng Việt thành JSON ghi phạt nhân sự.\n\nDanh sách nhân sự:\n'+staffHint+'\n\nHôm nay là '+todayStr+'. Nếu user nói "hôm nay" → '+todayStr+'; "hôm qua" → ngày trước đó; "20/4" → 2026-04-20 (năm hiện tại nếu không nói rõ).\n\nĐơn vị tiền: "k" hoặc "ngàn" = ×1000, "tr" hoặc "triệu" = ×1000000. "30k" = 30000.\n\nChỉ trả về JSON MẢNG thuần, KHÔNG markdown, KHÔNG code fence, VD:\n[{"staff_id":"uuid-đã-match","penalty_date":"2026-04-20","amount":30000,"reason":"quên báo cáo"}]\n\nNếu không match được nhân sự → dùng "staff_id":null và điền "staff_name_raw" là tên thô.';
+var systemPrompt='Bạn là trợ lý parse câu tự nhiên tiếng Việt thành JSON ghi phạt nhân sự.\n\nDanh sách nhân sự:\n'+staffHint+'\n\nHôm nay là '+todayStr+'. Nếu user nói "hôm nay" → '+todayStr+'; "hôm qua" → ngày trước đó; "20/4" → 2026-04-20 (năm hiện tại nếu không nói rõ).\n\nĐơn vị tiền: "k" hoặc "ngàn" = ×1000, "tr" hoặc "triệu" = ×1000000. "30k" = 30000.\n\nTrả về JSON object với KEY DUY NHẤT là "penalties", chứa mảng các khoản phạt:\n{"penalties":[{"staff_id":"uuid-đã-match","penalty_date":"2026-04-20","amount":30000,"reason":"quên báo cáo"}]}\n\nNếu không match được nhân sự → dùng "staff_id":null và điền "staff_name_raw" là tên thô. KHÔNG markdown, KHÔNG code fence.';
 try{
 var isC=isClaude(rawModel);var resp;
 if(isC){resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':CLAUDE_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:rawModel,system:systemPrompt,messages:[{role:'user',content:userMsg}],max_tokens:1200})});}
@@ -5311,11 +5332,12 @@ var data=await resp.json();
 removeTyping();
 if(data.error){addAIMsg('bot','⚠ Lỗi AI: '+esc(data.error.message||'unknown'));return;}
 var text=isC?data.content[0].text:data.choices[0].message.content;
-var match=text.match(/\[[\s\S]*\]/);
-if(!match){try{var obj=JSON.parse(text);if(Array.isArray(obj))match=[text];else if(obj&&Array.isArray(obj.items))match=[JSON.stringify(obj.items)];else if(obj&&Array.isArray(obj.penalties))match=[JSON.stringify(obj.penalties)];}catch(e){}}
-if(!match){addAIMsg('bot','⚠ AI không hiểu. Thử rõ hơn: "Phạt Sơn 30k ngày 20/4 do quên báo cáo".');return;}
-var items;try{items=JSON.parse(match[0]);}catch(e){addAIMsg('bot','⚠ Parse JSON lỗi: '+esc(e.message));return;}
-if(!Array.isArray(items)||!items.length){addAIMsg('bot','⚠ Không phát hiện phạt nào trong câu.');return;}
+console.log('[AI penalty] raw response:',text);
+var items=tryParsePenalty(text);
+if(!items||!items.length){addAIMsg('bot','⚠ AI không hiểu câu này. Thử rõ hơn, VD: "Phạt Sơn 30k ngày 20/4 do quên báo cáo".<br><br><details style="margin-top:6px;"><summary style="cursor:pointer;color:var(--tx3);font-size:11px;">Xem AI trả về gì</summary><pre style="white-space:pre-wrap;font-size:11px;color:var(--tx3);margin-top:4px;">'+esc(text.substring(0,500))+'</pre></details>');return;}
+// Validate: phải có amount + penalty_date
+items=items.filter(function(it){return it&&(it.amount!=null)&&it.penalty_date;});
+if(!items.length){addAIMsg('bot','⚠ AI trả về thiếu dữ liệu (cần: số tiền + ngày). Thử lại.');return;}
 window._pendingPenalty=items;
 var preview=items.map(function(it,i){
 var sname='—';if(it.staff_id){var s=allStaff.find(function(x){return x.id===it.staff_id;});sname=s?s.short_name:'(id không khớp)';}else if(it.staff_name_raw)sname=it.staff_name_raw+' (chưa gán)';
