@@ -3302,6 +3302,8 @@ var isMess=type==='mess';
 var resultLabel=isMess?'Mess':'Form';
 var costKey=isMess?'cost_per_mess':'cost_per_lead';
 var countKey=isMess?'mess_4d':'leads_4d';
+var amToday=td(),amD3=vnDateStr(-259200000);
+var amCols='name%2Cdelivery%2Crecommendations_guidance%2Cresults%2Ccost_per_result%2Cbudget%2Cspend%2Cimpressions%2Creach%2Cactions%3Aonsite_conversion.total_messaging_connection%2Cactions%3Aonsite_conversion.messaging_first_reply%2Cactions%3Aomni_purchase%2Cschedule%2Cend_time%2Cattribution_setting%2Cbid%2Clast_significant_edit%2Cquality_score_organic%2Cquality_score_ectr%2Cquality_score_ecvr%2Ccampaign_name%2Ccost_per_action_type%3Aomni_purchase';
 var h='';
 if(!alerts.length){
 h+='<div style="text-align:center;padding:40px;color:var(--tx3);"><div style="font-size:36px;margin-bottom:8px;">✓</div><div style="font-size:15px;font-weight:500;color:var(--green);">Không có chiến dịch '+resultLabel+' nào vượt ngưỡng</div><div style="font-size:12px;margin-top:4px;">Tất cả chiến dịch đang trong mức cho phép</div></div>';
@@ -3333,7 +3335,7 @@ h+='<div style="display:grid;grid-template-columns:1fr 110px 70px 110px 90px;gap
 camps.sort(function(a,b){return(b[costKey]||0)-(a[costKey]||0);}).forEach(function(al){
 var costVal=al[costKey]||0;
 var actId=String(al.ad_account_id||'').replace(/^act_/,'');
-var campUrl=(actId&&al.campaign_id)?'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+actId+'&selected_campaign_ids='+al.campaign_id:'';
+var campUrl=(actId&&al.campaign_id)?'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+actId+'&columns='+amCols+'&attribution_windows=default&date='+amD3+'_'+amToday+'&comparison_date=&insights_date='+amD3+'_'+amToday+'&insights_comparison_date=&selected_campaign_ids='+al.campaign_id:'';
 h+='<div style="display:grid;grid-template-columns:1fr 110px 70px 110px 90px;gap:6px;align-items:center;padding:8px 20px 8px 48px;border-bottom:1px solid var(--bd1);font-size:12px;background:var(--red-bg);">';
 h+='<div><div style="font-weight:500;font-size:13px;">'+(campUrl?'<a href="'+campUrl+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" title="Mở trong Trình quản lý quảng cáo">'+esc(al.campaign_name)+' <span style="color:var(--blue);font-size:11px;font-weight:600;">↗</span></a>':esc(al.campaign_name))+'</div><div style="font-size:11px;color:var(--tx3);margin-top:1px;">'+esc(al.account_name)+'</div></div>';
 h+='<div class="mono" style="text-align:right;">'+ff(al.spend_4d)+'</div>';
