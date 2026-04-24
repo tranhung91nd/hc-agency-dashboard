@@ -3039,7 +3039,7 @@ var acc=adList.find(function(a){return a.id===c.aid;});
 var ca=acc?getAssign(acc.id,today):[];
 var staffId=ca.length?ca[0].staff_id:null;
 var staff=staffId?allStaff.find(function(s){return s.id===staffId;}):null;
-alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_mess:costPerMess,max_cost:c.ad.max_mess_cost,spend_4d:c.spend,mess_4d:c.mess,staff:staff,days:c.days,type:'mess'});}});
+alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,fb_account_id:acc?acc.fb_account_id:null,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_mess:costPerMess,max_cost:c.ad.max_mess_cost,spend_4d:c.spend,mess_4d:c.mess,staff:staff,days:c.days,type:'mess'});}});
 alerts.sort(function(a,b){return b.cost_per_mess-a.cost_per_mess;});
 return alerts;}
 function getLeadAlerts(){
@@ -3058,7 +3058,7 @@ var acc=adList.find(function(a){return a.id===c.aid;});
 var ca=acc?getAssign(acc.id,today):[];
 var staffId=ca.length?ca[0].staff_id:null;
 var staff=staffId?allStaff.find(function(s){return s.id===staffId;}):null;
-alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_lead:costPerLead,max_cost:c.ad.max_lead_cost,spend_4d:c.spend,leads_4d:c.leads,staff:staff,days:c.days,type:'lead'});}});
+alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,fb_account_id:acc?acc.fb_account_id:null,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_lead:costPerLead,max_cost:c.ad.max_lead_cost,spend_4d:c.spend,leads_4d:c.leads,staff:staff,days:c.days,type:'lead'});}});
 alerts.sort(function(a,b){return b.cost_per_lead-a.cost_per_lead;});
 return alerts;}
 
@@ -3334,7 +3334,7 @@ h+='<div style="padding:10px 20px 10px 48px;background:var(--bg2);display:flex;a
 h+='<div style="display:grid;grid-template-columns:1fr 110px 70px 110px 90px;gap:6px;padding:4px 20px 4px 48px;font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px;"><span>Chiến dịch</span><span style="text-align:right">Chi tiêu 4 ngày</span><span style="text-align:right">'+resultLabel+'</span><span style="text-align:right">Giá '+resultLabel+' TB</span><span style="text-align:right">Ngưỡng</span></div>';
 camps.sort(function(a,b){return(b[costKey]||0)-(a[costKey]||0);}).forEach(function(al){
 var costVal=al[costKey]||0;
-var actId=String(al.ad_account_id||'').replace(/^act_/,'');
+var actId=String(al.fb_account_id||'').replace(/^act_/,'');
 var campUrl=(actId&&al.campaign_id)?'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+actId+'&columns='+amCols+'&attribution_windows=default&date='+amD3+'_'+amToday+'&comparison_date=&insights_date='+amD3+'_'+amToday+'&insights_comparison_date=&selected_campaign_ids='+al.campaign_id:'';
 h+='<div style="display:grid;grid-template-columns:1fr 110px 70px 110px 90px;gap:6px;align-items:center;padding:8px 20px 8px 48px;border-bottom:1px solid var(--bd1);font-size:12px;background:var(--red-bg);">';
 h+='<div><div style="font-weight:500;font-size:13px;">'+(campUrl?'<a href="'+campUrl+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" title="Mở trong Trình quản lý quảng cáo">'+esc(al.campaign_name)+' <span style="color:var(--blue);font-size:11px;font-weight:600;">↗</span></a>':esc(al.campaign_name))+'</div><div style="font-size:11px;color:var(--tx3);margin-top:1px;">'+esc(al.account_name)+'</div></div>';
