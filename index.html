@@ -1160,13 +1160,17 @@ function buildZaloLink(input){
   return'https://zalo.me/'+s;
 }
 // Render mảng services thành chuỗi badges HTML
+// Map color name → mã màu dot (lấy từ palette badge)
+var SERVICE_DOT_COLORS={blue:'#378ADD',teal:'#1D9E75',purple:'#7F77DD',green:'#639922',amber:'#BA7517',red:'#E24B4A',pink:'#D4537E',coral:'#D85A30',gray:'#888780'};
 function renderServicesBadges(services,opts){
   if(!services||!services.length)return'<span style="color:var(--tx3);font-size:11px;">—</span>';
   opts=opts||{};
   var arr=Array.isArray(services)?services:[];
   var html=arr.map(function(code){
     var s=SERVICES[code];if(!s)return'';
-    return'<span class="badge b-'+s.color+'" style="font-size:10px;margin-right:3px;" title="'+s.name+'">'+(opts.icon!==false?s.icon+' ':'')+esc(s.short||s.name)+'</span>';
+    var dotColor=SERVICE_DOT_COLORS[s.color]||'#888780';
+    var dotHtml=opts.icon!==false?'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+dotColor+';margin-right:5px;vertical-align:middle;"></span>':'';
+    return'<span class="badge b-'+s.color+'" style="font-size:10px;margin-right:3px;display:inline-flex;align-items:center;" title="'+s.name+'">'+dotHtml+esc(s.short||s.name)+'</span>';
   }).join('');
   return html||'<span style="color:var(--tx3);font-size:11px;">—</span>';
 }
@@ -1179,9 +1183,10 @@ function renderCareChip(careStatus){
 // Render nút Zalo (xanh nếu có, xám nếu chưa có)
 function renderZaloBtn(c){
   var zaloRaw=(c.zalo||'').trim()||(c.phone||'').trim();
-  if(!zaloRaw)return'<button class="btn btn-sm" style="background:var(--bg3);color:var(--tx3);border:1px solid var(--bd2);padding:4px 8px;font-size:11px;cursor:not-allowed;" disabled title="Chưa có Zalo/SĐT">📱</button>';
+  var phoneSvg='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+  if(!zaloRaw)return'<button class="btn btn-sm" style="background:transparent;color:var(--tx3);border:1px dashed var(--bd2);padding:4px 10px;font-size:11px;cursor:not-allowed;border-radius:6px;display:inline-flex;align-items:center;gap:5px;" disabled title="Chưa có Zalo/SĐT">'+phoneSvg+' Zalo</button>';
   var url=buildZaloLink(zaloRaw);
-  return'<a href="'+esc(url)+'" target="_blank" rel="noopener" class="btn btn-sm" style="background:#0068ff;color:#fff;border:none;padding:4px 10px;font-size:11px;text-decoration:none;display:inline-flex;align-items:center;gap:3px;" title="Mở Zalo: '+esc(zaloRaw)+'" onclick="event.stopPropagation();">📱 Zalo</a>';
+  return'<a href="'+esc(url)+'" target="_blank" rel="noopener" class="btn btn-sm" style="background:#0068ff;color:#fff;border:none;padding:5px 10px;font-size:11px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;border-radius:6px;font-weight:500;" title="Mở Zalo: '+esc(zaloRaw)+'" onclick="event.stopPropagation();">'+phoneSvg+' Zalo</a>';
 }
 // ═══ NGƯỠNG CẢNH BÁO SỐ DƯ Tài khoản ═══
 // Khi balance (spend_cap - amount_spent) < giá trị này → hiện cảnh báo ở P6.
@@ -2174,7 +2179,7 @@ h+='<select class="fi ad-toolbar-filter" onchange="clientFilterPayment=this.valu
 h+='<select class="fi ad-toolbar-filter" onchange="clientFilterVat=this.value;expandedClientId=null;render();"><option value="">Tất cả VAT</option><option value="vat"'+(clientFilterVat==='vat'?' selected':'')+'>Có VAT</option><option value="no_vat"'+(clientFilterVat==='no_vat'?' selected':'')+'>Không VAT</option></select>';
 h+='<select class="fi ad-toolbar-filter" onchange="clientFilterStatus=this.value;expandedClientId=null;render();"><option value="">Tất cả trạng thái</option><option value="active"'+(clientFilterStatus==='active'?' selected':'')+'>Đang hoạt động</option><option value="paused"'+(clientFilterStatus==='paused'?' selected':'')+'>Tạm dừng</option><option value="stopped"'+(clientFilterStatus==='stopped'?' selected':'')+'>Dừng</option></select>';
 h+='<select class="fi ad-toolbar-filter" onchange="clientFilterSpend=this.value;expandedClientId=null;render();"><option value="">Tất cả chi tiêu</option><option value="has_spend"'+(clientFilterSpend==='has_spend'?' selected':'')+'>Có chi tiêu</option><option value="no_spend"'+(clientFilterSpend==='no_spend'?' selected':'')+'>Chưa có chi tiêu</option></select>';
-h+='<select class="fi ad-toolbar-filter" onchange="clientFilterService=this.value;expandedClientId=null;render();"><option value="">Tất cả dịch vụ</option>';Object.keys(SERVICES).forEach(function(code){h+='<option value="'+code+'"'+(clientFilterService===code?' selected':'')+'>'+SERVICES[code].icon+' '+SERVICES[code].name+'</option>';});h+='</select>';
+h+='<select class="fi ad-toolbar-filter" onchange="clientFilterService=this.value;expandedClientId=null;render();"><option value="">Tất cả dịch vụ</option>';Object.keys(SERVICES).forEach(function(code){h+='<option value="'+code+'"'+(clientFilterService===code?' selected':'')+'>'+SERVICES[code].name+'</option>';});h+='</select>';
 h+='<select class="fi ad-toolbar-filter" onchange="clientFilterCare=this.value;expandedClientId=null;render();"><option value="">Tất cả CSKH</option>';CARE_ORDER.forEach(function(k){h+='<option value="'+k+'"'+(clientFilterCare===k?' selected':'')+'>'+CARE_STATUS[k].name+'</option>';});h+='</select>';
 h+='<select class="fi ad-toolbar-filter" onchange="clientSortMode=this.value;render();"><option value="spend_desc"'+(clientSortMode==='spend_desc'?' selected':'')+'>Chi tiêu cao nhất</option><option value="fee_desc"'+(clientSortMode==='fee_desc'?' selected':'')+'>Phí Dịch vụ cao nhất</option><option value="name_asc"'+(clientSortMode==='name_asc'?' selected':'')+'>Tên A-Z</option><option value="unpaid_first"'+(clientSortMode==='unpaid_first'?' selected':'')+'>Chưa thanh toán trước</option></select>';
 h+='<span class="ad-toolbar-count">'+rows.length+'/'+clientList.length+' khách hàng</span></div>';
@@ -2198,7 +2203,7 @@ var pct=maxSpend>0?Math.round(sp/maxSpend*100):0;
 var isExp=expandedClientId===c.id;
 h+='<tr style="'+(isExp?'background:var(--blue-bg);':'')+'">';
 h+='<td style="color:var(--tx3);">'+(i+1)+'</td>';
-h+='<td style="font-weight:500;">'+esc(c.name)+' '+(getClientVatFlag(c)?'<span class="vat-badge b-blue" style="cursor:pointer;" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',false)" title="Bấm để chuyển sang Không VAT">VAT 8%</span>':'<span class="vat-badge b-gray" style="cursor:pointer;" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',true)" title="Bấm để chuyển sang Có VAT">Không VAT</span>')+'<button class="btn btn-sm" style="margin-left:6px;padding:1px 6px;font-size:11px;background:transparent;border:1px solid var(--bd2);color:var(--tx3);cursor:pointer;border-radius:4px;" onclick="event.stopPropagation();openClientEditModal(\''+c.id+'\')" title="Sửa dịch vụ / Zalo / CSKH">✏️</button></td>';
+h+='<td style="font-weight:500;">'+esc(c.name)+' '+(getClientVatFlag(c)?'<span class="vat-badge b-blue" style="cursor:pointer;" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',false)" title="Bấm để chuyển sang Không VAT">VAT 8%</span>':'<span class="vat-badge b-gray" style="cursor:pointer;" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',true)" title="Bấm để chuyển sang Có VAT">Không VAT</span>')+'<button class="btn btn-sm" style="margin-left:6px;padding:2px 8px;font-size:11px;background:transparent;border:1px solid var(--bd2);color:var(--tx3);cursor:pointer;border-radius:6px;" onclick="event.stopPropagation();openClientEditModal(\''+c.id+'\')" title="Sửa dịch vụ / Zalo / CSKH">Sửa</button></td>';
 h+='<td>'+renderServicesBadges(c.services,{compact:true})+'</td>';
 h+='<td style="font-size:12px;color:var(--tx2);"><div>'+esc(c.contact_person||'—')+'</div>'+renderZaloBtn(c)+'</td>';
 h+='<td>'+renderCareChip(c.care_status||'won')+'</td>';
@@ -2296,7 +2301,7 @@ prospects.forEach(function(c,i){
   var isExp=expandedClientId===c.id;
   h+='<tr style="'+(isExp?'background:var(--blue-bg);':'')+'">';
   h+='<td style="color:var(--tx3);">'+(i+1)+'</td>';
-  h+='<td style="font-weight:500;">'+esc(c.name)+' <span class="prospect-badge">Tiềm năng</span><button class="btn btn-sm" style="margin-left:6px;padding:1px 6px;font-size:11px;background:transparent;border:1px solid var(--bd2);color:var(--tx3);cursor:pointer;border-radius:4px;" onclick="event.stopPropagation();openClientEditModal(\''+c.id+'\')" title="Sửa dịch vụ / Zalo / CSKH">✏️</button></td>';
+  h+='<td style="font-weight:500;">'+esc(c.name)+' <span class="prospect-badge">Tiềm năng</span><button class="btn btn-sm" style="margin-left:6px;padding:2px 8px;font-size:11px;background:transparent;border:1px solid var(--bd2);color:var(--tx3);cursor:pointer;border-radius:6px;" onclick="event.stopPropagation();openClientEditModal(\''+c.id+'\')" title="Sửa dịch vụ / Zalo / CSKH">Sửa</button></td>';
   h+='<td>'+renderServicesBadges(c.services,{compact:true})+'</td>';
   h+='<td style="font-size:12px;color:var(--tx2);">'+esc(c.company_full_name||'—')+'</td>';
   h+='<td style="font-size:12px;color:var(--tx2);"><div>'+esc(c.contact_person||c.phone||'—')+'</div>'+renderZaloBtn(c)+'</td>';
@@ -4417,7 +4422,7 @@ function renderQuotationModal(){
   h+='<div class="hc-modal" role="dialog" aria-modal="true" aria-labelledby="qt-modal-title" style="max-width:780px;">';
   h+='<div class="hc-modal-head"><h3 id="qt-modal-title">'+(isEdit?'Sửa báo giá':'Tạo báo giá mới')+'</h3><button class="hc-modal-close" aria-label="Đóng" onclick="closeQuotationModal()">×</button></div>';
   h+='<div class="hc-modal-body">';
-  h+='<div style="background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue-tx);padding:10px 12px;border-radius:var(--radius);font-size:12px;margin-bottom:14px;">💡 Phí hỗ trợ Quảng cáo tự động tính theo bậc ngân sách. Bạn có thể sửa tay nếu cần thoả thuận riêng.</div>';
+  h+='<div style="background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue-tx);padding:10px 12px;border-radius:var(--radius);font-size:12px;margin-bottom:14px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>Phí hỗ trợ Quảng cáo tự động tính theo bậc ngân sách. Bạn có thể sửa tay nếu cần thoả thuận riêng.</div>';
   h+='<div class="hc-form-grid">';
   h+='<div style="grid-column:1/-1;"><label for="qt-client">Khách hàng *</label><select id="qt-client" class="fi" aria-required="true" aria-describedby="qt-client-err" onchange="onQuotationClientChange()"><option value="">— Chọn khách —</option>';
   clientList.forEach(function(c){h+='<option value="'+c.id+'">'+esc(c.name)+(c.status==='prospect'?' (tiềm năng)':'')+'</option>';});
@@ -4438,7 +4443,7 @@ function renderQuotationModal(){
   h+='</select></div></div>';
   h+='</div>';
   h+='<div id="qt-ad-group" style="margin-top:14px;padding:12px;background:var(--bg2);border-radius:var(--radius);">';
-  h+='<div style="font-size:13px;font-weight:600;margin-bottom:8px;">📣 Gói chạy quảng cáo</div>';
+  h+='<div style="font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#378ADD;"></span>Gói chạy quảng cáo</div>';
   h+='<div class="hc-form-grid">';
   h+='<div><label>Ngân sách dự kiến/tháng (VNĐ)</label><input id="qt-budget" type="text" inputmode="numeric" autocomplete="off" class="fi" oninput="formatMoneyInput(this);onQuotationBudgetChange()" placeholder="VD: 20.000.000"></div>';
   h+='<div><label>Phí hỗ trợ/tháng (VNĐ)</label><input id="qt-support-fee" type="text" inputmode="numeric" autocomplete="off" class="fi" oninput="formatMoneyInput(this);onQuotationFeeManualChange()" placeholder="Tự tính theo bậc"></div>';
@@ -4867,10 +4872,10 @@ function renderClientEditModal(){
   h+='<div class="hc-modal" role="dialog" aria-modal="true" aria-labelledby="ce-modal-title" style="max-width:560px;">';
   h+='<div class="hc-modal-head"><h3 id="ce-modal-title">Chăm sóc — '+esc(c.name)+'</h3><button class="hc-modal-close" aria-label="Đóng" onclick="closeClientEditModal()">×</button></div>';
   h+='<div class="hc-modal-body">';
-  h+='<div style="background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue-tx);padding:10px 12px;border-radius:var(--radius);font-size:12px;margin-bottom:14px;">💡 Các thông tin Dịch vụ / Zalo / Trạng thái chăm sóc dùng để theo dõi quan hệ khách hàng (CRM funnel). Không ảnh hưởng đến tính phí dịch vụ tháng.</div>';
+  h+='<div style="background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue-tx);padding:10px 12px;border-radius:var(--radius);font-size:12px;margin-bottom:14px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>Các thông tin Dịch vụ / Zalo / Trạng thái chăm sóc dùng để theo dõi quan hệ khách hàng (CRM funnel). Không ảnh hưởng đến tính phí dịch vụ tháng.</div>';
   h+='<div class="hc-form-grid" style="grid-template-columns:1fr;">';
   h+='<div><label>Dịch vụ quan tâm <span style="color:var(--tx3);font-weight:400;text-transform:none;">(tick nhiều mục)</span></label><div style="display:flex;flex-wrap:wrap;gap:10px;padding:10px 12px;border:1px solid var(--bd2);border-radius:var(--radius);background:var(--bg2);">';
-  Object.keys(SERVICES).forEach(function(code){var s=SERVICES[code];var checked=curServices.indexOf(code)>=0;h+='<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;color:var(--tx1);"><input type="checkbox" class="ce-service" value="'+code+'"'+(checked?' checked':'')+' style="accent-color:var(--blue);">'+s.icon+' '+esc(s.name)+'</label>';});
+  Object.keys(SERVICES).forEach(function(code){var s=SERVICES[code];var checked=curServices.indexOf(code)>=0;var dotC=SERVICE_DOT_COLORS[s.color]||'#888780';h+='<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;color:var(--tx1);"><input type="checkbox" class="ce-service" value="'+code+'"'+(checked?' checked':'')+' style="accent-color:var(--blue);"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dotC+';"></span>'+esc(s.name)+'</label>';});
   h+='</div></div>';
   h+='<div><label>Zalo <span style="color:var(--tx3);font-weight:400;text-transform:none;">(số phone / username / link đầy đủ)</span></label><input id="ce-zalo" class="fi" value="'+esc(c.zalo||'')+'" placeholder="0912345678 hoặc quanglx hoặc https://zalo.me/..."></div>';
   h+='<div style="font-size:11px;color:var(--tx3);margin-top:-4px;">Mặc định: nếu để trống sẽ dùng SĐT chính của khách (<b>'+esc(c.phone||'chưa có')+'</b>)</div>';
@@ -4924,7 +4929,7 @@ function renderNewProspectModal(){
   h+='<div><label>Ngành nghề (đưa vào Hợp đồng)</label><input id="np-industry" placeholder="VD: chế biến sữa" class="fi"></div>';
   h+='<div><label>Zalo (số phone / username / link)</label><input id="np-zalo" placeholder="0912345678 hoặc quanglx hoặc link đầy đủ" class="fi"></div>';
   h+='<div style="grid-column:1/-1;"><label>Dịch vụ quan tâm <span style="color:var(--tx3);font-weight:400;">(tick nhiều mục)</span></label><div style="display:flex;flex-wrap:wrap;gap:10px;padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--radius);background:var(--bg2);">';
-  Object.keys(SERVICES).forEach(function(code){var s=SERVICES[code];h+='<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;color:var(--tx1);"><input type="checkbox" class="np-service" value="'+code+'"'+(code==='fb_ads'?' checked':'')+' style="accent-color:var(--blue);">'+s.icon+' '+esc(s.name)+'</label>';});
+  Object.keys(SERVICES).forEach(function(code){var s=SERVICES[code];var dotC=SERVICE_DOT_COLORS[s.color]||'#888780';h+='<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;color:var(--tx1);"><input type="checkbox" class="np-service" value="'+code+'"'+(code==='fb_ads'?' checked':'')+' style="accent-color:var(--blue);"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dotC+';"></span>'+esc(s.name)+'</label>';});
   h+='</div></div>';
   h+='<div><label>Trạng thái chăm sóc</label><select id="np-care" class="fi">';
   CARE_ORDER.forEach(function(k){h+='<option value="'+k+'"'+(k==='new'?' selected':'')+'>'+esc(CARE_STATUS[k].name)+'</option>';});
@@ -4946,7 +4951,7 @@ function renderContractModal(){
   h+='<div class="hc-modal" role="dialog" aria-modal="true" aria-labelledby="ct-modal-title" style="max-width:900px;">';
   h+='<div class="hc-modal-head"><h3 id="ct-modal-title">Xuất hợp đồng — '+esc(c.name)+'</h3><button class="hc-modal-close" aria-label="Đóng" onclick="closeContractModal()">×</button></div>';
   h+='<div class="hc-modal-body">';
-  h+='<div style="background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue-tx);padding:10px 12px;border-radius:var(--radius);font-size:12px;margin-bottom:14px;">💡 Chỉnh sửa các trường dưới đây trước khi tải. Sau khi tải, thông tin sẽ được <strong>lưu làm mặc định</strong> cho lần xuất tiếp theo.</div>';
+  h+='<div style="background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue-tx);padding:10px 12px;border-radius:var(--radius);font-size:12px;margin-bottom:14px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>Chỉnh sửa các trường dưới đây trước khi tải. Sau khi tải, thông tin sẽ được <strong>lưu làm mặc định</strong> cho lần xuất tiếp theo.</div>';
   h+='<details open><summary style="font-weight:600;cursor:pointer;margin-bottom:10px;">📋 Thông tin hợp đồng</summary>';
   h+='<div class="hc-form-grid">';
   h+='<div><label>Số hợp đồng</label><input id="ct-number" class="fi"></div>';
