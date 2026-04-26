@@ -407,8 +407,59 @@ th.sortable.sort-desc::after{content:"▼";opacity:1;color:var(--blue);}
 .invoice-btn{min-width:110px;min-height:44px;border-radius:12px;border:1px solid rgba(15,23,42,.12);background:#fff;color:var(--tx2);font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;box-shadow:0 1px 3px rgba(15,23,42,.05);white-space:nowrap;position:relative;z-index:2;}
 .invoice-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(15,23,42,.10);background:#f8fafc;color:var(--tx1);}
 .invoice-btn:active{transform:translateY(0);box-shadow:0 1px 2px rgba(15,23,42,.06);}
-.vat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:700;line-height:1;}
+.vat-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:700;line-height:1;cursor:pointer;transition:opacity .15s,transform .15s;}
+.vat-badge:hover{opacity:.85;transform:translateY(-1px);}
 .invoice-status-badge{display:inline-flex;align-items:center;padding:6px 14px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.01em;}
+/* Khách hàng — cell name (logo + badge + nút sửa) */
+.kh-name-cell{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.kh-name-text{font-weight:600;color:var(--tx1);letter-spacing:-.01em;}
+.kh-edit-btn{width:24px;height:24px;padding:0;border:none;background:transparent;color:var(--tx3);cursor:pointer;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;transition:background .15s,color .15s;opacity:0;}
+tr:hover .kh-edit-btn{opacity:1;}
+.kh-edit-btn:hover{background:var(--blue-bg);color:var(--blue-tx);}
+.kh-edit-btn:focus-visible{opacity:1;outline:none;box-shadow:var(--ring-blue);}
+/* Nút "Mở phiếu" / "Thu gọn" hài hoà hơn */
+.kh-open-btn{padding:6px 14px;font-size:12px;font-weight:500;border-radius:999px;border:1px solid var(--bd2);background:var(--bg1);color:var(--tx2);cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;}
+.kh-open-btn:hover{border-color:var(--blue);color:var(--blue-tx);background:var(--blue-bg);}
+.kh-open-btn.is-active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.kh-open-btn:focus-visible{outline:none;box-shadow:var(--ring-blue);}
+/* Số thứ tự gọn */
+.kh-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--bg2);color:var(--tx3);font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;}
+tr:hover .kh-num{background:var(--blue-bg);color:var(--blue-tx);}
+/* Liên hệ stack: tên trên, nút Zalo dưới */
+.kh-contact{display:flex;flex-direction:column;gap:4px;align-items:flex-start;}
+/* Tiềm năng — cột Hợp đồng dạng chip */
+.kh-contract-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:var(--blue-bg);color:var(--blue-tx);font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:opacity .15s,transform .15s;}
+.kh-contract-chip:hover{opacity:.85;transform:translateY(-1px);}
+.kh-contract-chip:focus-visible{outline:none;box-shadow:var(--ring-blue);}
+/* Tiềm năng — cột Ngày tạo */
+.kh-date{font-variant-numeric:tabular-nums;color:var(--tx2);font-size:12px;letter-spacing:-.01em;}
+/* Tiềm năng — nhóm nút thao tác trong dòng */
+.kh-row-actions{display:inline-flex;align-items:center;gap:6px;}
+.kh-row-actions .btn{padding:6px 11px;font-size:11.5px;border-radius:8px;font-weight:500;line-height:1;min-height:30px;}
+.kh-row-actions .btn-icon{display:inline-flex;align-items:center;gap:5px;}
+.kh-row-actions .btn-quote{background:var(--amber-bg);color:var(--amber-tx);border:1px solid transparent;}
+.kh-row-actions .btn-quote:hover{background:var(--amber);color:#fff;}
+.kh-row-actions .btn-contract{background:var(--blue-bg);color:var(--blue-tx);border:1px solid transparent;}
+.kh-row-actions .btn-contract:hover{background:var(--blue);color:#fff;}
+.kh-row-actions .btn-detail{background:var(--bg1);color:var(--tx2);border:1px solid var(--bd2);}
+.kh-row-actions .btn-detail:hover{border-color:var(--blue);color:var(--blue-tx);background:var(--blue-bg);}
+.kh-row-actions .btn-detail.is-active{background:var(--blue);color:#fff;border-color:var(--blue);}
+/* Tiềm năng — panel chi tiết */
+.kh-detail-wrap{padding:14px 18px;background:var(--bg2);border-top:1px solid var(--bd1);}
+.kh-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 14px;margin-bottom:12px;}
+.kh-detail-item{display:flex;flex-direction:column;gap:2px;padding:8px 12px;background:var(--bg1);border:1px solid var(--bd1);border-radius:10px;}
+.kh-detail-label{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
+.kh-detail-value{font-size:13px;color:var(--tx1);font-weight:500;word-break:break-word;}
+.kh-detail-value a{color:var(--blue-tx);text-decoration:none;}
+.kh-detail-value a:hover{text-decoration:underline;}
+.kh-detail-note{grid-column:1/-1;}
+.kh-detail-actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--bd1);}
+.kh-detail-actions .btn{font-size:12.5px;padding:8px 14px;}
+.kh-detail-actions .btn-spacer{margin-left:auto;}
+/* Tiềm năng — toolbar trên đầu */
+.kh-prospect-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--radius-lg);padding:10px 12px;}
+.kh-prospect-toolbar .fi{flex:1;max-width:320px;min-width:200px;}
+.kh-prospect-count{font-size:12px;color:var(--tx3);margin-left:auto;font-weight:500;}
 @media(max-width:768px){
   .invoice-head,.invoice-body,.invoice-paybox,.invoice-actions{padding-left:16px;padding-right:16px;}
   .invoice-fee-row,.invoice-total{flex-direction:column;align-items:flex-start;}
@@ -2202,16 +2253,16 @@ var st2=c.status==='active'?'Đang hoạt động':(c.status==='paused'?'Tạm d
 var pct=maxSpend>0?Math.round(sp/maxSpend*100):0;
 var isExp=expandedClientId===c.id;
 h+='<tr style="'+(isExp?'background:var(--blue-bg);':'')+'">';
-h+='<td style="color:var(--tx3);">'+(i+1)+'</td>';
-h+='<td style="font-weight:500;">'+esc(c.name)+' '+(getClientVatFlag(c)?'<span class="vat-badge b-blue" style="cursor:pointer;" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',false)" title="Bấm để chuyển sang Không VAT">VAT 8%</span>':'<span class="vat-badge b-gray" style="cursor:pointer;" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',true)" title="Bấm để chuyển sang Có VAT">Không VAT</span>')+'<button class="btn btn-sm" style="margin-left:6px;padding:4px;font-size:11px;background:transparent;border:1px solid var(--bd2);color:var(--tx3);cursor:pointer;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;" onclick="event.stopPropagation();openClientEditModal(\''+c.id+'\')" title="Sửa dịch vụ / Zalo / CSKH"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></td>';
+h+='<td><span class="kh-num">'+(i+1)+'</span></td>';
+h+='<td><div class="kh-name-cell"><span class="kh-name-text">'+esc(c.name)+'</span>'+(getClientVatFlag(c)?'<span class="vat-badge b-blue" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',false)" title="Bấm để chuyển sang Không VAT">VAT 8%</span>':'<span class="vat-badge b-gray" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',true)" title="Bấm để chuyển sang Có VAT">Không VAT</span>')+'<button class="kh-edit-btn" onclick="event.stopPropagation();openClientEditModal(\''+c.id+'\')" title="Sửa dịch vụ / Zalo / CSKH" aria-label="Sửa khách hàng"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></div></td>';
 h+='<td>'+renderServicesBadges(c.services,{compact:true})+'</td>';
-h+='<td style="font-size:12px;color:var(--tx2);"><div>'+esc(c.contact_person||'—')+'</div>'+renderZaloBtn(c)+'</td>';
+h+='<td style="font-size:12px;color:var(--tx2);"><div class="kh-contact"><span>'+esc(c.contact_person||'—')+'</span>'+renderZaloBtn(c)+'</div></td>';
 h+='<td>'+renderCareChip(c.care_status||'won')+'</td>';
 h+='<td>'+(c.payment_status==='paid'?'<span class="badge b-green">Đã thanh toán</span>':'<span class="badge b-gray">Chưa</span>')+'</td>';
 h+='<td style="text-align:right;">'+(sp?'<div style="font-weight:500;font-variant-numeric:tabular-nums;color:var(--teal);">'+fm(sp)+'</div><div class="bar-track" style="width:80px;margin-left:auto;margin-top:3px;"><div class="bar-fill" style="width:'+pct+'%;background:var(--teal);"></div></div>':'<span style="color:var(--tx3);">—</span>')+'</td>';
 h+='<td class="mono" style="text-align:right;">'+(invoice.fee?fm(invoice.fee):'—')+'</td>';
 h+='<td><span class="badge '+sb3+'">'+st2+'</span></td>';
-h+='<td style="text-align:center;">'+(sp?'<button class="btn btn-sm" style="padding:4px 12px;font-size:11px;border:1px solid var(--bd2);border-radius:var(--radius);cursor:pointer;font-weight:500;font-family:inherit;'+(isExp?'background:var(--blue);color:#fff;border-color:var(--blue);':'background:var(--bg1);color:var(--tx2);')+'" onclick="toggleClientInv(\''+c.id+'\')">'+(isExp?'Thu gọn':'Mở phiếu')+'</button>':'')+'</td></tr>';
+h+='<td style="text-align:center;">'+(sp?'<button class="kh-open-btn'+(isExp?' is-active':'')+'" onclick="toggleClientInv(\''+c.id+'\')">'+(isExp?'Thu gọn':'Mở phiếu')+'</button>':'<span style="color:var(--tx3);font-size:12px;">—</span>')+'</td></tr>';
 if(isExp){
 var dim=new Date(parseInt(ms.split('-')[0]),parseInt(ms.split('-')[1]),0).getDate();
 var tkSpend={};
@@ -2281,10 +2332,10 @@ if(clientSearchText){
 prospects.sort(function(a,b){return(b.created_at||'').localeCompare(a.created_at||'');});
 var h='<div class="page-title">Khách hàng</div><div class="page-sub">Khách tiềm năng (chưa ký Hợp đồng)</div>';
 h+=tabH;
-h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">';
+h+='<div class="kh-prospect-toolbar">';
 h+='<button class="btn btn-primary" onclick="openNewProspectModal()">➕ Thêm khách tiềm năng</button>';
-h+='<input type="text" placeholder="Tìm khách tiềm năng..." value="'+esc(clientSearchText)+'" oninput="hcSearchInput(\'clientSearchText\',this.value)" class="fi" style="flex:1;max-width:320px;">';
-h+='<span style="font-size:12px;color:var(--tx3);margin-left:auto;">'+prospects.length+' khách</span>';
+h+='<input type="text" placeholder="Tìm khách tiềm năng..." value="'+esc(clientSearchText)+'" oninput="hcSearchInput(\'clientSearchText\',this.value)" class="fi">';
+h+='<span class="kh-prospect-count">'+prospects.length+' khách</span>';
 h+='</div>';
 if(!prospects.length){
   h+='<div class="empty-state" role="status">';
@@ -2300,41 +2351,45 @@ prospects.forEach(function(c,i){
   var createdDate=c.created_at?c.created_at.substring(0,10):'';
   var isExp=expandedClientId===c.id;
   h+='<tr style="'+(isExp?'background:var(--blue-bg);':'')+'">';
-  h+='<td style="color:var(--tx3);">'+(i+1)+'</td>';
-  h+='<td style="font-weight:500;">'+esc(c.name)+' <span class="prospect-badge">Tiềm năng</span><button class="btn btn-sm" style="margin-left:6px;padding:4px;font-size:11px;background:transparent;border:1px solid var(--bd2);color:var(--tx3);cursor:pointer;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;" onclick="event.stopPropagation();openClientEditModal(\''+c.id+'\')" title="Sửa dịch vụ / Zalo / CSKH"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></td>';
+  h+='<td><span class="kh-num">'+(i+1)+'</span></td>';
+  h+='<td><div class="kh-name-cell"><span class="kh-name-text">'+esc(c.name)+'</span><span class="prospect-badge">Tiềm năng</span><button class="kh-edit-btn" onclick="event.stopPropagation();openClientEditModal(\''+c.id+'\')" title="Sửa dịch vụ / Zalo / CSKH" aria-label="Sửa khách hàng"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></div></td>';
   h+='<td>'+renderServicesBadges(c.services,{compact:true})+'</td>';
   h+='<td style="font-size:12px;color:var(--tx2);">'+esc(c.company_full_name||'—')+'</td>';
-  h+='<td style="font-size:12px;color:var(--tx2);"><div>'+esc(c.contact_person||c.phone||'—')+'</div>'+renderZaloBtn(c)+'</td>';
+  h+='<td style="font-size:12px;color:var(--tx2);"><div class="kh-contact"><span>'+esc(c.contact_person||c.phone||'—')+'</span>'+renderZaloBtn(c)+'</div></td>';
   h+='<td>'+renderCareChip(c.care_status||'new')+'</td>';
-  h+='<td style="font-size:12px;color:var(--tx3);">'+esc(createdDate)+'</td>';
+  var dateDisplay='—';
+  if(createdDate){var dp=createdDate.split('-');if(dp.length===3)dateDisplay=dp[2]+'/'+dp[1]+'/'+dp[0];else dateDisplay=createdDate;}
+  h+='<td><span class="kh-date">'+esc(dateDisplay)+'</span></td>';
   h+='<td style="text-align:center;">';
-  if(ctrs.length){h+='<button class="btn btn-sm" onclick="openContractHistory(\''+c.id+'\')">'+ctrs.length+' bản</button>';}
+  if(ctrs.length){h+='<button class="kh-contract-chip" onclick="openContractHistory(\''+c.id+'\')" title="Xem lịch sử Hợp đồng"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'+ctrs.length+' bản</button>';}
   else{h+='<span style="color:var(--tx3);font-size:12px;">—</span>';}
   h+='</td>';
-  h+='<td style="white-space:nowrap;">';
-  h+='<button class="btn btn-sm" style="background:var(--amber);color:#fff;border:none;" onclick="openQuotationForClient(\''+c.id+'\')">💰 Báo giá</button> ';
-  h+='<button class="btn btn-sm btn-primary" onclick="openContractModal(\''+c.id+'\')">📄 Hợp đồng</button> ';
-  h+='<button class="btn btn-sm" onclick="toggleProspectExpand(\''+c.id+'\')">'+(isExp?'Thu gọn':'Chi tiết')+'</button>';
-  h+='</td></tr>';
+  h+='<td><div class="kh-row-actions">';
+  h+='<button class="btn btn-quote btn-icon" onclick="openQuotationForClient(\''+c.id+'\')" title="Tạo báo giá">💰 Báo giá</button>';
+  h+='<button class="btn btn-contract btn-icon" onclick="openContractModal(\''+c.id+'\')" title="Xuất hợp đồng">📄 Hợp đồng</button>';
+  h+='<button class="btn btn-detail'+(isExp?' is-active':'')+'" onclick="toggleProspectExpand(\''+c.id+'\')">'+(isExp?'Thu gọn':'Chi tiết')+'</button>';
+  h+='</div></td></tr>';
   if(isExp){
-    h+='<tr><td colspan="9" style="padding:12px 20px;background:var(--bg2);">';
-    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;font-size:12px;">';
-    h+='<div><strong>Địa chỉ:</strong> '+esc(c.address||'—')+'</div>';
-    h+='<div><strong>MST:</strong> '+esc(c.tax_code||'—')+'</div>';
-    h+='<div><strong>Điện thoại:</strong> '+esc(c.phone||'—')+'</div>';
-    h+='<div><strong>Zalo:</strong> '+(c.zalo?'<a href="'+esc(buildZaloLink(c.zalo))+'" target="_blank" rel="noopener" style="color:var(--blue);">'+esc(c.zalo)+'</a>':'—')+'</div>';
-    h+='<div><strong>Email:</strong> '+esc(c.email_invoice||'—')+'</div>';
-    h+='<div><strong>Đại diện:</strong> '+esc((c.representative_salutation||'')+' '+(c.representative_name||'—'))+'</div>';
-    h+='<div><strong>Chức vụ:</strong> '+esc(c.representative_title||'—')+'</div>';
-    h+='<div><strong>Mã Hợp đồng:</strong> '+esc(c.contract_prefix||'—')+'</div>';
-    h+='<div><strong>Ngành:</strong> '+esc(c.industry||'—')+'</div>';
-    if(c.prospect_note)h+='<div style="grid-column:1/-1;"><strong>Ghi chú:</strong> '+esc(c.prospect_note)+'</div>';
+    h+='<tr><td colspan="9" style="padding:0;">';
+    h+='<div class="kh-detail-wrap">';
+    h+='<div class="kh-detail-grid">';
+    h+='<div class="kh-detail-item"><span class="kh-detail-label">Địa chỉ</span><span class="kh-detail-value">'+esc(c.address||'—')+'</span></div>';
+    h+='<div class="kh-detail-item"><span class="kh-detail-label">MST</span><span class="kh-detail-value">'+esc(c.tax_code||'—')+'</span></div>';
+    h+='<div class="kh-detail-item"><span class="kh-detail-label">Điện thoại</span><span class="kh-detail-value">'+esc(c.phone||'—')+'</span></div>';
+    h+='<div class="kh-detail-item"><span class="kh-detail-label">Zalo</span><span class="kh-detail-value">'+(c.zalo?'<a href="'+esc(buildZaloLink(c.zalo))+'" target="_blank" rel="noopener">'+esc(c.zalo)+'</a>':'—')+'</span></div>';
+    h+='<div class="kh-detail-item"><span class="kh-detail-label">Email</span><span class="kh-detail-value">'+esc(c.email_invoice||'—')+'</span></div>';
+    h+='<div class="kh-detail-item"><span class="kh-detail-label">Đại diện</span><span class="kh-detail-value">'+esc(((c.representative_salutation||'')+' '+(c.representative_name||'—')).trim())+'</span></div>';
+    h+='<div class="kh-detail-item"><span class="kh-detail-label">Chức vụ</span><span class="kh-detail-value">'+esc(c.representative_title||'—')+'</span></div>';
+    h+='<div class="kh-detail-item"><span class="kh-detail-label">Mã Hợp đồng</span><span class="kh-detail-value">'+esc(c.contract_prefix||'—')+'</span></div>';
+    h+='<div class="kh-detail-item"><span class="kh-detail-label">Ngành</span><span class="kh-detail-value">'+esc(c.industry||'—')+'</span></div>';
+    if(c.prospect_note)h+='<div class="kh-detail-item kh-detail-note"><span class="kh-detail-label">Ghi chú</span><span class="kh-detail-value">'+esc(c.prospect_note)+'</span></div>';
     h+='</div>';
-    h+='<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">';
-    h+='<button class="btn" style="background:var(--amber);color:#fff;border:none;" onclick="openQuotationForClient(\''+c.id+'\')">💰 Tạo báo giá</button>';
-    h+='<button class="btn" style="background:var(--green);color:#fff;border:none;" onclick="convertProspectToActive(\''+c.id+'\')">✓ Chốt ký — chuyển thành khách chính thức</button>';
-    h+='<button class="btn" onclick="openContractModal(\''+c.id+'\')">📄 Xuất hợp đồng</button>';
-    h+='<button class="btn btn-red" style="margin-left:auto;" onclick="deleteProspect(\''+c.id+'\')">Xóa khách</button>';
+    h+='<div class="kh-detail-actions">';
+    h+='<button class="btn btn-quote btn-icon" onclick="openQuotationForClient(\''+c.id+'\')">💰 Tạo báo giá</button>';
+    h+='<button class="btn btn-green" onclick="convertProspectToActive(\''+c.id+'\')">✓ Chốt ký — chuyển thành khách chính thức</button>';
+    h+='<button class="btn btn-contract btn-icon" onclick="openContractModal(\''+c.id+'\')">📄 Xuất hợp đồng</button>';
+    h+='<button class="btn btn-red btn-spacer" onclick="deleteProspect(\''+c.id+'\')">Xóa khách</button>';
+    h+='</div>';
     h+='</div>';
     h+='</td></tr>';
   }
