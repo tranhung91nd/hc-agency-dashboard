@@ -2243,7 +2243,7 @@ if(clientFilterSpend)clientChips.push(clientFilterLabel('spend',clientFilterSpen
 if(clientFilterService)clientChips.push('Dịch vụ: '+clientFilterLabel('service',clientFilterService));
 if(clientSortMode&&clientSortMode!=='spend_desc')clientChips.push(clientFilterLabel('sort',clientSortMode));
 h+='<div class="active-chips">'+clientChips.map(function(c){return'<span class="chip">'+c+' <span class="x" onclick="clearClientFilters()">×</span></span>';}).join('')+'</div>';
-h+='<div class="table-wrap"><table><thead><tr><th style="width:30px;">#</th><th>Khách hàng</th><th>Dịch vụ</th><th>Liên hệ</th><th>Thanh toán</th><th style="text-align:right;">Chi tiêu '+mLabel+'</th><th style="text-align:right;">Phí dịch vụ</th><th>Trạng thái</th><th style="text-align:center;">Phiếu thanh toán</th></tr></thead><tbody>';
+h+='<div class="table-wrap"><table><thead><tr><th style="width:30px;">#</th><th>Khách hàng</th><th>Dịch vụ</th><th>Liên hệ</th><th style="white-space:nowrap;">Thanh toán</th><th style="text-align:right;white-space:nowrap;">Chi tiêu '+mLabel+'</th><th style="text-align:right;white-space:nowrap;">Phí dịch vụ</th><th style="white-space:nowrap;">Trạng thái</th><th style="text-align:center;white-space:nowrap;">Phiếu thanh toán</th></tr></thead><tbody>';
 rows.forEach(function(row,i){
 var c=row.c,sp=row.spend,invoice=getInvoiceTotals(c,ms);
 var sb3=c.status==='active'?'b-green':(c.status==='paused'?'b-amber':'b-red');
