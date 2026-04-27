@@ -6129,15 +6129,32 @@ console.log('[AutoSync] No mapped accounts');
 if(authUser){showSyncBar('✓ Đã cập nhật Meta',true);setTimeout(hideSyncBar,1800);}
 return;
 }
+// ═══ QUY TẮC ĐỒNG BỘ THÔNG MINH ═══
+// 1) HÔM NAY: luôn đồng bộ NGAY mỗi lần mở trang (data còn chạy, cần realtime)
+// 2) HÔM QUA: đồng bộ lại tối đa 4 lần/ngày — mỗi 6 tiếng (Meta vẫn cắn thêm tiền sau)
+// 3) MESSENGER + form: 1 lần/ngày — lần đầu mở trang trong ngày
 var today=td();
 var yest=yesterday();
-showSyncBar('Đang đồng bộ chi tiêu hôm qua và hôm nay...');
-var results=await Promise.all([syncOneDate(yest,mapped),syncOneDate(today,mapped)]);
-var r1=results[0],r2=results[1];
-var totalSaved=r1.saved+r2.saved,totalErrors=r1.errors+r2.errors;
+var now=Date.now();
+var SIX_HOURS=6*3600*1000;
+var lastYestTs=parseInt(localStorage.getItem('hc_last_yest_sync_ts')||'0',10);
+var lastMessDate=localStorage.getItem('hc_last_mess_sync_date')||'';
+var shouldSyncYest=(now-lastYestTs)>SIX_HOURS;
+var shouldSyncMess=lastMessDate!==today;
+// 1. HÔM NAY — luôn đồng bộ
+showSyncBar('Đang đồng bộ chi tiêu hôm nay...');
+var rToday=await syncOneDate(today,mapped);
+// 2. HÔM QUA — chỉ khi đã quá 6 tiếng từ lần đồng bộ trước
+var rYest={saved:0,errors:0,errorSamples:[]};
+if(shouldSyncYest){
+showSyncBar('Đang chốt lại chi tiêu hôm qua (chính xác hơn)...');
+rYest=await syncOneDate(yest,mapped);
+localStorage.setItem('hc_last_yest_sync_ts',String(now));
+}
+var totalSaved=rToday.saved+rYest.saved,totalErrors=rToday.errors+rYest.errors;
 // Nếu có lỗi, lấy mẫu đầu tiên để gợi ý nguyên nhân
 var spendHint='';
-var firstSample=(r1.errorSamples&&r1.errorSamples[0])||(r2.errorSamples&&r2.errorSamples[0]);
+var firstSample=(rToday.errorSamples&&rToday.errorSamples[0])||(rYest.errorSamples&&rYest.errorSamples[0]);
 if(totalErrors&&firstSample){
 var codeHint='';
 if(firstSample.code===190)codeHint=' — Token hết hạn/thu hồi';
@@ -6145,13 +6162,21 @@ else if(firstSample.code===200||firstSample.code===100)codeHint=' — Thiếu qu
 else if(firstSample.code===17||firstSample.code===4||firstSample.code===32||firstSample.code===613)codeHint=' — Rate limit';
 else if(firstSample.code===803)codeHint=' — Tài khoản không truy cập được';
 spendHint=' ('+firstSample.phase+(firstSample.code?' #'+firstSample.code:'')+codeHint+')';
-console.warn('[Spend sync] Mẫu lỗi r1:',r1.errorSamples,'r2:',r2.errorSamples);
+console.warn('[Spend sync] Mẫu lỗi today:',rToday.errorSamples,'yest:',rYest.errorSamples);
 }
-showSyncBar('Đang quét giá Messenger chiến dịch...');
+// 3. MESSENGER + form — chỉ 1 lần/ngày (lần đầu mở trang trong ngày)
+if(shouldSyncMess){
+showSyncBar('Đang quét giá Messenger + form (lần đầu trong ngày)...');
 await syncCampaignMess(null,true);
-showSyncBar('✓ Đồng bộ xong: '+totalSaved+' OK'+(totalErrors?', '+totalErrors+' lỗi'+spendHint:''),true);
+localStorage.setItem('hc_last_mess_sync_date',today);
+}
+// Tóm tắt
+var skipNote='';
+if(!shouldSyncYest){var minsAgo=Math.round((now-lastYestTs)/60000);skipNote+=' · hôm qua đã sync '+minsAgo+'p trước';}
+if(!shouldSyncMess)skipNote+=' · Messenger đã sync hôm nay';
+showSyncBar('✓ Đồng bộ: '+totalSaved+' OK'+(totalErrors?', '+totalErrors+' lỗi'+spendHint:'')+skipNote,true);
 await loadAll();
-setTimeout(hideSyncBar,3000);
+setTimeout(hideSyncBar,3500);
 }catch(e){showSyncBar('⚠ Lỗi đồng bộ: '+e.message);setTimeout(hideSyncBar,5000);}}
 
 async function init(){try{
