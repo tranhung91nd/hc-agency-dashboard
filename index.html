@@ -4474,18 +4474,36 @@ var QUOTATION_STATUS_META={
   expired:{label:'Hết hạn',class:'b-amber'}
 };
 
-function quotationTotals(q){
-  var fpPrice=0;
-  if(q.fanpage_package){
-    var pkg=FANPAGE_PACKAGES.find(function(p){return p.id===q.fanpage_package;});
-    if(pkg)fpPrice=pkg.price;
+// Đọc 3 boolean include từ snapshot (mới) hoặc derive từ package_type (legacy)
+function getQuotationIncludes(q){
+  var s=(q&&q.snapshot)||{};
+  if(typeof s.include_fanpage==='boolean'||typeof s.include_ads==='boolean'||typeof s.include_web==='boolean'){
+    return{fp:!!s.include_fanpage,ads:!!s.include_ads,web:!!s.include_web};
   }
-  var adFee=q.support_fee!=null?parseInt(q.support_fee)||0:calcAdSupportFee(q.monthly_budget);
-  var total=0;
-  if(q.package_type==='fanpage')total=fpPrice;
-  else if(q.package_type==='ads')total=adFee;
-  else total=fpPrice+adFee;
-  return {fanpageFee:fpPrice,adFee:adFee,total:total};
+  var pt=(q&&q.package_type)||'combo';
+  return{fp:(pt==='fanpage'||pt==='combo'),ads:(pt==='ads'||pt==='combo'),web:(pt==='webapp')};
+}
+function derivePackageType(inc){
+  if(inc.fp&&!inc.ads&&!inc.web)return'fanpage';
+  if(!inc.fp&&inc.ads&&!inc.web)return'ads';
+  if(!inc.fp&&!inc.ads&&inc.web)return'webapp';
+  return'combo';
+}
+function quotationTotals(q){
+  var inc=getQuotationIncludes(q);
+  var fpPrice=0;
+  if(inc.fp){
+    if(q.fanpage_price_override!=null&&q.fanpage_price_override!==''){
+      fpPrice=parseInt(q.fanpage_price_override)||0;
+    }else if(q.fanpage_package){
+      var pkg=FANPAGE_PACKAGES.find(function(p){return p.id===q.fanpage_package;});
+      if(pkg)fpPrice=pkg.price;
+    }
+  }
+  var adFee=inc.ads?(q.support_fee!=null?parseInt(q.support_fee)||0:calcAdSupportFee(q.monthly_budget)):0;
+  var webFee=inc.web?(parseInt(q.web_fee)||0):0;
+  var total=fpPrice+adFee+webFee;
+  return{fanpageFee:fpPrice,adFee:adFee,webFee:webFee,total:total,inc:inc};
 }
 
 // ═══ P3 QUOTATION LIST VIEW ═══
@@ -4549,9 +4567,12 @@ function p3Quotation(tabH){
     i=(quotationPage-1)*QT_PAGE_SIZE+i;
     var c=q.client||clientList.find(function(x){return x.id===q.client_id;})||{};
     var tot=quotationTotals(q);
-    var pkgLabel=q.package_type==='fanpage'?'Fanpage '+(q.fanpage_package===2?'Gói 2':'Gói 1'):
-      q.package_type==='ads'?'Chạy quảng cáo':
-      'Combo (Fanpage + Ads)';
+    var inc=tot.inc;
+    var pkgParts=[];
+    if(inc.fp)pkgParts.push('Fanpage'+(q.fanpage_package===2?' Gói 2':' Gói 1'));
+    if(inc.ads)pkgParts.push('Quảng cáo');
+    if(inc.web)pkgParts.push('Web App');
+    var pkgLabel=pkgParts.length>1?'Combo ('+pkgParts.join(' + ')+')':(pkgParts[0]||'—');
     var stMeta=QUOTATION_STATUS_META[q.status]||QUOTATION_STATUS_META.draft;
     var isExpired=q.valid_until&&q.valid_until<td()&&q.status!=='accepted';
     h+='<tr>';
@@ -4559,7 +4580,7 @@ function p3Quotation(tabH){
     h+='<td style="font-family:var(--mono,monospace);font-size:12px;">'+esc(q.quote_number||'—')+'</td>';
     h+='<td><div style="font-weight:500;">'+esc(c.name||'—')+'</div><div style="font-size:11px;color:var(--tx3);">'+esc(c.company_full_name||'')+'</div></td>';
     h+='<td style="font-size:12px;">'+esc(pkgLabel);
-    if(q.package_type!=='fanpage'&&q.monthly_budget)h+='<div style="font-size:11px;color:var(--tx3);">Ngân sách '+ff(q.monthly_budget)+'đ/th</div>';
+    if(inc.ads&&q.monthly_budget)h+='<div style="font-size:11px;color:var(--tx3);">Ngân sách '+ff(q.monthly_budget)+'đ/th</div>';
     h+='</td>';
     h+='<td style="text-align:right;font-weight:600;">'+ff(tot.total)+'đ</td>';
     h+='<td style="font-size:12px;'+(isExpired?'color:var(--red);':'')+'">'+esc(q.valid_until||'—')+(isExpired?' ⚠':'')+'</td>';
@@ -4585,8 +4606,12 @@ function p3Quotation(tabH){
   pagedRows.forEach(function(q){
     var c=q.client||clientList.find(function(x){return x.id===q.client_id;})||{};
     var tot=quotationTotals(q);
-    var pkgLabel=q.package_type==='fanpage'?'Fanpage '+(q.fanpage_package===2?'Gói 2':'Gói 1'):
-      q.package_type==='ads'?'Chạy quảng cáo':'Combo (Fanpage + Ads)';
+    var inc=tot.inc;
+    var pkgParts=[];
+    if(inc.fp)pkgParts.push('Fanpage'+(q.fanpage_package===2?' Gói 2':' Gói 1'));
+    if(inc.ads)pkgParts.push('Quảng cáo');
+    if(inc.web)pkgParts.push('Web App');
+    var pkgLabel=pkgParts.length>1?'Combo ('+pkgParts.join(' + ')+')':(pkgParts[0]||'—');
     var stMeta=QUOTATION_STATUS_META[q.status]||QUOTATION_STATUS_META.draft;
     var isExpired=q.valid_until&&q.valid_until<td()&&q.status!=='accepted';
     var primaryBtn='';
@@ -4703,16 +4728,22 @@ function fillQuotationDefaults(id){
   var t=new Date();
   var today=t.toISOString().substring(0,10);
   var defaultValidUntil=new Date(Date.now()+7*86400000).toISOString().substring(0,10);
+  var inc=q?getQuotationIncludes(q):{fp:true,ads:true,web:false};
   if(q){
     set('qt-client',q.client_id);
     set('qt-number',q.quote_number||'');
     set('qt-issued',q.issued_date||today);
     set('qt-valid',q.valid_until||defaultValidUntil);
     set('qt-note',q.note||'');
-    set('qt-package-type',q.package_type||'combo');
+    check('qt-inc-fp',inc.fp);
+    check('qt-inc-ads',inc.ads);
+    check('qt-inc-web',inc.web);
     set('qt-fanpage-pkg',q.fanpage_package||1);
+    set('qt-fp-override',q.fanpage_price_override||'');
     set('qt-budget',q.monthly_budget||'');
     set('qt-support-fee',q.support_fee||'');
+    set('qt-web-fee',q.web_fee||'');
+    set('qt-web-note',q.web_note||'');
     check('qt-hide-low',shouldHideLowTiers(q));
   }else{
     set('qt-client','');
@@ -4720,14 +4751,21 @@ function fillQuotationDefaults(id){
     set('qt-issued',today);
     set('qt-valid',defaultValidUntil);
     set('qt-note','');
-    set('qt-package-type','combo');
+    check('qt-inc-fp',true);
+    check('qt-inc-ads',true);
+    check('qt-inc-web',false);
     set('qt-fanpage-pkg',1);
+    set('qt-fp-override','');
     set('qt-budget','');
     set('qt-support-fee','');
+    set('qt-web-fee','');
+    set('qt-web-note','');
     check('qt-hide-low',false);
   }
   formatMoneyInput(document.getElementById('qt-budget'));
   formatMoneyInput(document.getElementById('qt-support-fee'));
+  formatMoneyInput(document.getElementById('qt-fp-override'));
+  formatMoneyInput(document.getElementById('qt-web-fee'));
   onQuotationPackageChange();
   onQuotationBudgetChange();
   onQuotationClientChange();
@@ -4745,11 +4783,30 @@ function onQuotationClientChange(){
 }
 
 function onQuotationPackageChange(){
-  var type=document.getElementById('qt-package-type').value;
+  var fp=document.getElementById('qt-inc-fp').checked;
+  var ads=document.getElementById('qt-inc-ads').checked;
+  var web=document.getElementById('qt-inc-web').checked;
   var fpGroup=document.getElementById('qt-fanpage-group');
   var adGroup=document.getElementById('qt-ad-group');
-  if(fpGroup)fpGroup.style.display=(type==='fanpage'||type==='combo')?'':'none';
-  if(adGroup)adGroup.style.display=(type==='ads'||type==='combo')?'':'none';
+  var webGroup=document.getElementById('qt-web-group');
+  if(fpGroup)fpGroup.style.display=fp?'':'none';
+  if(adGroup)adGroup.style.display=ads?'':'none';
+  if(webGroup)webGroup.style.display=web?'':'none';
+  recalcQuotationPreview();
+}
+function onQuotationFanpagePkgChange(){
+  // Khi đổi gói gợi ý → cập nhật ô override theo giá gói (nếu user chưa sửa tay)
+  var ov=document.getElementById('qt-fp-override');
+  if(!ov)return;
+  if(ov.dataset.touched==='1'){recalcQuotationPreview();return;}
+  var pkgId=parseInt(document.getElementById('qt-fanpage-pkg').value)||1;
+  var pkg=FANPAGE_PACKAGES.find(function(p){return p.id===pkgId;});
+  ov.value=pkg?pkg.price.toLocaleString('vi-VN'):'';
+  recalcQuotationPreview();
+}
+function onQuotationFpOverrideChange(){
+  var ov=document.getElementById('qt-fp-override');
+  if(ov)ov.dataset.touched='1';
   recalcQuotationPreview();
 }
 
@@ -4777,20 +4834,27 @@ function onQuotationFeeManualChange(){
 }
 
 function recalcQuotationPreview(){
-  var type=document.getElementById('qt-package-type').value;
+  var fp=document.getElementById('qt-inc-fp').checked;
+  var ads=document.getElementById('qt-inc-ads').checked;
+  var web=document.getElementById('qt-inc-web').checked;
   var fpId=parseInt(document.getElementById('qt-fanpage-pkg').value)||1;
+  var fpOverrideRaw=document.getElementById('qt-fp-override').value;
+  var fpOverride=normalizeMoneyInput(fpOverrideRaw);
   var b=normalizeMoneyInput(document.getElementById('qt-budget').value);
   var fee=normalizeMoneyInput(document.getElementById('qt-support-fee').value);
-  var fpPrice=0,pkg=FANPAGE_PACKAGES.find(function(p){return p.id===fpId;});if(pkg)fpPrice=pkg.price;
-  var total=0;
-  if(type==='fanpage')total=fpPrice;
-  else if(type==='ads')total=fee;
-  else total=fpPrice+fee;
+  var webFee=normalizeMoneyInput(document.getElementById('qt-web-fee').value);
+  var pkg=FANPAGE_PACKAGES.find(function(p){return p.id===fpId;});
+  var fpPrice=fp?(fpOverride>0?fpOverride:(pkg?pkg.price:0)):0;
+  var adFee=ads?fee:0;
+  var wFee=web?webFee:0;
+  var total=fpPrice+adFee+wFee;
   var box=document.getElementById('qt-total-box');
   if(box){
     var parts=[];
-    if(type!=='ads')parts.push('Fanpage '+(pkg?pkg.name:'Gói 1')+': <strong>'+ff(fpPrice)+'đ</strong>');
-    if(type!=='fanpage')parts.push('Phí hỗ trợ Quảng cáo: <strong>'+ff(fee)+'đ</strong>'+(b?' (ngân sách '+ff(b)+'đ/tháng)':''));
+    if(fp)parts.push('Fanpage '+(pkg?pkg.name:'Gói 1')+(fpOverride>0&&pkg&&fpOverride!==pkg.price?' (chốt)':'')+': <strong>'+ff(fpPrice)+'đ</strong>');
+    if(ads)parts.push('Phí hỗ trợ Quảng cáo: <strong>'+ff(adFee)+'đ</strong>'+(b?' (ngân sách '+ff(b)+'đ/tháng)':''));
+    if(web)parts.push('Web App: <strong>'+ff(wFee)+'đ</strong>');
+    if(!parts.length)parts.push('<em style="color:var(--red-tx);">Chưa chọn gói dịch vụ nào</em>');
     box.innerHTML='<div style="font-size:12px;color:var(--tx3);margin-bottom:4px;">'+parts.join(' &nbsp;•&nbsp; ')+'</div><div style="font-size:20px;font-weight:700;color:var(--blue-tx);">Tổng: '+ff(total)+'đ</div>';
   }
 }
@@ -4811,25 +4875,35 @@ function renderQuotationModal(){
   h+='<div><label>Mã báo giá</label><input id="qt-number" class="fi" placeholder="Sẽ tạo tự động sau khi chọn khách hàng"></div>';
   h+='<div><label>Ngày lập</label><input id="qt-issued" type="date" class="fi"></div>';
   h+='<div><label>Hiệu lực đến</label><input id="qt-valid" type="date" class="fi"></div>';
-  h+='<div><label>Gói dịch vụ</label><select id="qt-package-type" class="fi" onchange="onQuotationPackageChange()">';
-  h+='<option value="combo">Combo (Fanpage + Quảng cáo)</option>';
-  h+='<option value="fanpage">Chỉ tạo Fanpage</option>';
-  h+='<option value="ads">Chỉ chạy quảng cáo</option>';
-  h+='</select></div>';
+  h+='<div style="grid-column:1/-1;"><label>Gói dịch vụ <span style="color:var(--tx3);font-weight:400;text-transform:none;">(tick các mục cần báo giá — có thể chọn nhiều)</span></label>';
+  h+='<div style="display:flex;gap:14px;flex-wrap:wrap;padding:10px 14px;border:1px solid var(--bd2);border-radius:var(--radius);background:var(--bg2);">';
+  h+='<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--tx1);"><input type="checkbox" id="qt-inc-fp" onchange="onQuotationPackageChange()" style="accent-color:var(--blue);width:16px;height:16px;">📘 Tạo Fanpage</label>';
+  h+='<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--tx1);"><input type="checkbox" id="qt-inc-ads" onchange="onQuotationPackageChange()" style="accent-color:var(--blue);width:16px;height:16px;">📣 Chạy Quảng cáo</label>';
+  h+='<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--tx1);"><input type="checkbox" id="qt-inc-web" onchange="onQuotationPackageChange()" style="accent-color:var(--blue);width:16px;height:16px;">💻 Lập trình Web App</label>';
+  h+='</div></div>';
   h+='</div>';
   h+='<div id="qt-fanpage-group" style="margin-top:14px;padding:12px;background:var(--bg2);border-radius:var(--radius);">';
   h+='<div style="font-size:13px;font-weight:600;margin-bottom:8px;">📘 Gói Fanpage</div>';
-  h+='<div class="hc-form-grid"><div style="grid-column:1/-1;"><label>Chọn gói</label><select id="qt-fanpage-pkg" class="fi" onchange="recalcQuotationPreview()">';
+  h+='<div class="hc-form-grid">';
+  h+='<div><label>Chọn gói gợi ý</label><select id="qt-fanpage-pkg" class="fi" onchange="onQuotationFanpagePkgChange()">';
   FANPAGE_PACKAGES.forEach(function(p){h+='<option value="'+p.id+'">'+p.name+' — '+ff(p.price)+'đ</option>';});
-  h+='</select></div></div>';
-  h+='</div>';
+  h+='</select></div>';
+  h+='<div><label>Giá Fanpage chốt (VNĐ) <span style="color:var(--tx3);font-weight:400;text-transform:none;">(sửa nếu cần)</span></label><input id="qt-fp-override" type="text" inputmode="numeric" autocomplete="off" class="fi" oninput="formatMoneyInput(this);onQuotationFpOverrideChange()" placeholder="Theo gói chuẩn"></div>';
+  h+='</div></div>';
   h+='<div id="qt-ad-group" style="margin-top:14px;padding:12px;background:var(--bg2);border-radius:var(--radius);">';
-  h+='<div style="font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#378ADD;"></span>Gói chạy quảng cáo</div>';
+  h+='<div style="font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#378ADD;"></span>Gói chạy Quảng cáo</div>';
   h+='<div class="hc-form-grid">';
   h+='<div><label>Ngân sách dự kiến/tháng (VNĐ)</label><input id="qt-budget" type="text" inputmode="numeric" autocomplete="off" class="fi" oninput="formatMoneyInput(this);onQuotationBudgetChange()" placeholder="VD: 20.000.000"></div>';
-  h+='<div><label>Phí hỗ trợ/tháng (VNĐ)</label><input id="qt-support-fee" type="text" inputmode="numeric" autocomplete="off" class="fi" oninput="formatMoneyInput(this);onQuotationFeeManualChange()" placeholder="Tự tính theo bậc"></div>';
+  h+='<div><label>Phí hỗ trợ/tháng (VNĐ) <span style="color:var(--tx3);font-weight:400;text-transform:none;">(sửa tay nếu cần)</span></label><input id="qt-support-fee" type="text" inputmode="numeric" autocomplete="off" class="fi" oninput="formatMoneyInput(this);onQuotationFeeManualChange()" placeholder="Tự tính theo bậc"></div>';
   h+='<div style="grid-column:1/-1;font-size:11px;color:var(--tx3);" id="qt-tier-label">Nhập ngân sách để xem bậc phí</div>';
   h+='<div style="grid-column:1/-1;padding:8px 10px;background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius);"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:12.5px;color:var(--tx2);margin:0;"><input type="checkbox" id="qt-hide-low" onchange="onQuotationHideLowChange()" style="width:15px;height:15px;cursor:pointer;margin:0;"><span>Ẩn các bậc dưới 30tr khi in báo giá <span style="color:var(--tx3);">(tự bật khi ngân sách ≥ 30tr)</span></span></label></div>';
+  h+='</div></div>';
+  h+='<div id="qt-web-group" style="margin-top:14px;padding:12px;background:var(--bg2);border-radius:var(--radius);">';
+  h+='<div style="font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#7F77DD;"></span>Gói Lập trình Web App</div>';
+  h+='<div class="hc-form-grid">';
+  h+='<div><label>Phí trọn gói (VNĐ) <span style="color:var(--tx3);font-weight:400;text-transform:none;">(thanh toán 1 lần)</span></label><input id="qt-web-fee" type="text" inputmode="numeric" autocomplete="off" class="fi" oninput="formatMoneyInput(this);recalcQuotationPreview()" placeholder="VD: 15.000.000"></div>';
+  h+='<div></div>';
+  h+='<div style="grid-column:1/-1;"><label>Phạm vi công việc / mô tả</label><input id="qt-web-note" class="fi" placeholder="VD: Landing page giới thiệu, form đăng ký, tích hợp Zalo/CRM…"></div>';
   h+='</div></div>';
   h+='<div class="hc-form-grid" style="margin-top:14px;">';
   h+='<div style="grid-column:1/-1;"><label>Ghi chú (ưu đãi riêng, điều khoản đặc biệt...)</label><input id="qt-note" class="fi"></div>';
@@ -4860,18 +4934,25 @@ async function saveQuotation(btn,markSent){
   }
   if(clientField){clientField.classList.remove('has-error');clientField.removeAttribute('aria-invalid');}
   if(clientErr)clientErr.hidden=true;
+  // Đọc 3 checkboxes Gói dịch vụ
+  var incFp=document.getElementById('qt-inc-fp').checked;
+  var incAds=document.getElementById('qt-inc-ads').checked;
+  var incWeb=document.getElementById('qt-inc-web').checked;
+  if(!incFp&&!incAds&&!incWeb){toast('Tick ít nhất 1 gói dịch vụ trước khi lưu',false);if(btn){btn.disabled=false;btn.classList.remove('is-loading');}return;}
   if(btn){btn.disabled=true;btn.classList.add('is-loading');}
-  var type=v('qt-package-type')||'combo';
+  var type=derivePackageType({fp:incFp,ads:incAds,web:incWeb});
   var fpId=parseInt(v('qt-fanpage-pkg'))||1;
   var budget=normalizeMoneyInput(v('qt-budget'));
   var fee=normalizeMoneyInput(v('qt-support-fee'));
-  if(type==='ads'||type==='combo'){
-    if(!fee&&budget)fee=calcAdSupportFee(budget);
-  }
+  var fpOverride=normalizeMoneyInput(v('qt-fp-override'));
+  var webFee=normalizeMoneyInput(v('qt-web-fee'));
+  var webNote=v('qt-web-note');
+  if(incAds&&!fee&&budget)fee=calcAdSupportFee(budget);
   var pkg=FANPAGE_PACKAGES.find(function(p){return p.id===fpId;});
-  var fanpageFee=(type==='fanpage'||type==='combo')&&pkg?pkg.price:0;
-  var adFee=(type==='ads'||type==='combo')?fee:0;
-  var total=fanpageFee+adFee;
+  var fanpageFee=incFp?(fpOverride>0?fpOverride:(pkg?pkg.price:0)):0;
+  var adFee=incAds?fee:0;
+  var wFee=incWeb?webFee:0;
+  var total=fanpageFee+adFee+wFee;
   var number=v('qt-number');
   if(!number){
     var c=clientList.find(function(x){return x.id===clientId;});
@@ -4881,10 +4962,16 @@ async function saveQuotation(btn,markSent){
   var hideLow=hideLowEl?!!hideLowEl.checked:(budget>=30000000);
   var snapshot={
     package_type:type,
-    fanpage_package:(type==='fanpage'||type==='combo')?fpId:null,
+    include_fanpage:incFp,
+    include_ads:incAds,
+    include_web:incWeb,
+    fanpage_package:incFp?fpId:null,
     fanpage_price:fanpageFee,
+    fanpage_price_override:(incFp&&fpOverride>0)?fpOverride:null,
     monthly_budget:budget,
     support_fee:adFee,
+    web_fee:wFee,
+    web_note:incWeb?webNote:null,
     total:total,
     hide_low_tiers:hideLow,
     features:(pkg?pkg.features:null)
@@ -4895,8 +4982,11 @@ async function saveQuotation(btn,markSent){
     status:markSent?'sent':'draft',
     package_type:type,
     fanpage_package:snapshot.fanpage_package,
+    fanpage_price_override:snapshot.fanpage_price_override,
     monthly_budget:budget||0,
     support_fee:adFee||0,
+    web_fee:wFee||0,
+    web_note:incWeb?(webNote||null):null,
     total_fee:total||0,
     issued_date:v('qt-issued')||td(),
     valid_until:v('qt-valid')||null,
@@ -4906,11 +4996,17 @@ async function saveQuotation(btn,markSent){
   };
   if(markSent)payload.sent_at=new Date().toISOString();
   var r;
+  async function tryUpsert(p){
+    if(quotationModalId&&quotationModalId!=='new')return await sb2.from('quotation').update(p).eq('id',quotationModalId);
+    return await sb2.from('quotation').insert(p);
+  }
   try{
-    if(quotationModalId&&quotationModalId!=='new'){
-      r=await sb2.from('quotation').update(payload).eq('id',quotationModalId);
-    }else{
-      r=await sb2.from('quotation').insert(payload);
+    r=await tryUpsert(payload);
+    if(r.error&&isMissingColumnError(r.error)){
+      // DB chưa có cột web_fee/web_note/fanpage_price_override → retry không kèm
+      var fb=Object.assign({},payload);delete fb.web_fee;delete fb.web_note;delete fb.fanpage_price_override;
+      r=await tryUpsert(fb);
+      if(!r.error&&(incWeb||fpOverride>0))toast('⚠ Đã lưu nhưng chưa có cột mới trong DB. Chạy migration 2026-04-27_quotation_web_and_override.sql để bật đầy đủ.',false);
     }
   }finally{
     if(btn){btn.disabled=false;btn.classList.remove('is-loading');}
@@ -5117,13 +5213,15 @@ function getQuotationVietQrUrl(q,amount){
 
 function renderQuotationHtml(q,c){
   var tot=quotationTotals(q);
+  var inc=tot.inc;
   var pkg=q.fanpage_package?FANPAGE_PACKAGES.find(function(p){return p.id===q.fanpage_package;}):null;
   var tier=findAdTier(q.monthly_budget);
   var hideLow=shouldHideLowTiers(q);
   var tiers=hideLow?AD_FEE_TIERS.filter(function(t){return t.max>=30000000;}):AD_FEE_TIERS;
   var sectionIdx=0;
-  var hasFanpage=(q.package_type==='fanpage'||q.package_type==='combo');
-  var hasAds=(q.package_type==='ads'||q.package_type==='combo');
+  var hasFanpage=inc.fp;
+  var hasAds=inc.ads;
+  var hasWeb=inc.web;
   var clientDisplay=esc(c.company_full_name||c.name||'Quý khách');
   var budgetLine=q.monthly_budget?' với ngân sách <b>'+ff(q.monthly_budget)+'đ/tháng</b>':'';
   var qrUrl=getQuotationVietQrUrl(q,tot.total);
@@ -5160,11 +5258,13 @@ function renderQuotationHtml(q,c){
   // Fanpage section
   if(hasFanpage&&pkg){
     sectionIdx++;
+    var displayFpPrice=tot.fanpageFee||pkg.price;
+    var hasOverride=q.fanpage_price_override!=null&&q.fanpage_price_override!==''&&parseInt(q.fanpage_price_override)>0&&parseInt(q.fanpage_price_override)!==pkg.price;
     h+='<div class="qt-section">';
     h+='<div class="qt-section-head"><div class="qt-section-icon">📘</div><div><h3>Gói vận hành Fanpage</h3><p>Thiết kế fanpage, viết bài, bàn giao trong 3–5 ngày</p></div></div>';
     h+='<div class="qt-package">';
-    h+='<div class="qt-package-head"><div><h4 class="qt-package-name">'+esc(pkg.name)+(pkg.id===2?' — Nâng cao':' — Cơ bản')+'</h4><span class="qt-package-tag">'+(pkg.id===2?'Premium':'Recommended')+'</span></div>';
-    h+='<div class="qt-package-price"><small>Chỉ từ</small>'+ff(pkg.price)+'đ<span class="unit">/gói (thanh toán 1 lần)</span></div></div>';
+    h+='<div class="qt-package-head"><div><h4 class="qt-package-name">'+esc(pkg.name)+(pkg.id===2?' — Nâng cao':' — Cơ bản')+'</h4><span class="qt-package-tag">'+(hasOverride?'Ưu đãi riêng':(pkg.id===2?'Premium':'Recommended'))+'</span></div>';
+    h+='<div class="qt-package-price">'+(hasOverride?'<small>Chốt giá</small>':'<small>Chỉ từ</small>')+ff(displayFpPrice)+'đ<span class="unit">/gói (thanh toán 1 lần)</span></div></div>';
     h+='<ul class="qt-package-features">';pkg.features.forEach(function(f){h+='<li><span>'+esc(f)+'</span></li>';});h+='</ul>';
     h+='</div></div>';
   }
@@ -5185,9 +5285,27 @@ function renderQuotationHtml(q,c){
     }
   }
 
-  // TOTAL
-  var totalLabel=q.package_type==='fanpage'?'Gói Fanpage':(q.package_type==='ads'?'Phí quảng cáo':'Gói Fanpage + Phí quảng cáo');
-  var totalUnit=q.package_type==='fanpage'?'(thanh toán 1 lần, chưa bao gồm VAT)':'/tháng (chưa bao gồm VAT)';
+  // Web App section
+  if(hasWeb){
+    sectionIdx++;
+    h+='<div class="qt-section">';
+    h+='<div class="qt-section-head"><div class="qt-section-icon">💻</div><div><h3>Gói Lập trình Web App</h3><p>Thiết kế, phát triển và bàn giao theo phạm vi công việc thoả thuận</p></div></div>';
+    h+='<div class="qt-package">';
+    h+='<div class="qt-package-head"><div><h4 class="qt-package-name">Web App theo yêu cầu</h4><span class="qt-package-tag">Custom</span></div>';
+    h+='<div class="qt-package-price"><small>Trọn gói</small>'+ff(tot.webFee)+'đ<span class="unit">/dự án (thanh toán theo tiến độ)</span></div></div>';
+    if(q.web_note)h+='<ul class="qt-package-features"><li><span>'+esc(q.web_note)+'</span></li></ul>';
+    h+='</div></div>';
+  }
+
+  // TOTAL — label hiển thị theo combination
+  var totalParts=[];
+  if(hasFanpage)totalParts.push('Gói Fanpage');
+  if(hasAds)totalParts.push('Phí quảng cáo');
+  if(hasWeb)totalParts.push('Web App');
+  var totalLabel=totalParts.length?totalParts.join(' + '):'Tổng dịch vụ';
+  // Đơn vị: nếu chỉ có Fanpage hoặc Web (1 lần) thì khác Ads (mỗi tháng)
+  var oneTimeOnly=(hasFanpage||hasWeb)&&!hasAds;
+  var totalUnit=oneTimeOnly?'(thanh toán 1 lần, chưa bao gồm VAT)':(hasAds&&!hasFanpage&&!hasWeb?'/tháng (chưa bao gồm VAT)':'(Fanpage/Web 1 lần · Ads/tháng, chưa VAT)');
   h+='<div class="qt-total"><div class="qt-total-lbl"><small>TỔNG CHI PHÍ DỊCH VỤ</small><b>'+esc(totalLabel)+'</b></div><div class="qt-total-val">'+ff(tot.total)+'đ<small>'+esc(totalUnit)+'</small></div></div>';
 
   // Ghi chú
