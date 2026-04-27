@@ -3739,8 +3739,8 @@ function setP6Tab(i){p6Tab=i;render();}
 function p6(){
 var messAlerts=getMessAlerts(),leadAlerts=getLeadAlerts(),balAlerts=getBalanceAlerts();
 var totalAlerts=messAlerts.length+leadAlerts.length+balAlerts.length;
-var dToday=fd(td()),d3=fd(vnDateStr(-259200000));
-var h='<div class="page-title">Cảnh báo</div><div class="page-sub">Giá trung bình 4 ngày ('+d3+' – '+dToday+') · Số dư Tài khoản dưới '+ff(BALANCE_ALERT_THRESHOLD)+'đ</div>';
+var d1Label=fd(vnDateStr(-86400000)),d3Label=fd(vnDateStr(-259200000));
+var h='<div class="page-title">Cảnh báo</div><div class="page-sub">Giá trung bình 3 ngày ('+d3Label+' – '+d1Label+') · Số dư Tài khoản dưới '+ff(BALANCE_ALERT_THRESHOLD)+'đ</div>';
 h+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;"><button class="btn btn-primary" onclick="syncCampaignMess(this)">Quét giá Messenger & form</button></div>';
 // KPI
 var tkMess=adList.filter(function(a){return a.max_mess_cost;}).length;
@@ -3793,7 +3793,7 @@ clientKeys.forEach(function(cname){
 var camps=g.clients[cname];
 h+='<div style="border-bottom:1px solid var(--bd1);">';
 h+='<div style="padding:10px 20px 10px 48px;background:var(--bg2);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bd1);"><div style="font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;"><span style="width:6px;height:6px;border-radius:50%;background:'+sCol.c+';"></span>'+esc(cname)+'</div><span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--red-bg);color:var(--red-tx);font-weight:500;">'+camps.length+' chiến dịch</span></div>';
-h+='<div style="display:grid;grid-template-columns:1fr 110px 70px 110px 90px;gap:6px;padding:4px 20px 4px 48px;font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px;"><span>Chiến dịch</span><span style="text-align:right">Chi tiêu 4 ngày</span><span style="text-align:right">'+resultLabel+'</span><span style="text-align:right">Giá '+resultLabel+' TB</span><span style="text-align:right">Ngưỡng</span></div>';
+h+='<div style="display:grid;grid-template-columns:1fr 110px 70px 110px 90px;gap:6px;padding:4px 20px 4px 48px;font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px;"><span>Chiến dịch</span><span style="text-align:right">Chi tiêu 3 ngày</span><span style="text-align:right">'+resultLabel+'</span><span style="text-align:right">Giá '+resultLabel+' TB</span><span style="text-align:right">Ngưỡng</span></div>';
 camps.sort(function(a,b){return(b[costKey]||0)-(a[costKey]||0);}).forEach(function(al){
 var costVal=al[costKey]||0;
 h+='<div style="display:grid;grid-template-columns:1fr 110px 70px 110px 90px;gap:6px;align-items:center;padding:8px 20px 8px 48px;border-bottom:1px solid var(--bd1);font-size:12px;background:var(--red-bg);">';
@@ -5964,11 +5964,11 @@ if(tkAlerts.length){summary+='\n== CẢNH BÁO NGÂN SÁCH Tài khoản ==\n';tk
 summary+='\n== TÀI CHÍNH ==\nDoanh thu phí Dịch vụ: '+ff(inc)+'\nChi phí (lương+VH): '+ff(exp)+'\nLợi nhuận: '+ff(inc-exp)+'\n';
 summary+='Tổng Tài khoản: '+adList.length+' ('+adList.filter(function(a){return a.account_status===1;}).length+' hoạt động)\n';
 var messAlerts=getMessAlerts(),leadAlerts=getLeadAlerts();
-if(messAlerts.length){summary+='\n== CẢNH BÁO GIÁ MESS (trung bình 4 ngày) ==\n';
-messAlerts.forEach(function(al){summary+=al.campaign_name+' ('+al.client_name+'): giá Messenger '+ff(al.cost_per_mess)+'đ, ngưỡng '+ff(al.max_cost)+'đ, Nhân sự '+(al.staff?al.staff.short_name:'—')+', spend 4 ngày '+ff(al.spend_4d)+', '+al.mess_4d+' mess\n';});}
+if(messAlerts.length){summary+='\n== CẢNH BÁO GIÁ MESS (trung bình 3 ngày D-3..D-1) ==\n';
+messAlerts.forEach(function(al){summary+=al.campaign_name+' ('+al.client_name+'): giá Messenger '+ff(al.cost_per_mess)+'đ, ngưỡng '+ff(al.max_cost)+'đ, Nhân sự '+(al.staff?al.staff.short_name:'—')+', spend 3 ngày '+ff(al.spend_4d)+', '+al.mess_4d+' mess\n';});}
 else{summary+='\n== GIÁ MESS ==\nKhông có chiến dịch nào vượt ngưỡng giá Messenger.\n';}
-if(leadAlerts.length){summary+='\n== CẢNH BÁO GIÁ FORM (trung bình 4 ngày) ==\n';
-leadAlerts.forEach(function(al){summary+=al.campaign_name+' ('+al.client_name+'): giá form '+ff(al.cost_per_lead)+'đ, ngưỡng '+ff(al.max_cost)+'đ, Nhân sự '+(al.staff?al.staff.short_name:'—')+', spend 4 ngày '+ff(al.spend_4d)+', '+al.leads_4d+' form\n';});}
+if(leadAlerts.length){summary+='\n== CẢNH BÁO GIÁ FORM (trung bình 3 ngày D-3..D-1) ==\n';
+leadAlerts.forEach(function(al){summary+=al.campaign_name+' ('+al.client_name+'): giá form '+ff(al.cost_per_lead)+'đ, ngưỡng '+ff(al.max_cost)+'đ, Nhân sự '+(al.staff?al.staff.short_name:'—')+', spend 3 ngày '+ff(al.spend_4d)+', '+al.leads_4d+' form\n';});}
 else{summary+='\n== GIÁ FORM ==\nKhông có chiến dịch nào vượt ngưỡng giá form.\n';}
 // Bảng lương tháng hiện tại
 var smo=lm();
