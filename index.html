@@ -456,6 +456,21 @@ tr:hover .kh-num{background:var(--blue-bg);color:var(--blue-tx);}
 .kh-detail-actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--bd1);}
 .kh-detail-actions .btn{font-size:12.5px;padding:8px 14px;}
 .kh-detail-actions .btn-spacer{margin-left:auto;}
+/* Cho thuê TKQC — chip % cạnh phí dịch vụ */
+.kh-rental-chip{display:inline-flex;align-items:center;padding:2px 7px;font-size:10px;font-weight:700;background:var(--teal-bg);color:var(--teal-tx);border-radius:6px;letter-spacing:.02em;line-height:1.4;cursor:help;}
+/* KPI strip: tóm tắt khách thuê TKQC ở đầu tab */
+.kpi-rental-strip{display:flex;align-items:center;gap:14px;padding:12px 16px;margin-bottom:14px;background:linear-gradient(90deg,rgba(29,158,117,0.08) 0%,rgba(29,158,117,0.02) 100%);border:1px solid var(--teal-bg);border-left:3px solid var(--teal);border-radius:var(--radius-lg);}
+.kpi-rental-icon{font-size:22px;flex-shrink:0;line-height:1;}
+.kpi-rental-text{flex:1;min-width:0;}
+.kpi-rental-title{font-size:13px;font-weight:600;color:var(--tx1);margin-bottom:2px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;}
+.kpi-rental-count{display:inline-block;padding:2px 8px;font-size:11px;font-weight:600;background:var(--teal-bg);color:var(--teal-tx);border-radius:10px;letter-spacing:.02em;}
+.kpi-rental-meta{font-size:12px;color:var(--tx2);font-variant-numeric:tabular-nums;line-height:1.6;}
+.kpi-rental-meta strong{color:var(--tx1);font-weight:600;}
+.kpi-rental-meta .sep{margin:0 6px;color:var(--tx3);}
+/* Phiếu thanh toán — dòng phí thuê TKQC */
+.invoice-rental-row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 0;border-top:1px dashed rgba(15,23,42,.12);}
+.invoice-rental-formula{font-size:11px;font-weight:500;color:var(--tx3);font-variant-numeric:tabular-nums;margin-top:2px;}
+.invoice-rental-value{font-size:14px;font-weight:700;color:var(--teal);font-variant-numeric:tabular-nums;padding:6px 14px;border-radius:10px;background:var(--teal-bg);}
 /* Modal sửa khách hàng — section label */
 .ce-section-label{font-size:11px;font-weight:700;color:var(--blue-tx);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--bd1);}
 .ce-section-label:first-child{margin-top:0;}
@@ -1425,13 +1440,38 @@ function getBankProfile(c){return getClientVatFlag(c)?BANK_PROFILES.business:BAN
 function getTransferContent(clientName,month){return String(clientName||'').toUpperCase().replace(/\s+/g,' ').trim()+' T'+parseInt(month.split('-')[1])+'/'+month.split('-')[0];}
 function getInvoiceBankTitle(hasVat,bank){return bank+' — '+(hasVat?'STK doanh nghiệp (VAT)':'STK cá nhân');}
 function getInvoiceContentLabel(hasVat){return hasVat?'ND:':'CK:';}
-function getInvoiceTotals(c,month,feeOverride){
-var fee=typeof feeOverride==='number'?feeOverride:getEffectiveServiceFee(c.id,month,c.service_fee);
-var hasVat=getClientVatFlag(c),vat=hasVat?Math.round(fee*0.08):0,bank=getBankProfile(c);
-return{fee:fee,vat:vat,total:fee+vat,hasVat:hasVat,bank:bank,content:getTransferContent(c.name,month)};
+// Cho thuê TKQC — tính phí theo % spend
+function hasRentalService(c){var arr=Array.isArray(c&&c.services)?c.services:(c&&c.services?[c.services]:[]);return arr.indexOf('tkqc_rental')>=0;}
+function getRentalFeePct(c){var v=c&&c.rental_fee_pct;v=typeof v==='number'?v:parseFloat(v);return v>0&&v<1?v:0;}
+function getMonthSpendForClient(clientId,month){
+if(!clientId||!month)return 0;
+var mk=monthKey(month),total=0;
+dailyData.forEach(function(d){
+if(!d||!d.report_date||d.report_date.substring(0,7)!==mk)return;
+var cid=d.matched_client_id||null;
+if(!cid){var aa=adList.find(function(a){return a.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
+if(cid===clientId)total+=metaNum(d.spend_amount);
+});
+return total;
 }
-function getVietQrImageUrl(c,month,amount){
-var info=getInvoiceTotals(c,month,amount),bank=info.bank;
+function getRentalFeeAmount(c,month,monthSpend){
+if(!hasRentalService(c))return 0;
+var pct=getRentalFeePct(c);if(!pct)return 0;
+var sp=typeof monthSpend==='number'?monthSpend:getMonthSpendForClient(c&&c.id,month);
+if(!sp||sp<=0)return 0;
+return Math.round(sp*pct/1000)*1000; // làm tròn 1000đ
+}
+function getInvoiceTotals(c,month,feeOverride,monthSpend){
+var flatFee=typeof feeOverride==='number'?feeOverride:getEffectiveServiceFee(c.id,month,c.service_fee);
+var rentalPct=getRentalFeePct(c),rentalActive=hasRentalService(c)&&rentalPct>0;
+var spForRental=rentalActive?(typeof monthSpend==='number'?monthSpend:getMonthSpendForClient(c.id,month)):0;
+var rentalFee=rentalActive?getRentalFeeAmount(c,month,spForRental):0;
+var fee=flatFee+rentalFee;
+var hasVat=getClientVatFlag(c),vat=hasVat?Math.round(fee*0.08):0,bank=getBankProfile(c);
+return{fee:fee,flatFee:flatFee,rentalFee:rentalFee,rentalPct:rentalActive?rentalPct:0,rentalSpend:spForRental,vat:vat,total:fee+vat,hasVat:hasVat,bank:bank,content:getTransferContent(c.name,month)};
+}
+function getVietQrImageUrl(c,month,flatFee,monthSpend){
+var info=getInvoiceTotals(c,month,flatFee,monthSpend),bank=info.bank;
 return 'https://img.vietqr.io/image/'+bank.bankCode+'-'+bank.accountNo+'-compact2.png?amount='+info.total+'&addInfo='+encodeURIComponent(info.content)+'&accountName='+encodeURIComponent(bank.accountName);
 }
 function clientFilterMatch(row,month){
@@ -1453,7 +1493,7 @@ return true;
 }
 function sortClientRows(rows,month){
 rows.sort(function(a,b){
-if(clientSortMode==='fee_desc')return getEffectiveServiceFee(b.c.id,month,b.c.service_fee)-getEffectiveServiceFee(a.c.id,month,a.c.service_fee)||a.c.name.localeCompare(b.c.name);
+if(clientSortMode==='fee_desc'){var fA=getEffectiveServiceFee(a.c.id,month,a.c.service_fee)+getRentalFeeAmount(a.c,month,a.spend);var fB=getEffectiveServiceFee(b.c.id,month,b.c.service_fee)+getRentalFeeAmount(b.c,month,b.spend);return fB-fA||a.c.name.localeCompare(b.c.name);}
 if(clientSortMode==='name_asc')return a.c.name.localeCompare(b.c.name);
 if(clientSortMode==='unpaid_first'){var ap=a.c.payment_status==='paid'?1:0,bp=b.c.payment_status==='paid'?1:0;return ap-bp||b.spend-a.spend||a.c.name.localeCompare(b.c.name);}
 return b.spend-a.spend||a.c.name.localeCompare(b.c.name);
@@ -2219,13 +2259,21 @@ var rows=allRows.filter(function(row){return clientFilterMatch(row,ms);});
 sortClientRows(rows,ms);
 var maxSpend=Math.max.apply(null,rows.map(function(r){return r.spend;}))||1;
 var totalSpend=rows.reduce(function(t,r){return t+r.spend;},0);
-var totalFee=rows.reduce(function(t,r){return t+getEffectiveServiceFee(r.c.id,ms,r.c.service_fee);},0);
+var totalFee=rows.reduce(function(t,r){return t+getEffectiveServiceFee(r.c.id,ms,r.c.service_fee)+getRentalFeeAmount(r.c,ms,r.spend);},0);
+// Rental KPI — tóm tắt khách thuê TKQC
+var rentalRows=rows.filter(function(r){return hasRentalService(r.c)&&getRentalFeePct(r.c)>0;});
+var rentalCount=rentalRows.length;
+var rentalSpendTotal=rentalRows.reduce(function(t,r){return t+r.spend;},0);
+var rentalRevenue=rentalRows.reduce(function(t,r){return t+getRentalFeeAmount(r.c,ms,r.spend);},0);
 if(expandedClientId&&!rows.some(function(r){return r.c.id===expandedClientId;}))expandedClientId=null;
 var h='<div class="page-title">Khách hàng</div><div class="page-sub">Tổng '+activeClients.length+' chính thức · '+prospectCount+' tiềm năng</div>';
 h+=tabH;
 h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;"><span style="font-size:12px;color:var(--tx3);">Tháng:</span><select class="fi" style="width:140px;" onchange="clientMonth=this.value;expandedClientId=null;render();">';
 monthList.forEach(function(m){h+='<option value="'+m+'"'+(m===ms?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
 h+='</select><span style="font-size:12px;color:var(--tx3);margin-left:8px;">'+nd+' ngày dữ liệu</span></div>';
+if(rentalCount>0){
+  h+='<div class="kpi-rental-strip"><span class="kpi-rental-icon" aria-hidden="true">🔑</span><div class="kpi-rental-text"><div class="kpi-rental-title">Cho thuê tài khoản Quảng cáo <span class="kpi-rental-count">'+rentalCount+' khách</span></div><div class="kpi-rental-meta">Spend '+mLabel+'/'+yLabel+': <strong>'+fm(rentalSpendTotal)+'</strong><span class="sep">·</span>Doanh thu phí thuê: <strong style="color:var(--teal);">'+fm(rentalRevenue)+'</strong></div></div></div>';
+}
 h+='<div class="ad-toolbar">';
 h+='<div class="ad-toolbar-main">';
 h+='<input type="text" id="client-search" placeholder="Tìm khách hàng, liên hệ..." value="'+esc(clientSearchText)+'" oninput="expandedClientId=null;hcSearchInput(\'clientSearchText\',this.value)" class="fi ad-toolbar-search">';
@@ -2248,11 +2296,21 @@ if(clientSortMode&&clientSortMode!=='spend_desc')clientChips.push(clientFilterLa
 h+='<div class="active-chips">'+clientChips.map(function(c){return'<span class="chip">'+c+' <span class="x" onclick="clearClientFilters()">×</span></span>';}).join('')+'</div>';
 h+='<div class="table-wrap"><table><thead><tr><th style="width:30px;">#</th><th>Khách hàng</th><th>Dịch vụ</th><th>Liên hệ</th><th style="white-space:nowrap;">Thanh toán</th><th style="text-align:right;white-space:nowrap;">Chi tiêu '+mLabel+'</th><th style="text-align:right;white-space:nowrap;">Phí dịch vụ</th><th style="white-space:nowrap;">Trạng thái</th><th style="text-align:center;white-space:nowrap;">Phiếu thanh toán</th></tr></thead><tbody>';
 rows.forEach(function(row,i){
-var c=row.c,sp=row.spend,invoice=getInvoiceTotals(c,ms);
+var c=row.c,sp=row.spend,invoice=getInvoiceTotals(c,ms,undefined,sp);
 var sb3=c.status==='active'?'b-green':(c.status==='paused'?'b-amber':'b-red');
 var st2=c.status==='active'?'Đang hoạt động':(c.status==='paused'?'Tạm dừng':'Dừng');
 var pct=maxSpend>0?Math.round(sp/maxSpend*100):0;
 var isExp=expandedClientId===c.id;
+var rentalPctLabel=invoice.rentalPct?(Math.round(invoice.rentalPct*1000)/10)+'%':'';
+var feeCellHtml;
+if(hasRentalService(c)){
+  var feeNum=invoice.fee?fm(invoice.fee):'—';
+  var chipText=rentalPctLabel?(rentalPctLabel+' thuê'):'cần %';
+  var chipTitle=rentalPctLabel?('Phí thuê TKQC = '+rentalPctLabel+' × spend = '+fm(invoice.rentalFee)):'Đã chọn dịch vụ Cho thuê TKQC nhưng chưa cấu hình % phí — bấm bút chì sửa';
+  feeCellHtml='<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;"><span>'+feeNum+'</span><span class="kh-rental-chip" title="'+chipTitle+'">'+chipText+'</span></div>';
+}else{
+  feeCellHtml=invoice.fee?fm(invoice.fee):'—';
+}
 h+='<tr style="'+(isExp?'background:var(--blue-bg);':'')+'">';
 h+='<td><span class="kh-num">'+(i+1)+'</span></td>';
 h+='<td><div class="kh-name-cell"><span class="kh-name-text">'+esc(c.name)+'</span>'+(getClientVatFlag(c)?'<span class="vat-badge b-blue" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',false)" title="Bấm để chuyển sang Không VAT">VAT 8%</span>':'<span class="vat-badge b-gray" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',true)" title="Bấm để chuyển sang Có VAT">Không VAT</span>')+'<button class="kh-edit-btn" onclick="event.stopPropagation();openClientEditModal(\''+c.id+'\')" title="Sửa dịch vụ / Zalo / CSKH" aria-label="Sửa khách hàng"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></div></td>';
@@ -2260,7 +2318,7 @@ h+='<td>'+renderServicesBadges(c.services,{compact:true})+'</td>';
 h+='<td style="font-size:12px;color:var(--tx2);"><div class="kh-contact"><span>'+esc(c.contact_person||'—')+'</span>'+renderZaloBtn(c)+'</div></td>';
 h+='<td>'+(c.payment_status==='paid'?'<span class="badge b-green">Đã thanh toán</span>':'<span class="badge b-gray">Chưa</span>')+'</td>';
 h+='<td style="text-align:right;">'+(sp?'<div style="font-weight:500;font-variant-numeric:tabular-nums;color:var(--teal);">'+fm(sp)+'</div><div class="bar-track" style="width:80px;margin-left:auto;margin-top:3px;"><div class="bar-fill" style="width:'+pct+'%;background:var(--teal);"></div></div>':'<span style="color:var(--tx3);">—</span>')+'</td>';
-h+='<td class="mono" style="text-align:right;">'+(invoice.fee?fm(invoice.fee):'—')+'</td>';
+h+='<td class="mono" style="text-align:right;">'+feeCellHtml+'</td>';
 h+='<td><span class="badge '+sb3+'">'+st2+'</span></td>';
 h+='<td style="text-align:center;">'+(sp?'<button class="kh-open-btn'+(isExp?' is-active':'')+'" onclick="toggleClientInv(\''+c.id+'\')">'+(isExp?'Thu gọn':'Mở phiếu')+'</button>':'<span style="color:var(--tx3);font-size:12px;">—</span>')+'</td></tr>';
 if(isExp){
@@ -2273,8 +2331,10 @@ var cid2=d.matched_client_id||null;
 if(!cid2){var aa2=adList.find(function(a){return a.id===d.ad_account_id;});if(aa2){var asg2=getAssign(d.ad_account_id,d.report_date);cid2=asg2.length?asg2[0].client_id:aa2.client_id;}}
 if(cid2===c.id&&tkSpend[d.ad_account_id])tkSpend[d.ad_account_id].spend+=d.spend_amount;});
 var tkArr=Object.values(tkSpend).filter(function(t){return t.spend>0;}).sort(function(a,b){return b.spend-a.spend;});
-var domId=invoiceDomId(c.id),qrUrl=getVietQrImageUrl(c,ms,invoice.fee);
-var copyTextLines=[c.name+' - '+mLabel+'/'+yLabel,'---','Tổng chi tiêu Quảng cáo: '+ff(sp),'Phí dịch vụ: '+ff(invoice.fee)];
+var domId=invoiceDomId(c.id),qrUrl=getVietQrImageUrl(c,ms,invoice.flatFee,sp);
+var copyTextLines=[c.name+' - '+mLabel+'/'+yLabel,'---','Tổng chi tiêu Quảng cáo: '+ff(sp)];
+if(invoice.rentalFee>0)copyTextLines.push('Phí dịch vụ: '+ff(invoice.flatFee),'Phí thuê TKQC ('+rentalPctLabel+' × spend): '+ff(invoice.rentalFee));
+else copyTextLines.push('Phí dịch vụ: '+ff(invoice.fee));
 if(invoice.hasVat)copyTextLines.push('VAT 8%: '+ff(invoice.vat));
 copyTextLines.push('Tổng thanh toán: '+ff(invoice.total),'---','Chuyển khoản:',invoice.bank.bank+' - '+invoice.bank.accountNoDisplay,invoice.bank.accountName,getInvoiceContentLabel(invoice.hasVat)+' '+invoice.content);
 var inputAttrs=authUser?'':' disabled title="Đăng nhập admin để sửa phí dịch vụ theo tháng"';
@@ -2300,7 +2360,14 @@ h+='<div class="invoice-label">Chi tiết tài khoản Quảng cáo</div>';
 tkArr.forEach(function(tk){h+='<div class="invoice-account-row"><span class="invoice-account-name">'+esc(tk.name)+'</span><span class="invoice-account-value">'+ff(tk.spend)+'</span></div>';});
 if(!tkArr.length)h+='<div style="font-size:12px;color:var(--tx3);padding:10px 0 2px;">Không có dữ liệu chi tiêu</div>';
 h+='<div class="invoice-sum-row" style="margin-top:14px;"><span class="invoice-sum-label">Tổng chi tiêu Quảng cáo</span><span class="invoice-account-value">'+ff(sp)+'</span></div>';
-h+='<div class="invoice-fee-row"><span class="invoice-sum-label">Phí dịch vụ</span><div class="invoice-fee-box"><span id="client-fee-display-'+domId+'" class="invoice-fee-display" onclick="startEditFee(\''+domId+'\',\''+c.id+'\',\''+ms+'\')" title="'+(authUser?'Bấm để sửa':'Đăng nhập admin để sửa')+'">'+ff(invoice.fee)+'</span><input id="client-fee-'+domId+'" type="number" min="0" class="inline-fee-input" style="display:none;" value="'+invoice.fee+'" oninput="previewClientInvoice(\''+c.id+'\',\''+ms+'\',this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" onblur="endEditFee(\''+domId+'\',\''+c.id+'\',\''+ms+'\',this.value)"'+inputAttrs+'><span class="invoice-fee-currency">đ</span></div></div>';
+h+='<div class="invoice-fee-row"><span class="invoice-sum-label">Phí dịch vụ '+(invoice.rentalFee>0?'<span style="font-size:11px;color:var(--tx3);font-weight:400;">(cố định)</span>':'')+'</span><div class="invoice-fee-box"><span id="client-fee-display-'+domId+'" class="invoice-fee-display" onclick="startEditFee(\''+domId+'\',\''+c.id+'\',\''+ms+'\')" title="'+(authUser?'Bấm để sửa':'Đăng nhập admin để sửa')+'">'+ff(invoice.flatFee)+'</span><input id="client-fee-'+domId+'" type="number" min="0" class="inline-fee-input" style="display:none;" value="'+invoice.flatFee+'" oninput="previewClientInvoice(\''+c.id+'\',\''+ms+'\',this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" onblur="endEditFee(\''+domId+'\',\''+c.id+'\',\''+ms+'\',this.value)"'+inputAttrs+'><span class="invoice-fee-currency">đ</span></div></div>';
+if(hasRentalService(c)){
+  if(invoice.rentalFee>0){
+    h+='<div class="invoice-rental-row"><div><div class="invoice-sum-label">Phí thuê TKQC</div><div class="invoice-rental-formula">'+rentalPctLabel+' × '+fm(sp)+' (chi tiêu '+mLabel+')</div></div><span id="invoice-rental-'+domId+'" class="invoice-rental-value">'+ff(invoice.rentalFee)+'</span></div>';
+  }else{
+    h+='<div class="invoice-rental-row" style="opacity:.7;"><div><div class="invoice-sum-label">Phí thuê TKQC</div><div class="invoice-rental-formula" style="color:var(--amber-tx);">'+(invoice.rentalPct?'Chưa có chi tiêu trong tháng':'Chưa cấu hình % phí thuê — bấm bút chì để sửa')+'</div></div><span class="invoice-rental-value" style="background:var(--bg2);color:var(--tx3);">—</span></div>';
+  }
+}
 h+='<div id="invoice-vat-row-'+domId+'" class="invoice-note" style="display:'+(invoice.hasVat?'block':'none')+';">VAT (8%): <span id="invoice-vat-'+domId+'" style="font-weight:700;font-style:normal;color:var(--tx1);">'+ff(invoice.vat)+'</span></div>';
 h+='<div id="invoice-novat-row-'+domId+'" class="invoice-note" style="display:none;"></div>';
 h+='<div class="invoice-total"><span class="invoice-total-label">Tổng thanh toán</span><span id="invoice-total-'+domId+'" class="invoice-total-value">'+ff(invoice.total)+'</span></div>';
@@ -2430,7 +2497,8 @@ if(btn){btn.disabled=true;btn.textContent='Đang xử lý...';}
 try{
 var feeInput=document.getElementById('client-fee-'+invoiceDomId(clientId));
 var fee=feeInput?normalizeMoneyInput(feeInput.value):getEffectiveServiceFee(clientId,month,c.service_fee);
-var info=getInvoiceTotals(c,month,fee);
+var sp=getMonthSpendForClient(clientId,month);
+var info=getInvoiceTotals(c,month,fee,sp);
 var mk=monthKey(month),mLabel='T'+parseInt(mk.split('-')[1])+'/'+mk.split('-')[0];
 var note='Phí Dịch vụ '+mLabel+' — '+c.name;
 var r1=await sb2.from('client').update({payment_status:'paid'}).eq('id',clientId);
@@ -2475,10 +2543,12 @@ saveClientMonthlyFee(clientId,month,rawVal);
 }
 function previewClientInvoice(clientId,month,rawVal){
 var c=clientList.find(function(x){return x.id===clientId;});if(!c)return;
-var domId=invoiceDomId(clientId),fee=normalizeMoneyInput(rawVal),info=getInvoiceTotals(c,month,fee);
-var vatEl=document.getElementById('invoice-vat-'+domId),totalEl=document.getElementById('invoice-total-'+domId),qrEl=document.getElementById('invoice-qr-'+domId),fbEl=document.getElementById('invoice-qr-fallback-'+domId),nameEl=document.getElementById('invoice-account-name-'+domId),noEl=document.getElementById('invoice-account-no-'+domId),contentEl=document.getElementById('invoice-content-'+domId),contentLabelEl=document.getElementById('invoice-content-label-'+domId),bankTitleEl=document.getElementById('invoice-bank-title-'+domId),vatRow=document.getElementById('invoice-vat-row-'+domId),noVatRow=document.getElementById('invoice-novat-row-'+domId);
+var sp=getMonthSpendForClient(clientId,month);
+var domId=invoiceDomId(clientId),fee=normalizeMoneyInput(rawVal),info=getInvoiceTotals(c,month,fee,sp);
+var vatEl=document.getElementById('invoice-vat-'+domId),totalEl=document.getElementById('invoice-total-'+domId),qrEl=document.getElementById('invoice-qr-'+domId),fbEl=document.getElementById('invoice-qr-fallback-'+domId),nameEl=document.getElementById('invoice-account-name-'+domId),noEl=document.getElementById('invoice-account-no-'+domId),contentEl=document.getElementById('invoice-content-'+domId),contentLabelEl=document.getElementById('invoice-content-label-'+domId),bankTitleEl=document.getElementById('invoice-bank-title-'+domId),vatRow=document.getElementById('invoice-vat-row-'+domId),noVatRow=document.getElementById('invoice-novat-row-'+domId),rentalEl=document.getElementById('invoice-rental-'+domId);
 if(vatEl)vatEl.textContent=ff(info.vat);
 if(totalEl)totalEl.textContent=ff(info.total);
+if(rentalEl)rentalEl.textContent=ff(info.rentalFee);
 if(nameEl)nameEl.textContent=info.bank.accountName;
 if(noEl)noEl.textContent=info.bank.accountNoDisplay;
 if(contentEl)contentEl.textContent=info.content;
@@ -2486,7 +2556,7 @@ if(contentLabelEl)contentLabelEl.textContent=getInvoiceContentLabel(info.hasVat)
 if(bankTitleEl)bankTitleEl.textContent=getInvoiceBankTitle(info.hasVat,info.bank.bank);
 if(vatRow)vatRow.style.display=info.hasVat?'block':'none';
 if(noVatRow)noVatRow.style.display='none';
-if(qrEl){qrEl.style.display='block';qrEl.src=getVietQrImageUrl(c,month,fee);}
+if(qrEl){qrEl.style.display='block';qrEl.src=getVietQrImageUrl(c,month,fee,sp);}
 if(fbEl)fbEl.style.display='none';
 }
 async function saveClientMonthlyFee(clientId,month,rawVal){
@@ -2507,8 +2577,10 @@ function copyClientInvoice(clientId,month,spend){
 var c=clientList.find(function(x){return x.id===clientId;});if(!c)return;
 var feeInput=document.getElementById('client-fee-'+invoiceDomId(clientId));
 var fee=feeInput?normalizeMoneyInput(feeInput.value):getEffectiveServiceFee(clientId,month,c.service_fee);
-var info=getInvoiceTotals(c,month,fee),mLabel='T'+parseInt(month.split('-')[1]),yLabel=month.split('-')[0];
-var lines=[c.name+' - '+mLabel+'/'+yLabel,'---','Tổng chi tiêu Quảng cáo: '+ff(spend),'Phí dịch vụ: '+ff(info.fee)];
+var info=getInvoiceTotals(c,month,fee,spend),mLabel='T'+parseInt(month.split('-')[1]),yLabel=month.split('-')[0];
+var lines=[c.name+' - '+mLabel+'/'+yLabel,'---','Tổng chi tiêu Quảng cáo: '+ff(spend)];
+if(info.rentalFee>0){var rentalPctLabel=(Math.round(info.rentalPct*1000)/10)+'%';lines.push('Phí dịch vụ: '+ff(info.flatFee),'Phí thuê TKQC ('+rentalPctLabel+' × spend): '+ff(info.rentalFee));}
+else lines.push('Phí dịch vụ: '+ff(info.fee));
 if(info.hasVat)lines.push('VAT 8%: '+ff(info.vat));
 lines.push('Tổng thanh toán: '+ff(info.total),'---','Chuyển khoản:',info.bank.bank+' - '+info.bank.accountNoDisplay,info.bank.accountName,getInvoiceContentLabel(info.hasVat)+' '+info.content);
 navigator.clipboard.writeText(lines.join('\n'));toast('Đã sao chép',true);
@@ -3814,9 +3886,22 @@ async function saveNewProspect(btn){
   Array.prototype.forEach.call(document.querySelectorAll('.np-service:checked'),function(el){services.push(el.value);});
   if(!services.length)services=['fb_ads']; // fallback default
   if(!name){toast('Nhập tên khách',false);return;}
+  // Phí thuê TKQC theo % spend (chỉ áp dụng nếu chọn dịch vụ tkqc_rental)
+  var rentalEl=document.getElementById('np-rental-pct');
+  var rentalPctNum=rentalEl?parseFloat(rentalEl.value):NaN;
+  var rentalPct=null;
+  if(services.indexOf('tkqc_rental')>=0&&rentalPctNum>0&&rentalPctNum<=20){
+    rentalPct=Math.round(rentalPctNum*100)/10000; // 3 → 0.03
+  }
   btn.disabled=true;
-  var payload={name:name,company_full_name:companyFull||null,contact_person:contact||null,phone:phone||null,address:addr||null,tax_code:tax||null,email_invoice:email||null,representative_name:repName||null,representative_title:repTitle,representative_salutation:repSal,industry:industry||null,contract_prefix:(prefix||'').toUpperCase()||null,prospect_note:note||null,status:'prospect',payment_status:'unpaid',has_vat:false,service_fee:0,services:services,zalo:zalo||null,care_status:care};
+  var payload={name:name,company_full_name:companyFull||null,contact_person:contact||null,phone:phone||null,address:addr||null,tax_code:tax||null,email_invoice:email||null,representative_name:repName||null,representative_title:repTitle,representative_salutation:repSal,industry:industry||null,contract_prefix:(prefix||'').toUpperCase()||null,prospect_note:note||null,status:'prospect',payment_status:'unpaid',has_vat:false,service_fee:0,services:services,zalo:zalo||null,care_status:care,rental_fee_pct:rentalPct};
   var r=await sb2.from('client').insert(payload);
+  // Nếu DB chưa có cột rental_fee_pct → retry không kèm cột đó
+  if(r.error&&isMissingColumnError(r.error)){
+    var fb=Object.assign({},payload);delete fb.rental_fee_pct;
+    r=await sb2.from('client').insert(fb);
+    if(!r.error&&rentalPct!==null)toast('⚠ Đã thêm khách nhưng chưa có cột rental_fee_pct. Hãy chạy migration để bật phí thuê TKQC.',false);
+  }
   btn.disabled=false;
   if(r.error){toast('Lỗi: '+r.error.message,false);return;}
   toast('Đã thêm khách tiềm năng',true);
@@ -4924,7 +5009,9 @@ function renderClientEditModal(){
   var curServices=Array.isArray(c.services)?c.services:(c.services?[c.services]:['fb_ads']);
   var curCare=c.care_status||'new';
   var curSal=c.representative_salutation||'Ông';
+  var curRentalPctNum=getRentalFeePct(c)*100; // 0.03 → 3
   var isProspect=c.status==='prospect';
+  var hasRentalChecked=curServices.indexOf('tkqc_rental')>=0;
   var h='<div class="hc-modal-backdrop" onclick="if(event.target===this)closeClientEditModal()">';
   h+='<div class="hc-modal" role="dialog" aria-modal="true" aria-labelledby="ce-modal-title" style="max-width:760px;">';
   h+='<div class="hc-modal-head"><h3 id="ce-modal-title">Chỉnh sửa khách hàng — '+esc(c.name)+'</h3><button class="hc-modal-close" aria-label="Đóng" onclick="closeClientEditModal()">×</button></div>';
@@ -4955,8 +5042,9 @@ function renderClientEditModal(){
   h+='<div class="ce-section-label">CRM &amp; chăm sóc</div>';
   h+='<div class="hc-form-grid">';
   h+='<div style="grid-column:1/-1;"><label>Dịch vụ quan tâm <span style="color:var(--tx3);font-weight:400;text-transform:none;">(tick nhiều mục)</span></label><div style="display:flex;flex-wrap:wrap;gap:10px;padding:10px 12px;border:1px solid var(--bd2);border-radius:var(--radius);background:var(--bg2);">';
-  Object.keys(SERVICES).forEach(function(code){var s=SERVICES[code];var checked=curServices.indexOf(code)>=0;var dotC=SERVICE_DOT_COLORS[s.color]||'#888780';h+='<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;color:var(--tx1);"><input type="checkbox" class="ce-service" value="'+code+'"'+(checked?' checked':'')+' style="accent-color:var(--blue);"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dotC+';"></span>'+esc(s.name)+'</label>';});
+  Object.keys(SERVICES).forEach(function(code){var s=SERVICES[code];var checked=curServices.indexOf(code)>=0;var dotC=SERVICE_DOT_COLORS[s.color]||'#888780';h+='<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;color:var(--tx1);"><input type="checkbox" class="ce-service" value="'+code+'"'+(checked?' checked':'')+' onchange="toggleCeRentalRow()" style="accent-color:var(--blue);"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dotC+';"></span>'+esc(s.name)+'</label>';});
   h+='</div></div>';
+  h+='<div id="ce-rental-row" style="grid-column:1/-1;'+(hasRentalChecked?'':'display:none;')+'"><label>% Phí thuê TKQC <span style="color:var(--tx3);font-weight:400;text-transform:none;">(VD: 3 = 3% spend, thường 3-4%)</span></label><div style="display:flex;align-items:center;gap:8px;"><input id="ce-rental-pct" class="fi" type="number" step="0.1" min="0" max="20" placeholder="VD: 3 hoặc 4" value="'+(curRentalPctNum>0?curRentalPctNum:'')+'" style="max-width:160px;"><span style="font-size:13px;color:var(--tx2);">%</span><span style="font-size:11px;color:var(--tx3);margin-left:8px;">Phí dịch vụ tháng = % × Spend (tự động cập nhật mỗi tháng)</span></div></div>';
   h+='<div><label>Trạng thái chăm sóc</label><select id="ce-care" class="fi">';
   CARE_ORDER.forEach(function(k){h+='<option value="'+k+'"'+(k===curCare?' selected':'')+'>'+esc(CARE_STATUS[k].name)+'</option>';});
   h+='</select></div>';
@@ -4980,6 +5068,12 @@ async function saveClientEditModal(btn){
   var services=[];
   Array.prototype.forEach.call(document.querySelectorAll('.ce-service:checked'),function(el){services.push(el.value);});
   if(!services.length)services=['fb_ads'];
+  var rentalPctEl=document.getElementById('ce-rental-pct');
+  var rentalPctNum=rentalPctEl?parseFloat(rentalPctEl.value):NaN;
+  var rentalPct=null;
+  if(services.indexOf('tkqc_rental')>=0&&rentalPctNum>0&&rentalPctNum<=20){
+    rentalPct=Math.round(rentalPctNum*100)/10000; // 3 → 0.03
+  }
   var payload={
     name:name,
     contract_prefix:(get('ce-prefix')||'').toUpperCase()||null,
@@ -4995,17 +5089,27 @@ async function saveClientEditModal(btn){
     representative_name:get('ce-rep-name')||null,
     representative_title:get('ce-rep-title')||null,
     services:services,
+    rental_fee_pct:rentalPct,
     care_status:get('ce-care')||'new'
   };
   if(c.status==='prospect'){payload.prospect_note=get('ce-note')||null;}
   btn.disabled=true;btn.classList.add('is-loading');
   var r=await sb2.from('client').update(payload).eq('id',clientEditModalId);
+  // Nếu DB chưa có cột rental_fee_pct → retry không kèm cột đó
+  if(r.error&&isMissingColumnError(r.error)&&'rental_fee_pct' in payload){
+    var fallback=Object.assign({},payload);delete fallback.rental_fee_pct;
+    r=await sb2.from('client').update(fallback).eq('id',clientEditModalId);
+    if(!r.error&&rentalPct!==null)toast('⚠ Đã lưu nhưng chưa có cột rental_fee_pct trong DB. Hãy chạy migration để bật phí thuê TKQC.',false);
+  }
   btn.disabled=false;btn.classList.remove('is-loading');
   if(r.error){toast('Lỗi: '+r.error.message,false);return;}
   toast('Đã cập nhật ✓',true);
   clientEditModalId=null;
   await loadLight();
 }
+// Toggle hiển thị ô % phí thuê TKQC theo dịch vụ tick
+function toggleCeRentalRow(){var checked=document.querySelector('.ce-service[value="tkqc_rental"]:checked');var row=document.getElementById('ce-rental-row');if(row)row.style.display=checked?'':'none';}
+function toggleNpRentalRow(){var checked=document.querySelector('.np-service[value="tkqc_rental"]:checked');var row=document.getElementById('np-rental-row');if(row)row.style.display=checked?'':'none';}
 
 // ═══ RENDER MODAL: TẠO KHÁCH TIỀM NĂNG ═══
 function renderNewProspectModal(){
@@ -5030,8 +5134,9 @@ function renderNewProspectModal(){
   h+='<div><label>Ngành nghề (đưa vào Hợp đồng)</label><input id="np-industry" placeholder="VD: chế biến sữa" class="fi"></div>';
   h+='<div><label>Zalo (số phone / username / link)</label><input id="np-zalo" placeholder="0912345678 hoặc quanglx hoặc link đầy đủ" class="fi"></div>';
   h+='<div style="grid-column:1/-1;"><label>Dịch vụ quan tâm <span style="color:var(--tx3);font-weight:400;">(tick nhiều mục)</span></label><div style="display:flex;flex-wrap:wrap;gap:10px;padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--radius);background:var(--bg2);">';
-  Object.keys(SERVICES).forEach(function(code){var s=SERVICES[code];var dotC=SERVICE_DOT_COLORS[s.color]||'#888780';h+='<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;color:var(--tx1);"><input type="checkbox" class="np-service" value="'+code+'"'+(code==='fb_ads'?' checked':'')+' style="accent-color:var(--blue);"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dotC+';"></span>'+esc(s.name)+'</label>';});
+  Object.keys(SERVICES).forEach(function(code){var s=SERVICES[code];var dotC=SERVICE_DOT_COLORS[s.color]||'#888780';h+='<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;color:var(--tx1);"><input type="checkbox" class="np-service" value="'+code+'"'+(code==='fb_ads'?' checked':'')+' onchange="toggleNpRentalRow()" style="accent-color:var(--blue);"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dotC+';"></span>'+esc(s.name)+'</label>';});
   h+='</div></div>';
+  h+='<div id="np-rental-row" style="grid-column:1/-1;display:none;"><label>% Phí thuê TKQC <span style="color:var(--tx3);font-weight:400;text-transform:none;">(VD: 3 = 3% spend, thường 3-4%)</span></label><div style="display:flex;align-items:center;gap:8px;"><input id="np-rental-pct" class="fi" type="number" step="0.1" min="0" max="20" placeholder="VD: 3 hoặc 4" style="max-width:160px;"><span style="font-size:13px;color:var(--tx2);">%</span><span style="font-size:11px;color:var(--tx3);margin-left:8px;">Phí dịch vụ tháng = % × Spend (tự động cập nhật)</span></div></div>';
   h+='<div><label>Trạng thái chăm sóc</label><select id="np-care" class="fi">';
   CARE_ORDER.forEach(function(k){h+='<option value="'+k+'"'+(k==='new'?' selected':'')+'>'+esc(CARE_STATUS[k].name)+'</option>';});
   h+='</select></div>';
