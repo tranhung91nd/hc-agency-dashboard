@@ -467,6 +467,56 @@ tr:hover .kh-num{background:var(--blue-bg);color:var(--blue-tx);}
 .kpi-rental-meta{font-size:12px;color:var(--tx2);font-variant-numeric:tabular-nums;line-height:1.6;}
 .kpi-rental-meta strong{color:var(--tx1);font-weight:600;}
 .kpi-rental-meta .sep{margin:0 6px;color:var(--tx3);}
+/* ═══ SỔ RENTAL (Matrix TKQC × Ngày) ═══ */
+.rental-ledger{margin-bottom:14px;}
+.rental-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:10px 14px;background:linear-gradient(90deg,rgba(29,158,117,.10) 0%,rgba(29,158,117,.02) 100%);border:1px solid var(--teal-bg);border-left:3px solid var(--teal);border-radius:var(--radius-lg);margin-bottom:12px;}
+.rental-title{font-size:15px;font-weight:700;color:var(--tx1);letter-spacing:-.01em;}
+.rental-meta{display:flex;align-items:center;gap:10px;margin-top:4px;flex-wrap:wrap;}
+.header-chip-rental{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;background:var(--teal-bg);color:var(--teal-tx);font-size:11px;font-weight:600;}
+.rental-period{font-size:12px;color:var(--tx2);}
+.rental-actions{display:flex;gap:6px;flex-wrap:wrap;}
+.rental-grid{display:grid;grid-template-columns:1fr 280px;gap:12px;}
+@media(max-width:900px){.rental-grid{grid-template-columns:1fr;}}
+.rental-card{background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);overflow:hidden;}
+.rental-card-head{padding:10px 14px;border-bottom:1px solid var(--bd1);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+.rental-card-title{font-size:13px;font-weight:600;color:var(--tx1);letter-spacing:-.01em;}
+.rental-card-meta{font-size:11px;color:var(--tx3);margin-top:2px;}
+/* Matrix table */
+.rental-matrix-wrap{overflow-x:auto;max-height:480px;}
+table.rental-matrix{width:100%;min-width:760px;border-collapse:collapse;font-size:11.5px;}
+table.rental-matrix th, table.rental-matrix td{padding:6px 8px;border-bottom:1px solid var(--bd1);text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
+table.rental-matrix th{background:var(--bg2);font-weight:600;color:var(--tx2);font-size:11px;border-bottom:2px solid var(--bd2);position:sticky;top:0;z-index:1;text-transform:none;letter-spacing:0;padding:8px 8px;}
+table.rental-matrix th:first-child, table.rental-matrix td:first-child{text-align:left;font-weight:500;color:var(--tx1);position:sticky;left:0;background:var(--bg1);box-shadow:1px 0 0 var(--bd1);min-width:120px;z-index:2;font-size:12px;}
+table.rental-matrix th:first-child{background:var(--bg2);z-index:3;}
+table.rental-matrix tr.total td{background:var(--bg2);font-weight:700;border-top:2px solid var(--bd2);color:var(--tx1);}
+table.rental-matrix tr.total td:first-child{background:var(--bg2);}
+table.rental-matrix th.col-total, table.rental-matrix td.col-total{background:rgba(29,158,117,.06);font-weight:700;color:var(--teal-tx);border-left:2px solid var(--teal-bg);}
+table.rental-matrix tr:not(.total):hover td:not(:first-child){background:rgba(55,138,221,.04);}
+table.rental-matrix tr:not(.total):hover td:first-child{background:rgba(55,138,221,.06);}
+/* Summary box */
+.rental-summary{background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);padding:14px 16px;align-self:start;}
+.rental-summary-title{font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px;}
+.rental-sum-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px dashed var(--bd1);font-size:13px;}
+.rental-sum-row:last-of-type{border-bottom:2px solid var(--bd2);}
+.rental-sum-row span{color:var(--tx2);}
+.rental-sum-row strong{font-weight:700;font-variant-numeric:tabular-nums;font-size:14px;}
+.rental-sum-balance{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0 4px;font-weight:600;}
+.rental-sum-balance span{color:var(--tx1);font-size:13px;}
+.rental-sum-balance strong{font-weight:800;font-size:22px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+.rental-sum-hint{font-size:11px;color:var(--tx3);margin-top:6px;line-height:1.5;}
+.v-deposit{color:var(--green-tx);}
+.v-spend{color:var(--teal-tx);}
+.v-fee{color:var(--amber-tx);}
+.v-balance{color:var(--blue-tx);}
+.v-balance.negative{color:var(--red-tx);}
+/* Lịch sử nạp tiền */
+.rental-deposit-row{display:grid;grid-template-columns:100px 1fr 130px 32px;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bd1);align-items:center;}
+.rental-deposit-row:last-child{border-bottom:none;}
+.rental-deposit-row:hover{background:var(--bg2);}
+.rental-deposit-date{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--tx1);}
+.rental-deposit-note{font-size:13px;color:var(--tx2);}
+.rental-deposit-amount{text-align:right;font-size:15px;font-weight:700;color:var(--green-tx);font-variant-numeric:tabular-nums;}
+.rental-deposit-amount::before{content:'+ ';color:var(--green);}
 /* Phiếu thanh toán — dòng phí thuê TKQC */
 .invoice-rental-row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 0;border-top:1px dashed rgba(15,23,42,.12);}
 .invoice-rental-formula{font-size:11px;font-weight:500;color:var(--tx3);font-variant-numeric:tabular-nums;margin-top:2px;}
@@ -1261,8 +1311,8 @@ function renderZaloBtn(c){
 // Khi balance (spend_cap - amount_spent) < giá trị này → hiện cảnh báo ở P6.
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
-var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='';
+var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],clientDepositData=[];
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null;
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -1461,6 +1511,113 @@ var sp=typeof monthSpend==='number'?monthSpend:getMonthSpendForClient(c&&c.id,mo
 if(!sp||sp<=0)return 0;
 return Math.round(sp*pct/1000)*1000; // làm tròn 1000đ
 }
+// ═══ DEPOSIT (TIỀN NẠP) HELPERS ═══
+function getClientDeposits(clientId,month){
+  if(!clientId)return [];
+  var mk=month?monthKey(month):null;
+  return clientDepositData.filter(function(d){return d.client_id===clientId&&(!mk||(d.deposit_date||'').substring(0,7)===mk);}).sort(function(a,b){return(a.deposit_date||'').localeCompare(b.deposit_date||'');});
+}
+function getDepositTotal(clientId,month){return getClientDeposits(clientId,month).reduce(function(t,d){return t+(parseInt(d.amount)||0);},0);}
+// Spend matrix: trả về object {accounts:[{id,name,daily:[d1..dN]}], dayTotals:[..], grandTotal, daysInMonth}
+function buildRentalMatrix(clientId,month){
+  var ms=monthKey(month);
+  var year=parseInt(ms.split('-')[0]),mo=parseInt(ms.split('-')[1]);
+  var daysInMonth=new Date(year,mo,0).getDate();
+  // Lấy tất cả TKQC liên quan: gán cố định client_id hoặc qua assignment
+  var accMap={};
+  adList.forEach(function(a){if(a.client_id===clientId)accMap[a.id]={id:a.id,name:a.account_name||a.fb_account_id||a.id,daily:new Array(daysInMonth).fill(0)};});
+  assignData.forEach(function(ag){
+    if(ag.client_id===clientId&&!accMap[ag.ad_account_id]){
+      var acc=adList.find(function(x){return x.id===ag.ad_account_id;});
+      if(acc)accMap[acc.id]={id:acc.id,name:acc.account_name||acc.fb_account_id||acc.id,daily:new Array(daysInMonth).fill(0)};
+    }
+  });
+  // Tổng hợp spend từ dailyData
+  dailyData.forEach(function(d){
+    if(!d||!d.report_date||d.report_date.substring(0,7)!==ms)return;
+    var cid=d.matched_client_id||null;
+    if(!cid){var aa=adList.find(function(a){return a.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
+    if(cid!==clientId)return;
+    if(!accMap[d.ad_account_id]){
+      var aa2=adList.find(function(a){return a.id===d.ad_account_id;});
+      accMap[d.ad_account_id]={id:d.ad_account_id,name:aa2?(aa2.account_name||aa2.fb_account_id):'TKQC #'+d.ad_account_id.substring(0,6),daily:new Array(daysInMonth).fill(0)};
+    }
+    var day=parseInt(d.report_date.substring(8,10))-1;
+    if(day>=0&&day<daysInMonth)accMap[d.ad_account_id].daily[day]+=metaNum(d.spend_amount);
+  });
+  var accounts=Object.values(accMap).sort(function(a,b){var sa=a.daily.reduce(function(t,v){return t+v;},0),sb=b.daily.reduce(function(t,v){return t+v;},0);return sb-sa||(a.name||'').localeCompare(b.name||'');});
+  var dayTotals=new Array(daysInMonth).fill(0),grandTotal=0;
+  accounts.forEach(function(a){a.daily.forEach(function(v,i){dayTotals[i]+=v;});grandTotal+=a.daily.reduce(function(t,v){return t+v;},0);});
+  return{accounts:accounts,dayTotals:dayTotals,grandTotal:grandTotal,daysInMonth:daysInMonth,year:year,month:mo};
+}
+function fmtCellMatrix(n){return n?fm(n):'<span style="color:var(--tx3);">—</span>';}
+// Render Sổ rental: matrix + summary box + lịch sử nạp tiền
+function renderRentalLedger(c,ms,sp,invoice){
+  var matrix=buildRentalMatrix(c.id,ms);
+  var deposits=getClientDeposits(c.id,ms);
+  var depositTotal=deposits.reduce(function(t,d){return t+(parseInt(d.amount)||0);},0);
+  var rentalFee=invoice.rentalFee||0;
+  var balance=depositTotal-sp-rentalFee;
+  var rentalPctLabel=invoice.rentalPct?(Math.round(invoice.rentalPct*1000)/10)+'%':'?%';
+  var mLabel='T'+matrix.month+'/'+matrix.year;
+  var domId=invoiceDomId(c.id);
+  var h='<div class="rental-ledger" id="rental-ledger-'+domId+'">';
+  // Header strip
+  h+='<div class="rental-head">';
+  h+='<div class="rental-title-block"><div class="rental-title">Sổ rental — '+esc(c.name)+'</div><div class="rental-meta"><span class="header-chip-rental">🔑 Cho thuê TKQC · Phí '+rentalPctLabel+'</span><span class="rental-period">Kỳ '+mLabel+'</span></div></div>';
+  h+='<div class="rental-actions">'+(authUser?'<button class="btn btn-sm" onclick="syncMetaForClient(\''+c.id+'\',\''+ms+'\',this)" title="Đồng bộ chi tiêu Meta cho khách này">🔄 Sync Meta</button>':'')+'</div>';
+  h+='</div>';
+  // 2 cột: matrix + summary
+  h+='<div class="rental-grid">';
+  // LEFT: matrix
+  h+='<div class="rental-card">';
+  h+='<div class="rental-card-head"><div><div class="rental-card-title">Chi tiêu theo TKQC × Ngày</div><div class="rental-card-meta">'+matrix.accounts.length+' tài khoản · '+matrix.daysInMonth+' ngày · cập nhật từ Meta</div></div></div>';
+  h+='<div class="rental-matrix-wrap"><table class="rental-matrix">';
+  // header
+  h+='<thead><tr><th>TKQC</th>';
+  for(var d=1;d<=matrix.daysInMonth;d++)h+='<th>'+d+'</th>';
+  h+='<th class="col-total">Tổng tháng</th></tr></thead><tbody>';
+  if(matrix.accounts.length===0){
+    h+='<tr><td colspan="'+(matrix.daysInMonth+2)+'" style="text-align:center;color:var(--tx3);padding:24px;">Chưa có TKQC nào gắn với khách. Vào tab Tài khoản quảng cáo → gán TKQC cho khách này trước.</td></tr>';
+  }else{
+    matrix.accounts.forEach(function(a){
+      var rowSum=a.daily.reduce(function(t,v){return t+v;},0);
+      h+='<tr><td>'+esc(a.name)+'</td>';
+      a.daily.forEach(function(v){h+='<td>'+fmtCellMatrix(v)+'</td>';});
+      h+='<td class="col-total">'+fmtCellMatrix(rowSum)+'</td></tr>';
+    });
+    h+='<tr class="total"><td>Tổng cộng</td>';
+    matrix.dayTotals.forEach(function(t){h+='<td>'+fmtCellMatrix(t)+'</td>';});
+    h+='<td class="col-total">'+fmtCellMatrix(matrix.grandTotal)+'</td></tr>';
+  }
+  h+='</tbody></table></div></div>';
+  // RIGHT: summary box
+  h+='<div class="rental-summary">';
+  h+='<div class="rental-summary-title">Tổng kết '+mLabel+'</div>';
+  h+='<div class="rental-sum-row"><span>Tiền nạp</span><strong class="v-deposit">'+fm(depositTotal)+'</strong></div>';
+  h+='<div class="rental-sum-row"><span>Tiền chạy (spend)</span><strong class="v-spend">'+fm(sp)+'</strong></div>';
+  h+='<div class="rental-sum-row"><span>Phí thuê '+rentalPctLabel+'</span><strong class="v-fee">'+fm(rentalFee)+'</strong></div>';
+  h+='<div class="rental-sum-balance"><span>Số dư cuối kỳ</span><strong class="v-balance'+(balance<0?' negative':'')+'">'+(balance>=0?'+':'')+fm(balance)+'</strong></div>';
+  h+='<div class="rental-sum-hint">= Nạp − Chạy − Phí thuê'+(balance<500000&&balance>=0?'<br>⚠ Số dư thấp, nhắc khách nạp thêm':'')+(balance<0?'<br>⚠ Số dư âm — khách cần nạp gấp':'')+'</div>';
+  h+='</div>';
+  h+='</div>';
+  // Lịch sử nạp tiền
+  h+='<div class="rental-card" style="margin-top:14px;">';
+  h+='<div class="rental-card-head"><div><div class="rental-card-title">Lịch sử nạp tiền — '+mLabel+'</div><div class="rental-card-meta">'+deposits.length+' lần nạp · Tổng <strong style="color:var(--green-tx);">'+fm(depositTotal)+'</strong></div></div>';
+  if(authUser)h+='<button class="btn btn-sm btn-primary" onclick="openDepositModal(\''+c.id+'\',\''+ms+'\')">➕ Thêm khoản nạp</button>';
+  h+='</div>';
+  if(deposits.length===0){
+    h+='<div style="padding:24px;text-align:center;color:var(--tx3);font-size:13px;">Chưa ghi nhận khoản nạp nào trong tháng này.</div>';
+  }else{
+    deposits.forEach(function(d){
+      var dp=(d.deposit_date||'').split('-');var dStr=dp.length===3?(dp[2]+'/'+dp[1]+'/'+dp[0]):d.deposit_date;
+      h+='<div class="rental-deposit-row"><div class="rental-deposit-date">'+esc(dStr)+'</div><div class="rental-deposit-note">'+esc(d.note||'—')+'</div><div class="rental-deposit-amount">'+fm(d.amount)+'</div>'+(authUser?'<button class="kh-edit-btn" onclick="deleteDeposit(\''+d.id+'\')" title="Xóa khoản nạp" style="opacity:1;color:var(--red-tx);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg></button>':'<span></span>')+'</div>';
+    });
+  }
+  h+='</div>';
+  h+='</div>'; // .rental-ledger
+  return h;
+}
 function getInvoiceTotals(c,month,feeOverride,monthSpend){
 var flatFee=typeof feeOverride==='number'?feeOverride:getEffectiveServiceFee(c.id,month,c.service_fee);
 var rentalPct=getRentalFeePct(c),rentalActive=hasRentalService(c)&&rentalPct>0;
@@ -1519,7 +1676,7 @@ page.querySelectorAll('.table-wrap table').forEach(function(tbl){if(tbl.querySel
 async function fetchPaged(query){var all=[],from=0,size=1000;while(true){var{data,error}=await query.range(from,from+size-1);if(error)return{data:all,error:error};all=all.concat(data||[]);if(!data||data.length<size)break;from+=size;}return{data:all,error:null};}
 async function loadAll(){try{
  var minDate=new Date(Date.now()-180*86400000).toISOString().substring(0,10);
- var[s,c,aa,ds,sal,tx,mr,sc2,asgn,cmess,mf,ctr,qt,pnl]=await Promise.all([
+ var[s,c,aa,ds,sal,tx,mr,sc2,asgn,cmess,mf,ctr,qt,pnl,dep]=await Promise.all([
 sb2.from('staff').select('*').order('monthly_budget',{ascending:false}),
 sb2.from('client').select('*').order('name'),
 sb2.from('ad_account').select('*,client(name)').order('account_name'),
@@ -1533,7 +1690,8 @@ fetchPaged(sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,
  sb2.from('client_monthly_fee').select('*').order('month',{ascending:false}),
  sb2.from('contract').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
  sb2.from('quotation').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
- sb2.from('penalty').select('*').order('penalty_date',{ascending:false})
+ sb2.from('penalty').select('*').order('penalty_date',{ascending:false}),
+ sb2.from('client_deposit').select('*').order('deposit_date',{ascending:false})
 ]);
 var errs=[];
  [['staff',s],['client',c],['ad_account',aa],['daily_spend',ds],['salary',sal],['transaction',tx],['monthly_revenue',mr],['staff_client',sc2],['assignment',asgn],['campaign_daily_mess',cmess]].forEach(function(pair){if(pair[1].error)errs.push(pair[0]+': '+pair[1].error.message);});
@@ -1549,13 +1707,15 @@ var errs=[];
  quotationList=(qt&&!qt.error)?(qt.data||[]):[];
  // penaltyData — nếu table chưa tồn tại (user chưa chạy migration) thì im lặng để không vỡ app
  penaltyData=(typeof pnl!=='undefined'&&pnl&&!pnl.error)?(pnl.data||[]):[];
+ // clientDepositData — silent nếu chưa migrate
+ clientDepositData=(typeof dep!=='undefined'&&dep&&!dep.error)?(dep.data||[]):[];
  var ds2=new Set();dailyData.forEach(function(d){ds2.add(d.report_date);});
 dates=Array.from(ds2).sort();if(dates.length)cDay=dates.length-1;
 if(!finMonth)finMonth=lm();if(!adViewDate)adViewDate=td();if(!rptMonth)rptMonth=lm();if(!clientMonth)clientMonth=lm();
 render();}catch(e){document.getElementById('page').innerHTML='<div class="error-box">Lỗi: '+esc(e.message)+'</div>';}}
 
 async function loadLight(){try{
-var[s,c,aa,sal,tx,sc2,asgn,mf,ctr,qt]=await Promise.all([
+var[s,c,aa,sal,tx,sc2,asgn,mf,ctr,qt,dep]=await Promise.all([
 sb2.from('staff').select('*').order('monthly_budget',{ascending:false}),
 sb2.from('client').select('*').order('name'),
 sb2.from('ad_account').select('*,client(name)').order('account_name'),
@@ -1565,7 +1725,8 @@ sb2.from('staff_client').select('*,client(name)'),
 sb2.from('assignment').select('*').order('start_date',{ascending:false}),
 sb2.from('client_monthly_fee').select('*').order('month',{ascending:false}),
 sb2.from('contract').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
-sb2.from('quotation').select('*,client(name,company_full_name)').order('created_at',{ascending:false})
+sb2.from('quotation').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
+sb2.from('client_deposit').select('*').order('deposit_date',{ascending:false})
 ]);
 allStaff=s.data||[];staffList=allStaff.filter(function(x){return x.is_active;});
 clientList=c.data||[];adList=aa.data||[];
@@ -1573,6 +1734,7 @@ salaryData=sal.data||[];txnData=tx.data||[];
 scData=sc2.data||[];assignData=asgn.data||[];monthlyFeeData=mf.error?[]:(mf.data||[]);
 contractList=(ctr&&!ctr.error)?(ctr.data||[]):contractList;
 quotationList=(qt&&!qt.error)?(qt.data||[]):quotationList;
+clientDepositData=(dep&&!dep.error)?(dep.data||[]):clientDepositData;
 render();}catch(e){console.warn('loadLight error:',e.message);}}
 
 // ═══ ASSIGNMENT LOOKUP ═══
@@ -1625,7 +1787,7 @@ if(curPage===0)el.innerHTML=p0();else if(curPage===1)el.innerHTML=p1();else if(c
 // Inject contract/prospect modals (ngoài page content để không bị cắt)
 var modalRoot=document.getElementById('hc-modal-root');
 if(!modalRoot){modalRoot=document.createElement('div');modalRoot.id='hc-modal-root';document.body.appendChild(modalRoot);}
-modalRoot.innerHTML=renderNewProspectModal()+renderContractModal()+renderContractHistoryModal()+renderQuotationModal()+renderClientEditModal();
+modalRoot.innerHTML=renderNewProspectModal()+renderContractModal()+renderContractHistoryModal()+renderQuotationModal()+renderClientEditModal()+renderDepositModal();
 enhanceUI();
 ensureModalFocusTrap();
 if(curPage===1&&spendTab===0)restoreAdFilters();
@@ -2353,6 +2515,10 @@ h+='<span id="client-sd-status-'+c.id+'" style="font-size:11px;color:var(--green
 h+='<button class="btn btn-sm" onclick="openContractModal(\''+c.id+'\')" style="background:var(--blue);color:#fff;border:none;">📄 Xuất hợp đồng</button>';
 if(ctrCount>0)h+='<button class="btn btn-sm" onclick="openContractHistory(\''+c.id+'\')" title="Xem lịch sử Hợp đồng">📜 Lịch sử Hợp đồng ('+ctrCount+')</button>';
 h+='</div>';
+// Sổ rental cho khách thuê TKQC — hiển thị TRƯỚC phiếu thanh toán
+if(hasRentalService(c)&&getRentalFeePct(c)>0){
+  h+=renderRentalLedger(c,ms,sp,invoice);
+}
 h+='<div id="client-invoice-'+domId+'" class="invoice-card" data-client-id="'+esc(c.id)+'" data-month="'+ms+'" data-spend="'+sp+'" data-has-vat="'+(invoice.hasVat?'1':'0')+'">';
 h+='<div class="invoice-head"><div><div class="invoice-title">Phiếu thanh toán — '+esc(c.name)+'</div><div class="invoice-meta"><span>Kỳ: 01/'+parseInt(ms.split('-')[1])+' — '+dim+'/'+parseInt(ms.split('-')[1])+'/'+yLabel+'</span>'+(invoice.hasVat?'<span class="vat-badge b-blue">Có VAT</span>':'')+'</div></div><div>'+(c.payment_status==='paid'?'<span class="invoice-status-badge b-green">Đã thanh toán</span>':'<span class="invoice-status-badge b-gray">Chưa thanh toán</span>')+'</div></div>';
 h+='<div class="invoice-body">';
@@ -5110,6 +5276,94 @@ async function saveClientEditModal(btn){
 // Toggle hiển thị ô % phí thuê TKQC theo dịch vụ tick
 function toggleCeRentalRow(){var checked=document.querySelector('.ce-service[value="tkqc_rental"]:checked');var row=document.getElementById('ce-rental-row');if(row)row.style.display=checked?'':'none';}
 function toggleNpRentalRow(){var checked=document.querySelector('.np-service[value="tkqc_rental"]:checked');var row=document.getElementById('np-rental-row');if(row)row.style.display=checked?'':'none';}
+
+// ═══ MODAL: TIỀN NẠP (DEPOSIT) ═══
+function openDepositModal(clientId,month,depositId){
+  if(!needAuth())return;
+  depositModalCtx={clientId:clientId,month:month,depositId:depositId||null};
+  render();
+}
+function closeDepositModal(){depositModalCtx=null;render();}
+function renderDepositModal(){
+  if(!depositModalCtx)return'';
+  var ctx=depositModalCtx;
+  var c=clientList.find(function(x){return x.id===ctx.clientId;});if(!c)return'';
+  var existing=ctx.depositId?clientDepositData.find(function(d){return d.id===ctx.depositId;}):null;
+  var defDate=existing?existing.deposit_date:td();
+  var defAmount=existing?existing.amount:'';
+  var defNote=existing?(existing.note||''):'';
+  var h='<div class="hc-modal-backdrop" onclick="if(event.target===this)closeDepositModal()">';
+  h+='<div class="hc-modal" role="dialog" aria-modal="true" style="max-width:480px;">';
+  h+='<div class="hc-modal-head"><h3>'+(existing?'Sửa khoản nạp':'Thêm khoản nạp')+' — '+esc(c.name)+'</h3><button class="hc-modal-close" onclick="closeDepositModal()" aria-label="Đóng">×</button></div>';
+  h+='<div class="hc-modal-body">';
+  h+='<div class="hc-form-grid" style="grid-template-columns:1fr 1fr;">';
+  h+='<div><label>Ngày nạp <span style="color:var(--red);">*</span></label><input id="dep-date" type="date" class="fi" value="'+esc(defDate)+'"></div>';
+  h+='<div><label>Số tiền (VNĐ) <span style="color:var(--red);">*</span></label><input id="dep-amount" type="number" min="0" step="1000" class="fi" value="'+(defAmount||'')+'" placeholder="VD: 2000000"></div>';
+  h+='<div style="grid-column:1/-1;"><label>Ghi chú (nguồn / số CK)</label><input id="dep-note" class="fi" value="'+esc(defNote)+'" placeholder="VD: CK Vietcombank lần đầu"></div>';
+  h+='</div></div>';
+  h+='<div class="hc-modal-foot"><button class="btn" onclick="closeDepositModal()">Hủy</button><button class="btn btn-primary" onclick="saveDeposit(this)">Lưu</button></div>';
+  h+='</div></div>';
+  return h;
+}
+async function saveDeposit(btn){
+  if(!needAuth())return;
+  if(!depositModalCtx)return;
+  var date=document.getElementById('dep-date').value;
+  var amount=parseInt(document.getElementById('dep-amount').value)||0;
+  var note=document.getElementById('dep-note').value.trim();
+  if(!date){toast('Chọn ngày nạp',false);return;}
+  if(amount<=0){toast('Số tiền phải > 0',false);return;}
+  btn.disabled=true;btn.classList.add('is-loading');
+  var payload={client_id:depositModalCtx.clientId,deposit_date:date,amount:amount,note:note||null,created_by:authUser?authUser.email:null};
+  var r;
+  if(depositModalCtx.depositId)r=await sb2.from('client_deposit').update(payload).eq('id',depositModalCtx.depositId);
+  else r=await sb2.from('client_deposit').insert(payload);
+  btn.disabled=false;btn.classList.remove('is-loading');
+  if(r.error){
+    if(isMissingRelationError(r.error))toast('Thiếu bảng client_deposit. Chạy file migration 2026-04-27_add_client_deposit.sql trước.',false);
+    else toast('Lỗi: '+r.error.message,false);
+    return;
+  }
+  toast('Đã lưu khoản nạp ✓',true);
+  depositModalCtx=null;
+  await loadLight();
+}
+async function deleteDeposit(id){
+  if(!needAuth())return;
+  if(!(await hcConfirm({title:'Xóa khoản nạp',message:'Xóa khoản nạp này khỏi sổ?',confirmLabel:'Xóa',danger:true})))return;
+  var r=await sb2.from('client_deposit').delete().eq('id',id);
+  if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+  toast('Đã xóa khoản nạp',true);
+  await loadLight();
+}
+// ═══ SYNC META cho 1 khách (dùng trên Sổ rental) ═══
+async function syncMetaForClient(clientId,month,btn){
+  if(!needAuth())return;
+  if(!META_TOKEN){toast('Chưa cấu hình META_TOKEN trong Admin → Settings',false);return;}
+  // Lấy TKQC của khách (gắn cứng + assignment) có fb_account_id
+  var clientAccIds={};
+  adList.forEach(function(a){if(a.client_id===clientId&&a.fb_account_id)clientAccIds[a.id]=true;});
+  assignData.forEach(function(ag){if(ag.client_id===clientId){var aa=adList.find(function(x){return x.id===ag.ad_account_id;});if(aa&&aa.fb_account_id)clientAccIds[aa.id]=true;}});
+  var mapped=adList.filter(function(a){return clientAccIds[a.id];});
+  if(!mapped.length){toast('Khách chưa có TKQC nào ghép Meta — vào Tài khoản QC để gán',false);return;}
+  var oldText=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Đang sync...';}
+  try{
+    // Sync 3 ngày gần nhất (đủ cover lag từ Meta)
+    var today=td();
+    var d1=new Date(Date.now()-86400000).toISOString().substring(0,10);
+    var d2=new Date(Date.now()-2*86400000).toISOString().substring(0,10);
+    var totalSaved=0,totalErr=0;
+    for(var i=0;i<3;i++){
+      var dateStr=[today,d1,d2][i];
+      var r=await syncOneDate(dateStr,mapped);
+      totalSaved+=r.saved||0;totalErr+=r.errors||0;
+    }
+    toast('Sync xong '+mapped.length+' TKQC × 3 ngày: '+totalSaved+' bản ghi'+(totalErr?' · '+totalErr+' lỗi':''),totalErr===0);
+    await loadAll();
+  }catch(e){toast('Lỗi sync: '+e.message,false);}
+  finally{if(btn){btn.disabled=false;btn.textContent=oldText||'🔄 Sync Meta';}}
+}
 
 // ═══ RENDER MODAL: TẠO KHÁCH TIỀM NĂNG ═══
 function renderNewProspectModal(){
