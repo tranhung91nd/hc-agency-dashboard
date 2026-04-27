@@ -3463,17 +3463,18 @@ var r=await sb2.from('assignment').delete().eq('id',id);
 if(!r.error){toast('Đã xóa',true);await loadAll();stayPage();}else toast('Lỗi',false);}
 
 // ═══ CAMPAIGN ALERTS (MESS + FORM) ═══
+// Quét cửa sổ 3 ngày D-3, D-2, D-1 (không gồm hôm nay) — data đã chốt, chính xác hơn
 function buildCampAggregates(){
 var today=td();
 var d1=vnDateStr(-86400000),d2=vnDateStr(-172800000),d3=vnDateStr(-259200000);
-var fourDays=[d3,d2,d1,today];
+var threeDays=[d3,d2,d1];
 var latestStatus={};
 campaignMessData.forEach(function(r){
 var key=r.ad_account_id+'|'+r.campaign_id;
 if(!latestStatus[key]||r.report_date>latestStatus[key].date){latestStatus[key]={date:r.report_date,status:r.campaign_status||'ACTIVE'};}});
 var camps={};
 campaignMessData.forEach(function(r){
-if(fourDays.indexOf(r.report_date)<0)return;
+if(threeDays.indexOf(r.report_date)<0)return;
 var key=r.ad_account_id+'|'+r.campaign_id;
 var st=latestStatus[key];
 if(st&&st.status!=='ACTIVE')return;
@@ -3490,7 +3491,7 @@ var agg=buildCampAggregates(),camps=agg.camps,today=agg.today;
 var alerts=[];
 Object.keys(camps).forEach(function(k){
 var c=camps[k];
-if(c.days<4)return;
+if(c.days<3)return;
 if(!c.ad||!c.ad.max_mess_cost)return;
 // Chỉ cảnh báo camp loại "mess" (cuộc trò chuyện / CTWA / Messenger)
 // Camp chưa phân loại (type=null, chưa quét lại sau deploy) → bỏ qua để tránh false-positive
@@ -3509,7 +3510,7 @@ var agg=buildCampAggregates(),camps=agg.camps,today=agg.today;
 var alerts=[];
 Object.keys(camps).forEach(function(k){
 var c=camps[k];
-if(c.days<4)return;
+if(c.days<3)return;
 if(!c.ad||!c.ad.max_lead_cost)return;
 // Chỉ cảnh báo camp loại "form" (mẫu phản hồi tức thì / Instant Form)
 // Camp chưa phân loại (type=null, chưa quét lại sau deploy) → bỏ qua để tránh false-positive
@@ -3699,13 +3700,14 @@ return{rows:allRows,errors:errors,errorSamples:errorSamples};
 async function syncCampaignMess(btn,skipRefresh){
 var oldText=btn?btn.textContent:'Quét giá Messenger';
 if(btn){btn.disabled=true;btn.textContent='Đang quét...';}
-var today=td(),d3=vnDateStr(-259200000);
+// Quét cửa sổ D-3, D-2, D-1 (không gồm hôm nay) — data đã chốt, không bị nhiễu giờ giấc
+var d1=vnDateStr(-86400000),d3=vnDateStr(-259200000);
 var mapped=adList.filter(function(a){return a.fb_account_id&&(a.max_mess_cost||a.max_lead_cost);});
 if(!mapped.length){if(btn){toast('Chưa có Tài khoản nào đặt ngưỡng giá Messenger/form',false);btn.disabled=false;btn.textContent=oldText;}return;}
 var errors=0;
 try{
 if(btn)btn.textContent='Đang quét '+mapped.length+' Tài khoản...';
-var result=await fetchCampaignMessBatch(mapped,d3,today);
+var result=await fetchCampaignMessBatch(mapped,d3,d1);
 var rowsToSave=result.rows;errors=result.errors;
 var saved=0,batches=chunkArray(rowsToSave,500);
 for(var i=0;i<batches.length;i++){
