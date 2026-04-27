@@ -458,15 +458,6 @@ tr:hover .kh-num{background:var(--blue-bg);color:var(--blue-tx);}
 .kh-detail-actions .btn-spacer{margin-left:auto;}
 /* Cho thuê TKQC — chip % cạnh phí dịch vụ */
 .kh-rental-chip{display:inline-flex;align-items:center;padding:2px 7px;font-size:10px;font-weight:700;background:var(--teal-bg);color:var(--teal-tx);border-radius:6px;letter-spacing:.02em;line-height:1.4;cursor:help;}
-/* KPI strip: tóm tắt khách thuê TKQC ở đầu tab */
-.kpi-rental-strip{display:flex;align-items:center;gap:14px;padding:12px 16px;margin-bottom:14px;background:linear-gradient(90deg,rgba(29,158,117,0.08) 0%,rgba(29,158,117,0.02) 100%);border:1px solid var(--teal-bg);border-left:3px solid var(--teal);border-radius:var(--radius-lg);}
-.kpi-rental-icon{font-size:22px;flex-shrink:0;line-height:1;}
-.kpi-rental-text{flex:1;min-width:0;}
-.kpi-rental-title{font-size:13px;font-weight:600;color:var(--tx1);margin-bottom:2px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;}
-.kpi-rental-count{display:inline-block;padding:2px 8px;font-size:11px;font-weight:600;background:var(--teal-bg);color:var(--teal-tx);border-radius:10px;letter-spacing:.02em;}
-.kpi-rental-meta{font-size:12px;color:var(--tx2);font-variant-numeric:tabular-nums;line-height:1.6;}
-.kpi-rental-meta strong{color:var(--tx1);font-weight:600;}
-.kpi-rental-meta .sep{margin:0 6px;color:var(--tx3);}
 /* Nút mở Meta Ads Manager nhanh trong tab Cảnh báo */
 .alert-open-btn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--blue-bg);color:var(--blue);text-decoration:none;font-size:12px;font-weight:600;flex-shrink:0;transition:all .15s;}
 .alert-open-btn:hover{background:var(--blue);color:#fff;transform:translateY(-1px);}
@@ -2481,19 +2472,12 @@ var maxSpend=Math.max.apply(null,rows.map(function(r){return r.spend;}))||1;
 var totalSpend=rows.reduce(function(t,r){return t+r.spend;},0);
 var totalFee=rows.reduce(function(t,r){return t+getEffectiveServiceFee(r.c.id,ms,r.c.service_fee)+getRentalFeeAmount(r.c,ms,r.spend);},0);
 // Rental KPI — tóm tắt khách thuê TKQC
-var rentalRows=rows.filter(function(r){return hasRentalService(r.c)&&getRentalFeePct(r.c)>0;});
-var rentalCount=rentalRows.length;
-var rentalSpendTotal=rentalRows.reduce(function(t,r){return t+r.spend;},0);
-var rentalRevenue=rentalRows.reduce(function(t,r){return t+getRentalFeeAmount(r.c,ms,r.spend);},0);
 if(expandedClientId&&!rows.some(function(r){return r.c.id===expandedClientId;}))expandedClientId=null;
 var h='<div class="page-title">Khách hàng</div><div class="page-sub">Tổng '+activeClients.length+' chính thức · '+prospectCount+' tiềm năng</div>';
 h+=tabH;
 h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;"><span style="font-size:12px;color:var(--tx3);">Tháng:</span><select class="fi" style="width:140px;" onchange="clientMonth=this.value;expandedClientId=null;render();">';
 monthList.forEach(function(m){h+='<option value="'+m+'"'+(m===ms?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
 h+='</select><span style="font-size:12px;color:var(--tx3);margin-left:8px;">'+nd+' ngày dữ liệu</span></div>';
-if(rentalCount>0){
-  h+='<div class="kpi-rental-strip"><span class="kpi-rental-icon" aria-hidden="true">🔑</span><div class="kpi-rental-text"><div class="kpi-rental-title">Cho thuê tài khoản Quảng cáo <span class="kpi-rental-count">'+rentalCount+' khách</span></div><div class="kpi-rental-meta">Spend '+mLabel+'/'+yLabel+': <strong>'+fm(rentalSpendTotal)+'</strong><span class="sep">·</span>Doanh thu phí thuê: <strong style="color:var(--teal);">'+fm(rentalRevenue)+'</strong></div></div></div>';
-}
 h+='<div class="ad-toolbar">';
 h+='<div class="ad-toolbar-main">';
 h+='<input type="text" id="client-search" placeholder="Tìm khách hàng, liên hệ..." value="'+esc(clientSearchText)+'" oninput="expandedClientId=null;hcSearchInput(\'clientSearchText\',this.value)" class="fi ad-toolbar-search">';
