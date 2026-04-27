@@ -467,6 +467,25 @@ tr:hover .kh-num{background:var(--blue-bg);color:var(--blue-tx);}
 .kpi-rental-meta{font-size:12px;color:var(--tx2);font-variant-numeric:tabular-nums;line-height:1.6;}
 .kpi-rental-meta strong{color:var(--tx1);font-weight:600;}
 .kpi-rental-meta .sep{margin:0 6px;color:var(--tx3);}
+/* ═══ PUBLIC LEDGER MODE — khách xem Sổ rental qua URL ═══ */
+body.public-mode{background:var(--bg3);}
+body.public-mode .app{display:block;grid-template-columns:1fr;}
+body.public-mode .mobile-header,body.public-mode #sidebar,body.public-mode #overlay,body.public-mode .ai-fab{display:none !important;}
+body.public-mode .main{padding:0;}
+.public-container{max-width:1280px;margin:0 auto;padding:20px 24px 28px;}
+@media(max-width:640px){.public-container{padding:14px;}}
+.public-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--bd1);gap:12px;flex-wrap:wrap;}
+.public-brand-name{font-size:18px;font-weight:700;letter-spacing:-.02em;color:var(--tx1);}
+.public-brand-sub{font-size:12px;color:var(--tx3);margin-top:2px;}
+.public-month-pick{display:flex;align-items:center;gap:8px;}
+.public-month-pick select{padding:6px 10px;font-size:13px;}
+.public-info-banner{background:linear-gradient(90deg,rgba(55,138,221,.08) 0%,rgba(55,138,221,.02) 100%);border:1px solid var(--blue-bg);border-left:3px solid var(--blue);border-radius:var(--radius-lg);padding:10px 14px;margin-bottom:16px;font-size:12.5px;color:var(--blue-tx);line-height:1.6;}
+.public-info-banner strong{color:var(--tx1);}
+.public-footer{margin-top:24px;padding:14px;text-align:center;font-size:11px;color:var(--tx3);border-top:1px solid var(--bd1);}
+.public-error{max-width:480px;margin:80px auto;padding:32px;text-align:center;background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);box-shadow:0 4px 16px rgba(15,23,42,.04);}
+.public-error-icon{font-size:36px;margin-bottom:14px;}
+.public-error-title{font-size:18px;font-weight:600;margin-bottom:8px;color:var(--tx1);}
+.public-error-msg{font-size:13px;color:var(--tx3);line-height:1.6;}
 /* ═══ SỔ RENTAL (Matrix TKQC × Ngày) ═══ */
 .rental-ledger{margin-bottom:14px;}
 .rental-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:10px 14px;background:linear-gradient(90deg,rgba(29,158,117,.10) 0%,rgba(29,158,117,.02) 100%);border:1px solid var(--teal-bg);border-left:3px solid var(--teal);border-radius:var(--radius-lg);margin-bottom:12px;}
@@ -1312,7 +1331,7 @@ function renderZaloBtn(c){
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],clientDepositData=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null;
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null;
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -1565,7 +1584,12 @@ function renderRentalLedger(c,ms,sp,invoice){
   // Header strip
   h+='<div class="rental-head">';
   h+='<div class="rental-title-block"><div class="rental-title">Sổ rental — '+esc(c.name)+'</div><div class="rental-meta"><span class="header-chip-rental">🔑 Cho thuê TKQC · Phí '+rentalPctLabel+'</span><span class="rental-period">Kỳ '+mLabel+'</span></div></div>';
-  h+='<div class="rental-actions">'+(authUser?'<button class="btn btn-sm" onclick="syncMetaForClient(\''+c.id+'\',\''+ms+'\',this)" title="Đồng bộ chi tiêu Meta cho khách này">🔄 Sync Meta</button>':'')+'</div>';
+  h+='<div class="rental-actions">';
+  if(authUser){
+    h+='<button class="btn btn-sm" onclick="syncMetaForClient(\''+c.id+'\',\''+ms+'\',this)" title="Đồng bộ chi tiêu Meta cho khách này">🔄 Sync Meta</button>';
+    h+='<button class="btn btn-sm" onclick="copyClientShareLink(\''+c.id+'\',this)" title="Sao chép link cho khách xem qua điện thoại">🔗 Sao chép link</button>';
+  }
+  h+='</div>';
   h+='</div>';
   // 2 cột: matrix + summary
   h+='<div class="rental-grid">';
@@ -5364,6 +5388,116 @@ async function syncMetaForClient(clientId,month,btn){
   }catch(e){toast('Lỗi sync: '+e.message,false);}
   finally{if(btn){btn.disabled=false;btn.textContent=oldText||'🔄 Sync Meta';}}
 }
+// ═══ SHARE LINK CHO KHÁCH RENTAL ═══
+function genShareToken(){var b=new Uint8Array(12);crypto.getRandomValues(b);return Array.from(b).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}
+async function copyClientShareLink(clientId,btn){
+  if(!needAuth())return;
+  var c=clientList.find(function(x){return x.id===clientId;});if(!c)return;
+  var token=c.share_token;
+  var oldText=btn?btn.textContent:'';
+  if(!token){
+    if(btn){btn.disabled=true;btn.textContent='Đang tạo link...';}
+    token=genShareToken();
+    var r=await sb2.from('client').update({share_token:token}).eq('id',clientId);
+    if(btn){btn.disabled=false;btn.textContent=oldText||'🔗 Sao chép link';}
+    if(r.error){
+      if(isMissingColumnError(r.error))toast('Thiếu cột share_token. Chạy file migration 2026-04-27_add_share_token.sql trước.',false);
+      else toast('Lỗi tạo link: '+r.error.message,false);
+      return;
+    }
+    c.share_token=token;
+  }
+  var origin=window.location.origin,path=window.location.pathname.replace(/[^\/]*$/,'')+'index.html';
+  var url=origin+path+'?ledger='+clientId+'&token='+token;
+  try{await navigator.clipboard.writeText(url);toast('Đã sao chép link · gửi cho khách qua Zalo',true);}
+  catch(e){window.prompt('Sao chép link sau (Ctrl+C):',url);}
+}
+// ═══ PUBLIC LEDGER MODE — khách xem Sổ rental qua URL ═══
+function initPublicLedgerMode(){
+  var p=new URLSearchParams(window.location.search);
+  var lid=p.get('ledger'),tok=p.get('token');
+  if(!lid||!tok)return false;
+  publicLedgerMode=true;publicLedgerClientId=lid;publicLedgerToken=tok;
+  document.body.classList.add('public-mode');
+  return true;
+}
+function renderPublicError(title,msg){
+  return '<div class="public-error"><div class="public-error-icon" aria-hidden="true">⚠️</div><div class="public-error-title">'+esc(title)+'</div><div class="public-error-msg">'+esc(msg)+'</div></div>';
+}
+async function loadPublicLedger(){
+  var sb=document.getElementById('sidebar'),appEl=document.querySelector('.app');
+  if(sb)sb.style.display='none';
+  if(appEl)appEl.style.gridTemplateColumns='1fr';
+  var page=document.getElementById('page');
+  page.innerHTML='<div style="padding:80px;text-align:center;color:var(--tx2);font-size:14px;">Đang tải Sổ rental...</div>';
+  try{
+    var rc=await sb2.from('client').select('*').eq('id',publicLedgerClientId).maybeSingle();
+    if(rc.error){page.innerHTML=renderPublicError('Không tải được dữ liệu',rc.error.message);return;}
+    if(!rc.data){page.innerHTML=renderPublicError('Link không hợp lệ','Khách hàng không tồn tại. Vui lòng liên hệ HC Agency.');return;}
+    if(!rc.data.share_token||rc.data.share_token!==publicLedgerToken){
+      page.innerHTML=renderPublicError('Link đã hết hiệu lực','Token không khớp. Liên hệ HC Agency để lấy link mới.');return;
+    }
+    if(!hasRentalService(rc.data)||!getRentalFeePct(rc.data)){
+      page.innerHTML=renderPublicError('Khách chưa cấu hình rental','Vui lòng liên hệ HC Agency để kích hoạt báo cáo này.');return;
+    }
+    // Load minimal data — chỉ những gì cần cho ledger
+    var minDate=new Date(Date.now()-180*86400000).toISOString().substring(0,10);
+    var[ad,asg,ds,dep,mf]=await Promise.all([
+      sb2.from('ad_account').select('*').eq('client_id',publicLedgerClientId),
+      sb2.from('assignment').select('*').eq('client_id',publicLedgerClientId),
+      sb2.from('daily_spend').select('*').gte('report_date',minDate).order('report_date'),
+      sb2.from('client_deposit').select('*').eq('client_id',publicLedgerClientId).order('deposit_date',{ascending:false}),
+      sb2.from('client_monthly_fee').select('*').eq('client_id',publicLedgerClientId)
+    ]);
+    // Mở rộng adList: cộng cả TKQC qua assignment (không gắn cứng client_id)
+    var ownedIds={};(ad.data||[]).forEach(function(a){ownedIds[a.id]=true;});
+    var assignedIds=Array.from(new Set((asg.data||[]).map(function(x){return x.ad_account_id;}))).filter(function(id){return!ownedIds[id];});
+    var moreAd=[];
+    if(assignedIds.length){
+      var rA=await sb2.from('ad_account').select('*').in('id',assignedIds);
+      moreAd=rA.data||[];
+    }
+    clientList=[rc.data];
+    adList=(ad.data||[]).concat(moreAd);
+    assignData=asg.data||[];
+    dailyData=ds.data||[];
+    clientDepositData=dep.data||[];
+    monthlyFeeData=(mf&&!mf.error)?(mf.data||[]):[];
+    if(!publicLedgerMonth)publicLedgerMonth=lm();
+    renderPublicLedgerPage();
+  }catch(e){page.innerHTML=renderPublicError('Lỗi tải dữ liệu',e.message);}
+}
+function renderPublicLedgerPage(){
+  var c=clientList[0];if(!c)return;
+  var ms=publicLedgerMonth||lm();
+  var sp=getMonthSpendForClient(c.id,ms);
+  var invoice=getInvoiceTotals(c,ms,undefined,sp);
+  var allMonths=new Set();
+  dailyData.forEach(function(d){if(d.report_date)allMonths.add(d.report_date.substring(0,7));});
+  clientDepositData.forEach(function(d){if(d.deposit_date)allMonths.add(d.deposit_date.substring(0,7));});
+  if(!allMonths.size)allMonths.add(lm());
+  var monthList=Array.from(allMonths).sort().reverse();
+  var lastSync='';
+  var dsToday=dailyData.filter(function(d){return(d.matched_client_id===c.id)||(adList.find(function(a){return a.id===d.ad_account_id&&a.client_id===c.id;}));});
+  if(dsToday.length){
+    dsToday.sort(function(a,b){return(b.report_date||'').localeCompare(a.report_date||'');});
+    var dpL=(dsToday[0].report_date||'').split('-');if(dpL.length===3)lastSync=dpL[2]+'/'+dpL[1]+'/'+dpL[0];
+  }
+  var h='<div class="public-container">';
+  h+='<div class="public-header">';
+  h+='<div class="public-brand"><div class="public-brand-name">HC Agency</div><div class="public-brand-sub">Hệ thống quản trị quảng cáo</div></div>';
+  h+='<div class="public-month-pick"><span style="font-size:12px;color:var(--tx3);">Kỳ:</span> <select class="fi" onchange="publicLedgerMonth=this.value;renderPublicLedgerPage();">';
+  monthList.forEach(function(m){h+='<option value="'+m+'"'+(m===ms?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
+  h+='</select></div>';
+  h+='</div>';
+  h+='<div class="public-info-banner">💡 <strong>Báo cáo dùng chung</strong> · cập nhật real-time từ Meta · '+(lastSync?'spend mới nhất ngày <strong>'+esc(lastSync)+'</strong>':'chưa có spend tháng này')+' · cần đối soát liên hệ HC Agency.</div>';
+  h+=renderRentalLedger(c,ms,sp,invoice);
+  h+='<div class="public-footer">Báo cáo HC Agency · Sổ rental tự động · Spend từ Facebook Marketing API</div>';
+  h+='</div>';
+  document.getElementById('page').innerHTML=h;
+  // Bọc enhanceUI nếu có
+  if(typeof enhanceUI==='function')try{enhanceUI();}catch(e){}
+}
 
 // ═══ RENDER MODAL: TẠO KHÁCH TIỀM NĂNG ═══
 function renderNewProspectModal(){
@@ -5974,6 +6108,11 @@ setTimeout(hideSyncBar,3000);
 }catch(e){showSyncBar('⚠ Lỗi đồng bộ: '+e.message);setTimeout(hideSyncBar,5000);}}
 
 async function init(){try{
+  // Public ledger mode — khách rental xem qua URL ?ledger=<id>&token=<x>
+  if(initPublicLedgerMode()){
+    await loadPublicLedger();
+    return;
+  }
   await checkAuth();
   if(!authUser){render();return;}
   await loadAppSettings();
