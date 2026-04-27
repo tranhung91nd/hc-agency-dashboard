@@ -364,6 +364,16 @@ th.sortable.sort-desc::after{content:"▼";opacity:1;color:var(--blue);}
 .hc-form-grid .fi{width:100%;padding:7px 10px;font-size:13px;}
 @media(max-width:640px){.hc-form-grid{grid-template-columns:1fr;}}
 .prospect-badge{display:inline-block;padding:2px 8px;font-size:11px;font-weight:500;background:var(--amber-bg);color:var(--amber-tx);border-radius:10px;}
+/* Badge nguồn lead trong tab Tiềm năng */
+.lead-source-badge{display:inline-block;padding:2px 8px;font-size:10.5px;font-weight:600;border-radius:10px;letter-spacing:.02em;line-height:1.5;}
+/* KPI strip đầu tab Tiềm năng */
+.lead-kpi-strip{display:flex;align-items:center;gap:18px;padding:10px 16px;margin-bottom:14px;background:linear-gradient(90deg,rgba(99,153,34,.06) 0%,rgba(99,153,34,.01) 100%);border:1px solid var(--green-bg);border-left:3px solid var(--green);border-radius:var(--radius-lg);flex-wrap:wrap;}
+.lead-kpi-item{display:flex;align-items:baseline;gap:6px;}
+.lead-kpi-num{font-size:22px;font-weight:800;color:var(--tx1);font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
+.lead-kpi-num.urgent{color:var(--red-tx);}
+.lead-kpi-lbl{font-size:12px;color:var(--tx2);}
+.lead-kpi-spacer{flex:1;}
+.lead-kpi-strip .btn{padding:7px 12px;font-size:12.5px;}
 .client-tab-bar{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--bd1);}
 .client-tab-bar button{padding:8px 16px;font-size:13px;font-weight:500;border:none;background:transparent;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;transition:all .15s;}
 .client-tab-bar button:hover{color:var(--tx1);}
@@ -1361,6 +1371,28 @@ function renderServicesBadges(services,opts){
     return'<span class="badge b-'+s.color+'" style="font-size:10px;margin-right:3px;display:inline-flex;align-items:center;" title="'+s.name+'">'+dotHtml+esc(s.short||s.name)+'</span>';
   }).join('');
   return html||'<span style="color:var(--tx3);font-size:11px;">—</span>';
+}
+// Render badge nguồn lead (lead_source) — hiển thị trong tab Tiềm năng
+function renderLeadSourceBadge(source){
+  if(!source)return'';
+  var meta={
+    web_form:{label:'Form web',icon:'🌐',cls:'b-blue'},
+    fb_lead_ads:{label:'FB Lead Ads',icon:'📋',cls:'b-purple'},
+    zalo:{label:'Zalo',icon:'💬',cls:'b-teal'},
+    referral:{label:'Giới thiệu',icon:'🤝',cls:'b-green'},
+    cold_call:{label:'Cold call',icon:'📞',cls:'b-amber'},
+    fbpage:{label:'FB Page',icon:'📘',cls:'b-blue'},
+    qrcode:{label:'QR code',icon:'🔲',cls:'b-purple'},
+    youtube:{label:'YouTube',icon:'📺',cls:'b-red'},
+    other:{label:'Khác',icon:'📌',cls:'b-gray'}
+  };
+  // Nếu source dạng "ref-<id>" → là giới thiệu từ khách cụ thể
+  if(source.indexOf('ref-')===0){
+    return'<span class="lead-source-badge b-green" title="Giới thiệu bởi: '+esc(source.substring(4))+'">🤝 Giới thiệu</span>';
+  }
+  var m=meta[source];
+  if(!m)return'<span class="lead-source-badge b-gray" title="Nguồn: '+esc(source)+'">'+esc(source)+'</span>';
+  return'<span class="lead-source-badge '+m.cls+'" title="Lead từ '+m.label+'">'+m.icon+' '+m.label+'</span>';
 }
 // Render care status thành chip HTML
 function renderCareChip(careStatus){
@@ -2646,6 +2678,12 @@ h+='</div></div></td></tr>';}
 h+='</tbody><tfoot><tr style="background:var(--bg2);font-weight:600;border-top:1px solid var(--bd2);"><td></td><td>Tổng '+rows.length+'/'+clientList.length+' Khách hàng</td><td></td><td></td><td></td><td class="mono" style="text-align:right;color:var(--teal);font-size:15px;">'+fm(totalSpend)+'</td><td class="mono" style="text-align:right;">'+fm(totalFee)+'</td><td></td><td></td></tr></tfoot></table></div>';
 return h;}
 function clearClientFilters(){clientSearchText='';clientFilterPayment='';clientFilterVat='';clientFilterStatus='';clientFilterSpend='';clientFilterService='';clientFilterCare='';clientSortMode='spend_desc';expandedClientId=null;render();}
+async function copyLeadFormUrl(btn){
+  var origin=window.location.origin+window.location.pathname.replace(/[^\/]*$/,'')+'index.html';
+  var url=origin+'?form=lead';
+  try{await navigator.clipboard.writeText(url);toast('Đã sao chép URL form · dán Zalo / FB / QR code',true);}
+  catch(e){window.prompt('Sao chép URL sau (Ctrl+C):',url);}
+}
 
 // ═══ P3 — TAB KHÁCH TIỀM NĂNG ═══
 function p3Prospect(tabH){
@@ -2656,8 +2694,22 @@ if(clientSearchText){
   prospects=prospects.filter(function(c){return(c.name||'').toLowerCase().indexOf(q)>=0||(c.company_full_name||'').toLowerCase().indexOf(q)>=0||(c.contact_person||'').toLowerCase().indexOf(q)>=0||(c.phone||'').indexOf(q)>=0;});
 }
 prospects.sort(function(a,b){return(b.created_at||'').localeCompare(a.created_at||'');});
+// Đếm theo nguồn để hiển thị KPI strip
+var allProspects=clientList.filter(function(c){return c.status==='prospect';});
+var newCount=allProspects.filter(function(c){return(c.care_status||'new')==='new';}).length;
+var fromFormCount=allProspects.filter(function(c){return c.lead_source&&c.lead_source!=='other';}).length;
+var origin=window.location.origin+window.location.pathname.replace(/[^\/]*$/,'')+'index.html';
+var leadFormUrl=origin+'?form=lead';
 var h='<div class="page-title">Khách hàng</div><div class="page-sub">Khách tiềm năng (chưa ký Hợp đồng)</div>';
 h+=tabH;
+// KPI strip: lead chưa liên hệ + lead từ form công khai + nút copy URL
+h+='<div class="lead-kpi-strip">';
+h+='<div class="lead-kpi-item"><span class="lead-kpi-num'+(newCount>0?' urgent':'')+'">'+newCount+'</span><span class="lead-kpi-lbl">lead mới chưa liên hệ</span></div>';
+h+='<div class="lead-kpi-item"><span class="lead-kpi-num">'+fromFormCount+'</span><span class="lead-kpi-lbl">lead có nguồn xác định</span></div>';
+h+='<div class="lead-kpi-spacer"></div>';
+h+='<button class="btn btn-sm" onclick="copyLeadFormUrl(this)" title="Sao chép URL form thu lead công khai">🔗 Copy URL form công khai</button>';
+h+='<a href="'+esc(leadFormUrl)+'" target="_blank" rel="noopener" class="btn btn-sm" title="Xem form công khai như khách thấy">👁 Xem form</a>';
+h+='</div>';
 h+='<div class="kh-prospect-toolbar">';
 h+='<button class="btn btn-primary" onclick="openNewProspectModal()">➕ Thêm khách tiềm năng</button>';
 h+='<input type="text" placeholder="Tìm khách tiềm năng..." value="'+esc(clientSearchText)+'" oninput="hcSearchInput(\'clientSearchText\',this.value)" class="fi">';
@@ -2678,7 +2730,7 @@ prospects.forEach(function(c,i){
   var isExp=expandedClientId===c.id;
   h+='<tr style="'+(isExp?'background:var(--blue-bg);':'')+'">';
   h+='<td><span class="kh-num">'+(i+1)+'</span></td>';
-  h+='<td><div class="kh-name-cell"><span class="kh-name-text">'+esc(c.name)+'</span><span class="prospect-badge">Tiềm năng</span><button class="kh-edit-btn" onclick="event.stopPropagation();openClientEditModal(\''+c.id+'\')" title="Sửa dịch vụ / Zalo / CSKH" aria-label="Sửa khách hàng"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></div></td>';
+  h+='<td><div class="kh-name-cell"><span class="kh-name-text">'+esc(c.name)+'</span><span class="prospect-badge">Tiềm năng</span>'+renderLeadSourceBadge(c.lead_source)+'<button class="kh-edit-btn" onclick="event.stopPropagation();openClientEditModal(\''+c.id+'\')" title="Sửa dịch vụ / Zalo / CSKH" aria-label="Sửa khách hàng"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></div></td>';
   h+='<td>'+renderServicesBadges(c.services,{compact:true})+'</td>';
   h+='<td style="font-size:12px;color:var(--tx2);">'+esc(c.company_full_name||'—')+'</td>';
   h+='<td style="font-size:12px;color:var(--tx2);"><div class="kh-contact"><span>'+esc(c.contact_person||c.phone||'—')+'</span>'+renderZaloBtn(c)+'</div></td>';
