@@ -484,6 +484,52 @@ body.public-mode .main{padding:0;}
 .public-error-icon{font-size:36px;margin-bottom:14px;}
 .public-error-title{font-size:18px;font-weight:600;margin-bottom:8px;color:var(--tx1);}
 .public-error-msg{font-size:13px;color:var(--tx3);line-height:1.6;}
+/* ═══ PHASE 1.1 CRM: PUBLIC LEAD FORM ═══ */
+.lead-container{max-width:680px;}
+.lead-hero{text-align:center;padding:30px 16px 24px;}
+.lead-hero-logo{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--blue) 0%,#1F5DA0 100%);color:#fff;font-size:22px;font-weight:800;letter-spacing:-.05em;margin-bottom:12px;box-shadow:0 4px 12px rgba(55,138,221,.25);}
+.lead-hero-brand{font-size:12px;font-weight:700;color:var(--blue-tx);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
+.lead-hero-title{font-size:26px;font-weight:800;letter-spacing:-.03em;margin-bottom:8px;color:var(--tx1);line-height:1.2;}
+@media(max-width:540px){.lead-hero-title{font-size:22px;}}
+.lead-hero-sub{font-size:14px;color:var(--tx2);line-height:1.6;max-width:520px;margin:0 auto;}
+.lead-hero-trust{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:14px;font-size:11px;color:var(--tx3);}
+.lead-hero-trust span{padding:5px 12px;background:var(--bg1);border:1px solid var(--bd1);border-radius:999px;}
+.lead-form-card{background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);padding:22px 22px 24px;margin-bottom:18px;box-shadow:0 4px 16px rgba(15,23,42,.04);position:relative;}
+@media(max-width:640px){.lead-form-card{padding:18px 14px 22px;}}
+.lead-form-row{margin-bottom:14px;}
+.lead-form-row label{display:block;font-size:13px;font-weight:600;color:var(--tx1);margin-bottom:6px;}
+.lead-form-row label .req{color:var(--red);}
+.lead-form-row label .opt{font-size:11px;color:var(--tx3);font-weight:400;}
+.lead-form-row-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:540px){.lead-form-row-grid{grid-template-columns:1fr;gap:0;}}
+.lead-fi{width:100%;padding:11px 14px;font-size:14px;border:1px solid var(--bd2);border-radius:10px;background:var(--bg1);color:var(--tx1);font-family:inherit;outline:none;transition:border .15s,box-shadow .15s;}
+.lead-fi:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(55,138,221,.12);}
+.lead-fi[type="number"],.lead-fi[type="tel"]{font-variant-numeric:tabular-nums;}
+textarea.lead-fi{resize:vertical;min-height:80px;line-height:1.5;}
+.lead-radio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+@media(max-width:540px){.lead-radio-grid{grid-template-columns:repeat(2,1fr);}}
+.lead-radio,.lead-checkbox{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--bd2);border-radius:10px;background:var(--bg1);cursor:pointer;font-size:13px;color:var(--tx1);transition:all .15s;line-height:1.3;}
+.lead-radio:hover,.lead-checkbox:hover{border-color:var(--blue);}
+.lead-radio input,.lead-checkbox input{accent-color:var(--blue);width:16px;height:16px;flex-shrink:0;margin:0;}
+.lead-radio:has(input:checked),.lead-checkbox:has(input:checked){background:var(--blue-bg);border-color:var(--blue);font-weight:500;}
+.lead-checkbox-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;}
+.lead-captcha-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.lead-captcha-q{font-size:18px;font-weight:700;color:var(--tx1);font-variant-numeric:tabular-nums;padding:8px 14px;background:var(--bg2);border-radius:10px;}
+.lead-form-error{padding:10px 14px;background:var(--red-bg);color:var(--red-tx);border:1px solid rgba(226,75,74,.3);border-radius:10px;font-size:13px;font-weight:500;margin-bottom:12px;}
+.lead-submit-btn{width:100%;padding:14px 20px;font-size:15px;font-weight:600;border-radius:12px;letter-spacing:.01em;}
+.lead-submit-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 18px rgba(55,138,221,.25);}
+.lead-footer{text-align:center;font-size:12px;color:var(--tx3);padding:16px;}
+.lead-success{background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);padding:40px 28px;text-align:center;margin-top:30px;box-shadow:0 4px 16px rgba(15,23,42,.04);}
+.lead-success-icon{font-size:64px;margin-bottom:18px;animation:lead-pop .4s ease;}
+@keyframes lead-pop{0%{transform:scale(0);opacity:0;}60%{transform:scale(1.15);}100%{transform:scale(1);opacity:1;}}
+.lead-success-title{font-size:24px;font-weight:800;letter-spacing:-.02em;color:var(--tx1);margin-bottom:10px;}
+.lead-success-msg{font-size:14px;color:var(--tx2);line-height:1.7;max-width:480px;margin:0 auto 22px;}
+.lead-success-msg strong{color:var(--green-tx);font-weight:700;}
+.lead-success-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;}
+.lead-cta-zalo{background:#0068ff;color:#fff;border-color:#0068ff;padding:12px 22px;font-size:14px;font-weight:600;border-radius:10px;text-decoration:none;}
+.lead-cta-zalo:hover{background:#0052d4;color:#fff;border-color:#0052d4;}
+.lead-cta-call{padding:12px 22px;font-size:14px;font-weight:600;border-radius:10px;text-decoration:none;}
+.lead-success-footer{font-size:12px;color:var(--tx3);}
 /* ═══ SỔ RENTAL (Matrix TKQC × Ngày) ═══ */
 .rental-ledger{margin-bottom:14px;}
 .rental-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:10px 14px;background:linear-gradient(90deg,rgba(29,158,117,.10) 0%,rgba(29,158,117,.02) 100%);border:1px solid var(--teal-bg);border-left:3px solid var(--teal);border-radius:var(--radius-lg);margin-bottom:12px;}
@@ -1335,7 +1381,7 @@ function renderZaloBtn(c){
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],clientDepositData=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null;
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0;
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -5665,6 +5711,118 @@ function renderPublicLedgerPage(){
   startPublicLedgerPoll();
 }
 
+// ═══ PHASE 1.1 CRM: PUBLIC LEAD FORM (?form=lead) ═══
+function initPublicLeadFormMode(){
+  var p=new URLSearchParams(window.location.search);
+  if(p.get('form')!=='lead')return false;
+  publicLeadFormMode=true;
+  publicLeadFormSource=(p.get('source')||'web_form').substring(0,40);
+  document.body.classList.add('public-mode');
+  return true;
+}
+function renderLeadFormPage(){
+  var sb=document.getElementById('sidebar'),appEl=document.querySelector('.app');
+  if(sb)sb.style.display='none';
+  if(appEl)appEl.style.gridTemplateColumns='1fr';
+  var a=Math.floor(Math.random()*9)+1,b=Math.floor(Math.random()*9)+1;
+  publicLeadFormCaptcha=a+b;
+  var h='<div class="public-container lead-container">';
+  h+='<div class="lead-hero">';
+  h+='<div class="lead-hero-logo">HC</div>';
+  h+='<div class="lead-hero-brand">HC Agency</div>';
+  h+='<h1 class="lead-hero-title">Đăng ký tư vấn miễn phí</h1>';
+  h+='<p class="lead-hero-sub">Để lại thông tin, đội ngũ HC Agency sẽ liên hệ trong 24h tư vấn giải pháp Quảng cáo Facebook phù hợp với doanh nghiệp của bạn.</p>';
+  h+='<div class="lead-hero-trust"><span>🔒 Bảo mật thông tin</span><span>⏱ Phản hồi trong 24h</span><span>💰 Tư vấn 100% miễn phí</span></div>';
+  h+='</div>';
+  h+='<div class="lead-form-card">';
+  h+='<div class="lead-form-row"><label>Họ tên / Tên doanh nghiệp <span class="req">*</span></label><input id="lf-name" class="lead-fi" type="text" placeholder="VD: Nguyễn Văn A / Spa Hương Sen" autocomplete="name"></div>';
+  h+='<div class="lead-form-row-grid">';
+  h+='<div class="lead-form-row"><label>Số điện thoại <span class="req">*</span></label><input id="lf-phone" class="lead-fi" type="tel" placeholder="0912 345 678" autocomplete="tel" inputmode="tel"></div>';
+  h+='<div class="lead-form-row"><label>Zalo <span class="opt">(nếu khác SĐT)</span></label><input id="lf-zalo" class="lead-fi" type="text" placeholder="Để trống nếu Zalo trùng SĐT"></div>';
+  h+='</div>';
+  h+='<div class="lead-form-row-grid">';
+  h+='<div class="lead-form-row"><label>Email <span class="opt">(không bắt buộc)</span></label><input id="lf-email" class="lead-fi" type="email" placeholder="email@doanhnghiep.vn"></div>';
+  h+='<div class="lead-form-row"><label>Ngành nghề <span class="opt">(không bắt buộc)</span></label><input id="lf-industry" class="lead-fi" type="text" placeholder="VD: Spa / Thời trang / F&amp;B"></div>';
+  h+='</div>';
+  h+='<div class="lead-form-row"><label>Ngân sách quảng cáo dự kiến/tháng</label>';
+  h+='<div class="lead-radio-grid">';
+  ['Chưa rõ','Dưới 10 triệu','10–20 triệu','20–50 triệu','50–100 triệu','Trên 100 triệu'].forEach(function(v,i){
+    h+='<label class="lead-radio"><input type="radio" name="lf-budget" value="'+v+'"'+(i===0?' checked':'')+'><span>'+v+'</span></label>';
+  });
+  h+='</div></div>';
+  h+='<div class="lead-form-row"><label>Dịch vụ quan tâm <span class="opt">(tick các mục cần)</span></label>';
+  h+='<div class="lead-checkbox-grid">';
+  Object.keys(SERVICES).forEach(function(code){var s=SERVICES[code];var defChk=(code==='fb_ads')?' checked':'';h+='<label class="lead-checkbox"><input type="checkbox" class="lf-service" value="'+code+'"'+defChk+'><span>'+s.icon+' '+esc(s.name)+'</span></label>';});
+  h+='</div></div>';
+  h+='<div class="lead-form-row"><label>Lời nhắn / nhu cầu cụ thể <span class="opt">(không bắt buộc)</span></label><textarea id="lf-message" class="lead-fi" rows="3" placeholder="VD: Đang muốn chạy Mess cho dịch vụ spa, khu vực Hà Nội, đã có Fanpage…"></textarea></div>';
+  // Honeypot — bot điền, người không thấy
+  h+='<div style="position:absolute;left:-9999px;height:0;overflow:hidden;" aria-hidden="true"><input id="lf-website" name="website" tabindex="-1" autocomplete="off"></div>';
+  // Captcha math
+  h+='<div class="lead-form-row"><label>Vui lòng giải phép tính sau (chống spam)</label><div class="lead-captcha-row"><span class="lead-captcha-q">'+a+' + '+b+' = </span><input id="lf-captcha" class="lead-fi" type="number" inputmode="numeric" style="max-width:140px;" autocomplete="off"></div></div>';
+  h+='<div id="lf-error" class="lead-form-error" hidden></div>';
+  h+='<button class="btn btn-primary lead-submit-btn" onclick="submitPublicLead(this)">📨 Gửi thông tin tư vấn</button>';
+  h+='</div>';
+  h+='<div class="lead-footer"><div>HC Agency · Hệ thống quản trị Quảng cáo Facebook</div><div style="margin-top:6px;">Hotline / Zalo: <a href="tel:0968915555" style="color:var(--blue-tx);font-weight:600;">0968 91 5555</a></div></div>';
+  h+='</div>';
+  document.getElementById('page').innerHTML=h;
+}
+async function submitPublicLead(btn){
+  var get=function(id){var el=document.getElementById(id);return el?el.value.trim():'';};
+  var errEl=document.getElementById('lf-error');
+  function showErr(msg){if(errEl){errEl.textContent=msg;errEl.hidden=false;errEl.scrollIntoView({behavior:'smooth',block:'center'});}}
+  function clearErr(){if(errEl)errEl.hidden=true;}
+  clearErr();
+  // Honeypot — bot điền field này → giả vờ thành công
+  if(get('lf-website')){showLeadFormSuccess({duplicate:false,silent:true});return;}
+  var name=get('lf-name'),phone=get('lf-phone');
+  if(!name){showErr('Vui lòng nhập họ tên / tên doanh nghiệp');return;}
+  var cleanPhone=phone.replace(/\D/g,'');
+  if(cleanPhone.length<9||cleanPhone.length>11){showErr('Số điện thoại không hợp lệ (phải 9-11 chữ số)');return;}
+  var captchaAns=parseInt(get('lf-captcha'));
+  if(isNaN(captchaAns)||captchaAns!==publicLeadFormCaptcha){showErr('Phép tính sai. Kiểm tra lại để chứng minh bạn không phải bot.');return;}
+  var services=[];
+  document.querySelectorAll('.lf-service:checked').forEach(function(el){services.push(el.value);});
+  if(!services.length)services=['fb_ads'];
+  var budgetEl=document.querySelector('input[name="lf-budget"]:checked');
+  var budget=budgetEl?budgetEl.value:'';
+  btn.disabled=true;btn.textContent='Đang gửi...';
+  try{
+    var r=await sb2.rpc('submit_public_lead',{p_data:{name:name,phone:phone,zalo:get('lf-zalo'),email:get('lf-email'),industry:get('lf-industry'),monthly_budget:budget,services:services,message:get('lf-message'),source:publicLeadFormSource}});
+    if(r.error){
+      var msg=String(r.error.message||r.error);
+      if(/function .* does not exist/i.test(msg)||/Could not find the function/i.test(msg)){
+        showErr('Hệ thống chưa kích hoạt form. Vui lòng liên hệ Zalo 0968 91 5555.');
+      }else if(/P0001/.test(JSON.stringify(r.error))||msg.indexOf('không hợp lệ')>=0||msg.indexOf('Vui lòng')>=0){
+        showErr(msg.replace(/^[^:]*:\s*/,''));
+      }else{
+        showErr('Lỗi: '+msg);
+      }
+      btn.disabled=false;btn.textContent='📨 Gửi thông tin tư vấn';
+      return;
+    }
+    showLeadFormSuccess(r.data||{});
+  }catch(e){
+    showErr('Lỗi kết nối: '+e.message);
+    btn.disabled=false;btn.textContent='📨 Gửi thông tin tư vấn';
+  }
+}
+function showLeadFormSuccess(result){
+  var dup=result&&result.duplicate;
+  var h='<div class="public-container lead-container">';
+  h+='<div class="lead-success">';
+  h+='<div class="lead-success-icon">✅</div>';
+  h+='<h1 class="lead-success-title">'+(dup?'Đã ghi nhận lần liên hệ mới':'Đã nhận thông tin của bạn')+'</h1>';
+  h+='<p class="lead-success-msg">'+(dup?'Cảm ơn bạn đã quay lại! Yêu cầu mới đã được thêm vào hồ sơ. HC Agency sẽ liên hệ tư vấn sớm nhất qua Zalo / điện thoại.':'Cảm ơn bạn đã đăng ký! HC Agency sẽ liên hệ tư vấn giải pháp Quảng cáo Facebook phù hợp <strong>trong vòng 24 giờ</strong> qua Zalo hoặc điện thoại.')+'</p>';
+  h+='<div class="lead-success-actions">';
+  h+='<a href="https://zalo.me/0968915555" target="_blank" rel="noopener" class="btn lead-cta-zalo">📱 Chat Zalo ngay</a>';
+  h+='<a href="tel:0968915555" class="btn lead-cta-call">📞 Gọi 0968 91 5555</a>';
+  h+='</div>';
+  h+='<div class="lead-success-footer">Bạn không cần làm gì thêm. Tư vấn viên sẽ chủ động liên hệ trong thời gian sớm nhất.</div>';
+  h+='</div>';
+  h+='</div>';
+  document.getElementById('page').innerHTML=h;
+}
+
 // ═══ RENDER MODAL: TẠO KHÁCH TIỀM NĂNG ═══
 function renderNewProspectModal(){
   if(!newProspectModalOpen)return '';
@@ -6299,6 +6457,11 @@ setTimeout(hideSyncBar,3500);
 }catch(e){showSyncBar('⚠ Lỗi đồng bộ: '+e.message);setTimeout(hideSyncBar,5000);}}
 
 async function init(){try{
+  // Public form thu lead — URL ?form=lead (Phase 1.1 CRM)
+  if(initPublicLeadFormMode()){
+    renderLeadFormPage();
+    return;
+  }
   // Public ledger mode — khách rental xem qua URL ?ledger=<id>&token=<x>
   if(initPublicLedgerMode()){
     await loadPublicLedger();
