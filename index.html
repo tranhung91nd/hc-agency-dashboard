@@ -467,6 +467,11 @@ tr:hover .kh-num{background:var(--blue-bg);color:var(--blue-tx);}
 .kpi-rental-meta{font-size:12px;color:var(--tx2);font-variant-numeric:tabular-nums;line-height:1.6;}
 .kpi-rental-meta strong{color:var(--tx1);font-weight:600;}
 .kpi-rental-meta .sep{margin:0 6px;color:var(--tx3);}
+/* Nút mở Meta Ads Manager nhanh trong tab Cảnh báo */
+.alert-open-btn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--blue-bg);color:var(--blue);text-decoration:none;font-size:12px;font-weight:600;flex-shrink:0;transition:all .15s;}
+.alert-open-btn:hover{background:var(--blue);color:#fff;transform:translateY(-1px);}
+.alert-open-btn-sm{width:18px;height:18px;font-size:10px;background:transparent;border:1px solid var(--bd2);color:var(--tx3);}
+.alert-open-btn-sm:hover{background:var(--blue);color:#fff;border-color:var(--blue);transform:translateY(-1px);}
 /* ═══ PUBLIC LEDGER MODE — khách xem Sổ rental qua URL ═══ */
 body.public-mode{background:var(--bg3);}
 body.public-mode .app{display:block;grid-template-columns:1fr;}
@@ -3796,8 +3801,15 @@ h+='<div style="padding:10px 20px 10px 48px;background:var(--bg2);display:flex;a
 h+='<div style="display:grid;grid-template-columns:1fr 110px 70px 110px 90px;gap:6px;padding:4px 20px 4px 48px;font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px;"><span>Chiến dịch</span><span style="text-align:right">Chi tiêu 3 ngày</span><span style="text-align:right">'+resultLabel+'</span><span style="text-align:right">Giá '+resultLabel+' TB</span><span style="text-align:right">Ngưỡng</span></div>';
 camps.sort(function(a,b){return(b[costKey]||0)-(a[costKey]||0);}).forEach(function(al){
 var costVal=al[costKey]||0;
+// Tra fb_account_id để build link Meta Ads Manager (deep-link vào campaign cụ thể)
+var accObj=adList.find(function(x){return x.id===al.ad_account_id;});
+var fbId=accObj&&accObj.fb_account_id?String(accObj.fb_account_id).replace(/^act_/,''):'';
+var camUrl=fbId?'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+fbId+'&selected_campaign_ids='+encodeURIComponent(al.campaign_id):'';
+var accUrl=fbId?'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+fbId:'';
+var camBtn=camUrl?'<a href="'+camUrl+'" target="_blank" rel="noopener" title="Mở chiến dịch trong Meta Ads Manager" class="alert-open-btn" onclick="event.stopPropagation()">↗</a>':'';
+var accBtn=accUrl?'<a href="'+accUrl+'" target="_blank" rel="noopener" title="Mở Tài khoản trong Meta Ads Manager" class="alert-open-btn alert-open-btn-sm" onclick="event.stopPropagation()">↗</a>':'';
 h+='<div style="display:grid;grid-template-columns:1fr 110px 70px 110px 90px;gap:6px;align-items:center;padding:8px 20px 8px 48px;border-bottom:1px solid var(--bd1);font-size:12px;background:var(--red-bg);">';
-h+='<div><div style="font-weight:500;font-size:13px;">'+esc(al.campaign_name)+'</div><div style="font-size:11px;color:var(--tx3);margin-top:1px;">'+esc(al.account_name)+'</div></div>';
+h+='<div><div style="font-weight:500;font-size:13px;display:flex;align-items:center;gap:6px;">'+esc(al.campaign_name)+camBtn+'</div><div style="font-size:11px;color:var(--tx3);margin-top:1px;display:flex;align-items:center;gap:4px;">'+esc(al.account_name)+accBtn+'</div></div>';
 h+='<div class="mono" style="text-align:right;">'+ff(al.spend_4d)+'</div>';
 h+='<div class="mono" style="text-align:right;">'+(al[countKey]||'0')+'</div>';
 h+='<div class="mono" style="text-align:right;font-weight:600;color:var(--red);">'+(costVal===Infinity?'∞':ff(costVal))+'</div>';
@@ -3843,8 +3855,11 @@ else if(al.days_left<1)dlTxt='<span style="color:var(--red);font-weight:600;">&l
 else if(al.days_left<3)dlTxt='<span style="color:var(--red);font-weight:600;">~'+al.days_left.toFixed(1)+' ngày</span>';
 else dlTxt='<span style="color:var(--amber-tx);">~'+al.days_left.toFixed(1)+' ngày</span>';
 var billingUrl=al.fb_account_id?'https://business.facebook.com/billing_hub/accounts/details?asset_id='+String(al.fb_account_id).replace(/^act_/,''):'';
+var fbBalId=al.fb_account_id?String(al.fb_account_id).replace(/^act_/,''):'';
+var balAccUrl=fbBalId?'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+fbBalId:'';
+var balBtn=balAccUrl?'<a href="'+balAccUrl+'" target="_blank" rel="noopener" title="Mở Tài khoản trong Meta Ads Manager" class="alert-open-btn">↗</a>':'';
 h+='<div style="display:grid;grid-template-columns:1fr 120px 90px 130px 100px;gap:6px;align-items:center;padding:8px 20px 8px 48px;border-bottom:1px solid var(--bd1);font-size:12px;background:var(--red-bg);">';
-h+='<div><div style="font-weight:500;font-size:13px;">'+esc(al.account_name||'—')+'</div><div style="font-size:11px;color:var(--tx3);margin-top:1px;">Đã chi '+ff(al.spent)+' / '+ff(al.cap)+'</div></div>';
+h+='<div><div style="font-weight:500;font-size:13px;display:flex;align-items:center;gap:6px;">'+esc(al.account_name||'—')+balBtn+'</div><div style="font-size:11px;color:var(--tx3);margin-top:1px;">Đã chi '+ff(al.spent)+' / '+ff(al.cap)+'</div></div>';
 h+='<div class="mono" style="text-align:right;font-weight:600;color:var(--red);">'+ff(al.balance)+'</div>';
 h+='<div class="mono" style="text-align:right;color:var(--tx2);">'+(al.avg_daily>0?ff(Math.round(al.avg_daily)):'—')+'</div>';
 h+='<div class="mono" style="text-align:right;">'+dlTxt+'</div>';
