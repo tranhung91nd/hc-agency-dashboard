@@ -494,42 +494,132 @@ body.public-mode .main{padding:0;}
 .public-error-icon{font-size:36px;margin-bottom:14px;}
 .public-error-title{font-size:18px;font-weight:600;margin-bottom:8px;color:var(--tx1);}
 .public-error-msg{font-size:13px;color:var(--tx3);line-height:1.6;}
-/* ═══ PHASE 1.1 CRM: PUBLIC LEAD FORM ═══ */
-.lead-container{max-width:680px;}
-.lead-hero{text-align:center;padding:30px 16px 24px;}
-.lead-hero-logo{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--blue) 0%,#1F5DA0 100%);color:#fff;font-size:22px;font-weight:800;letter-spacing:-.05em;margin-bottom:12px;box-shadow:0 4px 12px rgba(55,138,221,.25);}
-.lead-hero-brand{font-size:12px;font-weight:700;color:var(--blue-tx);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
-.lead-hero-title{font-size:26px;font-weight:800;letter-spacing:-.03em;margin-bottom:8px;color:var(--tx1);line-height:1.2;}
-@media(max-width:540px){.lead-hero-title{font-size:22px;}}
-.lead-hero-sub{font-size:14px;color:var(--tx2);line-height:1.6;max-width:520px;margin:0 auto;}
-.lead-hero-trust{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:14px;font-size:11px;color:var(--tx3);}
-.lead-hero-trust span{padding:5px 12px;background:var(--bg1);border:1px solid var(--bd1);border-radius:999px;}
-.lead-form-card{background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);padding:22px 22px 24px;margin-bottom:18px;box-shadow:0 4px 16px rgba(15,23,42,.04);position:relative;}
-@media(max-width:640px){.lead-form-card{padding:18px 14px 22px;}}
+/* ═══ PHASE 1.1 CRM: PUBLIC LEAD FORM (3-step wizard) ═══ */
+.lead-page-wrap{max-width:1200px;margin:0 auto;padding:24px 20px 32px;}
+@media(max-width:900px){.lead-page-wrap{padding:14px;}}
+/* HERO */
+.lead-hero-card{background:linear-gradient(135deg,#EDF3FF 0%,#F8FAFD 100%);border:1px solid var(--bd1);border-radius:24px;padding:36px;display:grid;grid-template-columns:1fr 380px;gap:24px;margin-bottom:24px;align-items:center;}
+@media(max-width:900px){.lead-hero-card{grid-template-columns:1fr;padding:24px 18px;border-radius:18px;gap:18px;}}
+.lead-hero-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;background:#fff;border:1px solid var(--bd2);color:var(--blue-tx);font-size:11px;font-weight:700;letter-spacing:.05em;margin-bottom:18px;box-shadow:0 1px 3px rgba(15,23,42,.04);}
+.lead-hero-h1{font-size:36px;font-weight:800;letter-spacing:-.03em;line-height:1.15;color:var(--tx1);margin:0 0 12px;}
+@media(max-width:900px){.lead-hero-h1{font-size:30px;}}
+@media(max-width:540px){.lead-hero-h1{font-size:24px;}}
+.lead-hero-h1-blue{color:var(--blue);}
+.lead-hero-sub{font-size:14px;color:var(--tx2);margin:0 0 22px;}
+.lead-hero-trust{display:flex;flex-wrap:wrap;gap:18px;}
+.lead-trust-item{display:flex;align-items:center;gap:10px;}
+.lead-trust-icon{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:9px;background:var(--blue-bg);color:var(--blue);font-size:16px;flex-shrink:0;}
+.lead-trust-title{font-size:12.5px;font-weight:600;color:var(--tx1);line-height:1.3;}
+.lead-trust-sub{font-size:11px;color:var(--tx3);line-height:1.3;}
+/* HERO mock dashboard */
+.lead-hero-mock{position:relative;height:280px;background:#fff;border-radius:18px;border:1px solid var(--bd1);padding:18px;box-shadow:0 8px 24px rgba(15,23,42,.06);}
+@media(max-width:900px){.lead-hero-mock{display:none;}}
+.lead-mock-icon-fb{position:absolute;top:-14px;right:18px;width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#1877F2 0%,#3B5998 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:24px;box-shadow:0 4px 12px rgba(24,119,242,.35);font-family:Georgia,serif;}
+.lead-mock-card{background:#fff;border:1px solid var(--bd1);border-radius:14px;padding:14px 16px;box-shadow:0 4px 12px rgba(15,23,42,.06);}
+.lead-mock-card-1{position:absolute;top:24px;left:18px;right:88px;}
+.lead-mock-card-2{position:absolute;bottom:20px;right:18px;width:160px;}
+.lead-mock-lbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;}
+.lead-mock-val{font-size:20px;font-weight:800;color:var(--tx1);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin-top:2px;}
+.lead-mock-val-sm{font-size:22px;font-weight:800;color:var(--tx1);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin-top:2px;}
+.lead-mock-up{font-size:11px;color:var(--green-tx);font-weight:600;margin-top:2px;}
+.lead-mock-bars{display:flex;align-items:flex-end;gap:6px;height:64px;margin-top:10px;}
+.lead-mock-bars span{flex:1;background:linear-gradient(180deg,var(--blue) 0%,#9CC9FF 100%);border-radius:4px 4px 0 0;}
+/* GRID 2-col */
+.lead-grid{display:grid;grid-template-columns:280px 1fr;gap:20px;}
+@media(max-width:900px){.lead-grid{grid-template-columns:1fr;}}
+.lead-sidebar{display:flex;flex-direction:column;gap:14px;position:sticky;top:18px;align-self:start;}
+@media(max-width:900px){.lead-sidebar{position:static;}}
+.lead-side-card{background:var(--bg1);border:1px solid var(--bd1);border-radius:16px;padding:18px;}
+.lead-side-title{font-size:13px;font-weight:700;color:var(--tx1);margin-bottom:14px;}
+.lead-process-step{display:flex;align-items:center;gap:12px;padding:10px 0;}
+.lead-process-num{width:28px;height:28px;border-radius:8px;background:var(--bg2);color:var(--tx3);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--bd1);transition:all .15s;}
+.lead-process-step.active .lead-process-num{background:var(--blue);color:#fff;border-color:var(--blue);box-shadow:0 0 0 3px rgba(55,138,221,.15);}
+.lead-process-step.complete .lead-process-num{background:var(--green);color:#fff;border-color:var(--green);}
+.lead-process-name{font-size:13px;font-weight:600;color:var(--tx1);}
+.lead-process-time{font-size:11px;color:var(--tx3);margin-top:2px;}
+.lead-process-step.active .lead-process-name{color:var(--blue-tx);}
+.lead-quote-mark{font-size:36px;line-height:.6;color:var(--blue);font-weight:900;margin-bottom:10px;font-family:Georgia,serif;}
+.lead-quote-text{font-size:13px;color:var(--tx2);font-style:italic;line-height:1.6;margin:0 0 12px;}
+.lead-quote-author{display:flex;align-items:center;gap:10px;}
+.lead-quote-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#FFB088 0%,#FF6B6B 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;}
+.lead-quote-name{font-size:12.5px;font-weight:600;color:var(--tx1);}
+.lead-quote-role{font-size:11px;color:var(--tx3);}
+.lead-logos-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.lead-logo-cell{padding:10px 8px;background:var(--bg2);border-radius:8px;text-align:center;font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:.02em;}
+.lead-secure{background:var(--blue-bg);border-color:var(--blue-bg);}
+.lead-secure-head{font-size:13px;font-weight:700;color:var(--blue-tx);margin-bottom:6px;}
+.lead-secure-body{font-size:12px;color:var(--tx2);line-height:1.5;}
+/* MAIN steps */
+.lead-main{display:flex;flex-direction:column;gap:18px;}
+.lead-step{background:var(--bg1);border:1px solid var(--bd1);border-radius:16px;padding:24px 26px;transition:opacity .2s,border-color .2s,box-shadow .2s;}
+@media(max-width:540px){.lead-step{padding:18px 16px;border-radius:12px;}}
+.lead-step:not(.lead-step-active){opacity:.55;}
+.lead-step.lead-step-active{border-color:var(--blue);box-shadow:0 0 0 3px rgba(55,138,221,.08);}
+.lead-step-tag{display:inline-block;font-size:10.5px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+.lead-step-title{font-size:22px;font-weight:700;color:var(--tx1);letter-spacing:-.02em;margin:0 0 4px;}
+.lead-step-desc{font-size:13px;color:var(--tx3);margin:0 0 16px;}
+.lead-step-head{margin-bottom:18px;}
+.lead-form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+@media(max-width:600px){.lead-form-grid-2{grid-template-columns:1fr;}}
 .lead-form-row{margin-bottom:14px;}
 .lead-form-row label{display:block;font-size:13px;font-weight:600;color:var(--tx1);margin-bottom:6px;}
 .lead-form-row label .req{color:var(--red);}
-.lead-form-row label .opt{font-size:11px;color:var(--tx3);font-weight:400;}
-.lead-form-row-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-@media(max-width:540px){.lead-form-row-grid{grid-template-columns:1fr;gap:0;}}
+.lead-form-row label .opt{font-size:11px;color:var(--tx3);font-weight:400;text-transform:none;}
 .lead-fi{width:100%;padding:11px 14px;font-size:14px;border:1px solid var(--bd2);border-radius:10px;background:var(--bg1);color:var(--tx1);font-family:inherit;outline:none;transition:border .15s,box-shadow .15s;}
 .lead-fi:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(55,138,221,.12);}
 .lead-fi[type="number"],.lead-fi[type="tel"]{font-variant-numeric:tabular-nums;}
 textarea.lead-fi{resize:vertical;min-height:80px;line-height:1.5;}
-.lead-radio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
-@media(max-width:540px){.lead-radio-grid{grid-template-columns:repeat(2,1fr);}}
-.lead-radio,.lead-checkbox{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--bd2);border-radius:10px;background:var(--bg1);cursor:pointer;font-size:13px;color:var(--tx1);transition:all .15s;line-height:1.3;}
-.lead-radio:hover,.lead-checkbox:hover{border-color:var(--blue);}
-.lead-radio input,.lead-checkbox input{accent-color:var(--blue);width:16px;height:16px;flex-shrink:0;margin:0;}
-.lead-radio:has(input:checked),.lead-checkbox:has(input:checked){background:var(--blue-bg);border-color:var(--blue);font-weight:500;}
-.lead-checkbox-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;}
+select.lead-fi{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");background-repeat:no-repeat;background-position:right 14px center;background-size:16px;padding-right:40px;cursor:pointer;}
+/* BUDGET TILES */
+.lead-budget-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.lead-budget-tile{position:relative;display:flex;align-items:center;gap:10px;padding:14px 14px;border:1px solid var(--bd2);border-radius:12px;background:var(--bg1);cursor:pointer;transition:all .15s;}
+.lead-budget-tile:hover{border-color:var(--blue);}
+.lead-budget-tile input{position:absolute;opacity:0;pointer-events:none;}
+.lead-budget-icon{font-size:22px;line-height:1;flex-shrink:0;}
+.lead-budget-label{font-size:13px;font-weight:600;color:var(--tx1);}
+.lead-budget-tile:has(input:checked){background:var(--blue-bg);border-color:var(--blue);}
+/* SERVICE TILES */
+.lead-service-list{display:flex;flex-direction:column;gap:10px;}
+.lead-service-tile{position:relative;display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--bd2);border-radius:12px;background:var(--bg1);cursor:pointer;transition:all .15s;}
+.lead-service-tile:hover{border-color:var(--blue);}
+.lead-service-tile input{position:absolute;opacity:0;pointer-events:none;}
+.lead-service-icon{font-size:20px;flex-shrink:0;width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:var(--blue-bg);border-radius:10px;}
+.lead-service-text{flex:1;min-width:0;}
+.lead-service-title{font-size:13.5px;font-weight:600;color:var(--tx1);margin-bottom:2px;}
+.lead-service-desc{font-size:11.5px;color:var(--tx3);line-height:1.4;}
+.lead-service-check{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--bd2);display:flex;align-items:center;justify-content:center;font-size:13px;color:transparent;transition:all .15s;flex-shrink:0;font-weight:700;}
+.lead-service-tile:has(input:checked){background:var(--blue-bg);border-color:var(--blue);}
+.lead-service-tile:has(input:checked) .lead-service-check{background:var(--blue);border-color:var(--blue);color:#fff;}
+/* STEP FOOT */
+.lead-step-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;}
+.lead-form-error{padding:10px 14px;background:var(--red-bg);color:var(--red-tx);border:1px solid rgba(226,75,74,.3);border-radius:10px;font-size:13px;font-weight:500;margin-bottom:14px;margin-top:6px;}
+.lead-step-btn{padding:13px 26px;font-size:14px;font-weight:600;border-radius:10px;display:inline-flex;align-items:center;gap:8px;}
+.lead-step-back{padding:13px 22px;font-size:14px;font-weight:600;border-radius:10px;background:var(--bg2);color:var(--tx2);border:1px solid var(--bd2);cursor:pointer;font-family:inherit;}
+.lead-step-back:hover{background:var(--bg3);color:var(--tx1);}
+.lead-step-arrow{font-weight:700;}
+.lead-step-secure{font-size:11px;color:var(--tx3);margin-left:auto;}
+.lead-submit-btn{padding:14px 28px;font-size:15px;font-weight:700;}
+.lead-submit-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 18px rgba(55,138,221,.3);}
+/* CAPTCHA */
 .lead-captcha-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
-.lead-captcha-q{font-size:18px;font-weight:700;color:var(--tx1);font-variant-numeric:tabular-nums;padding:8px 14px;background:var(--bg2);border-radius:10px;}
-.lead-form-error{padding:10px 14px;background:var(--red-bg);color:var(--red-tx);border:1px solid rgba(226,75,74,.3);border-radius:10px;font-size:13px;font-weight:500;margin-bottom:12px;}
-.lead-submit-btn{width:100%;padding:14px 20px;font-size:15px;font-weight:600;border-radius:12px;letter-spacing:.01em;}
-.lead-submit-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 18px rgba(55,138,221,.25);}
-.lead-footer{text-align:center;font-size:12px;color:var(--tx3);padding:16px;}
-.lead-success{background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);padding:40px 28px;text-align:center;margin-top:30px;box-shadow:0 4px 16px rgba(15,23,42,.04);}
+.lead-captcha-q{font-size:18px;font-weight:700;color:var(--tx1);font-variant-numeric:tabular-nums;padding:10px 14px;background:var(--bg2);border-radius:10px;}
+/* Confirm summary */
+.lead-confirm-summary{background:var(--bg2);border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1px solid var(--bd1);}
+.lead-sum-row{display:flex;justify-content:space-between;padding:7px 0;font-size:13px;border-bottom:1px dashed var(--bd1);gap:10px;}
+.lead-sum-row:last-child{border-bottom:none;}
+.lead-sum-row span{color:var(--tx3);flex-shrink:0;}
+.lead-sum-row b{color:var(--tx1);font-weight:600;text-align:right;word-break:break-word;}
+/* CTA bar bottom */
+.lead-cta-bar{margin-top:24px;background:linear-gradient(90deg,var(--blue) 0%,#1F5DA0 100%);color:#fff;padding:18px 24px;border-radius:14px;display:flex;align-items:center;gap:16px;box-shadow:0 6px 18px rgba(55,138,221,.2);}
+.lead-cta-icon{font-size:32px;flex-shrink:0;}
+.lead-cta-text{flex:1;}
+.lead-cta-title{font-size:16px;font-weight:700;letter-spacing:-.01em;}
+.lead-cta-sub{font-size:12.5px;opacity:.92;margin-top:2px;}
+.lead-cta-shield{font-size:32px;flex-shrink:0;opacity:.85;}
+.lead-bottom-trust{margin-top:14px;text-align:center;font-size:12px;color:var(--tx3);padding:6px;line-height:1.5;}
+.lead-footer-mini{text-align:center;font-size:12px;color:var(--tx3);padding:14px 6px 4px;}
+/* Success page */
+.lead-success{background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);padding:40px 28px;text-align:center;margin:30px auto;max-width:560px;box-shadow:0 4px 16px rgba(15,23,42,.04);}
 .lead-success-icon{font-size:64px;margin-bottom:18px;animation:lead-pop .4s ease;}
 @keyframes lead-pop{0%{transform:scale(0);opacity:0;}60%{transform:scale(1.15);}100%{transform:scale(1);opacity:1;}}
 .lead-success-title{font-size:24px;font-weight:800;letter-spacing:-.02em;color:var(--tx1);margin-bottom:10px;}
@@ -1413,7 +1503,7 @@ function renderZaloBtn(c){
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],clientDepositData=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0;
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1;
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -5778,45 +5868,207 @@ function renderLeadFormPage(){
   if(appEl)appEl.style.gridTemplateColumns='1fr';
   var a=Math.floor(Math.random()*9)+1,b=Math.floor(Math.random()*9)+1;
   publicLeadFormCaptcha=a+b;
-  var h='<div class="public-container lead-container">';
-  h+='<div class="lead-hero">';
-  h+='<div class="lead-hero-logo">HC</div>';
-  h+='<div class="lead-hero-brand">HC Agency</div>';
-  h+='<h1 class="lead-hero-title">Đăng ký tư vấn miễn phí</h1>';
-  h+='<p class="lead-hero-sub">Để lại thông tin, đội ngũ HC Agency sẽ liên hệ trong 24h tư vấn giải pháp Quảng cáo Facebook phù hợp với doanh nghiệp của bạn.</p>';
-  h+='<div class="lead-hero-trust"><span>🔒 Bảo mật thông tin</span><span>⏱ Phản hồi trong 24h</span><span>💰 Tư vấn 100% miễn phí</span></div>';
+  publicLeadFormCurrentStep=1;
+  var INDUSTRIES=['Spa & Làm đẹp','Thời trang','F&B (Ăn uống)','Giáo dục & đào tạo','Bất động sản','Y tế & sức khỏe','Du lịch & dịch vụ','Nội thất & xây dựng','Bán lẻ','Khác'];
+  var BUDGETS=[
+    {key:'Dưới 10 triệu',icon:'💰'},
+    {key:'10 – 30 triệu',icon:'💵'},
+    {key:'30 – 100 triệu',icon:'💸'},
+    {key:'Trên 100 triệu',icon:'🚀'}
+  ];
+  var SERVICE_OFFERS=[
+    {code:'fb_ads',icon:'📣',title:'Quảng cáo Facebook',desc:'Tối ưu chiến dịch, tăng chuyển đổi'},
+    {code:'tkqc_rental',icon:'🔑',title:'Thuê tài khoản quảng cáo',desc:'TKQC ổn định, BM chất lượng'},
+    {code:'web_dev',icon:'💻',title:'Thiết kế & Lập trình Web/App',desc:'Website chuẩn SEO, tối ưu UX/UI'}
+  ];
+  var h='<div class="lead-page-wrap">';
+  // HERO
+  h+='<div class="lead-hero-card">';
+  h+='<div class="lead-hero-content">';
+  h+='<div class="lead-hero-pill">🛡️ TƯ VẤN MIỄN PHÍ 100%</div>';
+  h+='<h1 class="lead-hero-h1">Nhận tư vấn chiến lược <span class="lead-hero-h1-blue">quảng cáo Facebook</span> phù hợp với bạn</h1>';
+  h+='<p class="lead-hero-sub">Tối ưu ngân sách – Tăng tỷ lệ ra đơn – Không đốt tiền test</p>';
+  h+='<div class="lead-hero-trust">';
+  h+='<div class="lead-trust-item"><span class="lead-trust-icon">⭐</span><div><div class="lead-trust-title">Chuyên gia 8+ năm</div><div class="lead-trust-sub">kinh nghiệm thực chiến</div></div></div>';
+  h+='<div class="lead-trust-item"><span class="lead-trust-icon">🏢</span><div><div class="lead-trust-title">Hơn 500+ doanh nghiệp</div><div class="lead-trust-sub">đã tin tưởng</div></div></div>';
+  h+='<div class="lead-trust-item"><span class="lead-trust-icon">⚡</span><div><div class="lead-trust-title">Tư vấn 1-1, giải pháp</div><div class="lead-trust-sub">đo ni đóng giày</div></div></div>';
   h+='</div>';
-  h+='<div class="lead-form-card">';
-  h+='<div class="lead-form-row"><label>Họ tên / Tên doanh nghiệp <span class="req">*</span></label><input id="lf-name" class="lead-fi" type="text" placeholder="VD: Nguyễn Văn A / Spa Hương Sen" autocomplete="name"></div>';
-  h+='<div class="lead-form-row-grid">';
-  h+='<div class="lead-form-row"><label>Số điện thoại <span class="req">*</span></label><input id="lf-phone" class="lead-fi" type="tel" placeholder="0912 345 678" autocomplete="tel" inputmode="tel"></div>';
-  h+='<div class="lead-form-row"><label>Zalo <span class="opt">(nếu khác SĐT)</span></label><input id="lf-zalo" class="lead-fi" type="text" placeholder="Để trống nếu Zalo trùng SĐT"></div>';
   h+='</div>';
-  h+='<div class="lead-form-row-grid">';
-  h+='<div class="lead-form-row"><label>Email <span class="opt">(không bắt buộc)</span></label><input id="lf-email" class="lead-fi" type="email" placeholder="email@doanhnghiep.vn"></div>';
-  h+='<div class="lead-form-row"><label>Ngành nghề <span class="opt">(không bắt buộc)</span></label><input id="lf-industry" class="lead-fi" type="text" placeholder="VD: Spa / Thời trang / F&amp;B"></div>';
+  // Mock dashboard
+  h+='<div class="lead-hero-mock">';
+  h+='<div class="lead-mock-icon-fb">f</div>';
+  h+='<div class="lead-mock-card lead-mock-card-1">';
+  h+='<div class="lead-mock-lbl">Doanh thu</div>';
+  h+='<div class="lead-mock-val">3.250.000.000đ</div>';
+  h+='<div class="lead-mock-up">↑ 158%</div>';
+  h+='<div class="lead-mock-bars"><span style="height:30%"></span><span style="height:48%"></span><span style="height:62%"></span><span style="height:78%"></span><span style="height:95%"></span></div>';
   h+='</div>';
-  h+='<div class="lead-form-row"><label>Ngân sách quảng cáo dự kiến/tháng</label>';
-  h+='<div class="lead-radio-grid">';
-  ['Chưa rõ','Dưới 10 triệu','10–20 triệu','20–50 triệu','50–100 triệu','Trên 100 triệu'].forEach(function(v,i){
-    h+='<label class="lead-radio"><input type="radio" name="lf-budget" value="'+v+'"'+(i===0?' checked':'')+'><span>'+v+'</span></label>';
-  });
+  h+='<div class="lead-mock-card lead-mock-card-2"><div class="lead-mock-lbl">Tỷ lệ ra đơn</div><div class="lead-mock-val-sm">8.6%</div><div class="lead-mock-up">↑ 2.7%</div></div>';
+  h+='</div>';
+  h+='</div>';
+  // GRID 2-col
+  h+='<div class="lead-grid">';
+  // SIDEBAR
+  h+='<div class="lead-sidebar">';
+  h+='<div class="lead-side-card">';
+  h+='<div class="lead-side-title">Quy trình tư vấn</div>';
+  h+='<div class="lead-process-step active" data-step="1"><div class="lead-process-num">1</div><div><div class="lead-process-name">Thông tin cơ bản</div><div class="lead-process-time">(2 phút)</div></div></div>';
+  h+='<div class="lead-process-step" data-step="2"><div class="lead-process-num">2</div><div><div class="lead-process-name">Nhu cầu &amp; ngân sách</div><div class="lead-process-time">(2 phút)</div></div></div>';
+  h+='<div class="lead-process-step" data-step="3"><div class="lead-process-num">3</div><div><div class="lead-process-name">Gửi yêu cầu tư vấn</div><div class="lead-process-time">(Hoàn tất)</div></div></div>';
+  h+='</div>';
+  h+='<div class="lead-side-card lead-testimonial">';
+  h+='<div class="lead-quote-mark">"</div>';
+  h+='<p class="lead-quote-text">Nhờ chiến lược quảng cáo đúng hướng, doanh thu của shop tăng 3X chỉ sau 30 ngày hợp tác.</p>';
+  h+='<div class="lead-quote-author"><div class="lead-quote-avatar">A</div><div><div class="lead-quote-name">Chị Lan Anh</div><div class="lead-quote-role">Chủ shop thời trang</div></div></div>';
+  h+='</div>';
+  h+='<div class="lead-side-card">';
+  h+='<div class="lead-side-title">Được tin tưởng bởi</div>';
+  h+='<div class="lead-logos-grid">';
+  ['HC Coaching','HC Mama','HC Studio','HC Wear','HC Foods','HC Beauty'].forEach(function(n){h+='<div class="lead-logo-cell">'+esc(n)+'</div>';});
   h+='</div></div>';
-  h+='<div class="lead-form-row"><label>Dịch vụ quan tâm <span class="opt">(tick các mục cần)</span></label>';
-  h+='<div class="lead-checkbox-grid">';
-  Object.keys(SERVICES).forEach(function(code){var s=SERVICES[code];var defChk=(code==='fb_ads')?' checked':'';h+='<label class="lead-checkbox"><input type="checkbox" class="lf-service" value="'+code+'"'+defChk+'><span>'+s.icon+' '+esc(s.name)+'</span></label>';});
+  h+='<div class="lead-side-card lead-secure">';
+  h+='<div class="lead-secure-head">🛡️ Cam kết bảo mật</div>';
+  h+='<div class="lead-secure-body">Thông tin của bạn được bảo mật tuyệt đối và chỉ sử dụng để tư vấn.</div>';
+  h+='</div>';
+  h+='</div>';
+  // RIGHT — STEP CARDS
+  h+='<div class="lead-main">';
+  // STEP 1
+  h+='<div class="lead-step lead-step-active" id="lead-step-1" data-step="1">';
+  h+='<div class="lead-step-head"><span class="lead-step-tag">BƯỚC 1/3</span><h2 class="lead-step-title">Thông tin cơ bản</h2><p class="lead-step-desc">Vui lòng cung cấp thông tin để chuyên gia liên hệ và tư vấn cho bạn.</p></div>';
+  h+='<div class="lead-form-grid-2">';
+  h+='<div class="lead-form-row"><label>Họ và tên <span class="req">*</span></label><input id="lf-name" class="lead-fi" type="text" placeholder="VD: Nguyễn Văn A" autocomplete="name"></div>';
+  h+='<div class="lead-form-row"><label>Số điện thoại <span class="req">*</span></label><input id="lf-phone" class="lead-fi" type="tel" placeholder="VD: 0912 345 678" autocomplete="tel" inputmode="tel"></div>';
+  h+='</div>';
+  h+='<div class="lead-form-row"><label>Ngành nghề kinh doanh <span class="req">*</span></label><select id="lf-industry" class="lead-fi"><option value="">Chọn ngành nghề của bạn</option>';
+  INDUSTRIES.forEach(function(ind){h+='<option value="'+esc(ind)+'">'+esc(ind)+'</option>';});
+  h+='</select></div>';
+  h+='<div id="lf-error-1" class="lead-form-error" hidden></div>';
+  h+='<div class="lead-step-foot">';
+  h+='<button class="btn btn-primary lead-step-btn" onclick="nextLeadStep(1)">Tiếp tục <span class="lead-step-arrow">→</span></button>';
+  h+='<div class="lead-step-secure">🔒 Thông tin của bạn được bảo mật 100%</div>';
+  h+='</div>';
+  h+='</div>';
+  // STEP 2
+  h+='<div class="lead-step" id="lead-step-2" data-step="2">';
+  h+='<div class="lead-step-head"><span class="lead-step-tag">BƯỚC 2/3</span><h2 class="lead-step-title">Nhu cầu &amp; ngân sách dự kiến</h2><p class="lead-step-desc">Giúp chúng tôi hiểu rõ hơn để tư vấn giải pháp phù hợp nhất.</p></div>';
+  h+='<div class="lead-form-grid-2">';
+  // Budget left col
+  h+='<div class="lead-form-row"><label>Ngân sách quảng cáo dự kiến / tháng</label>';
+  h+='<div class="lead-budget-grid">';
+  BUDGETS.forEach(function(b,i){h+='<label class="lead-budget-tile"><input type="radio" name="lf-budget" value="'+esc(b.key)+'"'+(i===1?' checked':'')+'><div class="lead-budget-icon">'+b.icon+'</div><div class="lead-budget-label">'+esc(b.key)+'</div></label>';});
   h+='</div></div>';
-  h+='<div class="lead-form-row"><label>Lời nhắn / nhu cầu cụ thể <span class="opt">(không bắt buộc)</span></label><textarea id="lf-message" class="lead-fi" rows="3" placeholder="VD: Đang muốn chạy Mess cho dịch vụ spa, khu vực Hà Nội, đã có Fanpage…"></textarea></div>';
-  // Honeypot — bot điền, người không thấy
+  // Service right col
+  h+='<div class="lead-form-row"><label>Dịch vụ bạn quan tâm <span class="opt">(có thể chọn nhiều)</span></label>';
+  h+='<div class="lead-service-list">';
+  SERVICE_OFFERS.forEach(function(s,i){h+='<label class="lead-service-tile"><input type="checkbox" class="lf-service" value="'+s.code+'"'+(i===0?' checked':'')+'><div class="lead-service-icon">'+s.icon+'</div><div class="lead-service-text"><div class="lead-service-title">'+esc(s.title)+'</div><div class="lead-service-desc">'+esc(s.desc)+'</div></div><div class="lead-service-check">✓</div></label>';});
+  h+='</div></div>';
+  h+='</div>';
+  h+='<div class="lead-form-row"><label>Nhu cầu hiện tại của bạn <span class="opt">(không bắt buộc)</span></label><textarea id="lf-message" class="lead-fi" rows="3" placeholder="Mô tả nhu cầu, sản phẩm/dịch vụ, khu vực kinh doanh, hiện trạng quảng cáo…"></textarea></div>';
+  h+='<div id="lf-error-2" class="lead-form-error" hidden></div>';
+  h+='<div class="lead-step-foot">';
+  h+='<button class="btn lead-step-back" onclick="prevLeadStep(2)">← Quay lại</button>';
+  h+='<button class="btn btn-primary lead-step-btn" onclick="nextLeadStep(2)">Tiếp tục <span class="lead-step-arrow">→</span></button>';
+  h+='</div>';
+  h+='</div>';
+  // STEP 3
+  h+='<div class="lead-step" id="lead-step-3" data-step="3">';
+  h+='<div class="lead-step-head"><span class="lead-step-tag">BƯỚC 3/3</span><h2 class="lead-step-title">Gửi yêu cầu tư vấn</h2><p class="lead-step-desc">Xác nhận thông tin và gửi yêu cầu để chuyên gia liên hệ với bạn.</p></div>';
+  h+='<div class="lead-confirm-summary" id="lf-summary"></div>';
+  h+='<div class="lead-form-row"><label>Vui lòng giải phép tính (chống spam)</label><div class="lead-captcha-row"><span class="lead-captcha-q">'+a+' + '+b+' = </span><input id="lf-captcha" class="lead-fi" type="number" inputmode="numeric" style="max-width:140px;" autocomplete="off"></div></div>';
   h+='<div style="position:absolute;left:-9999px;height:0;overflow:hidden;" aria-hidden="true"><input id="lf-website" name="website" tabindex="-1" autocomplete="off"></div>';
-  // Captcha math
-  h+='<div class="lead-form-row"><label>Vui lòng giải phép tính sau (chống spam)</label><div class="lead-captcha-row"><span class="lead-captcha-q">'+a+' + '+b+' = </span><input id="lf-captcha" class="lead-fi" type="number" inputmode="numeric" style="max-width:140px;" autocomplete="off"></div></div>';
-  h+='<div id="lf-error" class="lead-form-error" hidden></div>';
-  h+='<button class="btn btn-primary lead-submit-btn" onclick="submitPublicLead(this)">📨 Gửi thông tin tư vấn</button>';
+  h+='<div id="lf-error-3" class="lead-form-error" hidden></div>';
+  h+='<div class="lead-step-foot">';
+  h+='<button class="btn lead-step-back" onclick="prevLeadStep(3)">← Quay lại</button>';
+  h+='<button class="btn btn-primary lead-step-btn lead-submit-btn" onclick="submitPublicLead(this)">📨 Gửi yêu cầu tư vấn</button>';
   h+='</div>';
-  h+='<div class="lead-footer"><div>HC Agency · Hệ thống quản trị Quảng cáo Facebook</div><div style="margin-top:6px;">Hotline / Zalo: <a href="tel:0968915555" style="color:var(--blue-tx);font-weight:600;">0968 91 5555</a></div></div>';
+  h+='</div>';
+  h+='</div>';
+  h+='</div>';
+  // Bottom CTA bar
+  h+='<div class="lead-cta-bar">';
+  h+='<div class="lead-cta-icon">🎁</div>';
+  h+='<div class="lead-cta-text"><div class="lead-cta-title">Nhận chiến lược Ads riêng cho tôi</div><div class="lead-cta-sub">Chuyên gia sẽ liên hệ trong 15 – 30 phút</div></div>';
+  h+='<div class="lead-cta-shield">🛡️</div>';
+  h+='</div>';
+  h+='<div class="lead-bottom-trust">🛡️ Không hiệu quả – Hoàn phí setup. Chúng tôi cam kết đồng hành đến khi bạn đạt kết quả.</div>';
+  h+='<div class="lead-footer-mini">HC Agency · Hotline / Zalo: <a href="tel:0968915555" style="color:var(--blue-tx);font-weight:600;">0968 91 5555</a></div>';
   h+='</div>';
   document.getElementById('page').innerHTML=h;
+}
+function setLeadStepActive(step){
+  publicLeadFormCurrentStep=step;
+  document.querySelectorAll('.lead-process-step').forEach(function(el){
+    var s=parseInt(el.dataset.step);
+    el.classList.toggle('active',s===step);
+    el.classList.toggle('complete',s<step);
+  });
+  document.querySelectorAll('.lead-step').forEach(function(el){
+    var s=parseInt(el.dataset.step);
+    el.classList.toggle('lead-step-active',s===step);
+  });
+}
+function validateLeadStep(step){
+  var errEl=document.getElementById('lf-error-'+step);
+  function showErr(msg){if(errEl){errEl.textContent=msg;errEl.hidden=false;}}
+  function clearErr(){if(errEl)errEl.hidden=true;}
+  clearErr();
+  if(step===1){
+    var name=document.getElementById('lf-name').value.trim();
+    var phone=document.getElementById('lf-phone').value.trim();
+    var industry=document.getElementById('lf-industry').value;
+    if(!name){showErr('Vui lòng nhập họ và tên');return false;}
+    var cleanPhone=phone.replace(/\D/g,'');
+    if(cleanPhone.length<9||cleanPhone.length>11){showErr('Số điện thoại không hợp lệ (phải 9-11 chữ số)');return false;}
+    if(!industry){showErr('Vui lòng chọn ngành nghề kinh doanh');return false;}
+    return true;
+  }
+  if(step===2){
+    var anyService=document.querySelectorAll('.lf-service:checked').length>0;
+    if(!anyService){showErr('Vui lòng chọn ít nhất 1 dịch vụ quan tâm');return false;}
+    return true;
+  }
+  return true;
+}
+function nextLeadStep(currentStep){
+  if(!validateLeadStep(currentStep))return;
+  var nextEl=document.getElementById('lead-step-'+(currentStep+1));
+  if(nextEl){
+    setLeadStepActive(currentStep+1);
+    if(currentStep+1===3)updateLeadSummary();
+    setTimeout(function(){nextEl.scrollIntoView({behavior:'smooth',block:'start'});},80);
+  }
+}
+function prevLeadStep(currentStep){
+  var prevEl=document.getElementById('lead-step-'+(currentStep-1));
+  if(prevEl){
+    setLeadStepActive(currentStep-1);
+    setTimeout(function(){prevEl.scrollIntoView({behavior:'smooth',block:'start'});},80);
+  }
+}
+function updateLeadSummary(){
+  var name=document.getElementById('lf-name').value.trim();
+  var phone=document.getElementById('lf-phone').value.trim();
+  var industry=document.getElementById('lf-industry').value;
+  var budgetEl=document.querySelector('input[name="lf-budget"]:checked');
+  var budget=budgetEl?budgetEl.value:'Chưa chọn';
+  var services=[];
+  document.querySelectorAll('.lf-service:checked').forEach(function(el){
+    var titleEl=el.closest('.lead-service-tile').querySelector('.lead-service-title');
+    if(titleEl)services.push(titleEl.textContent);
+  });
+  var msg=document.getElementById('lf-message').value.trim();
+  var sumEl=document.getElementById('lf-summary');
+  if(sumEl){
+    var html='';
+    html+='<div class="lead-sum-row"><span>Họ tên</span><b>'+esc(name||'—')+'</b></div>';
+    html+='<div class="lead-sum-row"><span>Số điện thoại</span><b>'+esc(phone||'—')+'</b></div>';
+    html+='<div class="lead-sum-row"><span>Ngành nghề</span><b>'+esc(industry||'—')+'</b></div>';
+    html+='<div class="lead-sum-row"><span>Ngân sách</span><b>'+esc(budget)+'</b></div>';
+    html+='<div class="lead-sum-row"><span>Dịch vụ quan tâm</span><b>'+esc(services.join(', ')||'—')+'</b></div>';
+    if(msg)html+='<div class="lead-sum-row"><span>Nhu cầu</span><b>'+esc(msg)+'</b></div>';
+    sumEl.innerHTML=html;
+  }
 }
 async function submitPublicLead(btn){
   var get=function(id){var el=document.getElementById(id);return el?el.value.trim():'';};
@@ -5860,7 +6112,7 @@ async function submitPublicLead(btn){
 }
 function showLeadFormSuccess(result){
   var dup=result&&result.duplicate;
-  var h='<div class="public-container lead-container">';
+  var h='<div class="lead-page-wrap">';
   h+='<div class="lead-success">';
   h+='<div class="lead-success-icon">✅</div>';
   h+='<h1 class="lead-success-title">'+(dup?'Đã ghi nhận lần liên hệ mới':'Đã nhận thông tin của bạn')+'</h1>';
