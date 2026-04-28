@@ -725,10 +725,55 @@ table.rental-matrix tr:not(.total):hover td:first-child{background:rgba(55,138,2
 /* Modal sửa khách hàng — section label */
 .ce-section-label{font-size:11px;font-weight:700;color:var(--blue-tx);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--bd1);}
 .ce-section-label:first-child{margin-top:0;}
-/* Tiềm năng — toolbar trên đầu */
+/* Tiềm năng — toolbar cũ (giữ phòng dùng) */
 .kh-prospect-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--radius-lg);padding:10px 12px;}
 .kh-prospect-toolbar .fi{flex:1;max-width:320px;min-width:200px;}
 .kh-prospect-count{font-size:12px;color:var(--tx3);margin-left:auto;font-weight:500;}
+/* ═══ TAB TIỀM NĂNG — LAYOUT MỚI (CRM card style) ═══ */
+.pr-header{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:8px;flex-wrap:wrap;}
+.pr-add-btn{padding:9px 16px;font-size:13px;font-weight:600;border-radius:10px;flex-shrink:0;}
+.pr-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;}
+@media(max-width:768px){.pr-kpi-grid{grid-template-columns:1fr;}}
+.pr-kpi-card{background:var(--bg1);border:1px solid var(--bd1);border-radius:14px;padding:14px 18px;}
+.pr-kpi-lbl{font-size:12px;color:var(--tx3);margin-bottom:6px;font-weight:500;}
+.pr-kpi-val{font-size:26px;font-weight:800;color:var(--tx1);font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.1;}
+.pr-kpi-val.urgent{color:var(--red-tx);}
+.pr-kpi-actions{font-size:14px;font-weight:600;line-height:1.3;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-top:4px;}
+.pr-kpi-actions a{color:var(--blue-tx);text-decoration:none;}
+.pr-kpi-actions a:hover{text-decoration:underline;}
+.pr-kpi-actions .pr-dot{color:var(--tx3);font-weight:400;}
+.pr-search{width:100%;padding:11px 14px;font-size:14px;border:1px solid var(--bd2);border-radius:10px;background:var(--bg1);color:var(--tx1);font-family:inherit;outline:none;margin-bottom:12px;transition:border .15s,box-shadow .15s;}
+.pr-search:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(55,138,221,.10);}
+.pr-search::placeholder{color:var(--tx3);}
+/* Table */
+.pr-table-wrap{background:var(--bg1);border:1px solid var(--bd1);border-radius:14px;overflow:hidden;}
+table.pr-table{width:100%;border-collapse:collapse;}
+table.pr-table th{text-align:left;padding:12px 18px;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg2);border-bottom:1px solid var(--bd1);}
+table.pr-table th.pr-th-action{width:48px;}
+table.pr-table td{padding:14px 18px;border-bottom:1px solid var(--bd1);font-size:13px;color:var(--tx1);vertical-align:middle;}
+table.pr-table tr:last-child td{border-bottom:none;}
+table.pr-table tbody tr:not(.pr-row-detail):hover td{background:var(--bg2);}
+table.pr-table tr.pr-row-expanded td{background:rgba(55,138,221,.04);}
+table.pr-table tr.pr-row-detail td{padding:0;background:var(--bg2);}
+/* Tên cell với avatar */
+.pr-name-cell{display:flex;align-items:center;gap:12px;}
+.pr-avatar{width:38px;height:38px;border-radius:50%;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:-.01em;}
+.pr-name-stack{min-width:0;flex:1;}
+.pr-name-row{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.pr-name{font-weight:600;color:var(--tx1);font-size:14px;letter-spacing:-.01em;}
+.pr-name-sub{font-size:12px;color:var(--tx3);margin-top:2px;}
+/* Dịch vụ */
+.pr-svc-cell{font-size:12.5px;}
+/* Liên hệ — Zalo link */
+.pr-zalo-link{color:var(--blue-tx);text-decoration:none;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:4px;transition:gap .15s;}
+.pr-zalo-link:hover{text-decoration:underline;gap:6px;}
+.pr-empty-cell{color:var(--tx3);opacity:.5;font-size:13px;}
+/* Ngày */
+.pr-date{color:var(--tx2);font-size:12.5px;font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
+/* Action cell */
+.pr-action-cell{text-align:right;width:48px;padding-right:12px !important;}
+.pr-action-cell .qt-action-more{width:36px;height:36px;font-size:18px;border:none;background:transparent;color:var(--tx3);}
+.pr-action-cell .qt-action-more:hover{background:var(--bg2);color:var(--tx1);}
 @media(max-width:768px){
   .invoice-head,.invoice-body,.invoice-paybox,.invoice-actions{padding-left:16px;padding-right:16px;}
   .invoice-fee-row,.invoice-total{flex-direction:column;align-items:flex-start;}
@@ -2810,67 +2855,76 @@ async function copyLeadFormUrl(btn){
 // ═══ P3 — TAB KHÁCH TIỀM NĂNG ═══
 function p3Prospect(tabH){
 var prospects=clientList.filter(function(c){return c.status==='prospect';});
-// Filter by search
 if(clientSearchText){
   var q=clientSearchText.toLowerCase();
-  prospects=prospects.filter(function(c){return(c.name||'').toLowerCase().indexOf(q)>=0||(c.company_full_name||'').toLowerCase().indexOf(q)>=0||(c.contact_person||'').toLowerCase().indexOf(q)>=0||(c.phone||'').indexOf(q)>=0;});
+  prospects=prospects.filter(function(c){return(c.name||'').toLowerCase().indexOf(q)>=0||(c.company_full_name||'').toLowerCase().indexOf(q)>=0||(c.contact_person||'').toLowerCase().indexOf(q)>=0||(c.phone||'').indexOf(q)>=0||(c.address||'').toLowerCase().indexOf(q)>=0;});
 }
 prospects.sort(function(a,b){return(b.created_at||'').localeCompare(a.created_at||'');});
-// Đếm theo nguồn để hiển thị KPI strip
 var allProspects=clientList.filter(function(c){return c.status==='prospect';});
 var newCount=allProspects.filter(function(c){return(c.care_status||'new')==='new';}).length;
-var fromFormCount=allProspects.filter(function(c){return c.lead_source&&c.lead_source!=='other';}).length;
+var negotiatingCount=allProspects.filter(function(c){return(c.care_status||'')==='negotiating';}).length;
 var origin=window.location.origin+window.location.pathname.replace(/[^\/]*$/,'')+'index.html';
 var leadFormUrl=origin+'?form=lead';
-var h='<div class="page-title">Khách hàng</div><div class="page-sub">Khách tiềm năng (chưa ký Hợp đồng)</div>';
+// Header row: title + sub + button "+ Thêm khách"
+var h='<div class="pr-header"><div><div class="page-title">Khách hàng</div><div class="page-sub">Khách tiềm năng — chưa ký hợp đồng</div></div><button class="btn btn-primary pr-add-btn" onclick="openNewProspectModal()">+ Thêm khách</button></div>';
 h+=tabH;
-// KPI strip: lead chưa liên hệ + lead từ form công khai + nút copy URL
-h+='<div class="lead-kpi-strip">';
-h+='<div class="lead-kpi-item"><span class="lead-kpi-num'+(newCount>0?' urgent':'')+'">'+newCount+'</span><span class="lead-kpi-lbl">lead mới chưa liên hệ</span></div>';
-h+='<div class="lead-kpi-item"><span class="lead-kpi-num">'+fromFormCount+'</span><span class="lead-kpi-lbl">lead có nguồn xác định</span></div>';
-h+='<div class="lead-kpi-spacer"></div>';
-h+='<button class="btn btn-sm" onclick="copyLeadFormUrl(this)" title="Sao chép URL form thu lead công khai">🔗 Copy URL form công khai</button>';
-h+='<a href="'+esc(leadFormUrl)+'" target="_blank" rel="noopener" class="btn btn-sm" title="Xem form công khai như khách thấy">👁 Xem form</a>';
+// 3 KPI cards
+h+='<div class="pr-kpi-grid">';
+h+='<div class="pr-kpi-card"><div class="pr-kpi-lbl">Lead chưa liên hệ</div><div class="pr-kpi-val'+(newCount>0?' urgent':'')+'">'+newCount+'</div></div>';
+h+='<div class="pr-kpi-card"><div class="pr-kpi-lbl">Đang đàm phán</div><div class="pr-kpi-val">'+negotiatingCount+'</div></div>';
+h+='<div class="pr-kpi-card"><div class="pr-kpi-lbl">Form công khai</div><div class="pr-kpi-actions"><a href="'+esc(leadFormUrl)+'" target="_blank" rel="noopener">Xem</a><span class="pr-dot">·</span><a href="#" onclick="event.preventDefault();copyLeadFormUrl(this);">Copy URL</a></div></div>';
 h+='</div>';
-h+='<div class="kh-prospect-toolbar">';
-h+='<button class="btn btn-primary" onclick="openNewProspectModal()">➕ Thêm khách tiềm năng</button>';
-h+='<input type="text" placeholder="Tìm khách tiềm năng..." value="'+esc(clientSearchText)+'" oninput="hcSearchInput(\'clientSearchText\',this.value)" class="fi">';
-h+='<span class="kh-prospect-count">'+prospects.length+' khách</span>';
-h+='</div>';
+// Search bar full width
+h+='<input type="text" class="pr-search" placeholder="Tìm theo tên, SĐT, dịch vụ..." value="'+esc(clientSearchText)+'" oninput="hcSearchInput(\'clientSearchText\',this.value)">';
 if(!prospects.length){
   h+='<div class="empty-state" role="status">';
   h+='<div class="empty-state-icon" aria-hidden="true">📋</div>';
   h+='<div class="empty-state-title">Chưa có khách tiềm năng</div>';
-  h+='<div class="empty-state-desc">'+(clientSearchText?'Không tìm thấy khách hàng khớp với từ khoá tìm kiếm. Thử xoá bộ lọc hoặc đổi từ khoá.':'Bấm "Thêm khách tiềm năng" ở trên để lưu thông tin khách mới và xuất hợp đồng chào hàng.')+'</div>';
+  h+='<div class="empty-state-desc">'+(clientSearchText?'Không tìm thấy khách khớp với từ khoá. Thử xoá bộ lọc.':'Bấm "+ Thêm khách" ở trên hoặc chia sẻ URL form công khai để khách tự điền.')+'</div>';
   h+='</div>';
   return h;
 }
-h+='<div class="table-wrap"><table><thead><tr><th style="width:30px;">#</th><th>Tên</th><th>Dịch vụ</th><th>Công ty</th><th>Liên hệ</th><th>CSKH</th><th>Ngày tạo</th><th style="text-align:center;">Hợp đồng</th><th>Thao tác</th></tr></thead><tbody>';
-prospects.forEach(function(c,i){
-  var ctrs=contractList.filter(function(x){return x.client_id===c.id;});
+h+='<div class="pr-table-wrap"><table class="pr-table"><thead><tr><th>Tên</th><th>Dịch vụ</th><th>Liên hệ</th><th>Trạng thái</th><th>Ngày tạo</th><th class="pr-th-action"></th></tr></thead><tbody>';
+prospects.forEach(function(c){
   var createdDate=c.created_at?c.created_at.substring(0,10):'';
   var isExp=expandedClientId===c.id;
-  h+='<tr style="'+(isExp?'background:var(--blue-bg);':'')+'">';
-  h+='<td><span class="kh-num">'+(i+1)+'</span></td>';
-  h+='<td><div class="kh-name-cell"><span class="kh-name-text">'+esc(c.name)+'</span><span class="prospect-badge">Tiềm năng</span>'+renderLeadSourceBadge(c.lead_source)+'<button class="kh-edit-btn" onclick="event.stopPropagation();openClientEditModal(\''+c.id+'\')" title="Sửa dịch vụ / Zalo / CSKH" aria-label="Sửa khách hàng"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></div></td>';
-  h+='<td>'+renderServicesBadges(c.services,{compact:true})+'</td>';
-  h+='<td style="font-size:12px;color:var(--tx2);">'+esc(c.company_full_name||'—')+'</td>';
-  h+='<td style="font-size:12px;color:var(--tx2);"><div class="kh-contact"><span>'+esc(c.contact_person||c.phone||'—')+'</span>'+renderZaloBtn(c)+'</div></td>';
-  h+='<td>'+renderCareChip(c.care_status||'new')+'</td>';
+  var initials=getInitials(c.name);
+  var avColor=getAvatarColor(c.id||c.name);
   var dateDisplay='—';
   if(createdDate){var dp=createdDate.split('-');if(dp.length===3)dateDisplay=dp[2]+'/'+dp[1]+'/'+dp[0];else dateDisplay=createdDate;}
-  h+='<td><span class="kh-date">'+esc(dateDisplay)+'</span></td>';
-  h+='<td style="text-align:center;">';
-  if(ctrs.length){h+='<button class="kh-contract-chip" onclick="openContractHistory(\''+c.id+'\')" title="Xem lịch sử Hợp đồng"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'+ctrs.length+' bản</button>';}
-  else{h+='<span style="color:var(--tx3);font-size:12px;">—</span>';}
-  h+='</td>';
-  h+='<td><div class="kh-row-actions">';
-  h+='<button class="btn btn-quote btn-icon" onclick="openQuotationForClient(\''+c.id+'\')" title="Tạo báo giá">💰 Báo giá</button>';
-  h+='<button class="btn btn-contract btn-icon" onclick="openContractModal(\''+c.id+'\')" title="Xuất hợp đồng">📄 Hợp đồng</button>';
-  h+='<button class="btn btn-detail'+(isExp?' is-active':'')+'" onclick="toggleProspectExpand(\''+c.id+'\')">'+(isExp?'Thu gọn':'Chi tiết')+'</button>';
-  h+='</div></td></tr>';
+  var subline=c.address||c.contact_person||c.phone||'';
+  var zaloRaw=(c.zalo||'').trim()||(c.phone||'').trim();
+  h+='<tr class="'+(isExp?'pr-row-expanded':'')+'">';
+  // Tên cell with avatar
+  h+='<td><div class="pr-name-cell"><div class="pr-avatar" style="background:'+avColor.bg+';color:'+avColor.tx+';">'+esc(initials)+'</div><div class="pr-name-stack"><div class="pr-name-row"><span class="pr-name">'+esc(c.name)+'</span>'+renderLeadSourceBadge(c.lead_source)+'</div>'+(subline?'<div class="pr-name-sub">'+esc(subline)+'</div>':'')+'</div></div></td>';
+  // Dịch vụ
+  h+='<td class="pr-svc-cell">'+renderServicesBadges(c.services,{compact:true,icon:false})+'</td>';
+  // Liên hệ — Zalo link only
+  if(zaloRaw){
+    var zUrl=buildZaloLink(zaloRaw);
+    h+='<td><a href="'+esc(zUrl)+'" target="_blank" rel="noopener" class="pr-zalo-link" onclick="event.stopPropagation();">Zalo →</a></td>';
+  }else{
+    h+='<td><span class="pr-empty-cell">—</span></td>';
+  }
+  // Trạng thái
+  h+='<td>'+renderCareChip(c.care_status||'new')+'</td>';
+  // Ngày tạo
+  h+='<td><span class="pr-date">'+esc(dateDisplay)+'</span></td>';
+  // ⋯ menu
+  h+='<td class="pr-action-cell">';
+  h+='<div class="qt-action-wrap">';
+  h+='<button class="qt-action-more" onclick="togglePrMenu(event,\''+c.id+'\')" aria-haspopup="menu" aria-expanded="false" aria-controls="pr-menu-'+c.id+'" title="Thao tác">⋯</button>';
+  h+='<div class="qt-action-menu" id="pr-menu-'+c.id+'" role="menu" onclick="event.stopPropagation();">';
+  h+='<button role="menuitem" onclick="toggleProspectExpand(\''+c.id+'\');closeQuotationMenus();">Xem chi tiết</button>';
+  h+='<button role="menuitem" onclick="openClientEditModal(\''+c.id+'\');closeQuotationMenus();">Sửa thông tin</button>';
+  h+='<button role="menuitem" onclick="openQuotationForClient(\''+c.id+'\');closeQuotationMenus();">Tạo báo giá</button>';
+  h+='<button role="menuitem" onclick="openContractModal(\''+c.id+'\');closeQuotationMenus();">Tạo hợp đồng</button>';
+  h+='<button role="menuitem" onclick="convertProspectToActive(\''+c.id+'\');closeQuotationMenus();">Chốt ký — chuyển chính thức</button>';
+  h+='<div class="sep"></div>';
+  h+='<button role="menuitem" class="danger" onclick="deleteProspect(\''+c.id+'\');closeQuotationMenus();">Xoá</button>';
+  h+='</div></div></td></tr>';
   if(isExp){
-    h+='<tr><td colspan="9" style="padding:0;">';
+    h+='<tr class="pr-row-detail"><td colspan="6" style="padding:0;">';
     h+='<div class="kh-detail-wrap">';
     h+='<div class="kh-detail-grid">';
     h+='<div class="kh-detail-item"><span class="kh-detail-label">Địa chỉ</span><span class="kh-detail-value">'+esc(c.address||'—')+'</span></div>';
@@ -2878,17 +2932,16 @@ prospects.forEach(function(c,i){
     h+='<div class="kh-detail-item"><span class="kh-detail-label">Điện thoại</span><span class="kh-detail-value">'+esc(c.phone||'—')+'</span></div>';
     h+='<div class="kh-detail-item"><span class="kh-detail-label">Zalo</span><span class="kh-detail-value">'+(c.zalo?'<a href="'+esc(buildZaloLink(c.zalo))+'" target="_blank" rel="noopener">'+esc(c.zalo)+'</a>':'—')+'</span></div>';
     h+='<div class="kh-detail-item"><span class="kh-detail-label">Email</span><span class="kh-detail-value">'+esc(c.email_invoice||'—')+'</span></div>';
+    h+='<div class="kh-detail-item"><span class="kh-detail-label">Công ty</span><span class="kh-detail-value">'+esc(c.company_full_name||'—')+'</span></div>';
     h+='<div class="kh-detail-item"><span class="kh-detail-label">Đại diện</span><span class="kh-detail-value">'+esc(((c.representative_salutation||'')+' '+(c.representative_name||'—')).trim())+'</span></div>';
-    h+='<div class="kh-detail-item"><span class="kh-detail-label">Chức vụ</span><span class="kh-detail-value">'+esc(c.representative_title||'—')+'</span></div>';
-    h+='<div class="kh-detail-item"><span class="kh-detail-label">Mã Hợp đồng</span><span class="kh-detail-value">'+esc(c.contract_prefix||'—')+'</span></div>';
     h+='<div class="kh-detail-item"><span class="kh-detail-label">Ngành</span><span class="kh-detail-value">'+esc(c.industry||'—')+'</span></div>';
     if(c.prospect_note)h+='<div class="kh-detail-item kh-detail-note"><span class="kh-detail-label">Ghi chú</span><span class="kh-detail-value">'+esc(c.prospect_note)+'</span></div>';
     h+='</div>';
     h+='<div class="kh-detail-actions">';
-    h+='<button class="btn btn-quote btn-icon" onclick="openQuotationForClient(\''+c.id+'\')">💰 Tạo báo giá</button>';
-    h+='<button class="btn btn-green" onclick="convertProspectToActive(\''+c.id+'\')">✓ Chốt ký — chuyển thành khách chính thức</button>';
-    h+='<button class="btn btn-contract btn-icon" onclick="openContractModal(\''+c.id+'\')">📄 Xuất hợp đồng</button>';
-    h+='<button class="btn btn-red btn-spacer" onclick="deleteProspect(\''+c.id+'\')">Xóa khách</button>';
+    h+='<button class="btn" onclick="openQuotationForClient(\''+c.id+'\')">Tạo báo giá</button>';
+    h+='<button class="btn btn-green" onclick="convertProspectToActive(\''+c.id+'\')">Chốt ký — chuyển khách chính thức</button>';
+    h+='<button class="btn" onclick="openContractModal(\''+c.id+'\')">Xuất hợp đồng</button>';
+    h+='<button class="btn btn-red btn-spacer" onclick="deleteProspect(\''+c.id+'\')">Xoá</button>';
     h+='</div>';
     h+='</div>';
     h+='</td></tr>';
@@ -2896,6 +2949,37 @@ prospects.forEach(function(c,i){
 });
 h+='</tbody></table></div>';
 return h;
+}
+// Tạo initials 2 ký tự từ tên (VD "Quang Tuấn" → "QT")
+function getInitials(name){
+  if(!name)return'?';
+  var parts=String(name).trim().split(/\s+/).filter(Boolean);
+  if(!parts.length)return'?';
+  if(parts.length===1)return parts[0].substring(0,2).toUpperCase();
+  return (parts[0].charAt(0)+parts[parts.length-1].charAt(0)).toUpperCase();
+}
+// Avatar color theo hash của id (deterministic, đa dạng)
+function getAvatarColor(seed){
+  var palette=[
+    {bg:'rgba(55,138,221,.16)',tx:'#1F5DA0'},
+    {bg:'rgba(127,119,221,.16)',tx:'#544DAB'},
+    {bg:'rgba(29,158,117,.16)',tx:'#0F6E50'},
+    {bg:'rgba(186,117,23,.16)',tx:'#8A560F'},
+    {bg:'rgba(216,90,48,.16)',tx:'#A03E1A'},
+    {bg:'rgba(212,83,126,.16)',tx:'#9C2F5A'},
+    {bg:'rgba(99,153,34,.16)',tx:'#4A7218'},
+    {bg:'rgba(226,75,74,.16)',tx:'#B72E2D'}
+  ];
+  var s=String(seed||''),sum=0;for(var i=0;i<s.length;i++)sum+=s.charCodeAt(i);
+  return palette[sum%palette.length];
+}
+// Toggle dropdown menu của prospect (dùng chung close pattern với quotation)
+function togglePrMenu(ev,id){
+  ev.stopPropagation();
+  var m=document.getElementById('pr-menu-'+id);if(!m)return;
+  var wasOpen=m.classList.contains('open');
+  closeQuotationMenus();
+  if(!wasOpen){m.classList.add('open');var trig=ev.currentTarget;if(trig)trig.setAttribute('aria-expanded','true');}
 }
 function toggleProspectExpand(id){expandedClientId=(expandedClientId===id)?null:id;render();}
 async function deleteProspect(clientId){
