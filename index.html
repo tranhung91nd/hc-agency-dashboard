@@ -66,8 +66,9 @@ table{width:100%;border-collapse:collapse;min-width:500px;}th{text-align:left;pa
 .qt-action-wrap{position:relative;display:inline-flex;gap:6px;align-items:center;}
 .qt-action-more{width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--bd2);background:var(--bg1);color:var(--tx2);border-radius:10px;cursor:pointer;font-size:16px;line-height:1;}
 .qt-action-more:hover{background:var(--bg2);color:var(--tx1);}
-.qt-action-menu{position:absolute;right:0;top:calc(100% + 6px);min-width:180px;background:var(--bg1);border:1px solid var(--bd1);border-radius:12px;box-shadow:0 14px 32px rgba(15,23,42,.12);padding:6px;z-index:80;display:none;}
+.qt-action-menu{position:absolute;right:0;top:calc(100% + 6px);min-width:200px;max-height:min(420px,calc(100vh - 80px));overflow-y:auto;background:var(--bg1);border:1px solid var(--bd1);border-radius:12px;box-shadow:0 14px 32px rgba(15,23,42,.12);padding:6px;z-index:1000;display:none;}
 .qt-action-menu.open{display:block;}
+.qt-action-menu.flip-up{top:auto;bottom:calc(100% + 6px);}
 .qt-action-menu button{display:flex;width:100%;gap:10px;align-items:center;padding:9px 12px;background:none;border:none;border-radius:8px;font-size:13px;color:var(--tx1);cursor:pointer;text-align:left;font-family:inherit;}
 .qt-action-menu button:hover{background:var(--bg2);}
 .qt-action-menu button.danger{color:var(--red-tx);}
@@ -746,7 +747,8 @@ table.rental-matrix tr:not(.total):hover td:first-child{background:rgba(55,138,2
 .pr-search:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(55,138,221,.10);}
 .pr-search::placeholder{color:var(--tx3);}
 /* Table */
-.pr-table-wrap{background:var(--bg1);border:1px solid var(--bd1);border-radius:14px;overflow:hidden;}
+.pr-table-wrap{background:var(--bg1);border:1px solid var(--bd1);border-radius:14px;overflow:visible;}
+table.pr-table{border-radius:14px;overflow:hidden;}
 table.pr-table{width:100%;border-collapse:collapse;}
 table.pr-table th{text-align:left;padding:12px 18px;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg2);border-bottom:1px solid var(--bd1);}
 table.pr-table th.pr-th-action{width:48px;}
@@ -2979,7 +2981,17 @@ function togglePrMenu(ev,id){
   var m=document.getElementById('pr-menu-'+id);if(!m)return;
   var wasOpen=m.classList.contains('open');
   closeQuotationMenus();
-  if(!wasOpen){m.classList.add('open');var trig=ev.currentTarget;if(trig)trig.setAttribute('aria-expanded','true');}
+  if(!wasOpen){
+    m.classList.remove('flip-up');
+    m.classList.add('open');
+    var trig=ev.currentTarget;if(trig)trig.setAttribute('aria-expanded','true');
+    // Auto-flip lên nếu menu vượt đáy viewport
+    requestAnimationFrame(function(){
+      var rect=m.getBoundingClientRect();
+      var viewH=window.innerHeight||document.documentElement.clientHeight;
+      if(rect.bottom>viewH-12){m.classList.add('flip-up');}
+    });
+  }
 }
 function toggleProspectExpand(id){expandedClientId=(expandedClientId===id)?null:id;render();}
 async function deleteProspect(clientId){
@@ -4946,6 +4958,7 @@ function p3Quotation(tabH){
 function closeQuotationMenus(){
   document.querySelectorAll('.qt-action-menu.open').forEach(function(el){
     el.classList.remove('open');
+    el.classList.remove('flip-up');
     var trig=document.querySelector('[aria-controls="'+el.id+'"]');
     if(trig)trig.setAttribute('aria-expanded','false');
   });
@@ -4956,9 +4969,15 @@ function toggleQuotationMenu(ev,id){
   var wasOpen=m.classList.contains('open');
   closeQuotationMenus();
   if(!wasOpen){
+    m.classList.remove('flip-up');
     m.classList.add('open');
     var trig=ev.currentTarget;if(trig)trig.setAttribute('aria-expanded','true');
     var first=m.querySelector('button[role="menuitem"]');if(first)first.focus();
+    requestAnimationFrame(function(){
+      var rect=m.getBoundingClientRect();
+      var viewH=window.innerHeight||document.documentElement.clientHeight;
+      if(rect.bottom>viewH-12)m.classList.add('flip-up');
+    });
   }
 }
 document.addEventListener('keydown',function(e){
