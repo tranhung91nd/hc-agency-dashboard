@@ -27,4 +27,4 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           META_TOKEN: ${{ secrets.META_TOKEN }}
-        run: node sync.js
+        run: node scripts/sync.js
