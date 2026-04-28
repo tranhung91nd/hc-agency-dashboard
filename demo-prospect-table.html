@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo: Bảng Tiềm năng — design mới</title>
+<style>
+:root{
+  --bg1:#ffffff; --bg2:#f8fafc; --bg3:#f1f5f9;
+  --tx1:#0f172a; --tx2:#475569; --tx3:#94a3b8;
+  --bd1:rgba(15,23,42,.08); --bd2:rgba(15,23,42,.14);
+  --teal:#1D9E75; --teal-bg:rgba(29,158,117,.10); --teal-tx:#0F6E50;
+  --blue:#378ADD; --blue-bg:rgba(55,138,221,.10); --blue-tx:#1F5DA0;
+  --green:#639922; --green-bg:rgba(99,153,34,.10); --green-tx:#4A7218;
+  --red:#E24B4A; --red-bg:rgba(226,75,74,.10); --red-tx:#B72E2D;
+  --amber:#BA7517; --amber-bg:rgba(186,117,23,.10); --amber-tx:#8A560F;
+  --purple:#7F77DD; --purple-bg:rgba(127,119,221,.10); --purple-tx:#544DAB;
+  --radius:8px; --radius-lg:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--tx1);min-height:100vh;padding:24px 28px;line-height:1.45;}
+.container{max-width:1320px;margin:0 auto;}
+
+.demo-label{font-size:11px;font-weight:700;color:var(--blue-tx);text-transform:uppercase;letter-spacing:.08em;padding:6px 12px;background:var(--blue-bg);border-radius:999px;display:inline-block;margin-bottom:14px;}
+.demo-h1{font-size:22px;font-weight:700;margin-bottom:6px;letter-spacing:-.02em;}
+.demo-sub{font-size:13px;color:var(--tx3);margin-bottom:24px;}
+
+.section-card{background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:20px;}
+@media(max-width:768px){.section-card{padding:16px 14px;}}
+
+.section-title{font-size:14px;font-weight:600;margin-bottom:14px;color:var(--tx1);}
+
+/* ═══ Tabs ═══ */
+.tab-bar{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--bd1);}
+.tab-btn{padding:8px 16px;font-size:13px;font-weight:500;border:none;background:transparent;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;}
+.tab-btn:hover{color:var(--tx1);}
+.tab-btn.active{color:var(--blue-tx);border-bottom-color:var(--blue);font-weight:500;}
+
+/* ═══ KPI strip mới ═══ */
+.kpi-strip{display:flex;align-items:center;gap:18px;padding:10px 16px;margin-bottom:14px;background:linear-gradient(90deg,rgba(99,153,34,.06) 0%,rgba(99,153,34,.01) 100%);border:1px solid var(--green-bg);border-left:3px solid var(--green);border-radius:var(--radius-lg);flex-wrap:wrap;}
+.kpi-item{display:flex;align-items:baseline;gap:6px;}
+.kpi-num{font-size:20px;font-weight:800;color:var(--tx1);font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
+.kpi-num.urgent{color:var(--red-tx);}
+.kpi-lbl{font-size:12px;color:var(--tx2);}
+.kpi-spacer{flex:1;}
+.kpi-strip .btn{padding:6px 11px;font-size:12px;}
+
+/* ═══ Toolbar gộp 1 dòng ═══ */
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+.toolbar .fi{flex:1;min-width:200px;max-width:340px;}
+.toolbar-count{font-size:12px;color:var(--tx3);font-weight:500;}
+.toolbar-actions{display:flex;gap:6px;margin-left:auto;}
+
+/* Empty state KPI (when 0 leads) — minimal floating */
+.kpi-empty{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:6px 0;margin-bottom:8px;font-size:12px;color:var(--tx3);}
+
+/* ═══ Buttons ═══ */
+.btn{padding:8px 14px;border-radius:8px;border:1px solid var(--bd2);background:var(--bg1);color:var(--tx2);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:all .15s;}
+.btn:hover{background:var(--bg2);border-color:var(--blue);color:var(--blue-tx);}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue);}
+.btn-primary:hover{background:#1F5DA0;color:#fff;border-color:#1F5DA0;}
+.btn-sm{padding:6px 10px;font-size:12px;}
+
+.fi{padding:8px 12px;border:1px solid var(--bd2);border-radius:8px;background:var(--bg1);color:var(--tx1);font-size:13px;font-family:inherit;outline:none;}
+.fi:focus{border-color:var(--blue);}
+
+/* ═══ Bảng tinh gọn ═══ */
+.table-wrap{overflow-x:auto;}
+table.tbl{width:100%;min-width:920px;border-collapse:collapse;}
+table.tbl th{text-align:left;padding:10px 14px;font-size:11px;font-weight:700;color:var(--tx2);border-bottom:1px solid var(--bd2);text-transform:uppercase;letter-spacing:.4px;background:var(--bg2);}
+table.tbl td{padding:10px 14px;border-bottom:1px solid var(--bd1);font-size:13px;color:var(--tx1);vertical-align:middle;}
+table.tbl tr:hover td{background:rgba(55,138,221,.04);}
+
+/* Số thứ tự gọn */
+.kh-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--bg2);color:var(--tx3);font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;}
+tr:hover .kh-num{background:var(--blue-bg);color:var(--blue-tx);}
+
+/* Cell Khách: tên + chip nguồn nhỏ */
+.kh-name-stack{display:flex;flex-direction:column;gap:2px;}
+.kh-name-row{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.kh-name{font-weight:600;color:var(--tx1);letter-spacing:-.01em;}
+.kh-company{font-size:11.5px;color:var(--tx3);}
+.lead-source-mini{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;font-size:10.5px;font-weight:600;border-radius:8px;letter-spacing:.02em;line-height:1.5;}
+.b-blue-bg{background:var(--blue-bg);color:var(--blue-tx);}
+.b-purple-bg{background:var(--purple-bg);color:var(--purple-tx);}
+.b-teal-bg{background:var(--teal-bg);color:var(--teal-tx);}
+.b-green-bg{background:var(--green-bg);color:var(--green-tx);}
+
+/* Cell Dịch vụ */
+.svc-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;font-size:10.5px;font-weight:600;border-radius:8px;letter-spacing:.02em;}
+.svc-badge .dot{width:6px;height:6px;border-radius:50%;}
+
+/* Cell Liên hệ — gộp inline */
+.kh-contact-stack{display:flex;flex-direction:column;gap:2px;font-size:12.5px;}
+.kh-contact-row{display:inline-flex;align-items:center;gap:8px;color:var(--tx2);}
+.kh-phone{font-variant-numeric:tabular-nums;color:var(--tx2);}
+.kh-zalo-mini{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:#0068ff;color:#fff;text-decoration:none;font-size:11px;font-weight:700;flex-shrink:0;}
+.kh-zalo-mini:hover{background:#0052d4;}
+
+/* Cell CSKH */
+.care-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;font-size:11px;font-weight:600;border-radius:10px;}
+
+/* Cell Ngày */
+.kh-date{font-variant-numeric:tabular-nums;color:var(--tx2);font-size:12px;letter-spacing:-.01em;}
+
+/* Cell trống — mờ */
+.cell-empty{color:var(--tx3);opacity:.4;font-size:12px;}
+
+/* Thao tác — chip mềm không icon */
+.kh-actions{display:inline-flex;align-items:center;gap:4px;}
+.act-chip{padding:4px 10px;font-size:11.5px;font-weight:500;border-radius:7px;border:none;cursor:pointer;font-family:inherit;transition:all .15s;line-height:1.4;}
+.act-quote{background:var(--amber-bg);color:var(--amber-tx);}
+.act-quote:hover{background:var(--amber);color:#fff;}
+.act-contract{background:var(--blue-bg);color:var(--blue-tx);}
+.act-contract:hover{background:var(--blue);color:#fff;}
+.act-detail{background:var(--bg2);color:var(--tx2);border:1px solid var(--bd2);}
+.act-detail:hover{border-color:var(--blue);color:var(--blue-tx);background:var(--blue-bg);}
+
+/* Layout demo: section toggle */
+.demo-toggle{display:inline-flex;gap:0;padding:4px;background:var(--bg2);border-radius:10px;margin-bottom:16px;}
+.demo-toggle button{padding:6px 12px;border:none;background:transparent;color:var(--tx3);font-size:12px;font-weight:500;cursor:pointer;border-radius:8px;font-family:inherit;}
+.demo-toggle button.active{background:var(--bg1);color:var(--tx1);box-shadow:0 1px 3px rgba(15,23,42,.08);}
+
+/* Compare grid — Trước / Sau */
+.compare-grid{display:grid;grid-template-columns:1fr;gap:16px;}
+
+/* Note về density */
+.density-note{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;background:var(--green-bg);color:var(--green-tx);border-radius:999px;font-size:11.5px;font-weight:600;margin-top:8px;}
+
+/* Footer */
+.demo-footer{margin-top:32px;text-align:center;font-size:11px;color:var(--tx3);}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="demo-label">📐 MOCKUP MẪU</div>
+<h1 class="demo-h1">Bảng Tiềm năng — thiết kế lại gọn gàng hơn</h1>
+<p class="demo-sub">So sánh giữa thiết kế hiện tại và đề xuất mới · áp dụng đúng design tokens của index.html</p>
+
+<!-- Section: Layout đề xuất -->
+<div class="section-card">
+  <div class="section-title">✅ Thiết kế đề xuất</div>
+
+  <!-- Header trang -->
+  <div style="margin-bottom:14px;">
+    <div style="font-size:20px;font-weight:600;letter-spacing:-.02em;">Khách hàng</div>
+    <div style="font-size:13px;color:var(--tx3);">Khách tiềm năng (chưa ký Hợp đồng)</div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn">Khách chính thức (33)</button>
+    <button class="tab-btn active">Tiềm năng (4)</button>
+    <button class="tab-btn">Báo giá (0)</button>
+  </div>
+
+  <!-- KPI strip — chỉ hiện khi có data -->
+  <div class="kpi-strip">
+    <div class="kpi-item"><span class="kpi-num urgent">2</span><span class="kpi-lbl">lead chưa liên hệ</span></div>
+    <div class="kpi-item"><span class="kpi-num">3</span><span class="kpi-lbl">lead có nguồn xác định</span></div>
+    <div class="kpi-spacer"></div>
+    <button class="btn btn-sm">🔗 Copy URL form</button>
+    <button class="btn btn-sm">👁 Xem form</button>
+  </div>
+
+  <!-- Toolbar gộp 1 dòng -->
+  <div class="toolbar">
+    <button class="btn btn-primary">+ Thêm khách tiềm năng</button>
+    <input class="fi" type="text" placeholder="Tìm khách tiềm năng...">
+    <span class="toolbar-count">4 khách</span>
+  </div>
+
+  <!-- Bảng tinh gọn -->
+  <div class="table-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th style="width:34px;">#</th>
+          <th>Khách</th>
+          <th>Dịch vụ</th>
+          <th>Liên hệ</th>
+          <th>CSKH</th>
+          <th>Ngày tạo</th>
+          <th style="text-align:center;">Hợp đồng</th>
+          <th style="text-align:right;">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="kh-num">1</span></td>
+          <td>
+            <div class="kh-name-stack">
+              <div class="kh-name-row">
+                <span class="kh-name">Quang Tuấn</span>
+                <span class="lead-source-mini b-blue-bg">🌐 Form web</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="svc-badge b-teal-bg"><span class="dot" style="background:#1D9E75;"></span>Thuê TKQC</span></td>
+          <td>
+            <div class="kh-contact-stack">
+              <div class="kh-contact-row">
+                <span style="color:var(--tx1);font-weight:500;">Hà Đông</span>
+                <span class="kh-phone">0912 345 678</span>
+                <a href="#" class="kh-zalo-mini" title="Mở Zalo: 0912 345 678">Z</a>
+              </div>
+            </div>
+          </td>
+          <td><span class="care-chip" style="background:var(--purple-bg);color:var(--purple-tx);">Đang đàm phán</span></td>
+          <td><span class="kh-date">26/04/2026</span></td>
+          <td style="text-align:center;"><span class="cell-empty">—</span></td>
+          <td style="text-align:right;">
+            <div class="kh-actions">
+              <button class="act-chip act-quote">Báo giá</button>
+              <button class="act-chip act-contract">Hợp đồng</button>
+              <button class="act-chip act-detail">Chi tiết</button>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="kh-num">2</span></td>
+          <td>
+            <div class="kh-name-stack">
+              <div class="kh-name-row">
+                <span class="kh-name">Spa Hương Sen</span>
+                <span class="lead-source-mini b-purple-bg">📋 FB Lead Ads</span>
+              </div>
+              <div class="kh-company">CTY TNHH Spa Hương Sen</div>
+            </div>
+          </td>
+          <td><span class="svc-badge b-blue-bg"><span class="dot" style="background:#378ADD;"></span>FB Ads</span></td>
+          <td>
+            <div class="kh-contact-stack">
+              <div class="kh-contact-row">
+                <span style="color:var(--tx1);font-weight:500;">Chị Hoa</span>
+                <span class="kh-phone">0987 654 321</span>
+                <a href="#" class="kh-zalo-mini" title="Mở Zalo">Z</a>
+              </div>
+            </div>
+          </td>
+          <td><span class="care-chip" style="background:var(--amber-bg);color:var(--amber-tx);">Mới tiếp cận</span></td>
+          <td><span class="kh-date">27/04/2026</span></td>
+          <td style="text-align:center;"><span class="cell-empty">—</span></td>
+          <td style="text-align:right;">
+            <div class="kh-actions">
+              <button class="act-chip act-quote">Báo giá</button>
+              <button class="act-chip act-contract">Hợp đồng</button>
+              <button class="act-chip act-detail">Chi tiết</button>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="kh-num">3</span></td>
+          <td>
+            <div class="kh-name-stack">
+              <div class="kh-name-row">
+                <span class="kh-name">Anh Minh F&amp;B</span>
+                <span class="lead-source-mini b-teal-bg">💬 Zalo</span>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="svc-badge b-blue-bg"><span class="dot" style="background:#378ADD;"></span>FB Ads</span>
+            <span class="svc-badge b-teal-bg" style="margin-left:3px;"><span class="dot" style="background:#1D9E75;"></span>Thuê TKQC</span>
+          </td>
+          <td>
+            <div class="kh-contact-stack">
+              <div class="kh-contact-row">
+                <span style="color:var(--tx1);font-weight:500;">Hà Nội</span>
+                <span class="kh-phone">0903 111 222</span>
+                <a href="#" class="kh-zalo-mini" title="Mở Zalo">Z</a>
+              </div>
+            </div>
+          </td>
+          <td><span class="care-chip" style="background:var(--blue-bg);color:var(--blue-tx);">Đã gửi báo giá</span></td>
+          <td><span class="kh-date">25/04/2026</span></td>
+          <td style="text-align:center;"><span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:var(--blue-bg);color:var(--blue-tx);border-radius:8px;font-size:11px;font-weight:600;">📄 1 bản</span></td>
+          <td style="text-align:right;">
+            <div class="kh-actions">
+              <button class="act-chip act-quote">Báo giá</button>
+              <button class="act-chip act-contract">Hợp đồng</button>
+              <button class="act-chip act-detail">Chi tiết</button>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="kh-num">4</span></td>
+          <td>
+            <div class="kh-name-stack">
+              <div class="kh-name-row">
+                <span class="kh-name">Cô Lan</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="svc-badge b-purple-bg"><span class="dot" style="background:#7F77DD;"></span>Web App</span></td>
+          <td>
+            <div class="kh-contact-stack">
+              <div class="kh-contact-row">
+                <span style="color:var(--tx1);font-weight:500;">Sài Gòn</span>
+                <span class="kh-phone">0911 222 333</span>
+                <a href="#" class="kh-zalo-mini" title="Mở Zalo">Z</a>
+              </div>
+            </div>
+          </td>
+          <td><span class="care-chip" style="background:var(--green-bg);color:var(--green-tx);">Đã chốt</span></td>
+          <td><span class="kh-date">24/04/2026</span></td>
+          <td style="text-align:center;"><span class="cell-empty">—</span></td>
+          <td style="text-align:right;">
+            <div class="kh-actions">
+              <button class="act-chip act-quote">Báo giá</button>
+              <button class="act-chip act-contract">Hợp đồng</button>
+              <button class="act-chip act-detail">Chi tiết</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="density-note">📏 Mỗi dòng cao ~44px (giảm ~37% so với 70px hiện tại) → xem được nhiều khách hơn trên cùng màn hình</div>
+</div>
+
+<!-- Section: Khi rỗng -->
+<div class="section-card">
+  <div class="section-title">📋 Trạng thái rỗng (0 lead chưa liên hệ)</div>
+  <p style="font-size:12.5px;color:var(--tx3);margin-bottom:12px;">KPI strip <strong>tự ẩn</strong> khi không có data → 2 nút "Copy URL" và "Xem form" rời ra cạnh phải toolbar.</p>
+
+  <div class="tab-bar">
+    <button class="tab-btn">Khách chính thức (33)</button>
+    <button class="tab-btn active">Tiềm năng (1)</button>
+    <button class="tab-btn">Báo giá (0)</button>
+  </div>
+
+  <!-- Floating links bên phải -->
+  <div class="kpi-empty">
+    <button class="btn btn-sm">🔗 Copy URL form</button>
+    <button class="btn btn-sm">👁 Xem form</button>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn btn-primary">+ Thêm khách tiềm năng</button>
+    <input class="fi" type="text" placeholder="Tìm khách tiềm năng...">
+    <span class="toolbar-count">1 khách</span>
+  </div>
+
+  <div class="table-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th style="width:34px;">#</th>
+          <th>Khách</th>
+          <th>Dịch vụ</th>
+          <th>Liên hệ</th>
+          <th>CSKH</th>
+          <th>Ngày tạo</th>
+          <th style="text-align:center;">Hợp đồng</th>
+          <th style="text-align:right;">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="kh-num">1</span></td>
+          <td>
+            <div class="kh-name-row">
+              <span class="kh-name">Quang Tuấn</span>
+            </div>
+          </td>
+          <td><span class="svc-badge b-teal-bg"><span class="dot" style="background:#1D9E75;"></span>Thuê TKQC</span></td>
+          <td>
+            <div class="kh-contact-row">
+              <span style="color:var(--tx1);font-weight:500;">Hà Đông</span>
+              <span class="kh-phone">0912 345 678</span>
+              <a href="#" class="kh-zalo-mini">Z</a>
+            </div>
+          </td>
+          <td><span class="care-chip" style="background:var(--purple-bg);color:var(--purple-tx);">Đang đàm phán</span></td>
+          <td><span class="kh-date">26/04/2026</span></td>
+          <td style="text-align:center;"><span class="cell-empty">—</span></td>
+          <td style="text-align:right;">
+            <div class="kh-actions">
+              <button class="act-chip act-quote">Báo giá</button>
+              <button class="act-chip act-contract">Hợp đồng</button>
+              <button class="act-chip act-detail">Chi tiết</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Section: 7 thay đổi cụ thể -->
+<div class="section-card">
+  <div class="section-title">📌 7 thay đổi chính so với hiện tại</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:13px;">
+    <div style="padding:14px;background:var(--red-bg);border-radius:10px;border-left:3px solid var(--red);">
+      <div style="font-weight:700;color:var(--red-tx);margin-bottom:8px;">❌ Trước</div>
+      <ul style="margin-left:18px;line-height:1.8;color:var(--tx2);">
+        <li>Badge "Tiềm năng" trên mỗi dòng (lặp với tên tab)</li>
+        <li>Nút Zalo to bằng button (40px) đẩy dòng cao</li>
+        <li>"💰 Báo giá" "📄 Hợp đồng" có icon emoji</li>
+        <li>Dấu "—" rõ rệt ở cell trống</li>
+        <li>KPI strip 0/0 chiếm full width khi rỗng</li>
+        <li>Toolbar 2 dòng (KPI bar + search row)</li>
+        <li>"Hà Đông" tách rời nút Zalo, không rõ là gì</li>
+      </ul>
+    </div>
+    <div style="padding:14px;background:var(--green-bg);border-radius:10px;border-left:3px solid var(--green);">
+      <div style="font-weight:700;color:var(--green-tx);margin-bottom:8px;">✅ Sau</div>
+      <ul style="margin-left:18px;line-height:1.8;color:var(--tx2);">
+        <li>Bỏ badge "Tiềm năng" — tab name đã đủ</li>
+        <li>Nút Zalo mini 24×24 inline cùng phone</li>
+        <li>"Báo giá" "Hợp đồng" — chip mềm không icon</li>
+        <li>Cell trống: "—" mờ 40% opacity</li>
+        <li>KPI strip ẩn khi rỗng, link float phải</li>
+        <li>Toolbar 1 dòng + KPI tách riêng (chỉ khi có data)</li>
+        <li>Liên hệ inline: địa chỉ · phone · [Z] gọn 1 dòng</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="demo-footer">
+  Demo · HC Agency · Mở file <code style="background:var(--bg2);padding:2px 6px;border-radius:4px;">demo-prospect-table.html</code> trên trình duyệt để xem trực tiếp
+</div>
+
+</div>
+</body>
+</html>
