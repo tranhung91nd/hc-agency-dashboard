@@ -747,8 +747,7 @@ table.rental-matrix tr:not(.total):hover td:first-child{background:rgba(55,138,2
 .pr-search:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(55,138,221,.10);}
 .pr-search::placeholder{color:var(--tx3);}
 /* Table */
-.pr-table-wrap{background:var(--bg1);border:1px solid var(--bd1);border-radius:14px;overflow:visible;}
-table.pr-table{border-radius:14px;overflow:hidden;}
+.pr-table-wrap{background:var(--bg1);border:1px solid var(--bd1);border-radius:14px;overflow:hidden;}
 table.pr-table{width:100%;border-collapse:collapse;}
 table.pr-table th{text-align:left;padding:12px 18px;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;background:var(--bg2);border-bottom:1px solid var(--bd1);}
 table.pr-table th.pr-th-action{width:48px;}
@@ -766,9 +765,10 @@ table.pr-table tr.pr-row-detail td{padding:0;background:var(--bg2);}
 .pr-name-sub{font-size:12px;color:var(--tx3);margin-top:2px;}
 /* Dịch vụ */
 .pr-svc-cell{font-size:12.5px;}
-/* Liên hệ — Zalo link */
-.pr-zalo-link{color:var(--blue-tx);text-decoration:none;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:4px;transition:gap .15s;}
-.pr-zalo-link:hover{text-decoration:underline;gap:6px;}
+/* Liên hệ — nút Zalo logo */
+.pr-zalo-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#0068FF;color:#fff;text-decoration:none;transition:all .15s;box-shadow:0 1px 3px rgba(0,104,255,.25);}
+.pr-zalo-btn:hover{background:#0052D4;transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,104,255,.35);}
+.pr-zalo-btn svg{display:block;}
 .pr-empty-cell{color:var(--tx3);opacity:.5;font-size:13px;}
 /* Ngày */
 .pr-date{color:var(--tx2);font-size:12.5px;font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
@@ -2901,10 +2901,10 @@ prospects.forEach(function(c){
   h+='<td><div class="pr-name-cell"><div class="pr-avatar" style="background:'+avColor.bg+';color:'+avColor.tx+';">'+esc(initials)+'</div><div class="pr-name-stack"><div class="pr-name-row"><span class="pr-name">'+esc(c.name)+'</span>'+renderLeadSourceBadge(c.lead_source)+'</div>'+(subline?'<div class="pr-name-sub">'+esc(subline)+'</div>':'')+'</div></div></td>';
   // Dịch vụ
   h+='<td class="pr-svc-cell">'+renderServicesBadges(c.services,{compact:true,icon:false})+'</td>';
-  // Liên hệ — Zalo link only
+  // Liên hệ — nút Zalo logo (dễ bấm trên mobile)
   if(zaloRaw){
     var zUrl=buildZaloLink(zaloRaw);
-    h+='<td><a href="'+esc(zUrl)+'" target="_blank" rel="noopener" class="pr-zalo-link" onclick="event.stopPropagation();">Zalo →</a></td>';
+    h+='<td><a href="'+esc(zUrl)+'" target="_blank" rel="noopener" class="pr-zalo-btn" title="Mở Zalo: '+esc(zaloRaw)+'" onclick="event.stopPropagation();"><svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4C9.4 4 4 8.5 4 14c0 3 1.7 5.7 4.4 7.5L7 28l5-2.7c1.2.3 2.5.4 4 .4 6.6 0 12-4.5 12-10S22.6 4 16 4z" fill="currentColor"/><text x="16" y="18.5" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="9" font-weight="900" fill="#fff" letter-spacing="-0.5">Zalo</text></svg></a></td>';
   }else{
     h+='<td><span class="pr-empty-cell">—</span></td>';
   }
@@ -2975,22 +2975,17 @@ function getAvatarColor(seed){
   var s=String(seed||''),sum=0;for(var i=0;i<s.length;i++)sum+=s.charCodeAt(i);
   return palette[sum%palette.length];
 }
-// Toggle dropdown menu của prospect (dùng chung close pattern với quotation)
+// Toggle dropdown menu của prospect — dùng position:fixed để không bị
+// parent overflow:hidden (table-wrap) clip
 function togglePrMenu(ev,id){
   ev.stopPropagation();
   var m=document.getElementById('pr-menu-'+id);if(!m)return;
   var wasOpen=m.classList.contains('open');
   closeQuotationMenus();
   if(!wasOpen){
-    m.classList.remove('flip-up');
     m.classList.add('open');
     var trig=ev.currentTarget;if(trig)trig.setAttribute('aria-expanded','true');
-    // Auto-flip lên nếu menu vượt đáy viewport
-    requestAnimationFrame(function(){
-      var rect=m.getBoundingClientRect();
-      var viewH=window.innerHeight||document.documentElement.clientHeight;
-      if(rect.bottom>viewH-12){m.classList.add('flip-up');}
-    });
+    positionFixedMenu(m,trig);
   }
 }
 function toggleProspectExpand(id){expandedClientId=(expandedClientId===id)?null:id;render();}
@@ -4959,8 +4954,32 @@ function closeQuotationMenus(){
   document.querySelectorAll('.qt-action-menu.open').forEach(function(el){
     el.classList.remove('open');
     el.classList.remove('flip-up');
+    // Reset inline styles từ position:fixed
+    el.style.position='';el.style.top='';el.style.right='';el.style.left='';el.style.bottom='';el.style.minWidth='';
     var trig=document.querySelector('[aria-controls="'+el.id+'"]');
     if(trig)trig.setAttribute('aria-expanded','false');
+  });
+}
+// Định vị menu dùng position:fixed dựa trên rect của trigger
+// → không bị parent overflow:hidden clip (table-wrap trong tab Tiềm năng)
+function positionFixedMenu(menuEl,trig){
+  if(!menuEl||!trig)return;
+  var rect=trig.getBoundingClientRect();
+  var viewH=window.innerHeight||document.documentElement.clientHeight;
+  var viewW=window.innerWidth||document.documentElement.clientWidth;
+  menuEl.style.position='fixed';
+  menuEl.style.left='auto';
+  menuEl.style.bottom='auto';
+  menuEl.style.right=(viewW-rect.right)+'px';
+  menuEl.style.top=(rect.bottom+6)+'px';
+  menuEl.style.minWidth='200px';
+  // Sau khi paint, kiểm tra overflow → flip lên nếu cần
+  requestAnimationFrame(function(){
+    var mRect=menuEl.getBoundingClientRect();
+    if(mRect.bottom>viewH-12){
+      menuEl.style.top='auto';
+      menuEl.style.bottom=(viewH-rect.top+6)+'px';
+    }
   });
 }
 function toggleQuotationMenu(ev,id){
@@ -4969,15 +4988,10 @@ function toggleQuotationMenu(ev,id){
   var wasOpen=m.classList.contains('open');
   closeQuotationMenus();
   if(!wasOpen){
-    m.classList.remove('flip-up');
     m.classList.add('open');
     var trig=ev.currentTarget;if(trig)trig.setAttribute('aria-expanded','true');
+    positionFixedMenu(m,trig);
     var first=m.querySelector('button[role="menuitem"]');if(first)first.focus();
-    requestAnimationFrame(function(){
-      var rect=m.getBoundingClientRect();
-      var viewH=window.innerHeight||document.documentElement.clientHeight;
-      if(rect.bottom>viewH-12)m.classList.add('flip-up');
-    });
   }
 }
 document.addEventListener('keydown',function(e){
