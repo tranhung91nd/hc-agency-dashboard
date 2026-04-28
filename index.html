@@ -618,18 +618,50 @@ select.lead-fi{appearance:none;-webkit-appearance:none;background-image:url("dat
 .lead-cta-shield{font-size:32px;flex-shrink:0;opacity:.85;}
 .lead-bottom-trust{margin-top:14px;text-align:center;font-size:12px;color:var(--tx3);padding:6px;line-height:1.5;}
 .lead-footer-mini{text-align:center;font-size:12px;color:var(--tx3);padding:14px 6px 4px;}
-/* Success page */
-.lead-success{background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);padding:40px 28px;text-align:center;margin:30px auto;max-width:560px;box-shadow:0 4px 16px rgba(15,23,42,.04);}
-.lead-success-icon{font-size:64px;margin-bottom:18px;animation:lead-pop .4s ease;}
-@keyframes lead-pop{0%{transform:scale(0);opacity:0;}60%{transform:scale(1.15);}100%{transform:scale(1);opacity:1;}}
-.lead-success-title{font-size:24px;font-weight:800;letter-spacing:-.02em;color:var(--tx1);margin-bottom:10px;}
-.lead-success-msg{font-size:14px;color:var(--tx2);line-height:1.7;max-width:480px;margin:0 auto 22px;}
-.lead-success-msg strong{color:var(--green-tx);font-weight:700;}
-.lead-success-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;}
-.lead-cta-zalo{background:#0068ff;color:#fff;border-color:#0068ff;padding:12px 22px;font-size:14px;font-weight:600;border-radius:10px;text-decoration:none;}
-.lead-cta-zalo:hover{background:#0052d4;color:#fff;border-color:#0052d4;}
-.lead-cta-call{padding:12px 22px;font-size:14px;font-weight:600;border-radius:10px;text-decoration:none;}
-.lead-success-footer{font-size:12px;color:var(--tx3);}
+/* ═══ Success page V2 — timeline + CTA cards ═══ */
+.lead-success-v2{max-width:640px;margin:24px auto;background:var(--bg1);border:1px solid var(--bd1);border-radius:20px;padding:36px 32px 30px;box-shadow:0 8px 28px rgba(15,23,42,.06);}
+@media(max-width:540px){.lead-success-v2{padding:24px 18px 22px;border-radius:14px;margin:14px auto;}}
+/* Animated check */
+.lead-succ-icon-wrap{position:relative;width:96px;height:96px;margin:0 auto 22px;display:flex;align-items:center;justify-content:center;}
+.lead-succ-ring{position:absolute;inset:-8px;border-radius:28px;background:radial-gradient(circle,rgba(16,185,129,.20) 0%,rgba(16,185,129,0) 70%);animation:lead-succ-pulse 2s ease-out infinite;}
+@keyframes lead-succ-pulse{0%{transform:scale(.9);opacity:.8;}100%{transform:scale(1.3);opacity:0;}}
+.lead-succ-check{position:relative;width:96px;height:96px;border-radius:24px;background:linear-gradient(135deg,#10b981 0%,#059669 100%);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 12px 28px rgba(16,185,129,.35);animation:lead-succ-pop .6s cubic-bezier(.18,.89,.43,1.19);}
+@keyframes lead-succ-pop{0%{transform:scale(0) rotate(-180deg);opacity:0;}60%{transform:scale(1.15) rotate(0);opacity:1;}100%{transform:scale(1) rotate(0);opacity:1;}}
+.lead-succ-h{font-size:28px;font-weight:800;letter-spacing:-.03em;color:var(--tx1);text-align:center;margin:0 0 10px;line-height:1.2;}
+@media(max-width:540px){.lead-succ-h{font-size:23px;}}
+.lead-succ-sub{font-size:14.5px;color:var(--tx2);text-align:center;line-height:1.65;margin:0 auto 26px;max-width:500px;}
+.lead-succ-sub strong{color:var(--green-tx);font-weight:700;}
+/* Timeline card */
+.lead-timeline{background:var(--bg2);border:1px solid var(--bd1);border-radius:14px;padding:4px 18px;margin-bottom:24px;}
+.lead-timeline-title{font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;padding:14px 0 4px;}
+.lead-timeline-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-top:1px solid var(--bd1);}
+.lead-timeline-row:nth-of-type(2){border-top:1px solid var(--bd1);}
+.lead-timeline-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.lead-timeline-icon.icon-1{background:rgba(55,138,221,.10);color:var(--blue);}
+.lead-timeline-icon.icon-2{background:rgba(127,119,221,.10);color:var(--purple);}
+.lead-timeline-icon.icon-3{background:rgba(29,158,117,.10);color:var(--teal);}
+.lead-timeline-time{font-size:13px;font-weight:700;color:var(--tx1);min-width:72px;flex-shrink:0;}
+.lead-timeline-desc{font-size:13px;color:var(--tx2);flex:1;line-height:1.5;}
+@media(max-width:540px){.lead-timeline-row{gap:10px;}.lead-timeline-time{min-width:54px;font-size:12.5px;}.lead-timeline-desc{font-size:12.5px;}}
+/* CTA cards */
+.lead-succ-cta-label{font-size:13px;color:var(--tx3);text-align:center;margin-bottom:12px;}
+.lead-succ-cta-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px;}
+@media(max-width:540px){.lead-succ-cta-grid{grid-template-columns:1fr;}}
+.lead-succ-cta-card{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;text-decoration:none;cursor:pointer;transition:all .2s;border:1px solid var(--bd2);background:var(--bg1);}
+.lead-succ-cta-card:hover{transform:translateY(-2px);}
+.lead-succ-cta-zalo{background:linear-gradient(135deg,#0068ff 0%,#0052d4 100%);color:#fff;border-color:transparent;box-shadow:0 6px 18px rgba(0,104,255,.22);}
+.lead-succ-cta-zalo:hover{box-shadow:0 10px 24px rgba(0,104,255,.32);color:#fff;}
+.lead-succ-cta-phone{background:var(--bg1);color:var(--tx1);}
+.lead-succ-cta-phone:hover{border-color:var(--blue);color:var(--blue-tx);background:var(--blue-bg);}
+.lead-succ-cta-icon{flex-shrink:0;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:11px;background:rgba(255,255,255,.18);}
+.lead-succ-cta-phone .lead-succ-cta-icon{background:var(--blue-bg);color:var(--blue);}
+.lead-succ-cta-stack{flex:1;min-width:0;}
+.lead-succ-cta-title{font-size:14.5px;font-weight:700;letter-spacing:-.01em;line-height:1.3;}
+.lead-succ-cta-meta{font-size:11.5px;opacity:.85;margin-top:2px;}
+.lead-succ-cta-arrow{font-size:20px;font-weight:700;opacity:.7;flex-shrink:0;transition:transform .2s;}
+.lead-succ-cta-card:hover .lead-succ-cta-arrow{transform:translateX(4px);opacity:1;}
+/* Trust footer */
+.lead-succ-secure{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--tx3);padding-top:14px;border-top:1px solid var(--bd1);}
 /* ═══ SỔ RENTAL (Matrix TKQC × Ngày) ═══ */
 .rental-ledger{margin-bottom:14px;}
 .rental-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:10px 14px;background:linear-gradient(90deg,rgba(29,158,117,.10) 0%,rgba(29,158,117,.02) 100%);border:1px solid var(--teal-bg);border-left:3px solid var(--teal);border-radius:var(--radius-lg);margin-bottom:12px;}
@@ -6113,15 +6145,38 @@ async function submitPublicLead(btn){
 function showLeadFormSuccess(result){
   var dup=result&&result.duplicate;
   var h='<div class="lead-page-wrap">';
-  h+='<div class="lead-success">';
-  h+='<div class="lead-success-icon">✅</div>';
-  h+='<h1 class="lead-success-title">'+(dup?'Đã ghi nhận lần liên hệ mới':'Đã nhận thông tin của bạn')+'</h1>';
-  h+='<p class="lead-success-msg">'+(dup?'Cảm ơn bạn đã quay lại! Yêu cầu mới đã được thêm vào hồ sơ. HC Agency sẽ liên hệ tư vấn sớm nhất qua Zalo / điện thoại.':'Cảm ơn bạn đã đăng ký! HC Agency sẽ liên hệ tư vấn giải pháp Quảng cáo Facebook phù hợp <strong>trong vòng 24 giờ</strong> qua Zalo hoặc điện thoại.')+'</p>';
-  h+='<div class="lead-success-actions">';
-  h+='<a href="https://zalo.me/0968915555" target="_blank" rel="noopener" class="btn lead-cta-zalo">📱 Chat Zalo ngay</a>';
-  h+='<a href="tel:0968915555" class="btn lead-cta-call">📞 Gọi 0968 91 5555</a>';
+  h+='<div class="lead-success-v2">';
+  // Animated check
+  h+='<div class="lead-succ-icon-wrap">';
+  h+='<div class="lead-succ-ring"></div>';
+  h+='<div class="lead-succ-check"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>';
   h+='</div>';
-  h+='<div class="lead-success-footer">Bạn không cần làm gì thêm. Tư vấn viên sẽ chủ động liên hệ trong thời gian sớm nhất.</div>';
+  // Headline
+  h+='<h1 class="lead-succ-h">'+(dup?'Đã ghi nhận lần liên hệ mới':'Đã nhận yêu cầu tư vấn')+'</h1>';
+  h+='<p class="lead-succ-sub">'+(dup?'Cảm ơn bạn đã quay lại! Yêu cầu mới đã được thêm vào hồ sơ. Chuyên gia HC Agency sẽ liên hệ tư vấn sớm nhất.':'Cảm ơn bạn đã tin tưởng HC Agency. Chuyên gia sẽ liên hệ tư vấn giải pháp Quảng cáo Facebook phù hợp <strong>trong vòng 24 giờ</strong> qua Zalo hoặc điện thoại.')+'</p>';
+  // Timeline
+  h+='<div class="lead-timeline">';
+  h+='<div class="lead-timeline-title">Quy trình tiếp theo</div>';
+  h+='<div class="lead-timeline-row"><div class="lead-timeline-icon icon-1"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="lead-timeline-time">30 phút</div><div class="lead-timeline-desc">Chuyên gia gọi xác nhận thông tin và lắng nghe nhu cầu</div></div>';
+  h+='<div class="lead-timeline-row"><div class="lead-timeline-icon icon-2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 4 5-7"/></svg></div><div class="lead-timeline-time">4 giờ</div><div class="lead-timeline-desc">Phân tích nhu cầu, chuẩn bị chiến lược riêng cho bạn</div></div>';
+  h+='<div class="lead-timeline-row"><div class="lead-timeline-icon icon-3"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div><div class="lead-timeline-time">24 giờ</div><div class="lead-timeline-desc">Tư vấn 1-1, gửi đề xuất chiến lược chi tiết qua Zalo</div></div>';
+  h+='</div>';
+  // CTAs
+  h+='<div class="lead-succ-cta-label">Cần hỗ trợ gấp? Liên hệ trực tiếp ngay:</div>';
+  h+='<div class="lead-succ-cta-grid">';
+  h+='<a href="https://zalo.me/0968915555" target="_blank" rel="noopener" class="lead-succ-cta-card lead-succ-cta-zalo">';
+  h+='<div class="lead-succ-cta-icon"><svg width="34" height="34" viewBox="0 0 32 32"><path d="M16 4C9.4 4 4 8.5 4 14c0 3 1.7 5.7 4.4 7.5L7 28l5-2.7c1.2.3 2.5.4 4 .4 6.6 0 12-4.5 12-10S22.6 4 16 4z" fill="#fff"/><text x="16" y="18" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="8.5" font-weight="900" fill="#0068FF" letter-spacing="-0.5">Zalo</text></svg></div>';
+  h+='<div class="lead-succ-cta-stack"><div class="lead-succ-cta-title">Chat Zalo ngay</div><div class="lead-succ-cta-meta">Phản hồi trong 5–10 phút</div></div>';
+  h+='<div class="lead-succ-cta-arrow">→</div>';
+  h+='</a>';
+  h+='<a href="tel:0968915555" class="lead-succ-cta-card lead-succ-cta-phone">';
+  h+='<div class="lead-succ-cta-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>';
+  h+='<div class="lead-succ-cta-stack"><div class="lead-succ-cta-title">Gọi 0968 91 5555</div><div class="lead-succ-cta-meta">T2 – T7 · 8h00 – 21h00</div></div>';
+  h+='<div class="lead-succ-cta-arrow">→</div>';
+  h+='</a>';
+  h+='</div>';
+  // Trust footer
+  h+='<div class="lead-succ-secure"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Thông tin của bạn được mã hoá &amp; bảo mật 100%</div>';
   h+='</div>';
   h+='</div>';
   document.getElementById('page').innerHTML=h;
