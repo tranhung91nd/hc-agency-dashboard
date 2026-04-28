@@ -1582,7 +1582,7 @@ function renderZaloBtn(c){
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],clientDepositData=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1;
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc';
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -2288,10 +2288,25 @@ clientSpend[cid].daily[day]+=d.spend_amount;
 var sid=d.staff_id||null;
 if(!sid){var asg2=getAssign(d.ad_account_id,d.report_date);if(asg2.length)sid=asg2[0].staff_id;}
 if(sid)clientSpend[cid].staffIds.add(sid);});
-// Sort by total descending
-var cids=Object.keys(clientSpend).sort(function(a,b){return clientSpend[b].total-clientSpend[a].total;});
+// Sort by total descending (full unfiltered list for count pill + Top charts)
+var cidsAll=Object.keys(clientSpend).sort(function(a,b){return clientSpend[b].total-clientSpend[a].total;});
+// Apply filters
+var search=String(cliSpendSearch||'').toLowerCase().trim();
+var cids=cidsAll.filter(function(cid){
+var cs=clientSpend[cid];
+var cObj=clientList.find(function(c){return c.id===cid;});
+if(search){if(!cObj||cObj.name.toLowerCase().indexOf(search)<0)return false;}
+if(cliSpendType==='rental'){if(!cObj||!hasRentalService(cObj))return false;}
+else if(cliSpendType==='ads'){if(!cObj||hasRentalService(cObj))return false;}
+if(cliSpendStaff&&!cs.staffIds.has(cliSpendStaff))return false;
+if(cliSpendHas==='has_spend'&&cs.total<=0)return false;
+if(cliSpendHas==='no_spend'&&cs.total>0)return false;
+return true;});
+// Apply sort (default already spend_desc from cidsAll)
+if(cliSpendSort==='spend_asc')cids.sort(function(a,b){return clientSpend[a].total-clientSpend[b].total;});
+else if(cliSpendSort==='name_asc')cids.sort(function(a,b){var nA=(clientList.find(function(c){return c.id===a;})||{name:'~'}).name;var nB=(clientList.find(function(c){return c.id===b;})||{name:'~'}).name;return nA.localeCompare(nB);});
 var gt=cids.reduce(function(t,id){return t+clientSpend[id].total;},0);
-// Phân loại: Khách thuê TKQC vs Khách chạy ads (mutually exclusive)
+// Phân loại: Khách thuê TKQC vs Khách chạy ads (mutually exclusive) — tính trên data đã lọc
 var rentalTotal=0,rentalCount=0,adsTotal=0,adsCount=0;
 cids.forEach(function(cid){
 var cObj=clientList.find(function(c){return c.id===cid;});
@@ -2304,6 +2319,28 @@ var h='<div class="pr-kpi-grid" style="grid-template-columns:1fr 1fr;">';
 h+='<div class="pr-kpi-card"><div class="pr-kpi-lbl">Khách thuê TKQC <span style="color:var(--tx3);font-weight:400;">· '+rentalCount+' khách · '+rentalPct+'%</span></div><div class="pr-kpi-val">'+ff(rentalTotal)+'</div></div>';
 h+='<div class="pr-kpi-card"><div class="pr-kpi-lbl">Khách chạy ads <span style="color:var(--tx3);font-weight:400;">· '+adsCount+' khách · '+adsPct+'%</span></div><div class="pr-kpi-val">'+ff(adsTotal)+'</div></div>';
 h+='</div>';
+// Toolbar bộ lọc
+h+='<div class="ad-toolbar"><div class="ad-toolbar-main">';
+h+='<input type="text" placeholder="Tìm khách hàng..." value="'+esc(cliSpendSearch)+'" oninput="hcSearchInput(\'cliSpendSearch\',this.value)" class="fi ad-toolbar-search">';
+h+='<select class="fi ad-toolbar-filter" onchange="cliSpendType=this.value;render();"><option value="">Tất cả loại khách</option><option value="rental"'+(cliSpendType==='rental'?' selected':'')+'>Khách thuê TKQC</option><option value="ads"'+(cliSpendType==='ads'?' selected':'')+'>Khách chạy ads</option></select>';
+h+='<select class="fi ad-toolbar-filter" onchange="cliSpendStaff=this.value;render();"><option value="">Tất cả nhân sự</option>';
+staffList.forEach(function(s){h+='<option value="'+s.id+'"'+(cliSpendStaff===s.id?' selected':'')+'>'+esc(s.short_name)+'</option>';});
+h+='</select>';
+h+='<select class="fi ad-toolbar-filter" onchange="cliSpendHas=this.value;render();"><option value="">Tất cả chi tiêu</option><option value="has_spend"'+(cliSpendHas==='has_spend'?' selected':'')+'>Có chi tiêu</option><option value="no_spend"'+(cliSpendHas==='no_spend'?' selected':'')+'>Chưa có chi tiêu</option></select>';
+h+='<select class="fi ad-toolbar-filter" onchange="cliSpendSort=this.value;render();"><option value="spend_desc"'+(cliSpendSort==='spend_desc'?' selected':'')+'>Chi tiêu cao nhất</option><option value="spend_asc"'+(cliSpendSort==='spend_asc'?' selected':'')+'>Chi tiêu thấp nhất</option><option value="name_asc"'+(cliSpendSort==='name_asc'?' selected':'')+'>Tên A-Z</option></select>';
+h+='<span class="ad-toolbar-count">'+cids.length+'/'+cidsAll.length+' khách hàng</span></div>';
+h+='<div class="ad-toolbar-actions"><button class="btn btn-ghost btn-sm" onclick="clearCliSpendFilters()">Xóa bộ lọc</button></div></div>';
+// Chips active
+var spChips=[];
+if(cliSpendSearch)spChips.push('Tìm: '+esc(cliSpendSearch));
+if(cliSpendType==='rental')spChips.push('Loại: Khách thuê TKQC');
+if(cliSpendType==='ads')spChips.push('Loại: Khách chạy ads');
+if(cliSpendStaff){var spSObj=staffList.find(function(s){return s.id===cliSpendStaff;});spChips.push('Nhân sự: '+esc(spSObj?spSObj.short_name:'?'));}
+if(cliSpendHas==='has_spend')spChips.push('Có chi tiêu');
+if(cliSpendHas==='no_spend')spChips.push('Chưa có chi tiêu');
+if(cliSpendSort==='spend_asc')spChips.push('Sắp xếp: Chi tiêu thấp nhất');
+if(cliSpendSort==='name_asc')spChips.push('Sắp xếp: Tên A-Z');
+if(spChips.length)h+='<div class="active-chips">'+spChips.map(function(c){return'<span class="chip">'+c+' <span class="x" onclick="clearCliSpendFilters()">×</span></span>';}).join('')+'</div>';
 // Summary table
 h+='<div class="table-wrap"><table><thead><tr><th style="text-align:left;">Khách hàng</th><th style="text-align:left;">Nhân sự</th><th style="text-align:right;">Tổng T'+parseInt(ms.split('-')[1])+'</th><th style="text-align:right;">Trung bình/ngày</th><th style="text-align:right;">Tỷ trọng</th></tr></thead><tbody>';
 cids.forEach(function(cid){
@@ -2329,8 +2366,11 @@ h+='<td style="text-align:left;">Tổng ('+cids.length+' Khách hàng)</td><td><
 h+='<td class="mono" style="text-align:right;font-size:15px;color:var(--teal-tx);">'+ff(gt)+'</td>';
 h+='<td class="mono" style="text-align:right;">'+ff(Math.round(gt/nd))+'</td>';
 h+='<td class="mono" style="text-align:right;">100%</td></tr></tfoot></table></div>';
+if(cids.length>0){
+// Luôn xếp theo chi tiêu giảm dần cho Top 5 / Top 10, không phụ thuộc sort dropdown
+var cidsBySpend=cids.slice().sort(function(a,b){return clientSpend[b].total-clientSpend[a].total;});
 // Top 5 bar
-var top5=cids.slice(0,5);
+var top5=cidsBySpend.slice(0,5);
 var topColors=['var(--purple)','var(--coral)','var(--teal)','var(--blue)','var(--pink)'];
 h+='<div style="margin-top:12px;"><div style="font-size:11px;color:var(--tx3);margin-bottom:4px;">Top 5 khách hàng chi tiêu cao nhất</div>';
 h+='<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;">';
@@ -2341,7 +2381,7 @@ h+='</div><div style="display:flex;gap:10px;margin-top:4px;font-size:11px;color:
 top5.forEach(function(cid,i){var cObj=clientList.find(function(c){return c.id===cid;});var p=gt>0?Math.round(clientSpend[cid].total/gt*100):0;h+='<span><span style="width:8px;height:8px;border-radius:50%;background:'+topColors[i]+';display:inline-block;margin-right:3px;"></span>'+(cObj?esc(cObj.name):'?')+' '+p+'%</span>';});
 h+='</div></div>';
 // Daily table by client (top 10)
-var topClients=cids.slice(0,10);
+var topClients=cidsBySpend.slice(0,10);
 h+='<div class="section-title" style="margin-top:20px;">Chi tiêu theo ngày (Top 10 Khách hàng)</div>';
 h+='<div class="table-wrap"><table><thead><tr><th style="text-align:left;">Ngày</th>';
 topClients.forEach(function(cid){var cObj=clientList.find(function(c){return c.id===cid;});h+='<th style="text-align:right;font-size:10px;">'+esc(cObj?cObj.name:'?')+'</th>';});
@@ -2357,7 +2397,9 @@ h+='<td style="text-align:left;font-weight:500;">'+day+'</td>';
 vals.forEach(function(v){h+='<td class="mono" style="text-align:right;font-size:12px;">'+ff(v)+'</td>';});
 h+='<td class="mono" style="text-align:right;font-weight:600;">'+ff(dayTotal)+'</td></tr>';}
 h+='</tbody></table></div>';
+}
 return h;}
+function clearCliSpendFilters(){cliSpendSearch='';cliSpendType='';cliSpendStaff='';cliSpendHas='';cliSpendSort='spend_desc';render();}
 
 // ═══ P2: NHÂN SỰ ═══
 // ═══ TÍNH LƯƠNG TỰ ĐỘNG ═══
