@@ -2291,8 +2291,21 @@ if(sid)clientSpend[cid].staffIds.add(sid);});
 // Sort by total descending
 var cids=Object.keys(clientSpend).sort(function(a,b){return clientSpend[b].total-clientSpend[a].total;});
 var gt=cids.reduce(function(t,id){return t+clientSpend[id].total;},0);
+// Phân loại: Khách thuê TKQC vs Khách chạy ads (mutually exclusive)
+var rentalTotal=0,rentalCount=0,adsTotal=0,adsCount=0;
+cids.forEach(function(cid){
+var cObj=clientList.find(function(c){return c.id===cid;});
+if(!cObj)return;
+if(hasRentalService(cObj)){rentalTotal+=clientSpend[cid].total;rentalCount++;}
+else{adsTotal+=clientSpend[cid].total;adsCount++;}});
+var rentalPct=gt>0?(rentalTotal/gt*100).toFixed(1):0;
+var adsPct=gt>0?(adsTotal/gt*100).toFixed(1):0;
+var h='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">';
+h+='<div style="background:var(--bg1);border:1px solid var(--bd1);border-left:3px solid var(--teal);border-radius:14px;padding:14px 18px;"><div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx3);margin-bottom:6px;font-weight:500;">🔑 Khách thuê TKQC <span style="color:var(--tx3);">· '+rentalCount+' khách</span></div><div style="font-size:22px;font-weight:700;color:var(--teal-tx);font-variant-numeric:tabular-nums;letter-spacing:-.02em;">'+ff(rentalTotal)+'</div><div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tỷ trọng '+rentalPct+'%</div></div>';
+h+='<div style="background:var(--bg1);border:1px solid var(--bd1);border-left:3px solid var(--blue);border-radius:14px;padding:14px 18px;"><div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx3);margin-bottom:6px;font-weight:500;">📣 Khách chạy ads <span style="color:var(--tx3);">· '+adsCount+' khách</span></div><div style="font-size:22px;font-weight:700;color:var(--blue-tx);font-variant-numeric:tabular-nums;letter-spacing:-.02em;">'+ff(adsTotal)+'</div><div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tỷ trọng '+adsPct+'%</div></div>';
+h+='</div>';
 // Summary table
-var h='<div class="table-wrap"><table><thead><tr><th style="text-align:left;">Khách hàng</th><th style="text-align:left;">Nhân sự</th><th style="text-align:right;">Tổng T'+parseInt(ms.split('-')[1])+'</th><th style="text-align:right;">Trung bình/ngày</th><th style="text-align:right;">Tỷ trọng</th></tr></thead><tbody>';
+h+='<div class="table-wrap"><table><thead><tr><th style="text-align:left;">Khách hàng</th><th style="text-align:left;">Nhân sự</th><th style="text-align:right;">Tổng T'+parseInt(ms.split('-')[1])+'</th><th style="text-align:right;">Trung bình/ngày</th><th style="text-align:right;">Tỷ trọng</th></tr></thead><tbody>';
 cids.forEach(function(cid){
 var cs=clientSpend[cid];
 var cObj=clientList.find(function(c){return c.id===cid;});
@@ -6045,6 +6058,124 @@ function renderPublicLedgerPage(){
   startPublicLedgerPoll();
 }
 
+// ═══ PHASE 1.1 CRM: PUBLIC LEAD FORM — NỘI DUNG CÓ THỂ SỬA TẠI ĐÂY ═══
+var LEAD_COPY = {
+  // ── HERO ──────────────────────────────────────────────────────────────
+  heroPill:        '🛡️ TƯ VẤN MIỄN PHÍ 100%',
+  heroTitle:       'Nhận tư vấn chiến lược <span class="lead-hero-h1-blue">quảng cáo Facebook</span> phù hợp với bạn',
+  heroSub:         'Tối ưu ngân sách – Tăng tỷ lệ ra đơn – Không đốt tiền test',
+  trust1Title:     'Chuyên gia 8+ năm',
+  trust1Sub:       'kinh nghiệm thực chiến',
+  trust2Title:     'Hơn 500+ doanh nghiệp',
+  trust2Sub:       'đã tin tưởng',
+  trust3Title:     'Tư vấn 1-1, giải pháp',
+  trust3Sub:       'đo ni đóng giày',
+  // ── MOCK DASHBOARD ───────────────────────────────────────────────────
+  mockRevLabel:    'Doanh thu',
+  mockRevVal:      '3.250.000.000đ',
+  mockRevUp:       '↑ 158%',
+  mockCvLabel:     'Tỷ lệ ra đơn',
+  mockCvVal:       '8.6%',
+  mockCvUp:        '↑ 2.7%',
+  // ── SIDEBAR ──────────────────────────────────────────────────────────
+  sidebarTitle:    'Quy trình tư vấn',
+  step1Name:       'Thông tin cơ bản',
+  step1Time:       '(2 phút)',
+  step2Name:       'Nhu cầu & ngân sách',
+  step2Time:       '(2 phút)',
+  step3Name:       'Gửi yêu cầu tư vấn',
+  step3Time:       '(Hoàn tất)',
+  testimonialQuote:  'Nhờ chiến lược quảng cáo đúng hướng, doanh thu của shop tăng 3X chỉ sau 30 ngày hợp tác.',
+  testimonialName:   'Chị Lan Anh',
+  testimonialRole:   'Chủ shop thời trang',
+  trustedTitle:    'Được tin tưởng bởi',
+  trustedLogos:    ['HC Coaching','HC Mama','HC Studio','HC Wear','HC Foods','HC Beauty'],
+  secureTitle:     '🛡️ Cam kết bảo mật',
+  secureBody:      'Thông tin của bạn được bảo mật tuyệt đối và chỉ sử dụng để tư vấn.',
+  // ── BƯỚC 1 ───────────────────────────────────────────────────────────
+  step1Tag:        'BƯỚC 1/3',
+  step1Title:      'Thông tin cơ bản',
+  step1Desc:       'Vui lòng cung cấp thông tin để chuyên gia liên hệ và tư vấn cho bạn.',
+  lblName:         'Họ và tên',
+  phName:          'VD: Nguyễn Văn A',
+  lblPhone:        'Số điện thoại',
+  phPhone:         'VD: 0912 345 678',
+  lblIndustry:     'Ngành nghề kinh doanh',
+  phIndustry:      'Chọn ngành nghề của bạn',
+  industries:      ['Spa & Làm đẹp','Thời trang','F&B (Ăn uống)','Giáo dục & đào tạo','Bất động sản','Y tế & sức khỏe','Du lịch & dịch vụ','Nội thất & xây dựng','Bán lẻ','Khác'],
+  btnNext:         'Tiếp tục',
+  step1Secure:     '🔒 Thông tin của bạn được bảo mật 100%',
+  // ── BƯỚC 2 ───────────────────────────────────────────────────────────
+  step2Tag:        'BƯỚC 2/3',
+  step2Title:      'Nhu cầu &amp; ngân sách dự kiến',
+  step2Desc:       'Giúp chúng tôi hiểu rõ hơn để tư vấn giải pháp phù hợp nhất.',
+  lblBudget:       'Ngân sách quảng cáo dự kiến / tháng',
+  budgets:         [
+    {key:'Dưới 10 triệu',  icon:'💰'},
+    {key:'10 – 30 triệu',  icon:'💵'},
+    {key:'30 – 100 triệu', icon:'💸'},
+    {key:'Trên 100 triệu', icon:'🚀'}
+  ],
+  lblService:      'Dịch vụ bạn quan tâm',
+  lblServiceOpt:   '(có thể chọn nhiều)',
+  services:        [
+    {code:'fb_ads',      icon:'📣', title:'Quảng cáo Facebook',          desc:'Tối ưu chiến dịch, tăng chuyển đổi'},
+    {code:'tkqc_rental', icon:'🔑', title:'Thuê tài khoản quảng cáo',    desc:'TKQC ổn định, BM chất lượng'},
+    {code:'web_dev',     icon:'💻', title:'Thiết kế & Lập trình Web/App', desc:'Website chuẩn SEO, tối ưu UX/UI'}
+  ],
+  lblMessage:      'Nhu cầu hiện tại của bạn',
+  lblMessageOpt:   '(không bắt buộc)',
+  phMessage:       'Mô tả nhu cầu, sản phẩm/dịch vụ, khu vực kinh doanh, hiện trạng quảng cáo…',
+  btnBack:         '← Quay lại',
+  // ── BƯỚC 3 ───────────────────────────────────────────────────────────
+  step3Tag:        'BƯỚC 3/3',
+  step3Title:      'Gửi yêu cầu tư vấn',
+  step3Desc:       'Xác nhận thông tin và gửi yêu cầu để chuyên gia liên hệ với bạn.',
+  lblCaptcha:      'Vui lòng giải phép tính (chống spam)',
+  btnSubmit:       '📨 Gửi yêu cầu tư vấn',
+  // ── SUMMARY LABELS ───────────────────────────────────────────────────
+  sumName:         'Họ tên',
+  sumPhone:        'Số điện thoại',
+  sumIndustry:     'Ngành nghề',
+  sumBudget:       'Ngân sách',
+  sumService:      'Dịch vụ quan tâm',
+  sumMsg:          'Nhu cầu',
+  // ── BOTTOM BAR + FOOTER ──────────────────────────────────────────────
+  ctaTitle:        'Nhận chiến lược Ads riêng cho tôi',
+  ctaSub:          'Chuyên gia sẽ liên hệ trong 15 – 30 phút',
+  bottomTrust:     '🛡️ Không hiệu quả – Hoàn phí setup. Chúng tôi cam kết đồng hành đến khi bạn đạt kết quả.',
+  footerText:      'HC Agency · Hotline / Zalo:',
+  hotline:         '0968 91 5555',
+  hotlineTel:      '0968915555',
+  // ── VALIDATION ERRORS ────────────────────────────────────────────────
+  errName:         'Vui lòng nhập họ và tên',
+  errPhone:        'Số điện thoại không hợp lệ (phải 9-11 chữ số)',
+  errIndustry:     'Vui lòng chọn ngành nghề kinh doanh',
+  errService:      'Vui lòng chọn ít nhất 1 dịch vụ quan tâm',
+  errCaptcha:      'Phép tính sai. Kiểm tra lại để chứng minh bạn không phải bot.',
+  errSystem:       'Hệ thống chưa kích hoạt form. Vui lòng liên hệ Zalo 0968 91 5555.',
+  btnSending:      'Đang gửi...',
+  btnSubmitRetry:  '📨 Gửi thông tin tư vấn',
+  // ── TRANG THÀNH CÔNG ─────────────────────────────────────────────────
+  succTitleNew:    'Đã nhận yêu cầu tư vấn',
+  succTitleDup:    'Đã ghi nhận lần liên hệ mới',
+  succSubNew:      'Cảm ơn bạn đã tin tưởng HC Agency. Chuyên gia sẽ liên hệ tư vấn giải pháp Quảng cáo Facebook phù hợp <strong>trong vòng 24 giờ</strong> qua Zalo hoặc điện thoại.',
+  succSubDup:      'Cảm ơn bạn đã quay lại! Yêu cầu mới đã được thêm vào hồ sơ. Chuyên gia HC Agency sẽ liên hệ tư vấn sớm nhất.',
+  timelineTitle:   'Quy trình tiếp theo',
+  tl1Time:         '30 phút',
+  tl1Desc:         'Chuyên gia gọi xác nhận thông tin và lắng nghe nhu cầu',
+  tl2Time:         '4 giờ',
+  tl2Desc:         'Phân tích nhu cầu, chuẩn bị chiến lược riêng cho bạn',
+  tl3Time:         '24 giờ',
+  tl3Desc:         'Tư vấn 1-1, gửi đề xuất chiến lược chi tiết qua Zalo',
+  ctaUrgent:       'Cần hỗ trợ gấp? Liên hệ trực tiếp ngay:',
+  zaloLabel:       'Chat Zalo ngay',
+  zaloMeta:        'Phản hồi trong 5–10 phút',
+  zaloUrl:         'https://zalo.me/0968915555',
+  callLabel:       'Gọi 0968 91 5555',
+  callMeta:        'T2 – T7 · 8h00 – 21h00',
+  succSecure:      'Thông tin của bạn được mã hoá &amp; bảo mật 100%'
+};
 // ═══ PHASE 1.1 CRM: PUBLIC LEAD FORM (?form=lead) ═══
 function initPublicLeadFormMode(){
   var p=new URLSearchParams(window.location.search);
@@ -6061,41 +6192,30 @@ function renderLeadFormPage(){
   var a=Math.floor(Math.random()*9)+1,b=Math.floor(Math.random()*9)+1;
   publicLeadFormCaptcha=a+b;
   publicLeadFormCurrentStep=1;
-  var INDUSTRIES=['Spa & Làm đẹp','Thời trang','F&B (Ăn uống)','Giáo dục & đào tạo','Bất động sản','Y tế & sức khỏe','Du lịch & dịch vụ','Nội thất & xây dựng','Bán lẻ','Khác'];
-  var BUDGETS=[
-    {key:'Dưới 10 triệu',icon:'💰'},
-    {key:'10 – 30 triệu',icon:'💵'},
-    {key:'30 – 100 triệu',icon:'💸'},
-    {key:'Trên 100 triệu',icon:'🚀'}
-  ];
-  var SERVICE_OFFERS=[
-    {code:'fb_ads',icon:'📣',title:'Quảng cáo Facebook',desc:'Tối ưu chiến dịch, tăng chuyển đổi'},
-    {code:'tkqc_rental',icon:'🔑',title:'Thuê tài khoản quảng cáo',desc:'TKQC ổn định, BM chất lượng'},
-    {code:'web_dev',icon:'💻',title:'Thiết kế & Lập trình Web/App',desc:'Website chuẩn SEO, tối ưu UX/UI'}
-  ];
+  var LC=LEAD_COPY;
   var h='<div class="lead-page-wrap">';
   // HERO
   h+='<div class="lead-hero-card">';
   h+='<div class="lead-hero-content">';
-  h+='<div class="lead-hero-pill">🛡️ TƯ VẤN MIỄN PHÍ 100%</div>';
-  h+='<h1 class="lead-hero-h1">Nhận tư vấn chiến lược <span class="lead-hero-h1-blue">quảng cáo Facebook</span> phù hợp với bạn</h1>';
-  h+='<p class="lead-hero-sub">Tối ưu ngân sách – Tăng tỷ lệ ra đơn – Không đốt tiền test</p>';
+  h+='<div class="lead-hero-pill">'+LC.heroPill+'</div>';
+  h+='<h1 class="lead-hero-h1">'+LC.heroTitle+'</h1>';
+  h+='<p class="lead-hero-sub">'+LC.heroSub+'</p>';
   h+='<div class="lead-hero-trust">';
-  h+='<div class="lead-trust-item"><span class="lead-trust-icon">⭐</span><div><div class="lead-trust-title">Chuyên gia 8+ năm</div><div class="lead-trust-sub">kinh nghiệm thực chiến</div></div></div>';
-  h+='<div class="lead-trust-item"><span class="lead-trust-icon">🏢</span><div><div class="lead-trust-title">Hơn 500+ doanh nghiệp</div><div class="lead-trust-sub">đã tin tưởng</div></div></div>';
-  h+='<div class="lead-trust-item"><span class="lead-trust-icon">⚡</span><div><div class="lead-trust-title">Tư vấn 1-1, giải pháp</div><div class="lead-trust-sub">đo ni đóng giày</div></div></div>';
+  h+='<div class="lead-trust-item"><span class="lead-trust-icon">⭐</span><div><div class="lead-trust-title">'+LC.trust1Title+'</div><div class="lead-trust-sub">'+LC.trust1Sub+'</div></div></div>';
+  h+='<div class="lead-trust-item"><span class="lead-trust-icon">🏢</span><div><div class="lead-trust-title">'+LC.trust2Title+'</div><div class="lead-trust-sub">'+LC.trust2Sub+'</div></div></div>';
+  h+='<div class="lead-trust-item"><span class="lead-trust-icon">⚡</span><div><div class="lead-trust-title">'+LC.trust3Title+'</div><div class="lead-trust-sub">'+LC.trust3Sub+'</div></div></div>';
   h+='</div>';
   h+='</div>';
   // Mock dashboard
   h+='<div class="lead-hero-mock">';
   h+='<div class="lead-mock-icon-fb">f</div>';
   h+='<div class="lead-mock-card lead-mock-card-1">';
-  h+='<div class="lead-mock-lbl">Doanh thu</div>';
-  h+='<div class="lead-mock-val">3.250.000.000đ</div>';
-  h+='<div class="lead-mock-up">↑ 158%</div>';
+  h+='<div class="lead-mock-lbl">'+LC.mockRevLabel+'</div>';
+  h+='<div class="lead-mock-val">'+LC.mockRevVal+'</div>';
+  h+='<div class="lead-mock-up">'+LC.mockRevUp+'</div>';
   h+='<div class="lead-mock-bars"><span style="height:30%"></span><span style="height:48%"></span><span style="height:62%"></span><span style="height:78%"></span><span style="height:95%"></span></div>';
   h+='</div>';
-  h+='<div class="lead-mock-card lead-mock-card-2"><div class="lead-mock-lbl">Tỷ lệ ra đơn</div><div class="lead-mock-val-sm">8.6%</div><div class="lead-mock-up">↑ 2.7%</div></div>';
+  h+='<div class="lead-mock-card lead-mock-card-2"><div class="lead-mock-lbl">'+LC.mockCvLabel+'</div><div class="lead-mock-val-sm">'+LC.mockCvVal+'</div><div class="lead-mock-up">'+LC.mockCvUp+'</div></div>';
   h+='</div>';
   h+='</div>';
   // GRID 2-col
@@ -6103,76 +6223,76 @@ function renderLeadFormPage(){
   // SIDEBAR
   h+='<div class="lead-sidebar">';
   h+='<div class="lead-side-card">';
-  h+='<div class="lead-side-title">Quy trình tư vấn</div>';
-  h+='<div class="lead-process-step active" data-step="1"><div class="lead-process-num">1</div><div><div class="lead-process-name">Thông tin cơ bản</div><div class="lead-process-time">(2 phút)</div></div></div>';
-  h+='<div class="lead-process-step" data-step="2"><div class="lead-process-num">2</div><div><div class="lead-process-name">Nhu cầu &amp; ngân sách</div><div class="lead-process-time">(2 phút)</div></div></div>';
-  h+='<div class="lead-process-step" data-step="3"><div class="lead-process-num">3</div><div><div class="lead-process-name">Gửi yêu cầu tư vấn</div><div class="lead-process-time">(Hoàn tất)</div></div></div>';
+  h+='<div class="lead-side-title">'+LC.sidebarTitle+'</div>';
+  h+='<div class="lead-process-step active" data-step="1"><div class="lead-process-num">1</div><div><div class="lead-process-name">'+LC.step1Name+'</div><div class="lead-process-time">'+LC.step1Time+'</div></div></div>';
+  h+='<div class="lead-process-step" data-step="2"><div class="lead-process-num">2</div><div><div class="lead-process-name">'+LC.step2Name+'</div><div class="lead-process-time">'+LC.step2Time+'</div></div></div>';
+  h+='<div class="lead-process-step" data-step="3"><div class="lead-process-num">3</div><div><div class="lead-process-name">'+LC.step3Name+'</div><div class="lead-process-time">'+LC.step3Time+'</div></div></div>';
   h+='</div>';
   h+='<div class="lead-side-card lead-testimonial">';
   h+='<div class="lead-quote-mark">"</div>';
-  h+='<p class="lead-quote-text">Nhờ chiến lược quảng cáo đúng hướng, doanh thu của shop tăng 3X chỉ sau 30 ngày hợp tác.</p>';
-  h+='<div class="lead-quote-author"><div class="lead-quote-avatar">A</div><div><div class="lead-quote-name">Chị Lan Anh</div><div class="lead-quote-role">Chủ shop thời trang</div></div></div>';
+  h+='<p class="lead-quote-text">'+LC.testimonialQuote+'</p>';
+  h+='<div class="lead-quote-author"><div class="lead-quote-avatar">A</div><div><div class="lead-quote-name">'+LC.testimonialName+'</div><div class="lead-quote-role">'+LC.testimonialRole+'</div></div></div>';
   h+='</div>';
   h+='<div class="lead-side-card">';
-  h+='<div class="lead-side-title">Được tin tưởng bởi</div>';
+  h+='<div class="lead-side-title">'+LC.trustedTitle+'</div>';
   h+='<div class="lead-logos-grid">';
-  ['HC Coaching','HC Mama','HC Studio','HC Wear','HC Foods','HC Beauty'].forEach(function(n){h+='<div class="lead-logo-cell">'+esc(n)+'</div>';});
+  LC.trustedLogos.forEach(function(n){h+='<div class="lead-logo-cell">'+esc(n)+'</div>';});
   h+='</div></div>';
   h+='<div class="lead-side-card lead-secure">';
-  h+='<div class="lead-secure-head">🛡️ Cam kết bảo mật</div>';
-  h+='<div class="lead-secure-body">Thông tin của bạn được bảo mật tuyệt đối và chỉ sử dụng để tư vấn.</div>';
+  h+='<div class="lead-secure-head">'+LC.secureTitle+'</div>';
+  h+='<div class="lead-secure-body">'+LC.secureBody+'</div>';
   h+='</div>';
   h+='</div>';
   // RIGHT — STEP CARDS
   h+='<div class="lead-main">';
   // STEP 1
   h+='<div class="lead-step lead-step-active" id="lead-step-1" data-step="1">';
-  h+='<div class="lead-step-head"><span class="lead-step-tag">BƯỚC 1/3</span><h2 class="lead-step-title">Thông tin cơ bản</h2><p class="lead-step-desc">Vui lòng cung cấp thông tin để chuyên gia liên hệ và tư vấn cho bạn.</p></div>';
+  h+='<div class="lead-step-head"><span class="lead-step-tag">'+LC.step1Tag+'</span><h2 class="lead-step-title">'+LC.step1Title+'</h2><p class="lead-step-desc">'+LC.step1Desc+'</p></div>';
   h+='<div class="lead-form-grid-2">';
-  h+='<div class="lead-form-row"><label>Họ và tên <span class="req">*</span></label><input id="lf-name" class="lead-fi" type="text" placeholder="VD: Nguyễn Văn A" autocomplete="name"></div>';
-  h+='<div class="lead-form-row"><label>Số điện thoại <span class="req">*</span></label><input id="lf-phone" class="lead-fi" type="tel" placeholder="VD: 0912 345 678" autocomplete="tel" inputmode="tel"></div>';
+  h+='<div class="lead-form-row"><label>'+LC.lblName+' <span class="req">*</span></label><input id="lf-name" class="lead-fi" type="text" placeholder="'+LC.phName+'" autocomplete="name"></div>';
+  h+='<div class="lead-form-row"><label>'+LC.lblPhone+' <span class="req">*</span></label><input id="lf-phone" class="lead-fi" type="tel" placeholder="'+LC.phPhone+'" autocomplete="tel" inputmode="tel"></div>';
   h+='</div>';
-  h+='<div class="lead-form-row"><label>Ngành nghề kinh doanh <span class="req">*</span></label><select id="lf-industry" class="lead-fi"><option value="">Chọn ngành nghề của bạn</option>';
-  INDUSTRIES.forEach(function(ind){h+='<option value="'+esc(ind)+'">'+esc(ind)+'</option>';});
+  h+='<div class="lead-form-row"><label>'+LC.lblIndustry+' <span class="req">*</span></label><select id="lf-industry" class="lead-fi"><option value="">'+LC.phIndustry+'</option>';
+  LC.industries.forEach(function(ind){h+='<option value="'+esc(ind)+'">'+esc(ind)+'</option>';});
   h+='</select></div>';
   h+='<div id="lf-error-1" class="lead-form-error" hidden></div>';
   h+='<div class="lead-step-foot">';
-  h+='<button class="btn btn-primary lead-step-btn" onclick="nextLeadStep(1)">Tiếp tục <span class="lead-step-arrow">→</span></button>';
-  h+='<div class="lead-step-secure">🔒 Thông tin của bạn được bảo mật 100%</div>';
+  h+='<button class="btn btn-primary lead-step-btn" onclick="nextLeadStep(1)">'+LC.btnNext+' <span class="lead-step-arrow">→</span></button>';
+  h+='<div class="lead-step-secure">'+LC.step1Secure+'</div>';
   h+='</div>';
   h+='</div>';
   // STEP 2
   h+='<div class="lead-step" id="lead-step-2" data-step="2">';
-  h+='<div class="lead-step-head"><span class="lead-step-tag">BƯỚC 2/3</span><h2 class="lead-step-title">Nhu cầu &amp; ngân sách dự kiến</h2><p class="lead-step-desc">Giúp chúng tôi hiểu rõ hơn để tư vấn giải pháp phù hợp nhất.</p></div>';
+  h+='<div class="lead-step-head"><span class="lead-step-tag">'+LC.step2Tag+'</span><h2 class="lead-step-title">'+LC.step2Title+'</h2><p class="lead-step-desc">'+LC.step2Desc+'</p></div>';
   h+='<div class="lead-form-grid-2">';
   // Budget left col
-  h+='<div class="lead-form-row"><label>Ngân sách quảng cáo dự kiến / tháng</label>';
+  h+='<div class="lead-form-row"><label>'+LC.lblBudget+'</label>';
   h+='<div class="lead-budget-grid">';
-  BUDGETS.forEach(function(b,i){h+='<label class="lead-budget-tile"><input type="radio" name="lf-budget" value="'+esc(b.key)+'"'+(i===1?' checked':'')+'><div class="lead-budget-icon">'+b.icon+'</div><div class="lead-budget-label">'+esc(b.key)+'</div></label>';});
+  LC.budgets.forEach(function(b,i){h+='<label class="lead-budget-tile"><input type="radio" name="lf-budget" value="'+esc(b.key)+'"'+(i===1?' checked':'')+'><div class="lead-budget-icon">'+b.icon+'</div><div class="lead-budget-label">'+esc(b.key)+'</div></label>';});
   h+='</div></div>';
   // Service right col
-  h+='<div class="lead-form-row"><label>Dịch vụ bạn quan tâm <span class="opt">(có thể chọn nhiều)</span></label>';
+  h+='<div class="lead-form-row"><label>'+LC.lblService+' <span class="opt">'+LC.lblServiceOpt+'</span></label>';
   h+='<div class="lead-service-list">';
-  SERVICE_OFFERS.forEach(function(s,i){h+='<label class="lead-service-tile"><input type="checkbox" class="lf-service" value="'+s.code+'"'+(i===0?' checked':'')+'><div class="lead-service-icon">'+s.icon+'</div><div class="lead-service-text"><div class="lead-service-title">'+esc(s.title)+'</div><div class="lead-service-desc">'+esc(s.desc)+'</div></div><div class="lead-service-check">✓</div></label>';});
+  LC.services.forEach(function(s,i){h+='<label class="lead-service-tile"><input type="checkbox" class="lf-service" value="'+s.code+'"'+(i===0?' checked':'')+'><div class="lead-service-icon">'+s.icon+'</div><div class="lead-service-text"><div class="lead-service-title">'+esc(s.title)+'</div><div class="lead-service-desc">'+esc(s.desc)+'</div></div><div class="lead-service-check">✓</div></label>';});
   h+='</div></div>';
   h+='</div>';
-  h+='<div class="lead-form-row"><label>Nhu cầu hiện tại của bạn <span class="opt">(không bắt buộc)</span></label><textarea id="lf-message" class="lead-fi" rows="3" placeholder="Mô tả nhu cầu, sản phẩm/dịch vụ, khu vực kinh doanh, hiện trạng quảng cáo…"></textarea></div>';
+  h+='<div class="lead-form-row"><label>'+LC.lblMessage+' <span class="opt">'+LC.lblMessageOpt+'</span></label><textarea id="lf-message" class="lead-fi" rows="3" placeholder="'+LC.phMessage+'"></textarea></div>';
   h+='<div id="lf-error-2" class="lead-form-error" hidden></div>';
   h+='<div class="lead-step-foot">';
-  h+='<button class="btn lead-step-back" onclick="prevLeadStep(2)">← Quay lại</button>';
-  h+='<button class="btn btn-primary lead-step-btn" onclick="nextLeadStep(2)">Tiếp tục <span class="lead-step-arrow">→</span></button>';
+  h+='<button class="btn lead-step-back" onclick="prevLeadStep(2)">'+LC.btnBack+'</button>';
+  h+='<button class="btn btn-primary lead-step-btn" onclick="nextLeadStep(2)">'+LC.btnNext+' <span class="lead-step-arrow">→</span></button>';
   h+='</div>';
   h+='</div>';
   // STEP 3
   h+='<div class="lead-step" id="lead-step-3" data-step="3">';
-  h+='<div class="lead-step-head"><span class="lead-step-tag">BƯỚC 3/3</span><h2 class="lead-step-title">Gửi yêu cầu tư vấn</h2><p class="lead-step-desc">Xác nhận thông tin và gửi yêu cầu để chuyên gia liên hệ với bạn.</p></div>';
+  h+='<div class="lead-step-head"><span class="lead-step-tag">'+LC.step3Tag+'</span><h2 class="lead-step-title">'+LC.step3Title+'</h2><p class="lead-step-desc">'+LC.step3Desc+'</p></div>';
   h+='<div class="lead-confirm-summary" id="lf-summary"></div>';
-  h+='<div class="lead-form-row"><label>Vui lòng giải phép tính (chống spam)</label><div class="lead-captcha-row"><span class="lead-captcha-q">'+a+' + '+b+' = </span><input id="lf-captcha" class="lead-fi" type="number" inputmode="numeric" style="max-width:140px;" autocomplete="off"></div></div>';
+  h+='<div class="lead-form-row"><label>'+LC.lblCaptcha+'</label><div class="lead-captcha-row"><span class="lead-captcha-q">'+a+' + '+b+' = </span><input id="lf-captcha" class="lead-fi" type="number" inputmode="numeric" style="max-width:140px;" autocomplete="off"></div></div>';
   h+='<div style="position:absolute;left:-9999px;height:0;overflow:hidden;" aria-hidden="true"><input id="lf-website" name="website" tabindex="-1" autocomplete="off"></div>';
   h+='<div id="lf-error-3" class="lead-form-error" hidden></div>';
   h+='<div class="lead-step-foot">';
-  h+='<button class="btn lead-step-back" onclick="prevLeadStep(3)">← Quay lại</button>';
-  h+='<button class="btn btn-primary lead-step-btn lead-submit-btn" onclick="submitPublicLead(this)">📨 Gửi yêu cầu tư vấn</button>';
+  h+='<button class="btn lead-step-back" onclick="prevLeadStep(3)">'+LC.btnBack+'</button>';
+  h+='<button class="btn btn-primary lead-step-btn lead-submit-btn" onclick="submitPublicLead(this)">'+LC.btnSubmit+'</button>';
   h+='</div>';
   h+='</div>';
   h+='</div>';
@@ -6180,11 +6300,11 @@ function renderLeadFormPage(){
   // Bottom CTA bar
   h+='<div class="lead-cta-bar">';
   h+='<div class="lead-cta-icon">🎁</div>';
-  h+='<div class="lead-cta-text"><div class="lead-cta-title">Nhận chiến lược Ads riêng cho tôi</div><div class="lead-cta-sub">Chuyên gia sẽ liên hệ trong 15 – 30 phút</div></div>';
+  h+='<div class="lead-cta-text"><div class="lead-cta-title">'+LC.ctaTitle+'</div><div class="lead-cta-sub">'+LC.ctaSub+'</div></div>';
   h+='<div class="lead-cta-shield">🛡️</div>';
   h+='</div>';
-  h+='<div class="lead-bottom-trust">🛡️ Không hiệu quả – Hoàn phí setup. Chúng tôi cam kết đồng hành đến khi bạn đạt kết quả.</div>';
-  h+='<div class="lead-footer-mini">HC Agency · Hotline / Zalo: <a href="tel:0968915555" style="color:var(--blue-tx);font-weight:600;">0968 91 5555</a></div>';
+  h+='<div class="lead-bottom-trust">'+LC.bottomTrust+'</div>';
+  h+='<div class="lead-footer-mini">'+LC.footerText+' <a href="tel:'+LC.hotlineTel+'" style="color:var(--blue-tx);font-weight:600;">'+LC.hotline+'</a></div>';
   h+='</div>';
   document.getElementById('page').innerHTML=h;
 }
@@ -6209,15 +6329,15 @@ function validateLeadStep(step){
     var name=document.getElementById('lf-name').value.trim();
     var phone=document.getElementById('lf-phone').value.trim();
     var industry=document.getElementById('lf-industry').value;
-    if(!name){showErr('Vui lòng nhập họ và tên');return false;}
+    if(!name){showErr(LEAD_COPY.errName);return false;}
     var cleanPhone=phone.replace(/\D/g,'');
-    if(cleanPhone.length<9||cleanPhone.length>11){showErr('Số điện thoại không hợp lệ (phải 9-11 chữ số)');return false;}
-    if(!industry){showErr('Vui lòng chọn ngành nghề kinh doanh');return false;}
+    if(cleanPhone.length<9||cleanPhone.length>11){showErr(LEAD_COPY.errPhone);return false;}
+    if(!industry){showErr(LEAD_COPY.errIndustry);return false;}
     return true;
   }
   if(step===2){
     var anyService=document.querySelectorAll('.lf-service:checked').length>0;
-    if(!anyService){showErr('Vui lòng chọn ít nhất 1 dịch vụ quan tâm');return false;}
+    if(!anyService){showErr(LEAD_COPY.errService);return false;}
     return true;
   }
   return true;
@@ -6253,12 +6373,13 @@ function updateLeadSummary(){
   var sumEl=document.getElementById('lf-summary');
   if(sumEl){
     var html='';
-    html+='<div class="lead-sum-row"><span>Họ tên</span><b>'+esc(name||'—')+'</b></div>';
-    html+='<div class="lead-sum-row"><span>Số điện thoại</span><b>'+esc(phone||'—')+'</b></div>';
-    html+='<div class="lead-sum-row"><span>Ngành nghề</span><b>'+esc(industry||'—')+'</b></div>';
-    html+='<div class="lead-sum-row"><span>Ngân sách</span><b>'+esc(budget)+'</b></div>';
-    html+='<div class="lead-sum-row"><span>Dịch vụ quan tâm</span><b>'+esc(services.join(', ')||'—')+'</b></div>';
-    if(msg)html+='<div class="lead-sum-row"><span>Nhu cầu</span><b>'+esc(msg)+'</b></div>';
+    var LC=LEAD_COPY;
+    html+='<div class="lead-sum-row"><span>'+LC.sumName+'</span><b>'+esc(name||'—')+'</b></div>';
+    html+='<div class="lead-sum-row"><span>'+LC.sumPhone+'</span><b>'+esc(phone||'—')+'</b></div>';
+    html+='<div class="lead-sum-row"><span>'+LC.sumIndustry+'</span><b>'+esc(industry||'—')+'</b></div>';
+    html+='<div class="lead-sum-row"><span>'+LC.sumBudget+'</span><b>'+esc(budget)+'</b></div>';
+    html+='<div class="lead-sum-row"><span>'+LC.sumService+'</span><b>'+esc(services.join(', ')||'—')+'</b></div>';
+    if(msg)html+='<div class="lead-sum-row"><span>'+LC.sumMsg+'</span><b>'+esc(msg)+'</b></div>';
     sumEl.innerHTML=html;
   }
 }
@@ -6271,29 +6392,29 @@ async function submitPublicLead(btn){
   // Honeypot — bot điền field này → giả vờ thành công
   if(get('lf-website')){showLeadFormSuccess({duplicate:false,silent:true});return;}
   var name=get('lf-name'),phone=get('lf-phone');
-  if(!name){showErr('Vui lòng nhập họ tên / tên doanh nghiệp');return;}
+  if(!name){showErr(LEAD_COPY.errName);return;}
   var cleanPhone=phone.replace(/\D/g,'');
-  if(cleanPhone.length<9||cleanPhone.length>11){showErr('Số điện thoại không hợp lệ (phải 9-11 chữ số)');return;}
+  if(cleanPhone.length<9||cleanPhone.length>11){showErr(LEAD_COPY.errPhone);return;}
   var captchaAns=parseInt(get('lf-captcha'));
-  if(isNaN(captchaAns)||captchaAns!==publicLeadFormCaptcha){showErr('Phép tính sai. Kiểm tra lại để chứng minh bạn không phải bot.');return;}
+  if(isNaN(captchaAns)||captchaAns!==publicLeadFormCaptcha){showErr(LEAD_COPY.errCaptcha);return;}
   var services=[];
   document.querySelectorAll('.lf-service:checked').forEach(function(el){services.push(el.value);});
   if(!services.length)services=['fb_ads'];
   var budgetEl=document.querySelector('input[name="lf-budget"]:checked');
   var budget=budgetEl?budgetEl.value:'';
-  btn.disabled=true;btn.textContent='Đang gửi...';
+  btn.disabled=true;btn.textContent=LEAD_COPY.btnSending;
   try{
     var r=await sb2.rpc('submit_public_lead',{p_data:{name:name,phone:phone,zalo:get('lf-zalo'),email:get('lf-email'),industry:get('lf-industry'),monthly_budget:budget,services:services,message:get('lf-message'),source:publicLeadFormSource}});
     if(r.error){
       var msg=String(r.error.message||r.error);
       if(/function .* does not exist/i.test(msg)||/Could not find the function/i.test(msg)){
-        showErr('Hệ thống chưa kích hoạt form. Vui lòng liên hệ Zalo 0968 91 5555.');
+        showErr(LEAD_COPY.errSystem);
       }else if(/P0001/.test(JSON.stringify(r.error))||msg.indexOf('không hợp lệ')>=0||msg.indexOf('Vui lòng')>=0){
         showErr(msg.replace(/^[^:]*:\s*/,''));
       }else{
         showErr('Lỗi: '+msg);
       }
-      btn.disabled=false;btn.textContent='📨 Gửi thông tin tư vấn';
+      btn.disabled=false;btn.textContent=LEAD_COPY.btnSubmitRetry;
       return;
     }
     showLeadFormSuccess(r.data||{});
@@ -6311,32 +6432,33 @@ function showLeadFormSuccess(result){
   h+='<div class="lead-succ-ring"></div>';
   h+='<div class="lead-succ-check"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>';
   h+='</div>';
+  var LC=LEAD_COPY;
   // Headline
-  h+='<h1 class="lead-succ-h">'+(dup?'Đã ghi nhận lần liên hệ mới':'Đã nhận yêu cầu tư vấn')+'</h1>';
-  h+='<p class="lead-succ-sub">'+(dup?'Cảm ơn bạn đã quay lại! Yêu cầu mới đã được thêm vào hồ sơ. Chuyên gia HC Agency sẽ liên hệ tư vấn sớm nhất.':'Cảm ơn bạn đã tin tưởng HC Agency. Chuyên gia sẽ liên hệ tư vấn giải pháp Quảng cáo Facebook phù hợp <strong>trong vòng 24 giờ</strong> qua Zalo hoặc điện thoại.')+'</p>';
+  h+='<h1 class="lead-succ-h">'+(dup?LC.succTitleDup:LC.succTitleNew)+'</h1>';
+  h+='<p class="lead-succ-sub">'+(dup?LC.succSubDup:LC.succSubNew)+'</p>';
   // Timeline
   h+='<div class="lead-timeline">';
-  h+='<div class="lead-timeline-title">Quy trình tiếp theo</div>';
-  h+='<div class="lead-timeline-row"><div class="lead-timeline-icon icon-1"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="lead-timeline-time">30 phút</div><div class="lead-timeline-desc">Chuyên gia gọi xác nhận thông tin và lắng nghe nhu cầu</div></div>';
-  h+='<div class="lead-timeline-row"><div class="lead-timeline-icon icon-2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 4 5-7"/></svg></div><div class="lead-timeline-time">4 giờ</div><div class="lead-timeline-desc">Phân tích nhu cầu, chuẩn bị chiến lược riêng cho bạn</div></div>';
-  h+='<div class="lead-timeline-row"><div class="lead-timeline-icon icon-3"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div><div class="lead-timeline-time">24 giờ</div><div class="lead-timeline-desc">Tư vấn 1-1, gửi đề xuất chiến lược chi tiết qua Zalo</div></div>';
+  h+='<div class="lead-timeline-title">'+LC.timelineTitle+'</div>';
+  h+='<div class="lead-timeline-row"><div class="lead-timeline-icon icon-1"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="lead-timeline-time">'+LC.tl1Time+'</div><div class="lead-timeline-desc">'+LC.tl1Desc+'</div></div>';
+  h+='<div class="lead-timeline-row"><div class="lead-timeline-icon icon-2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 4 5-7"/></svg></div><div class="lead-timeline-time">'+LC.tl2Time+'</div><div class="lead-timeline-desc">'+LC.tl2Desc+'</div></div>';
+  h+='<div class="lead-timeline-row"><div class="lead-timeline-icon icon-3"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div><div class="lead-timeline-time">'+LC.tl3Time+'</div><div class="lead-timeline-desc">'+LC.tl3Desc+'</div></div>';
   h+='</div>';
   // CTAs
-  h+='<div class="lead-succ-cta-label">Cần hỗ trợ gấp? Liên hệ trực tiếp ngay:</div>';
+  h+='<div class="lead-succ-cta-label">'+LC.ctaUrgent+'</div>';
   h+='<div class="lead-succ-cta-grid">';
-  h+='<a href="https://zalo.me/0968915555" target="_blank" rel="noopener" class="lead-succ-cta-card lead-succ-cta-zalo">';
+  h+='<a href="'+LC.zaloUrl+'" target="_blank" rel="noopener" class="lead-succ-cta-card lead-succ-cta-zalo">';
   h+='<div class="lead-succ-cta-icon"><svg width="34" height="34" viewBox="0 0 32 32"><path d="M16 4C9.4 4 4 8.5 4 14c0 3 1.7 5.7 4.4 7.5L7 28l5-2.7c1.2.3 2.5.4 4 .4 6.6 0 12-4.5 12-10S22.6 4 16 4z" fill="#fff"/><text x="16" y="18" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="8.5" font-weight="900" fill="#0068FF" letter-spacing="-0.5">Zalo</text></svg></div>';
-  h+='<div class="lead-succ-cta-stack"><div class="lead-succ-cta-title">Chat Zalo ngay</div><div class="lead-succ-cta-meta">Phản hồi trong 5–10 phút</div></div>';
+  h+='<div class="lead-succ-cta-stack"><div class="lead-succ-cta-title">'+LC.zaloLabel+'</div><div class="lead-succ-cta-meta">'+LC.zaloMeta+'</div></div>';
   h+='<div class="lead-succ-cta-arrow">→</div>';
   h+='</a>';
-  h+='<a href="tel:0968915555" class="lead-succ-cta-card lead-succ-cta-phone">';
+  h+='<a href="tel:'+LC.hotlineTel+'" class="lead-succ-cta-card lead-succ-cta-phone">';
   h+='<div class="lead-succ-cta-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>';
-  h+='<div class="lead-succ-cta-stack"><div class="lead-succ-cta-title">Gọi 0968 91 5555</div><div class="lead-succ-cta-meta">T2 – T7 · 8h00 – 21h00</div></div>';
+  h+='<div class="lead-succ-cta-stack"><div class="lead-succ-cta-title">'+LC.callLabel+'</div><div class="lead-succ-cta-meta">'+LC.callMeta+'</div></div>';
   h+='<div class="lead-succ-cta-arrow">→</div>';
   h+='</a>';
   h+='</div>';
   // Trust footer
-  h+='<div class="lead-succ-secure"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Thông tin của bạn được mã hoá &amp; bảo mật 100%</div>';
+  h+='<div class="lead-succ-secure"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> '+LC.succSecure+'</div>';
   h+='</div>';
   h+='</div>';
   document.getElementById('page').innerHTML=h;
