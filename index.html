@@ -5284,9 +5284,10 @@ async function saveQuotation(btn,markSent){
   };
   if(markSent)payload.sent_at=new Date().toISOString();
   var r;
+  var existingId=quotationModalId&&quotationModalId!=='new'?quotationModalId:null;
   async function tryUpsert(p){
-    if(quotationModalId&&quotationModalId!=='new')return await sb2.from('quotation').update(p).eq('id',quotationModalId);
-    return await sb2.from('quotation').insert(p);
+    if(existingId)return await sb2.from('quotation').update(p).eq('id',existingId).select().maybeSingle();
+    return await sb2.from('quotation').insert(p).select().maybeSingle();
   }
   try{
     r=await tryUpsert(payload);
@@ -5300,9 +5301,14 @@ async function saveQuotation(btn,markSent){
     if(btn){btn.disabled=false;btn.classList.remove('is-loading');}
   }
   if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+  var savedId=existingId||(r.data&&r.data.id);
   toast('Đã lưu báo giá',true);
   quotationModalId=null;
   await loadLight();
+  // Tự động mở preview của báo giá vừa lưu để user xem + tải PDF ngay
+  if(savedId){
+    setTimeout(function(){previewQuotation(savedId);},150);
+  }
 }
 
 async function deleteQuotation(id){
@@ -5368,7 +5374,8 @@ function renderQuotationPreview(){
   ov.innerHTML='<div style="max-width:900px;margin:0 auto;">'
     +'<div style="display:flex;gap:8px;margin-bottom:12px;justify-content:flex-end;flex-wrap:wrap;">'
     +'<button class="btn" onclick="closeQuotationPreview()">✕ Đóng</button>'
-    +'<button class="btn btn-primary" onclick="printQuotation()">🖨️ In / Lưu PDF</button>'
+    +'<button class="btn" onclick="printQuotation()">🖨️ In</button>'
+    +'<button class="btn btn-primary" onclick="downloadQuotationPdf(this)">📄 Tải PDF</button>'
     +'</div>'
     +'<div id="qt-print-area">'+html+'</div>'
     +'</div>';
@@ -5377,11 +5384,47 @@ function renderQuotationPreview(){
 }
 
 function printQuotation(){
-  var node=document.getElementById('qt-print-area');if(!node)return;
+  var node=document.getElementById('qt-print-area');if(!node){toast('Không tìm thấy nội dung báo giá',false);return;}
   var w=window.open('','_blank','width=900,height=1200');
+  if(!w){toast('Trình duyệt chặn cửa sổ — bấm "Tải PDF" thay thế',false);return;}
   w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Báo giá HC Agency</title>');
   w.document.write('<style>'+quotationPrintCss()+'</style></head><body>'+node.innerHTML+'</body></html>');
   w.document.close();setTimeout(function(){w.focus();w.print();},300);
+}
+
+// Tải PDF trực tiếp (không qua print dialog)
+async function downloadQuotationPdf(btn){
+  if(!quotationPreviewId){toast('Không tìm thấy báo giá',false);return;}
+  var node=document.getElementById('qt-print-area');
+  if(!node){toast('Không tìm thấy nội dung báo giá để tải',false);return;}
+  var q=quotationList.find(function(x){return x.id===quotationPreviewId;});if(!q)return;
+  var c=q.client||clientList.find(function(x){return x.id===q.client_id;})||{};
+  var oldText=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Đang tạo PDF...';}
+  var wrap=null;
+  try{
+    await ensureHtml2Pdf();
+    wrap=document.createElement('div');
+    wrap.innerHTML='<style>'+quotationPrintCss()+'</style>'+node.innerHTML;
+    wrap.style.cssText='position:absolute;left:-99999px;top:0;width:210mm;background:#ffffff;';
+    document.body.appendChild(wrap);
+    var fname='Bao-gia_'+sanitizeFilenamePart(c.name||'KH')+'_'+String(q.quote_number||'').replace(/[\\/]/g,'-')+'.pdf';
+    await html2pdf().set({
+      margin:[0,0,0,0],
+      filename:fname,
+      image:{type:'jpeg',quality:.95},
+      html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+      pagebreak:{mode:['avoid-all','css','legacy']}
+    }).from(wrap).save();
+    toast('Đã tải PDF ✓',true);
+  }catch(e){
+    console.error('downloadQuotationPdf:',e);
+    toast('Lỗi tải PDF: '+e.message,false);
+  }finally{
+    if(wrap&&wrap.parentNode)wrap.parentNode.removeChild(wrap);
+    if(btn){btn.disabled=false;btn.textContent=oldText||'📄 Tải PDF';}
+  }
 }
 
 function quotationPrintCss(){
