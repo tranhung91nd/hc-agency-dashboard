@@ -496,35 +496,55 @@ body.public-mode .main{padding:0;}
 .public-error-title{font-size:18px;font-weight:600;margin-bottom:8px;color:var(--tx1);}
 .public-error-msg{font-size:13px;color:var(--tx3);line-height:1.6;}
 /* ═══ PHASE 1.1 CRM: PUBLIC LEAD FORM (3-step wizard) ═══ */
-.lead-page-wrap{max-width:1200px;margin:0 auto;padding:24px 20px 32px;}
+.lead-page-wrap{max-width:1200px;margin:0 auto;padding:24px 20px 32px;overflow-x:hidden;}
 @media(max-width:900px){.lead-page-wrap{padding:14px;}}
 /* HERO */
-.lead-hero-card{background:linear-gradient(135deg,#EDF3FF 0%,#F8FAFD 100%);border:1px solid var(--bd1);border-radius:24px;padding:36px;display:grid;grid-template-columns:1fr 380px;gap:24px;margin-bottom:24px;align-items:center;}
+.lead-hero-card{background:linear-gradient(135deg,#F8FBFF 0%,#EDF3FF 100%);border:1px solid var(--bd1);border-radius:28px;padding:34px;display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:34px;margin-bottom:24px;align-items:center;box-shadow:0 18px 48px rgba(15,23,42,.06);min-width:0;}
 @media(max-width:900px){.lead-hero-card{grid-template-columns:1fr;padding:24px 18px;border-radius:18px;gap:18px;}}
-.lead-hero-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;background:#fff;border:1px solid var(--bd2);color:var(--blue-tx);font-size:11px;font-weight:700;letter-spacing:.05em;margin-bottom:18px;box-shadow:0 1px 3px rgba(15,23,42,.04);}
-.lead-hero-h1{font-size:36px;font-weight:800;letter-spacing:-.03em;line-height:1.15;color:var(--tx1);margin:0 0 12px;}
+.lead-hero-content{min-width:0;}
+.lead-hero-pill{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:7px 16px;border-radius:999px;background:#fff;border:1px solid var(--bd2);color:var(--blue-tx);font-size:11px;font-weight:800;letter-spacing:.045em;line-height:1.35;margin-bottom:18px;box-shadow:0 3px 12px rgba(15,23,42,.05);text-transform:uppercase;white-space:normal;}
+.lead-hero-h1{font-size:38px;font-weight:850;letter-spacing:0;line-height:1.13;color:var(--tx1);margin:0 0 12px;max-width:680px;}
 @media(max-width:900px){.lead-hero-h1{font-size:30px;}}
-@media(max-width:540px){.lead-hero-h1{font-size:24px;}}
+@media(max-width:540px){.lead-hero-pill{display:block;width:100%;border-radius:14px;}.lead-hero-h1{font-size:24px;overflow-wrap:break-word;}.lead-hero-desc,.lead-hero-sub,.lead-trust-title,.lead-trust-sub{overflow-wrap:break-word;}}
 .lead-hero-h1-blue{color:var(--blue);}
-.lead-hero-sub{font-size:14px;color:var(--tx2);margin:0 0 22px;}
-.lead-hero-trust{display:flex;flex-wrap:wrap;gap:18px;}
-.lead-trust-item{display:flex;align-items:center;gap:10px;}
-.lead-trust-icon{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:9px;background:var(--blue-bg);color:var(--blue);font-size:16px;flex-shrink:0;}
-.lead-trust-title{font-size:12.5px;font-weight:600;color:var(--tx1);line-height:1.3;}
-.lead-trust-sub{font-size:11px;color:var(--tx3);line-height:1.3;}
+.lead-hero-desc{font-size:14.5px;color:var(--tx2);line-height:1.65;margin:0 0 8px;max-width:720px;}
+.lead-hero-sub{font-size:14px;color:var(--tx1);font-weight:600;margin:0 0 22px;padding-bottom:20px;border-bottom:1px solid rgba(148,163,184,.28);}
+.lead-hero-trust{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:20px;}
+@media(max-width:760px){.lead-hero-trust{grid-template-columns:1fr;gap:12px;}}
+.lead-trust-item{display:flex;align-items:flex-start;gap:12px;min-width:0;}
+.lead-trust-icon{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;background:#fff;color:var(--blue);font-size:17px;flex-shrink:0;border:1px solid var(--bd1);box-shadow:0 4px 12px rgba(15,23,42,.05);}
+.lead-trust-title{font-size:13.5px;font-weight:800;color:var(--tx1);line-height:1.3;}
+.lead-trust-sub{font-size:11.5px;color:var(--tx3);line-height:1.45;margin-top:3px;}
+.lead-hero-brand-strip{background:rgba(255,255,255,.72);border:1px solid var(--bd1);border-radius:14px;padding:12px 14px;max-width:720px;overflow:hidden;}
+.lead-hero-brand-title{font-size:11px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.055em;margin-bottom:10px;}
+.lead-hero-brand-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;align-items:center;}
+@media(max-width:760px){.lead-hero-brand-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:540px){.lead-hero-brand-grid{grid-template-columns:repeat(2,1fr);}.lead-hero-brand-logo{height:42px;}}
+.lead-hero-brand-logo{height:38px;display:flex;align-items:center;justify-content:center;min-width:0;}
+.lead-hero-brand-logo img{display:block;max-width:100%;max-height:36px;width:auto;height:auto;object-fit:contain;filter:grayscale(1);opacity:.7;transition:filter .15s,opacity .15s;min-width:0;}
+.lead-hero-brand-logo:hover img{filter:none;opacity:1;}
 /* HERO mock dashboard */
-.lead-hero-mock{position:relative;height:280px;background:#fff;border-radius:18px;border:1px solid var(--bd1);padding:18px;box-shadow:0 8px 24px rgba(15,23,42,.06);}
+.lead-hero-mock{position:relative;height:360px;background:#fff;border-radius:22px;border:1px solid var(--bd1);padding:20px;box-shadow:0 16px 36px rgba(15,23,42,.08);}
 @media(max-width:900px){.lead-hero-mock{display:none;}}
-.lead-mock-icon-fb{position:absolute;top:-14px;right:18px;width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#1877F2 0%,#3B5998 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:24px;box-shadow:0 4px 12px rgba(24,119,242,.35);font-family:Georgia,serif;}
+.lead-mock-icon-fb{position:absolute;top:-18px;right:18px;width:58px;height:58px;border-radius:16px;background:linear-gradient(135deg,#1877F2 0%,#3B5998 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:32px;box-shadow:0 8px 20px rgba(24,119,242,.35);font-family:Georgia,serif;}
 .lead-mock-card{background:#fff;border:1px solid var(--bd1);border-radius:14px;padding:14px 16px;box-shadow:0 4px 12px rgba(15,23,42,.06);}
-.lead-mock-card-1{position:absolute;top:24px;left:18px;right:88px;}
-.lead-mock-card-2{position:absolute;bottom:20px;right:18px;width:160px;}
+.lead-mock-card-1{position:absolute;top:18px;left:20px;width:210px;background:linear-gradient(135deg,#2563EB 0%,#5B7FEF 100%);border-color:transparent;color:#fff;}
+.lead-mock-card-2{position:absolute;top:22px;right:20px;width:170px;}
 .lead-mock-lbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;}
-.lead-mock-val{font-size:20px;font-weight:800;color:var(--tx1);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin-top:2px;}
+.lead-mock-card-1 .lead-mock-lbl,.lead-mock-card-1 .lead-mock-up{color:rgba(255,255,255,.82);}
+.lead-mock-card-1 .lead-mock-val{color:#fff;}
+.lead-mock-val{font-size:22px;font-weight:800;color:var(--tx1);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin-top:6px;}
 .lead-mock-val-sm{font-size:22px;font-weight:800;color:var(--tx1);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin-top:2px;}
 .lead-mock-up{font-size:11px;color:var(--green-tx);font-weight:600;margin-top:2px;}
-.lead-mock-bars{display:flex;align-items:flex-end;gap:6px;height:64px;margin-top:10px;}
-.lead-mock-bars span{flex:1;background:linear-gradient(180deg,var(--blue) 0%,#9CC9FF 100%);border-radius:4px 4px 0 0;}
+.lead-mock-panel{position:absolute;left:20px;right:20px;top:130px;height:172px;background:#fff;border:1px solid var(--bd1);border-radius:16px;padding:18px 150px 16px 18px;box-shadow:0 6px 18px rgba(15,23,42,.05);}
+.lead-mock-panel-title{font-size:11px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:14px;}
+.lead-mock-bars{display:flex;align-items:flex-end;gap:12px;height:86px;border-left:1px solid var(--bd2);border-bottom:1px solid var(--bd2);padding-left:12px;}
+.lead-mock-bars span{flex:1;background:linear-gradient(180deg,var(--blue) 0%,#9CC9FF 100%);border-radius:5px 5px 0 0;box-shadow:0 8px 18px rgba(37,99,235,.16);}
+.lead-mock-stats{position:absolute;right:14px;top:36px;display:flex;flex-direction:column;gap:5px;width:124px;}
+.lead-mock-stat{display:flex;align-items:center;gap:6px;font-size:9.5px;line-height:1.16;color:var(--tx3);}
+.lead-mock-stat-ic{width:21px;height:21px;border-radius:7px;background:var(--blue-bg);color:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:800;}
+.lead-mock-stat b{display:block;color:var(--tx1);font-size:11px;margin-top:1px;}
+.lead-mock-note{position:absolute;left:20px;right:20px;bottom:20px;background:linear-gradient(90deg,#F3F7FF 0%,#F8FBFF 100%);border-radius:10px;padding:11px 14px;font-size:12.5px;color:var(--tx2);font-weight:600;text-align:center;}
 /* GRID 2-col */
 .lead-grid{display:grid;grid-template-columns:280px 1fr;gap:20px;}
 @media(max-width:900px){.lead-grid{grid-template-columns:1fr;}}
@@ -6104,15 +6124,16 @@ function renderPublicLedgerPage(){
 // ═══ PHASE 1.1 CRM: PUBLIC LEAD FORM — NỘI DUNG CÓ THỂ SỬA TẠI ĐÂY ═══
 var LEAD_COPY = {
   // ── HERO ──────────────────────────────────────────────────────────────
-  heroPill:        '🛡️ TƯ VẤN MIỄN PHÍ 100%',
-  heroTitle:       'Nhận tư vấn chiến lược <span class="lead-hero-h1-blue">quảng cáo Facebook</span> phù hợp với bạn',
-  heroSub:         'Tối ưu ngân sách – Tăng tỷ lệ ra đơn – Không đốt tiền test',
-  trust1Title:     'Chuyên gia 8+ năm',
-  trust1Sub:       'kinh nghiệm thực chiến',
-  trust2Title:     'Hơn 500+ doanh nghiệp',
-  trust2Sub:       'đã tin tưởng',
-  trust3Title:     'Tư vấn 1-1, giải pháp',
-  trust3Sub:       'đo ni đóng giày',
+  heroPill:        '🎯 Tư vấn chiến lược quảng cáo Facebook miễn phí',
+  heroTitle:       'Nhận tư vấn 1:1 từ <span class="lead-hero-h1-blue">chuyên gia quảng cáo Facebook</span>',
+  heroDesc:        'Giúp bạn xây dựng chiến lược quảng cáo phù hợp với sản phẩm, ngân sách và mục tiêu kinh doanh.',
+  heroSub:         'Tiếp cận đúng khách hàng tiềm năng - Tối ưu ngân sách - Tăng tỷ lệ ra đơn',
+  trust1Title:     '9+ năm kinh nghiệm thực chiến',
+  trust1Sub:       'Trực tiếp triển khai nhiều chiến dịch quảng cáo Facebook cho đa dạng ngành hàng',
+  trust2Title:     '200+ doanh nghiệp đã tin tưởng hợp tác',
+  trust2Sub:       'Đồng hành cùng shop online, doanh nghiệp nhỏ và thương hiệu đang trong giai đoạn tăng trưởng',
+  trust3Title:     'Tư vấn 1:1 theo từng mô hình kinh doanh',
+  trust3Sub:       'Không áp dụng công thức chung, đề xuất giải pháp dựa trên tình trạng thực tế của bạn',
   // ── MOCK DASHBOARD ───────────────────────────────────────────────────
   mockRevLabel:    'Doanh thu',
   mockRevVal:      '3.250.000.000đ',
@@ -6120,6 +6141,16 @@ var LEAD_COPY = {
   mockCvLabel:     'Tỷ lệ ra đơn',
   mockCvVal:       '8.6%',
   mockCvUp:        '↑ 2.7%',
+  mockPanelTitle:  'Tổng quan hiệu quả',
+  mockAdCostLabel: 'Chi phí quảng cáo',
+  mockAdCostVal:   '450.000.000đ',
+  mockOrdersLabel: 'Số đơn hàng',
+  mockOrdersVal:   '2.806',
+  mockCpaLabel:    'Cost/đơn hàng',
+  mockCpaVal:      '160.236đ',
+  mockConvLabel:   'Tỷ lệ chuyển đổi',
+  mockConvVal:     '2,8%',
+  mockNote:        'Cam kết tư vấn minh bạch - Chiến lược rõ ràng - Hiệu quả đo lường được',
   // ── SIDEBAR ──────────────────────────────────────────────────────────
   sidebarTitle:    'Quy trình tư vấn',
   step1Name:       'Thông tin cơ bản',
@@ -6249,12 +6280,21 @@ function renderLeadFormPage(){
   h+='<div class="lead-hero-content">';
   h+='<div class="lead-hero-pill">'+LC.heroPill+'</div>';
   h+='<h1 class="lead-hero-h1">'+LC.heroTitle+'</h1>';
+  h+='<p class="lead-hero-desc">'+LC.heroDesc+'</p>';
   h+='<p class="lead-hero-sub">'+LC.heroSub+'</p>';
   h+='<div class="lead-hero-trust">';
-  h+='<div class="lead-trust-item"><span class="lead-trust-icon">⭐</span><div><div class="lead-trust-title">'+LC.trust1Title+'</div><div class="lead-trust-sub">'+LC.trust1Sub+'</div></div></div>';
-  h+='<div class="lead-trust-item"><span class="lead-trust-icon">🏢</span><div><div class="lead-trust-title">'+LC.trust2Title+'</div><div class="lead-trust-sub">'+LC.trust2Sub+'</div></div></div>';
-  h+='<div class="lead-trust-item"><span class="lead-trust-icon">⚡</span><div><div class="lead-trust-title">'+LC.trust3Title+'</div><div class="lead-trust-sub">'+LC.trust3Sub+'</div></div></div>';
+  h+='<div class="lead-trust-item"><span class="lead-trust-icon">🎖️</span><div><div class="lead-trust-title">'+LC.trust1Title+'</div><div class="lead-trust-sub">'+LC.trust1Sub+'</div></div></div>';
+  h+='<div class="lead-trust-item"><span class="lead-trust-icon">🤝</span><div><div class="lead-trust-title">'+LC.trust2Title+'</div><div class="lead-trust-sub">'+LC.trust2Sub+'</div></div></div>';
+  h+='<div class="lead-trust-item"><span class="lead-trust-icon">🧩</span><div><div class="lead-trust-title">'+LC.trust3Title+'</div><div class="lead-trust-sub">'+LC.trust3Sub+'</div></div></div>';
   h+='</div>';
+  h+='<div class="lead-hero-brand-strip"><div class="lead-hero-brand-title">'+LC.trustedTitle+'</div><div class="lead-hero-brand-grid">';
+  LC.trustedLogos.forEach(function(item){
+    var logo=typeof item==='string'?{name:item}:item;
+    var name=esc(logo.name||'Thương hiệu');
+    if(logo.img)h+='<div class="lead-hero-brand-logo" title="'+name+'"><img src="'+esc(logo.img)+'" alt="'+name+'" loading="lazy"></div>';
+    else h+='<div class="lead-hero-brand-logo">'+name+'</div>';
+  });
+  h+='</div></div>';
   h+='</div>';
   // Mock dashboard
   h+='<div class="lead-hero-mock">';
@@ -6262,10 +6302,20 @@ function renderLeadFormPage(){
   h+='<div class="lead-mock-card lead-mock-card-1">';
   h+='<div class="lead-mock-lbl">'+LC.mockRevLabel+'</div>';
   h+='<div class="lead-mock-val">'+LC.mockRevVal+'</div>';
-  h+='<div class="lead-mock-up">'+LC.mockRevUp+'</div>';
-  h+='<div class="lead-mock-bars"><span style="height:30%"></span><span style="height:48%"></span><span style="height:62%"></span><span style="height:78%"></span><span style="height:95%"></span></div>';
+  h+='<div class="lead-mock-up">'+LC.mockRevUp+' so với kỳ trước</div>';
   h+='</div>';
-  h+='<div class="lead-mock-card lead-mock-card-2"><div class="lead-mock-lbl">'+LC.mockCvLabel+'</div><div class="lead-mock-val-sm">'+LC.mockCvVal+'</div><div class="lead-mock-up">'+LC.mockCvUp+'</div></div>';
+  h+='<div class="lead-mock-card lead-mock-card-2"><div class="lead-mock-lbl">'+LC.mockCvLabel+'</div><div class="lead-mock-val-sm">'+LC.mockCvVal+'</div><div class="lead-mock-up">'+LC.mockCvUp+' so với kỳ trước</div></div>';
+  h+='<div class="lead-mock-panel">';
+  h+='<div class="lead-mock-panel-title">'+LC.mockPanelTitle+'</div>';
+  h+='<div class="lead-mock-bars"><span style="height:35%"></span><span style="height:48%"></span><span style="height:58%"></span><span style="height:70%"></span><span style="height:84%"></span><span style="height:96%"></span></div>';
+  h+='<div class="lead-mock-stats">';
+  h+='<div class="lead-mock-stat"><span class="lead-mock-stat-ic">$</span><div>'+LC.mockAdCostLabel+'<b>'+LC.mockAdCostVal+'</b></div></div>';
+  h+='<div class="lead-mock-stat"><span class="lead-mock-stat-ic">🛒</span><div>'+LC.mockOrdersLabel+'<b>'+LC.mockOrdersVal+'</b></div></div>';
+  h+='<div class="lead-mock-stat"><span class="lead-mock-stat-ic">↗</span><div>'+LC.mockCpaLabel+'<b>'+LC.mockCpaVal+'</b></div></div>';
+  h+='<div class="lead-mock-stat"><span class="lead-mock-stat-ic">%</span><div>'+LC.mockConvLabel+'<b>'+LC.mockConvVal+'</b></div></div>';
+  h+='</div>';
+  h+='</div>';
+  h+='<div class="lead-mock-note">🛡️ '+LC.mockNote+'</div>';
   h+='</div>';
   h+='</div>';
   // GRID 2-col
