@@ -589,9 +589,33 @@ body.public-mode .main{padding:0;}
 .lead-proof-tag{display:inline-flex;width:max-content;max-width:100%;padding:4px 8px;border-radius:999px;background:var(--blue-bg);color:var(--blue-tx);font-size:10.5px;font-weight:700;}
 .lead-proof-metric{font-size:18px;font-weight:850;color:var(--tx1);letter-spacing:0;line-height:1.2;}
 .lead-proof-card.featured .lead-proof-metric{font-size:22px;}
-.lead-proof-desc{font-size:12px;color:var(--tx2);line-height:1.45;margin-top:auto;}
+.lead-proof-desc{font-size:12px;color:var(--tx2);line-height:1.45;}
 .lead-proof-card.featured .lead-proof-desc{font-size:12.5px;}
+.lead-proof-thumb{margin-top:auto;padding:0;border:1px solid var(--bd1);border-radius:10px;overflow:hidden;background:var(--bg1);cursor:pointer;position:relative;display:block;width:100%;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;}
+.lead-proof-thumb:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(15,23,42,.12);border-color:rgba(55,138,221,.4);}
+.lead-proof-thumb img{display:block;width:100%;height:auto;aspect-ratio:1920/720;object-fit:cover;background:#fff;}
+.lead-proof-thumb-zoom{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);padding:4px 10px;border-radius:999px;background:rgba(15,23,42,.78);color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.02em;opacity:0;transition:opacity .15s ease;pointer-events:none;}
+.lead-proof-thumb:hover .lead-proof-thumb-zoom{opacity:1;}
 .lead-proof-footer{margin-top:14px;padding:12px 14px;border-radius:12px;background:linear-gradient(90deg,var(--blue-bg) 0%,rgba(55,138,221,.04) 100%);color:var(--blue-tx);font-size:13px;font-weight:700;line-height:1.45;}
+/* Lightbox */
+.lead-proof-lightbox{position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.88);display:flex;align-items:center;justify-content:center;padding:32px;backdrop-filter:blur(4px);animation:lpFadeIn .18s ease;}
+@keyframes lpFadeIn{from{opacity:0;}to{opacity:1;}}
+.lead-proof-lightbox-img{max-width:100%;max-height:calc(100vh - 64px);object-fit:contain;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.4);}
+.lead-proof-lightbox-close,.lead-proof-lightbox-nav{position:absolute;background:rgba(255,255,255,.92);border:none;border-radius:50%;width:44px;height:44px;cursor:pointer;font-size:20px;color:var(--tx1);display:flex;align-items:center;justify-content:center;transition:background .15s ease,transform .15s ease;font-weight:700;}
+.lead-proof-lightbox-close:hover,.lead-proof-lightbox-nav:hover{background:#fff;transform:scale(1.05);}
+.lead-proof-lightbox-close{top:20px;right:20px;}
+.lead-proof-lightbox-nav.prev{left:20px;top:50%;transform:translateY(-50%);}
+.lead-proof-lightbox-nav.next{right:20px;top:50%;transform:translateY(-50%);}
+.lead-proof-lightbox-nav.prev:hover{transform:translateY(-50%) scale(1.05);}
+.lead-proof-lightbox-nav.next:hover{transform:translateY(-50%) scale(1.05);}
+.lead-proof-lightbox-caption{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);max-width:90%;padding:8px 16px;border-radius:8px;background:rgba(15,23,42,.7);color:#fff;font-size:13px;font-weight:600;text-align:center;}
+@media(max-width:540px){
+  .lead-proof-lightbox{padding:16px;}
+  .lead-proof-lightbox-close,.lead-proof-lightbox-nav{width:36px;height:36px;font-size:16px;}
+  .lead-proof-lightbox-close{top:12px;right:12px;}
+  .lead-proof-lightbox-nav.prev{left:8px;}
+  .lead-proof-lightbox-nav.next{right:8px;}
+}
 .lead-secure{background:var(--blue-bg);border-color:var(--blue-bg);}
 .lead-secure-head{font-size:13px;font-weight:700;color:var(--blue-tx);margin-bottom:6px;}
 .lead-secure-body{font-size:12px;color:var(--tx2);line-height:1.5;}
@@ -6180,13 +6204,12 @@ var LEAD_COPY = {
   proofTitle:      'Những kết quả đã tạo ra cho khách hàng',
   proofSub:        'Các số liệu dưới đây được tổng hợp từ portfolio khách hàng đã chạy quảng cáo cùng Hưng Coaching / HC Agency.',
   proofCases:      [
-    {brand:'Lagin Túi Xách (by Tatu)',     tag:'Fanpage 195K follow',  metric:'Lợi nhuận 150-200 triệu/tháng', desc:'Khách hàng Hoài Thanh Vũ. Duy trì ngân sách quảng cáo đều đặn 35-40 triệu/tháng.'},
-    {brand:'Fitcity - Private Fitness',    tag:'Mùa hè 2022',          metric:'Doanh thu 3,85 tỷ trong 3 tháng', desc:'Team PT Hoàng Cầu. Chạy quảng cáo 3 tháng hè, doanh thu tăng mạnh trên cùng tệp khách.'},
-    {brand:'Đồ Gỗ Minh Vân',               tag:'Livestream ads',       metric:'Doanh số 1 tỷ/tháng',           desc:'Chạy quảng cáo livestream đều đặn với ngân sách khoảng 190 triệu/tháng.'},
-    {brand:'Tổng kho nội thất Minh Khuê',  tag:'Nội thất',             metric:'Lợi nhuận 100-150 triệu/tháng', desc:'Hợp tác từ 2020 đến nay, tổng chi tiêu quảng cáo hơn 650 triệu.'},
-    {brand:'Lisy - Rèm Cửa, Rèm Thời Trang', tag:'Rèm thời trang',     metric:'Lợi nhuận trên 100 triệu/tháng', desc:'Hợp tác từ 2019 đến nay, tổng chi tiêu quảng cáo gần 700 triệu.'},
-    {brand:'Hang Doan Boutique',           tag:'Thời trang nữ',        metric:'Lợi nhuận 120-150 triệu/tháng', desc:'Từ 5/2022 đến nay, ngân sách quảng cáo ~100 triệu/tháng, lợi nhuận thực sau khi trừ chi phí.'},
-    {brand:'Samkids VNXK - Xuất Dư',       tag:'Thời trang trẻ em',    metric:'300-400 đơn/ngày',              desc:'Giai đoạn 2019-2021, duy trì lượng đơn hàng trung bình cao đều mỗi ngày.'}
+    {brand:'Lagin Túi Xách (by Tatu)',     tag:'Fanpage 195K follow',  metric:'Lợi nhuận 150-200 triệu/tháng', desc:'Khách hàng Hoài Thanh Vũ. Duy trì ngân sách quảng cáo đều đặn 35-40 triệu/tháng.', img:'/assets/cases/lagin.png'},
+    {brand:'Fitcity - Private Fitness',    tag:'Mùa hè 2022',          metric:'Doanh thu 3,85 tỷ trong 3 tháng', desc:'Team PT Hoàng Cầu. Chạy quảng cáo 3 tháng hè, doanh thu tăng mạnh trên cùng tệp khách.', img:'/assets/cases/Fitcity.png'},
+    {brand:'Đồ Gỗ Minh Vân',               tag:'Livestream ads',       metric:'Doanh số 1 tỷ/tháng',           desc:'Chạy quảng cáo livestream đều đặn với ngân sách khoảng 190 triệu/tháng.', img:'/assets/cases/dogominhvan.png'},
+    {brand:'Tổng kho nội thất Minh Khuê',  tag:'Nội thất',             metric:'Lợi nhuận 100-150 triệu/tháng', desc:'Hợp tác từ 2020 đến nay, tổng chi tiêu quảng cáo hơn 650 triệu.', img:'/assets/cases/minhkhue.png'},
+    {brand:'Hang Doan Boutique',           tag:'Thời trang nữ',        metric:'Lợi nhuận 120-150 triệu/tháng', desc:'Từ 5/2022 đến nay, ngân sách quảng cáo ~100 triệu/tháng, lợi nhuận thực sau khi trừ chi phí.', img:'/assets/cases/Hangdoanboutique.png'},
+    {brand:'Samkids VNXK - Xuất Dư',       tag:'Thời trang trẻ em',    metric:'300-400 đơn/ngày',              desc:'Giai đoạn 2019-2021, duy trì lượng đơn hàng trung bình cao đều mỗi ngày.', img:'/assets/cases/samkids.png'}
   ],
   proofFooter:     'Bạn không cần điền nhiều thông tin. Chỉ cần để lại SĐT, chuyên gia sẽ xem mô hình kinh doanh và gợi ý hướng chạy phù hợp trước khi báo phí.',
   // ── SIDEBAR ──────────────────────────────────────────────────────────
@@ -6440,6 +6463,12 @@ function renderLeadFormPage(){
     h+='<div class="lead-proof-tag">'+esc(c.tag)+'</div>';
     h+='<div class="lead-proof-metric">'+esc(c.metric)+'</div>';
     h+='<div class="lead-proof-desc">'+esc(c.desc)+'</div>';
+    if(c.img){
+      h+='<button type="button" class="lead-proof-thumb" onclick="openLeadProofImg('+i+')" aria-label="Xem ảnh chi tiết '+esc(c.brand)+'">';
+      h+='<img src="'+esc(c.img)+'" alt="'+esc(c.brand)+'" loading="lazy">';
+      h+='<span class="lead-proof-thumb-zoom">🔍 Xem ảnh</span>';
+      h+='</button>';
+    }
     h+='</div>';
   });
   h+='</div>';
@@ -6454,6 +6483,47 @@ function renderLeadFormPage(){
   h+='<div class="lead-footer-mini">'+LC.footerText+' <a href="tel:'+LC.hotlineTel+'" style="color:var(--blue-tx);font-weight:600;">'+LC.hotline+'</a></div>';
   h+='</div>';
   document.getElementById('page').innerHTML=h;
+}
+var leadProofLightboxIdx=-1;
+function openLeadProofImg(idx){
+  var cases=(window.LEAD_COPY||{}).proofCases||[];
+  if(!cases[idx]||!cases[idx].img)return;
+  leadProofLightboxIdx=idx;
+  closeLeadProofImg();
+  var c=cases[idx];
+  var box=document.createElement('div');
+  box.className='lead-proof-lightbox';
+  box.id='lead-proof-lightbox';
+  box.onclick=function(e){if(e.target===box)closeLeadProofImg();};
+  box.innerHTML=
+    '<button type="button" class="lead-proof-lightbox-close" onclick="closeLeadProofImg()" aria-label="Đóng">✕</button>'+
+    (cases.length>1?'<button type="button" class="lead-proof-lightbox-nav prev" onclick="navLeadProofImg(-1)" aria-label="Ảnh trước">‹</button>':'')+
+    (cases.length>1?'<button type="button" class="lead-proof-lightbox-nav next" onclick="navLeadProofImg(1)" aria-label="Ảnh sau">›</button>':'')+
+    '<img class="lead-proof-lightbox-img" src="'+esc(c.img)+'" alt="'+esc(c.brand)+'">'+
+    '<div class="lead-proof-lightbox-caption">'+esc(c.brand)+' — '+esc(c.metric)+'</div>';
+  document.body.appendChild(box);
+  document.body.style.overflow='hidden';
+  document.addEventListener('keydown',leadProofKeyHandler);
+}
+function closeLeadProofImg(){
+  var el=document.getElementById('lead-proof-lightbox');
+  if(el)el.remove();
+  document.body.style.overflow='';
+  document.removeEventListener('keydown',leadProofKeyHandler);
+}
+function navLeadProofImg(dir){
+  var cases=(window.LEAD_COPY||{}).proofCases||[];
+  var withImg=cases.map(function(c,i){return c.img?i:-1;}).filter(function(i){return i>=0;});
+  if(!withImg.length)return;
+  var pos=withImg.indexOf(leadProofLightboxIdx);
+  if(pos<0)pos=0;
+  pos=(pos+dir+withImg.length)%withImg.length;
+  openLeadProofImg(withImg[pos]);
+}
+function leadProofKeyHandler(e){
+  if(e.key==='Escape')closeLeadProofImg();
+  else if(e.key==='ArrowLeft')navLeadProofImg(-1);
+  else if(e.key==='ArrowRight')navLeadProofImg(1);
 }
 function setLeadStepActive(step){
   publicLeadFormCurrentStep=step;
