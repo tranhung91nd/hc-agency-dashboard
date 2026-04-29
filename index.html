@@ -547,7 +547,7 @@ body.public-mode .main{padding:0;}
 .lead-mock-note{position:absolute;left:20px;right:20px;bottom:20px;background:linear-gradient(90deg,#F3F7FF 0%,#F8FBFF 100%);border-radius:10px;padding:11px 14px;font-size:12.5px;color:var(--tx2);font-weight:600;text-align:center;}
 /* GRID 2-col */
 .lead-grid{display:grid;grid-template-columns:280px 1fr;gap:20px;}
-@media(max-width:900px){.lead-grid{grid-template-columns:1fr;}}
+@media(max-width:900px){.lead-grid{grid-template-columns:1fr;}.lead-main{order:1;}.lead-sidebar{order:2;}}
 .lead-sidebar{display:flex;flex-direction:column;gap:14px;position:sticky;top:18px;align-self:start;}
 @media(max-width:900px){.lead-sidebar{position:static;}}
 .lead-side-card{background:var(--bg1);border:1px solid var(--bd1);border-radius:16px;padding:18px;}
@@ -568,6 +568,25 @@ body.public-mode .main{padding:0;}
 .lead-logos-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .lead-logo-cell{min-height:70px;padding:9px;background:var(--bg2);border:1px solid var(--bd1);border-radius:10px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:.02em;overflow:hidden;}
 .lead-logo-cell img{display:block;max-width:100%;max-height:58px;width:auto;height:auto;object-fit:contain;}
+.lead-proof-section{background:var(--bg1);border:1px solid var(--bd1);border-radius:22px;padding:24px;margin-bottom:24px;box-shadow:0 12px 32px rgba(15,23,42,.05);}
+@media(max-width:540px){.lead-proof-section{padding:18px 16px;border-radius:16px;}}
+.lead-proof-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:18px;}
+@media(max-width:760px){.lead-proof-head{display:block;}}
+.lead-proof-eyebrow{font-size:11px;font-weight:800;color:var(--blue-tx);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+.lead-proof-title{font-size:24px;font-weight:850;color:var(--tx1);letter-spacing:0;line-height:1.18;margin:0;}
+@media(max-width:540px){.lead-proof-title{font-size:21px;}}
+.lead-proof-sub{max-width:440px;font-size:13px;color:var(--tx2);line-height:1.55;margin:0;}
+@media(max-width:760px){.lead-proof-sub{margin-top:8px;max-width:none;}}
+.lead-proof-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+@media(max-width:980px){.lead-proof-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:540px){.lead-proof-grid{grid-template-columns:1fr;}}
+.lead-proof-card{background:var(--bg2);border:1px solid var(--bd1);border-radius:14px;padding:14px;min-height:148px;display:flex;flex-direction:column;gap:8px;}
+.lead-proof-card.featured{background:linear-gradient(180deg,#F3F7FF 0%,#fff 100%);border-color:rgba(55,138,221,.24);}
+.lead-proof-brand{font-size:12px;font-weight:800;color:var(--tx1);line-height:1.35;}
+.lead-proof-tag{display:inline-flex;width:max-content;max-width:100%;padding:4px 8px;border-radius:999px;background:var(--blue-bg);color:var(--blue-tx);font-size:10.5px;font-weight:700;}
+.lead-proof-metric{font-size:18px;font-weight:850;color:var(--tx1);letter-spacing:0;line-height:1.2;}
+.lead-proof-desc{font-size:12px;color:var(--tx2);line-height:1.45;margin-top:auto;}
+.lead-proof-footer{margin-top:14px;padding:12px 14px;border-radius:12px;background:linear-gradient(90deg,var(--blue-bg) 0%,rgba(55,138,221,.04) 100%);color:var(--blue-tx);font-size:13px;font-weight:700;line-height:1.45;}
 .lead-secure{background:var(--blue-bg);border-color:var(--blue-bg);}
 .lead-secure-head{font-size:13px;font-weight:700;color:var(--blue-tx);margin-bottom:6px;}
 .lead-secure-body{font-size:12px;color:var(--tx2);line-height:1.5;}
@@ -6151,17 +6170,31 @@ var LEAD_COPY = {
   mockConvLabel:   'Tỷ lệ chuyển đổi',
   mockConvVal:     '2,8%',
   mockNote:        'Cam kết tư vấn minh bạch - Chiến lược rõ ràng - Hiệu quả đo lường được',
+  // ── PROOF / CASE STUDY ───────────────────────────────────────────────
+  proofEyebrow:    'Case study có số liệu thật',
+  proofTitle:      'Những kết quả đã tạo ra cho khách hàng',
+  proofSub:        'Các số liệu dưới đây được tổng hợp từ portfolio khách hàng đã chạy quảng cáo cùng Hưng Coaching / HC Agency.',
+  proofCases:      [
+    {brand:'Lagin Túi Xách', tag:'Fanpage 195K follow', metric:'Lợi nhuận 150-200 triệu/tháng', desc:'Duy trì ngân sách quảng cáo 35-40 triệu/tháng và vận hành đều đặn.'},
+    {brand:'Gỗ Minh Vân', tag:'Livestream ads', metric:'Doanh số 1 tỷ đồng', desc:'Chạy quảng cáo livestream với ngân sách khoảng 190 triệu/tháng.'},
+    {brand:'Fitcity - Private Fitness', tag:'Fitness', metric:'Doanh thu 3 tỷ 850 triệu', desc:'Sau 3 tháng hỗ trợ triển khai quảng cáo, doanh thu tăng mạnh.'},
+    {brand:'Tổng kho nội thất Minh Khu', tag:'Nội thất', metric:'Lợi nhuận 100-150 triệu/tháng', desc:'Hợp tác từ 2020 đến nay, tổng chi tiêu quảng cáo hơn 650 triệu.'},
+    {brand:'Samkids VNXK', tag:'Thời trang trẻ em', metric:'300-400 đơn/ngày', desc:'Giai đoạn hợp tác 2019-2021, duy trì lượng đơn hàng trung bình cao mỗi ngày.'},
+    {brand:'Lisy Rèm Cửa', tag:'Rèm thời trang', metric:'Lợi nhuận trên 100 triệu/tháng', desc:'Hợp tác từ 2019 đến nay, tổng chi tiêu quảng cáo gần 700 triệu.'},
+    {brand:'Hang Doan Boutique', tag:'Thời trang', metric:'Lợi nhuận 120-150 triệu/tháng', desc:'Từ 5/2022 đến nay, ngân sách quảng cáo khoảng 100 triệu/tháng.'}
+  ],
+  proofFooter:     'Bạn không cần điền nhiều thông tin. Chỉ cần để lại SĐT, chuyên gia sẽ xem mô hình kinh doanh và gợi ý hướng chạy phù hợp trước khi báo phí.',
   // ── SIDEBAR ──────────────────────────────────────────────────────────
   sidebarTitle:    'Quy trình tư vấn',
   step1Name:       'Thông tin cơ bản',
-  step1Time:       '(2 phút)',
+  step1Time:       '(30 giây)',
   step2Name:       'Nhu cầu & ngân sách',
-  step2Time:       '(2 phút)',
+  step2Time:       '(1 phút)',
   step3Name:       'Gửi yêu cầu tư vấn',
   step3Time:       '(Hoàn tất)',
-  testimonialQuote:  'Nhờ chiến lược quảng cáo đúng hướng, doanh thu của shop tăng 3X chỉ sau 30 ngày hợp tác.',
-  testimonialName:   'Chị Lan Anh',
-  testimonialRole:   'Chủ shop thời trang',
+  testimonialQuote:  'Form này dùng để lọc nhanh mô hình kinh doanh, ngân sách và vấn đề hiện tại để tư vấn đúng hướng ngay từ cuộc gọi đầu tiên.',
+  testimonialName:   'HC Agency',
+  testimonialRole:   'Tư vấn quảng cáo Facebook',
   trustedTitle:    'Thương hiệu đã tin tưởng',
   trustedLogos:    [
     {name:'Bắc Việt', img:'/assets/brands/bac-viet-logo.png'},
@@ -6175,8 +6208,8 @@ var LEAD_COPY = {
   secureBody:      'Thông tin của bạn được bảo mật tuyệt đối và chỉ sử dụng để tư vấn.',
   // ── BƯỚC 1 ───────────────────────────────────────────────────────────
   step1Tag:        'BƯỚC 1/3',
-  step1Title:      'Thông tin cơ bản',
-  step1Desc:       'Vui lòng cung cấp thông tin để chuyên gia liên hệ và tư vấn cho bạn.',
+  step1Title:      'Để lại SĐT để nhận phân tích miễn phí',
+  step1Desc:       'Chuyên gia sẽ liên hệ, hỏi nhanh tình trạng hiện tại và gợi ý hướng chạy phù hợp với sản phẩm của bạn.',
   lblName:         'Họ và tên',
   phName:          'VD: Nguyễn Văn A',
   lblPhone:        'Số điện thoại',
@@ -6184,12 +6217,13 @@ var LEAD_COPY = {
   lblIndustry:     'Ngành nghề kinh doanh',
   phIndustry:      'Chọn ngành nghề của bạn',
   industries:      ['Spa & Làm đẹp','Thời trang','F&B (Ăn uống)','Giáo dục & đào tạo','Bất động sản','Y tế & sức khỏe','Du lịch & dịch vụ','Nội thất & xây dựng','Bán lẻ','Khác'],
+  btnStart:        'Nhận tư vấn miễn phí',
   btnNext:         'Tiếp tục',
-  step1Secure:     '🔒 Thông tin của bạn được bảo mật 100%',
+  step1Secure:     '🔒 Không spam, chỉ dùng để tư vấn',
   // ── BƯỚC 2 ───────────────────────────────────────────────────────────
   step2Tag:        'BƯỚC 2/3',
-  step2Title:      'Nhu cầu &amp; ngân sách dự kiến',
-  step2Desc:       'Giúp chúng tôi hiểu rõ hơn để tư vấn giải pháp phù hợp nhất.',
+  step2Title:      'Bạn muốn cải thiện điều gì?',
+  step2Desc:       'Thông tin này giúp chuyên gia ước lượng chiến lược, ngân sách và điểm cần tối ưu trước khi gọi lại.',
   lblBudget:       'Ngân sách quảng cáo dự kiến / tháng',
   budgets:         [
     {key:'Dưới 10 triệu',  icon:'💰'},
@@ -6206,7 +6240,7 @@ var LEAD_COPY = {
   ],
   lblMessage:      'Nhu cầu hiện tại của bạn',
   lblMessageOpt:   '(không bắt buộc)',
-  phMessage:       'Mô tả nhu cầu, sản phẩm/dịch vụ, khu vực kinh doanh, hiện trạng quảng cáo…',
+  phMessage:       'VD: đang chạy nhưng giá inbox cao, chưa ra đơn ổn định, muốn tăng doanh số, cần thuê TKQC ổn định…',
   btnBack:         '← Quay lại',
   // ── BƯỚC 3 ───────────────────────────────────────────────────────────
   step3Tag:        'BƯỚC 3/3',
@@ -6362,7 +6396,7 @@ function renderLeadFormPage(){
   h+='</select></div>';
   h+='<div id="lf-error-1" class="lead-form-error" hidden></div>';
   h+='<div class="lead-step-foot">';
-  h+='<button class="btn btn-primary lead-step-btn" onclick="nextLeadStep(1)">'+LC.btnNext+' <span class="lead-step-arrow">→</span></button>';
+  h+='<button class="btn btn-primary lead-step-btn" onclick="nextLeadStep(1)">'+LC.btnStart+' <span class="lead-step-arrow">→</span></button>';
   h+='<div class="lead-step-secure">'+LC.step1Secure+'</div>';
   h+='</div>';
   h+='</div>';
@@ -6401,6 +6435,21 @@ function renderLeadFormPage(){
   h+='</div>';
   h+='</div>';
   h+='</div>';
+  h+='</div>';
+  // Proof / case studies
+  h+='<div class="lead-proof-section">';
+  h+='<div class="lead-proof-head"><div><div class="lead-proof-eyebrow">'+LC.proofEyebrow+'</div><h2 class="lead-proof-title">'+LC.proofTitle+'</h2></div><p class="lead-proof-sub">'+LC.proofSub+'</p></div>';
+  h+='<div class="lead-proof-grid">';
+  LC.proofCases.forEach(function(c,i){
+    h+='<div class="lead-proof-card'+(i<2?' featured':'')+'">';
+    h+='<div class="lead-proof-brand">'+esc(c.brand)+'</div>';
+    h+='<div class="lead-proof-tag">'+esc(c.tag)+'</div>';
+    h+='<div class="lead-proof-metric">'+esc(c.metric)+'</div>';
+    h+='<div class="lead-proof-desc">'+esc(c.desc)+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  h+='<div class="lead-proof-footer">'+LC.proofFooter+'</div>';
   h+='</div>';
   // Bottom CTA bar
   h+='<div class="lead-cta-bar">';
