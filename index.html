@@ -1361,6 +1361,11 @@ tr:hover td{background:#f8fbff;}
   min-width:152px;
   flex:0 1 152px;
 }
+.ad-toolbar-sort{
+  width:188px;
+  min-width:188px;
+  flex:0 0 auto;
+}
 .ad-toolbar-count{
   display:inline-flex;
   align-items:center;
@@ -2867,9 +2872,8 @@ h+='<select class="fi ad-toolbar-filter" onchange="clientFilterVat=this.value;ex
 h+='<select class="fi ad-toolbar-filter" onchange="clientFilterStatus=this.value;expandedClientId=null;render();"><option value="">Tất cả trạng thái</option><option value="active"'+(clientFilterStatus==='active'?' selected':'')+'>Đang hoạt động</option><option value="paused"'+(clientFilterStatus==='paused'?' selected':'')+'>Tạm dừng</option><option value="stopped"'+(clientFilterStatus==='stopped'?' selected':'')+'>Dừng</option></select>';
 h+='<select class="fi ad-toolbar-filter" onchange="clientFilterSpend=this.value;expandedClientId=null;render();"><option value="">Tất cả chi tiêu</option><option value="has_spend"'+(clientFilterSpend==='has_spend'?' selected':'')+'>Có chi tiêu</option><option value="no_spend"'+(clientFilterSpend==='no_spend'?' selected':'')+'>Chưa có chi tiêu</option></select>';
 h+='<select class="fi ad-toolbar-filter" onchange="clientFilterService=this.value;expandedClientId=null;render();"><option value="">Tất cả dịch vụ</option>';Object.keys(SERVICES).forEach(function(code){h+='<option value="'+code+'"'+(clientFilterService===code?' selected':'')+'>'+SERVICES[code].name+'</option>';});h+='</select>';
-h+='<select class="fi ad-toolbar-filter" onchange="clientSortMode=this.value;render();"><option value="spend_desc"'+(clientSortMode==='spend_desc'?' selected':'')+'>Chi tiêu cao nhất</option><option value="fee_desc"'+(clientSortMode==='fee_desc'?' selected':'')+'>Phí Dịch vụ cao nhất</option><option value="name_asc"'+(clientSortMode==='name_asc'?' selected':'')+'>Tên A-Z</option><option value="unpaid_first"'+(clientSortMode==='unpaid_first'?' selected':'')+'>Chưa thanh toán trước</option></select>';
-h+='<span class="ad-toolbar-count">'+rows.length+'/'+clientList.length+' khách hàng</span></div>';
-h+='<div class="ad-toolbar-actions"><button class="btn btn-ghost btn-sm" onclick="clearClientFilters()">Xóa bộ lọc</button></div></div>';
+h+='</div>';
+h+='<div class="ad-toolbar-actions"><select class="fi ad-toolbar-sort" onchange="clientSortMode=this.value;render();"><option value="spend_desc"'+(clientSortMode==='spend_desc'?' selected':'')+'>Chi tiêu cao nhất</option><option value="fee_desc"'+(clientSortMode==='fee_desc'?' selected':'')+'>Phí Dịch vụ cao nhất</option><option value="name_asc"'+(clientSortMode==='name_asc'?' selected':'')+'>Tên A-Z</option><option value="unpaid_first"'+(clientSortMode==='unpaid_first'?' selected':'')+'>Chưa thanh toán trước</option></select><button class="btn btn-ghost btn-sm" onclick="clearClientFilters()">Xóa bộ lọc</button></div></div>';
 var clientChips=[];
 if(clientSearchText)clientChips.push('Tìm: '+esc(clientSearchText));
 if(clientFilterPayment)clientChips.push(clientFilterLabel('payment',clientFilterPayment));
