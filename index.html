@@ -546,7 +546,8 @@ body.public-mode .main{padding:0;}
 .lead-quote-name{font-size:12.5px;font-weight:600;color:var(--tx1);}
 .lead-quote-role{font-size:11px;color:var(--tx3);}
 .lead-logos-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.lead-logo-cell{padding:10px 8px;background:var(--bg2);border-radius:8px;text-align:center;font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:.02em;}
+.lead-logo-cell{min-height:70px;padding:9px;background:var(--bg2);border:1px solid var(--bd1);border-radius:10px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:.02em;overflow:hidden;}
+.lead-logo-cell img{display:block;max-width:100%;max-height:58px;width:auto;height:auto;object-fit:contain;}
 .lead-secure{background:var(--blue-bg);border-color:var(--blue-bg);}
 .lead-secure-head{font-size:13px;font-weight:700;color:var(--blue-tx);margin-bottom:6px;}
 .lead-secure-body{font-size:12px;color:var(--tx2);line-height:1.5;}
@@ -6130,8 +6131,15 @@ var LEAD_COPY = {
   testimonialQuote:  'Nhờ chiến lược quảng cáo đúng hướng, doanh thu của shop tăng 3X chỉ sau 30 ngày hợp tác.',
   testimonialName:   'Chị Lan Anh',
   testimonialRole:   'Chủ shop thời trang',
-  trustedTitle:    'Được tin tưởng bởi',
-  trustedLogos:    ['HC Coaching','HC Mama','HC Studio','HC Wear','HC Foods','HC Beauty'],
+  trustedTitle:    'Thương hiệu đã tin tưởng',
+  trustedLogos:    [
+    {name:'Bắc Việt', img:'/assets/brands/bac-viet-logo.png'},
+    {name:'Getfit VinHomes Green Bay', img:'/assets/brands/getfit-vinhomes-green-bay-logo.png'},
+    {name:'Live Fit', img:'/assets/brands/live-fit-logo.png'},
+    {name:'Power Gym Private Fitness', img:'/assets/brands/power-gym-logo.png'},
+    {name:'Fourcats Camera', img:'/assets/brands/fourcats-camera-logo.png'},
+    {name:'Mysterise Fitness', img:'/assets/brands/mysterise-fitness-logo.png'}
+  ],
   secureTitle:     '🛡️ Cam kết bảo mật',
   secureBody:      'Thông tin của bạn được bảo mật tuyệt đối và chỉ sử dụng để tư vấn.',
   // ── BƯỚC 1 ───────────────────────────────────────────────────────────
@@ -6278,7 +6286,12 @@ function renderLeadFormPage(){
   h+='<div class="lead-side-card">';
   h+='<div class="lead-side-title">'+LC.trustedTitle+'</div>';
   h+='<div class="lead-logos-grid">';
-  LC.trustedLogos.forEach(function(n){h+='<div class="lead-logo-cell">'+esc(n)+'</div>';});
+  LC.trustedLogos.forEach(function(item){
+    var logo=typeof item==='string'?{name:item}:item;
+    var name=esc(logo.name||'Thương hiệu');
+    if(logo.img)h+='<div class="lead-logo-cell" title="'+name+'"><img src="'+esc(logo.img)+'" alt="'+name+'" loading="lazy"></div>';
+    else h+='<div class="lead-logo-cell">'+name+'</div>';
+  });
   h+='</div></div>';
   h+='<div class="lead-side-card lead-secure">';
   h+='<div class="lead-secure-head">'+LC.secureTitle+'</div>';
