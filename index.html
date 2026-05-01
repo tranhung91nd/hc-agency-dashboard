@@ -784,6 +784,8 @@ table.rental-matrix tr:not(.total):hover td:first-child{background:rgba(55,138,2
 .rental-sum-balance span{color:var(--tx1);font-size:13px;}
 .rental-sum-balance strong{font-weight:800;font-size:22px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
 .rental-sum-hint{font-size:11px;color:var(--tx3);margin-top:6px;line-height:1.5;}
+.v-opening{color:var(--tx2);}
+.v-opening.negative{color:var(--red-tx);}
 .v-deposit{color:var(--green-tx);}
 .v-spend{color:var(--teal-tx);}
 .v-fee{color:var(--amber-tx);}
@@ -1876,6 +1878,23 @@ function getClientDeposits(clientId,month){
   return clientDepositData.filter(function(d){return d.client_id===clientId&&(!mk||(d.deposit_date||'').substring(0,7)===mk);}).sort(function(a,b){return(a.deposit_date||'').localeCompare(b.deposit_date||'');});
 }
 function getDepositTotal(clientId,month){return getClientDeposits(clientId,month).reduce(function(t,d){return t+(parseInt(d.amount)||0);},0);}
+// Số dư đầu kỳ = closing balance của các tháng từ start_date đến tháng trước hiện tại, cộng dồn
+function nextMonthKey(ms){var p=ms.split('-'),y=parseInt(p[0]),m=parseInt(p[1])+1;if(m>12){m=1;y++;}return y+'-'+('0'+m).slice(-2);}
+function getRentalOpeningBalance(clientId,month){
+  var c=clientList.find(function(x){return x.id===clientId;});
+  if(!c||!c.start_date)return 0;
+  var startMonth=c.start_date.substring(0,7),curMonth=monthKey(month);
+  if(curMonth<=startMonth)return 0;
+  var bal=0,iter=startMonth,guard=0;
+  while(iter<curMonth&&guard++<240){
+    var dep=getDepositTotal(clientId,iter);
+    var sp=getMonthSpendForClient(clientId,iter,{respectStartDate:true});
+    var fee=getRentalFeeAmount(c,iter,sp);
+    bal=bal+dep-sp-fee;
+    iter=nextMonthKey(iter);
+  }
+  return bal;
+}
 // Spend matrix: trả về object {accounts:[{id,name,daily:[d1..dN]}], dayTotals:[..], grandTotal, daysInMonth}
 function buildRentalMatrix(clientId,month){
   var ms=monthKey(month);
@@ -1928,7 +1947,8 @@ function renderRentalLedger(c,ms,sp,invoice){
   var deposits=getClientDeposits(c.id,ms);
   var depositTotal=deposits.reduce(function(t,d){return t+(parseInt(d.amount)||0);},0);
   var rentalFee=invoice.rentalFee||0;
-  var balance=depositTotal-sp-rentalFee;
+  var opening=getRentalOpeningBalance(c.id,ms);
+  var balance=opening+depositTotal-sp-rentalFee;
   var rentalPctLabel=invoice.rentalPct?(Math.round(invoice.rentalPct*1000)/10)+'%':'?%';
   var mLabel='T'+matrix.month+'/'+matrix.year;
   var domId=invoiceDomId(c.id);
@@ -1973,11 +1993,12 @@ function renderRentalLedger(c,ms,sp,invoice){
   // RIGHT: summary box
   h+='<div class="rental-summary">';
   h+='<div class="rental-summary-title">Tổng kết '+mLabel+'</div>';
+  if(opening!==0)h+='<div class="rental-sum-row"><span>Số dư đầu kỳ <span style="color:var(--tx3);font-size:11px;">(chuyển từ kỳ trước)</span></span><strong class="v-opening'+(opening<0?' negative':'')+'">'+(opening>=0?'+':'')+fm(opening)+'</strong></div>';
   h+='<div class="rental-sum-row"><span>Tiền nạp</span><strong class="v-deposit">'+fm(depositTotal)+'</strong></div>';
   h+='<div class="rental-sum-row"><span>Tiền chạy (spend)</span><strong class="v-spend">'+fm(sp)+'</strong></div>';
   h+='<div class="rental-sum-row"><span>Phí thuê '+rentalPctLabel+'</span><strong class="v-fee">'+fm(rentalFee)+'</strong></div>';
   h+='<div class="rental-sum-balance"><span>Số dư cuối kỳ</span><strong class="v-balance'+(balance<0?' negative':'')+'">'+(balance>=0?'+':'')+fm(balance)+'</strong></div>';
-  h+='<div class="rental-sum-hint">= Nạp − Chạy − Phí thuê'+(balance<500000&&balance>=0?'<br>⚠ Số dư thấp, nhắc khách nạp thêm':'')+(balance<0?'<br>⚠ Số dư âm — khách cần nạp gấp':'')+'</div>';
+  h+='<div class="rental-sum-hint">= '+(opening!==0?'Đầu kỳ + ':'')+'Nạp − Chạy − Phí thuê'+(balance<500000&&balance>=0?'<br>⚠ Số dư thấp, nhắc khách nạp thêm':'')+(balance<0?'<br>⚠ Số dư âm — khách cần nạp gấp':'')+'</div>';
   h+='</div>';
   h+='</div>';
   // Lịch sử nạp tiền
