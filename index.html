@@ -1509,16 +1509,30 @@ html[data-theme="dark"] .ad-period-chip.active{background:var(--bg1);}
 .surface-card:hover{
   box-shadow:var(--shadow-md);
 }
-@media(max-width:1100px){
-  .ad-toolbar{
+@media(max-width:1460px){
+  .ad-toolbar:not(.ad-toolbar-period){
     flex-wrap:wrap;
     align-items:stretch;
   }
-  .ad-toolbar-main,
-  .ad-toolbar-actions{
+  .ad-toolbar:not(.ad-toolbar-period) .ad-toolbar-main,
+  .ad-toolbar:not(.ad-toolbar-period) .ad-toolbar-actions{
     width:100%;
   }
-  .ad-toolbar-actions{
+  .ad-toolbar:not(.ad-toolbar-period) .ad-toolbar-actions{
+    justify-content:flex-end;
+    flex-wrap:wrap;
+  }
+}
+@media(max-width:1100px){
+  .ad-toolbar.ad-toolbar-period{
+    flex-wrap:wrap;
+    align-items:stretch;
+  }
+  .ad-toolbar.ad-toolbar-period .ad-toolbar-main,
+  .ad-toolbar.ad-toolbar-period .ad-toolbar-actions{
+    width:100%;
+  }
+  .ad-toolbar.ad-toolbar-period .ad-toolbar-actions{
     justify-content:flex-end;
     flex-wrap:wrap;
   }
@@ -2281,6 +2295,9 @@ var sb=document.getElementById('sidebar');
 var el=document.getElementById('page');
 var appEl=document.querySelector('.app');
 var overlay=document.getElementById('overlay');
+// Snapshot focus + caret để restore sau khi innerHTML wipe DOM (giữ liền mạch khi gõ search)
+var ae=document.activeElement,prevFocusId=ae&&ae.id?ae.id:null,prevSelStart=null,prevSelEnd=null;
+if(prevFocusId&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')){try{prevSelStart=ae.selectionStart;prevSelEnd=ae.selectionEnd;}catch(e){}}
 if(!authUser){
 if(sb)sb.style.display='none';
 if(overlay)overlay.classList.remove('show');
@@ -2298,6 +2315,8 @@ modalRoot.innerHTML=renderNewProspectModal()+renderContractModal()+renderContrac
 enhanceUI();
 ensureModalFocusTrap();
 if(curPage===1&&spendTab===0)restoreAdFilters();
+// Restore focus + caret cho input có id (vd #client-search) để gõ liền mạch
+if(prevFocusId){var nf=document.getElementById(prevFocusId);if(nf){try{nf.focus();if(prevSelStart!==null&&nf.setSelectionRange)nf.setSelectionRange(prevSelStart,prevSelEnd);}catch(e){}}}
 var aiFab=document.querySelector('.ai-fab');if(aiFab){aiFab.style.display=(curPage===3&&expandedClientId)?'none':'';}
 var adot=document.getElementById('alert-dot');if(adot){var ac=getMessAlerts().length+getLeadAlerts().length+getBalanceAlerts().length;adot.style.background=ac?'var(--red)':'var(--green)';adot.style.animation=ac?'pulse 2s infinite':'none';}}
 
@@ -2532,7 +2551,7 @@ h+='<div class="pr-kpi-card"><div class="pr-kpi-lbl">Khách chạy ads <span sty
 h+='</div>';
 // Toolbar bộ lọc
 h+='<div class="ad-toolbar"><div class="ad-toolbar-main">';
-h+='<input type="text" placeholder="Tìm khách hàng..." value="'+esc(cliSpendSearch)+'" oninput="hcSearchInput(\'cliSpendSearch\',this.value)" class="fi ad-toolbar-search">';
+h+='<input type="text" id="cli-spend-search" placeholder="Tìm khách hàng..." value="'+esc(cliSpendSearch)+'" oninput="hcSearchInput(\'cliSpendSearch\',this.value)" class="fi ad-toolbar-search">';
 h+='<select class="fi ad-toolbar-filter" onchange="cliSpendType=this.value;render();"><option value="">Tất cả loại khách</option><option value="rental"'+(cliSpendType==='rental'?' selected':'')+'>Khách thuê TKQC</option><option value="ads"'+(cliSpendType==='ads'?' selected':'')+'>Khách chạy ads</option></select>';
 h+='<select class="fi ad-toolbar-filter" onchange="cliSpendStaff=this.value;render();"><option value="">Tất cả nhân sự</option>';
 staffList.forEach(function(s){h+='<option value="'+s.id+'"'+(cliSpendStaff===s.id?' selected':'')+'>'+esc(s.short_name)+'</option>';});
@@ -3144,7 +3163,7 @@ h+='<div class="pr-kpi-card"><div class="pr-kpi-lbl">Đang đàm phán</div><div
 h+='<div class="pr-kpi-card"><div class="pr-kpi-lbl">Form công khai</div><div class="pr-kpi-actions"><a href="'+esc(leadFormUrl)+'" target="_blank" rel="noopener">Xem</a><span class="pr-dot">·</span><a href="#" onclick="event.preventDefault();copyLeadFormUrl(this);">Copy URL</a></div></div>';
 h+='</div>';
 // Search bar full width
-h+='<input type="text" class="pr-search" placeholder="Tìm theo tên, SĐT, dịch vụ..." value="'+esc(clientSearchText)+'" oninput="hcSearchInput(\'clientSearchText\',this.value)">';
+h+='<input type="text" id="prospect-search" class="pr-search" placeholder="Tìm theo tên, SĐT, dịch vụ..." value="'+esc(clientSearchText)+'" oninput="hcSearchInput(\'clientSearchText\',this.value)">';
 if(!prospects.length){
   h+='<div class="empty-state" role="status">';
   h+='<div class="empty-state-icon" aria-hidden="true">📋</div>';
@@ -5096,7 +5115,7 @@ function p3Quotation(tabH){
   // Toolbar
   h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">';
   h+='<button class="btn btn-primary" onclick="openQuotationModal()">➕ Tạo báo giá mới</button>';
-  h+='<input type="text" placeholder="Tìm báo giá (khách, mã)..." value="'+esc(quotationSearchText)+'" oninput="quotationPage=1;hcSearchInput(\'quotationSearchText\',this.value)" class="fi" style="flex:1;max-width:280px;">';
+  h+='<input type="text" id="quotation-search" placeholder="Tìm báo giá (khách, mã)..." value="'+esc(quotationSearchText)+'" oninput="quotationPage=1;hcSearchInput(\'quotationSearchText\',this.value)" class="fi" style="flex:1;max-width:280px;">';
   h+='<select class="fi" style="width:150px;" onchange="quotationPage=1;quotationFilterStatus=this.value;render();">';
   h+='<option value="">Tất cả trạng thái</option>';
   Object.keys(QUOTATION_STATUS_META).forEach(function(k){h+='<option value="'+k+'"'+(quotationFilterStatus===k?' selected':'')+'>'+QUOTATION_STATUS_META[k].label+'</option>';});
