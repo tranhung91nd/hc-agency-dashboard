@@ -3708,7 +3708,7 @@ h+='<div class="sum-card"><div class="sum-label">Hoạt động</div><div class=
 h+='<div class="sum-card"><div class="sum-label">Dùng chung</div><div class="sum-val" style="color:var(--purple);">'+sharedCount+'</div><div class="sum-note">Tài khoản nhiều Nhân sự/Khách hàng</div></div></div>';
 // Toolbar — Row 1: Period chips + (custom range nếu chọn) + actions
 var pchip=function(mode,label){return '<button class="ad-period-chip'+(adViewMode===mode?' active':'')+'" onclick="setAdViewMode(\''+mode+'\')">'+label+'</button>';};
-h+='<div class="ad-toolbar">';
+h+='<div class="ad-toolbar ad-toolbar-period">';
 h+='<div class="ad-toolbar-main">';
 h+='<div class="ad-period">'+pchip('today','Hôm nay')+pchip('yesterday','Hôm qua')+pchip('this_month','Tháng này')+pchip('last_month','Tháng trước')+pchip('custom','Tùy chỉnh')+'</div>';
 if(adViewMode==='custom'){
