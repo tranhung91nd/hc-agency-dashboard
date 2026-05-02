@@ -3691,6 +3691,14 @@ var sharedCount=adList.filter(function(a){return a.is_shared;}).length;
 // Build ad rows data for sorting (spend = tổng trong range)
 var rows=adList.map(function(a,i){
 var ca=getAssign(a.id,range.end);
+// Carry-forward UI: nếu không có assignment active tại range.end, dùng assignment
+// gần nhất trong quá khứ (vd assignment T4 đã đóng → vẫn hiển thị ở T5 làm gợi ý
+// "vẫn phụ trách như tháng trước"). Không ảnh hưởng commission/matching theo ngày.
+if(!ca.length){
+  var past=assignData.filter(function(x){return x.ad_account_id===a.id&&x.start_date<=range.end;});
+  past.sort(function(x,y){return(y.start_date||'').localeCompare(x.start_date||'');});
+  if(past.length)ca=[past[0]];
+}
 var ds=spendTotalForAccountRange(a.id,range.start,range.end);
 var bal=hasComparableSpendCap(a)?a.spend_cap-a.amount_spent:null;
 return{a:a,idx:i,assign:ca,spend:ds,status:a.account_status||1,balance:bal};});
