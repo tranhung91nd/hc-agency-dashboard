@@ -1345,6 +1345,26 @@ tr:hover td{background:#f8fbff;}
   background:var(--green);
   box-shadow:0 0 0 4px rgba(5,150,105,0.14);
 }
+.ad-toolbar-note-btn{
+  cursor:pointer;
+  transition:.15s;
+}
+.ad-toolbar-note-btn:hover:not(:disabled){
+  background:rgba(37,99,235,0.14);
+  border-color:rgba(37,99,235,0.24);
+}
+.ad-toolbar-note-btn:disabled{
+  cursor:wait;
+  opacity:.7;
+}
+.ad-toolbar-note-btn .ad-toolbar-note-dot{
+  background:var(--green);
+}
+.ad-toolbar-note-btn:disabled .ad-toolbar-note-dot{
+  background:var(--blue);
+  animation:pulseDot 1.2s ease-in-out infinite;
+}
+@keyframes pulseDot{0%,100%{opacity:1;}50%{opacity:.4;}}
 .ad-toolbar .fi,
 .ad-toolbar .btn{
   min-height:46px;
@@ -1425,12 +1445,15 @@ html[data-theme="dark"] .ad-period-chip.active{background:var(--bg1);}
   flex:0 0 auto;
 }
 .ad-range-custom input[type="date"]{
-  width:140px;
+  width:148px;
   height:34px;
   border:1px solid var(--bd1);
   border-radius:8px;
   padding:0 8px;
+  font-family:inherit;
   font-size:12px;
+  font-weight:500;
+  font-variant-numeric:tabular-nums;
   background:var(--bg1);
   color:var(--tx1);
 }
@@ -3672,9 +3695,9 @@ h+='<div class="ad-period">'+pchip('today','Hôm nay')+pchip('yesterday','Hôm q
 if(adViewMode==='custom'){
   h+='<div class="ad-range-custom"><input type="date" value="'+(adRangeStart||td())+'" onchange="setAdCustomRange(\'start\',this.value)"><span class="arrow">→</span><input type="date" value="'+(adRangeEnd||td())+'" onchange="setAdCustomRange(\'end\',this.value)"></div>';
 }
-h+='<span class="ad-range-summary">'+esc(range.label)+(rangeDayCount>1?' · '+rangeDayCount+' ngày':'')+'</span>';
 h+='</div>';
-h+='<div class="ad-toolbar-actions"><span class="ad-toolbar-note"><span class="ad-toolbar-note-dot"></span>Meta tự đồng bộ khi mở trang</span><button class="btn btn-ghost btn-sm" onclick="doMetaSync2(this)">Đồng bộ '+fd(range.end)+'</button><button class="btn btn-sm btn-add-account" onclick="toggleAddTk()"><span class="btn-add-account-plus">+</span><span>Thêm tài khoản</span></button></div></div>';
+var syncLabel=(range.start===range.end)?('Đồng bộ '+fd(range.end)):('Đồng bộ '+fd(range.start)+' → '+fd(range.end)+' · '+rangeDayCount+' ngày');
+h+='<div class="ad-toolbar-actions"><button class="ad-toolbar-note ad-toolbar-note-btn" onclick="syncCurrentRange(this)" title="Đã tự đồng bộ khi mở trang. Bấm để chốt lại toàn khoảng cho khớp Meta."><span class="ad-toolbar-note-dot"></span><span class="sync-btn-label">'+esc(syncLabel)+'</span></button><button class="btn btn-sm btn-add-account" onclick="toggleAddTk()"><span class="btn-add-account-plus">+</span><span>Thêm tài khoản</span></button></div></div>';
 // Toolbar — Row 2: Search + filters + count
 h+='<div class="ad-toolbar" style="margin-top:-4px;">';
 h+='<div class="ad-toolbar-main">';
@@ -4420,15 +4443,25 @@ h+='</div>';});
 return h;}
 
 // ═══ META SYNC ═══
-async function doMetaSync2(btn){
+// Đồng bộ lại toàn bộ ngày trong khoảng đang xem (chốt số khớp Meta sau adjustment)
+async function syncCurrentRange(btn){
 if(!needAuth())return;
-var date=adViewDate;if(!date){toast('Vui lòng chọn ngày cần đồng bộ.',false);return;}
-btn.disabled=true;btn.textContent='Đang đồng bộ...';
+var range=getAdViewRange();
 var mapped=adList.filter(function(a){return a.fb_account_id;});
-if(!mapped.length){toast('Chưa có Tài khoản nào ghép Meta',false);btn.disabled=false;btn.textContent='Đồng bộ ngày '+fd(date);return;}
-var r=await syncOneDate(date,mapped);
-btn.disabled=false;btn.textContent='Đồng bộ ngày '+fd(date);
-toast('Đồng bộ xong: '+r.saved+' OK'+(r.errors?', '+r.errors+' lỗi':''),!r.errors);
+if(!mapped.length){toast('Chưa có Tài khoản nào ghép Meta',false);return;}
+// Build danh sách ngày trong range
+var dateList=[],cur=new Date(range.start+'T00:00:00'),endD=new Date(range.end+'T00:00:00');
+while(cur<=endD){var y=cur.getFullYear(),m=('0'+(cur.getMonth()+1)).slice(-2),d=('0'+cur.getDate()).slice(-2);dateList.push(y+'-'+m+'-'+d);cur.setDate(cur.getDate()+1);}
+if(!dateList.length){toast('Khoảng ngày không hợp lệ',false);return;}
+var origHTML=btn?btn.innerHTML:'';
+if(btn)btn.disabled=true;
+var totalSaved=0,totalErrors=0;
+for(var i=0;i<dateList.length;i++){
+if(btn)btn.innerHTML='<span class="ad-toolbar-note-dot"></span><span class="sync-btn-label">Đang đồng bộ '+(i+1)+'/'+dateList.length+' · '+fd(dateList[i])+'…</span>';
+var r=await syncOneDate(dateList[i],mapped);
+totalSaved+=r.saved;totalErrors+=r.errors;}
+if(btn){btn.disabled=false;btn.innerHTML=origHTML;}
+toast('Đã chốt '+dateList.length+' ngày ('+fd(range.start)+' → '+fd(range.end)+'): '+totalSaved+' OK'+(totalErrors?' · '+totalErrors+' lỗi':''),!totalErrors);
 await loadAll();stayPage();}
 async function loadMetaAccounts(force,silent){
 if(!force&&metaAccounts.length)return;
