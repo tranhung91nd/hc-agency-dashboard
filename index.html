@@ -2265,10 +2265,20 @@ clientDepositData=(dep&&!dep.error)?(dep.data||[]):clientDepositData;
 render();}catch(e){console.warn('loadLight error:',e.message);}}
 
 // ═══ ASSIGNMENT LOOKUP ═══
+// Lookup assignment cho 1 TKQC tại 1 ngày, có carry-forward tự động:
+// 1) Trả tất cả assignment đang ACTIVE (start≤date, end null hoặc ≥date) — chuẩn cho shared
+// 2) Nếu không active: fallback assignment GẦN NHẤT trong quá khứ (start≤date) làm "vẫn phụ trách"
+// → spend matrix, commission, salary, dropdown đều hiểu nhất quán.
+// → Chỉ trả [] khi TKQC chưa từng có assignment nào.
 function getAssign(adId,date){
-return assignData.filter(function(a){
+var active=assignData.filter(function(a){
 return a.ad_account_id===adId && a.start_date<=date && (!a.end_date||a.end_date>=date);
 });
+if(active.length)return active;
+var past=assignData.filter(function(a){return a.ad_account_id===adId && a.start_date<=date;});
+if(!past.length)return [];
+past.sort(function(x,y){return(y.start_date||'').localeCompare(x.start_date||'');});
+return [past[0]];
 }
 function gsfa(aid,date,dsStaffId){
 if(dsStaffId)return dsStaffId;
@@ -3722,16 +3732,9 @@ var disabledCount=adList.filter(function(a){return(a.account_status||1)===2;}).l
 var unassignedCount=adList.filter(function(a){return!getAssign(a.id,range.end).length&&(a.account_status||1)===1;}).length;
 var sharedCount=adList.filter(function(a){return a.is_shared;}).length;
 // Build ad rows data for sorting (spend = tổng trong range)
+// getAssign đã tự fallback "latest-past" nếu không có active → không cần xử lý thêm
 var rows=adList.map(function(a,i){
 var ca=getAssign(a.id,range.end);
-// Carry-forward UI: nếu không có assignment active tại range.end, dùng assignment
-// gần nhất trong quá khứ (vd assignment T4 đã đóng → vẫn hiển thị ở T5 làm gợi ý
-// "vẫn phụ trách như tháng trước"). Không ảnh hưởng commission/matching theo ngày.
-if(!ca.length){
-  var past=assignData.filter(function(x){return x.ad_account_id===a.id&&x.start_date<=range.end;});
-  past.sort(function(x,y){return(y.start_date||'').localeCompare(x.start_date||'');});
-  if(past.length)ca=[past[0]];
-}
 var ds=spendTotalForAccountRange(a.id,range.start,range.end);
 var bal=hasComparableSpendCap(a)?a.spend_cap-a.amount_spent:null;
 return{a:a,idx:i,assign:ca,spend:ds,status:a.account_status||1,balance:bal};});
