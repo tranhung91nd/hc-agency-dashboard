@@ -1963,7 +1963,7 @@ function getMonthlyFeeRecord(clientId,month){var mk=monthKey(month);for(var i=0;
 function getEffectiveServiceFee(clientId,month,baseFee){var rec=getMonthlyFeeRecord(clientId,month);return rec?metaNum(rec.service_fee):metaNum(baseFee);}
 function getClientVatFlag(c){return !!(c&&c.has_vat);}
 function getBankProfile(c){return getClientVatFlag(c)?BANK_PROFILES.business:BANK_PROFILES.personal;}
-function getTransferContent(clientName,month){return String(clientName||'').toUpperCase().replace(/\s+/g,' ').trim()+' T'+parseInt(month.split('-')[1])+'/'+month.split('-')[0];}
+function getTransferContent(hasVat){return hasVat?'thanh toan tu van quang cao':'chuyen khoan';}
 function getInvoiceBankTitle(hasVat,bank){return bank+' — '+(hasVat?'STK doanh nghiệp (VAT)':'STK cá nhân');}
 function getInvoiceContentLabel(hasVat){return hasVat?'ND:':'CK:';}
 // Cho thuê TKQC — tính phí theo % spend
@@ -2146,7 +2146,7 @@ var spForRental=rentalActive?(typeof monthSpend==='number'?monthSpend:getMonthSp
 var rentalFee=rentalActive?getRentalFeeAmount(c,month,spForRental):0;
 var fee=flatFee+rentalFee;
 var hasVat=getClientVatFlag(c),vat=hasVat?Math.round(fee*0.08):0,bank=getBankProfile(c);
-return{fee:fee,flatFee:flatFee,rentalFee:rentalFee,rentalPct:rentalActive?rentalPct:0,rentalSpend:spForRental,vat:vat,total:fee+vat,hasVat:hasVat,bank:bank,content:getTransferContent(c.name,month)};
+return{fee:fee,flatFee:flatFee,rentalFee:rentalFee,rentalPct:rentalActive?rentalPct:0,rentalSpend:spForRental,vat:vat,total:fee+vat,hasVat:hasVat,bank:bank,content:getTransferContent(hasVat)};
 }
 function getVietQrImageUrl(c,month,flatFee,monthSpend){
 var info=getInvoiceTotals(c,month,flatFee,monthSpend),bank=info.bank;
