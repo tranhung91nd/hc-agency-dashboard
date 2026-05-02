@@ -7375,7 +7375,9 @@ function removeTyping(){var t=document.getElementById('ai-typing');if(t)t.remove
 
 async function callGPT(userMsg){
 var systemPrompt='Bạn là trợ lý phân tích quảng cáo của HC Agency. Trả lời bằng tiếng Việt, ngắn gọn, dùng emoji cho dễ đọc. Khi phân tích, hãy đưa ra nhận xét cụ thể, số liệu rõ ràng, và gợi ý hành động. Dữ liệu hiện tại:\n\n'+getDataSummary();
-if(!aiMessages.length){aiMessages=[{role:'system',content:systemPrompt}];}
+// Always refresh system prompt with latest data summary so AI doesn't reuse a stale snapshot from when chat was first opened
+if(!aiMessages.length||aiMessages[0].role!=='system'){aiMessages.unshift({role:'system',content:systemPrompt});}
+else{aiMessages[0].content=systemPrompt;}
 aiMessages.push({role:'user',content:userMsg});
 var model=getAIModel();
 try{
