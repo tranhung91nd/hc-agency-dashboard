@@ -1383,6 +1383,71 @@ tr:hover td{background:#f8fbff;}
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.75);
   flex:0 0 auto;
 }
+.ad-period{
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  background:var(--bg2);
+  border:1px solid var(--bd1);
+  border-radius:12px;
+  padding:3px;
+  min-height:46px;
+  flex:0 0 auto;
+}
+.ad-period-chip{
+  padding:0 14px;
+  height:38px;
+  display:inline-flex;
+  align-items:center;
+  font-size:12px;
+  font-weight:500;
+  border:0;
+  background:transparent;
+  color:var(--tx2);
+  border-radius:9px;
+  cursor:pointer;
+  transition:.12s;
+  white-space:nowrap;
+}
+.ad-period-chip:hover{color:var(--tx1);background:rgba(15,23,42,0.04);}
+.ad-period-chip.active{background:var(--bg1);color:var(--blue-tx);box-shadow:0 1px 2px rgba(0,0,0,.06);font-weight:600;}
+html[data-theme="dark"] .ad-period-chip:hover{background:rgba(255,255,255,0.05);}
+html[data-theme="dark"] .ad-period-chip.active{background:var(--bg1);}
+.ad-range-custom{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-height:46px;
+  padding:0 12px;
+  border-radius:12px;
+  background:var(--bg2);
+  border:1px solid var(--bd1);
+  flex:0 0 auto;
+}
+.ad-range-custom input[type="date"]{
+  width:140px;
+  height:34px;
+  border:1px solid var(--bd1);
+  border-radius:8px;
+  padding:0 8px;
+  font-size:12px;
+  background:var(--bg1);
+  color:var(--tx1);
+}
+.ad-range-custom .arrow{color:var(--tx3);font-size:14px;}
+.ad-range-summary{
+  display:inline-flex;
+  align-items:center;
+  min-height:46px;
+  padding:0 14px;
+  border-radius:12px;
+  background:rgba(37,99,235,0.06);
+  border:1px solid rgba(37,99,235,0.14);
+  color:var(--blue-tx);
+  font-size:12px;
+  font-weight:600;
+  white-space:nowrap;
+}
 .ad-toolbar-actions .btn{
   white-space:nowrap;
 }
@@ -1667,7 +1732,7 @@ function renderZaloBtn(c){
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],clientDepositData=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc';
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc';
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -1816,6 +1881,25 @@ function sameId(a,b){return String(a)===String(b);}
 function spendRowsForDate(date){return dailyData.filter(function(d){return d.report_date===date;});}
 function spendTotalForDate(date){return spendRowsForDate(date).reduce(function(t,d){return t+moneyVal(d.spend_amount);},0);}
 function spendTotalForAccountDate(adId,date){return dailyData.filter(function(d){return sameId(d.ad_account_id,adId)&&d.report_date===date;}).reduce(function(t,d){return t+moneyVal(d.spend_amount);},0);}
+function spendTotalForRange(start,end){return dailyData.filter(function(d){return d.report_date&&d.report_date>=start&&d.report_date<=end;}).reduce(function(t,d){return t+moneyVal(d.spend_amount);},0);}
+function spendTotalForAccountRange(adId,start,end){return dailyData.filter(function(d){return sameId(d.ad_account_id,adId)&&d.report_date>=start&&d.report_date<=end;}).reduce(function(t,d){return t+moneyVal(d.spend_amount);},0);}
+function daysBetween(start,end){if(!start||!end)return 1;var ms=new Date(end+'T00:00:00')-new Date(start+'T00:00:00');return Math.max(1,Math.floor(ms/86400000)+1);}
+function getAdViewRange(){
+  var t=td();
+  if(adViewMode==='today')return{start:t,end:t,label:'Hôm nay '+fd(t),short:'Hôm nay',colHeader:'Chi tiêu '+fd(t)};
+  if(adViewMode==='yesterday'){var y=yesterday();return{start:y,end:y,label:'Hôm qua '+fd(y),short:'Hôm qua',colHeader:'Chi tiêu '+fd(y)};}
+  if(adViewMode==='this_month'){var ms=t.substring(0,7),mNum=parseInt(ms.split('-')[1]);return{start:ms+'-01',end:t,label:'T'+mNum+'/'+ms.split('-')[0]+' (đến '+fd(t)+')',short:'T'+mNum,colHeader:'Chi tiêu T'+mNum};}
+  if(adViewMode==='last_month'){var d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);var ly=d.getFullYear(),lmo=d.getMonth()+1,lastDay=new Date(ly,lmo,0).getDate(),pad=function(n){return('0'+n).slice(-2);};var s=ly+'-'+pad(lmo)+'-01',e=ly+'-'+pad(lmo)+'-'+pad(lastDay);return{start:s,end:e,label:'T'+lmo+'/'+ly,short:'T'+lmo,colHeader:'Chi tiêu T'+lmo};}
+  if(adViewMode==='custom'){var s2=adRangeStart||t,e2=adRangeEnd||t;if(s2>e2){var tmp=s2;s2=e2;e2=tmp;}var lbl=fd(s2)+' → '+fd(e2);return{start:s2,end:e2,label:lbl,short:'Tùy chỉnh',colHeader:'Chi tiêu '+lbl};}
+  return{start:t,end:t,label:'Hôm nay '+fd(t),short:'Hôm nay',colHeader:'Chi tiêu '+fd(t)};
+}
+function setAdViewMode(mode){
+  adViewMode=mode;
+  if(mode==='custom'&&!adRangeStart){var t=td();adRangeStart=t.substring(0,8)+'01';adRangeEnd=t;}
+  var r=getAdViewRange();adViewDate=r.end;
+  render();
+}
+function setAdCustomRange(which,val){if(which==='start')adRangeStart=val;else adRangeEnd=val;adViewMode='custom';var r=getAdViewRange();adViewDate=r.end;render();}
 function needAuth(){if(!authUser){toast('Vui lòng đăng nhập để tiếp tục.',false);return false;}return true;}
 function needAdmin(){if(!isAdmin()){toast('Thao tác này yêu cầu quyền Admin. Liên hệ quản trị viên nếu cần.',false);return false;}return true;}
 function safeJsString(v){return JSON.stringify(v==null?'':String(v));}
@@ -3552,19 +3636,20 @@ return h;}
 function a1(){
 var stLabel={1:'Hoạt động',2:'Vô hiệu hoá',3:'Cần thanh toán',7:'Đang xét duyệt'};
 var stDot={1:'dot-ok',2:'dot-off',3:'dot-warn',7:'dot-ok'};
-// KPI data
-var dayTotal=spendTotalForDate(adViewDate);
-var ms=adViewDate.substring(0,7);
-var monthTotal=dailyData.filter(function(d){return d.report_date.substring(0,7)===ms;}).reduce(function(t,d){return t+moneyVal(d.spend_amount);},0);
-var monthDays=new Set();dailyData.filter(function(d){return d.report_date.substring(0,7)===ms;}).forEach(function(d){monthDays.add(d.report_date);});
+// Range data (preset hoặc custom)
+var range=getAdViewRange();adViewDate=range.end;
+var rangeTotal=spendTotalForRange(range.start,range.end);
+var rangeDaysWithData=new Set();dailyData.filter(function(d){return d.report_date>=range.start&&d.report_date<=range.end;}).forEach(function(d){rangeDaysWithData.add(d.report_date);});
+var rangeDayCount=daysBetween(range.start,range.end);
+var avgPerDay=Math.round(rangeTotal/(rangeDayCount||1));
 var activeCount=adList.filter(function(a){return(a.account_status||1)===1;}).length;
 var disabledCount=adList.filter(function(a){return(a.account_status||1)===2;}).length;
-var unassignedCount=adList.filter(function(a){return!getAssign(a.id,adViewDate).length&&(a.account_status||1)===1;}).length;
+var unassignedCount=adList.filter(function(a){return!getAssign(a.id,range.end).length&&(a.account_status||1)===1;}).length;
 var sharedCount=adList.filter(function(a){return a.is_shared;}).length;
-// Build ad rows data for sorting
+// Build ad rows data for sorting (spend = tổng trong range)
 var rows=adList.map(function(a,i){
-var ca=getAssign(a.id,adViewDate);
-var ds=spendTotalForAccountDate(a.id,adViewDate);
+var ca=getAssign(a.id,range.end);
+var ds=spendTotalForAccountRange(a.id,range.start,range.end);
 var bal=hasComparableSpendCap(a)?a.spend_cap-a.amount_spent:null;
 return{a:a,idx:i,assign:ca,spend:ds,status:a.account_status||1,balance:bal};});
 // Sort
@@ -3573,16 +3658,26 @@ else if(adSortCol==='name')rows.sort(function(a,b){return adSortDir==='asc'?a.a.
 else if(adSortCol==='status')rows.sort(function(a,b){return adSortDir==='asc'?a.status-b.status:b.status-a.status;});
 else if(adSortCol==='balance')rows.sort(function(a,b){var ba=a.balance===null?999999999999:a.balance;var bb=b.balance===null?999999999999:b.balance;return adSortDir==='asc'?ba-bb:bb-ba;});
 var maxSpend=Math.max.apply(null,rows.map(function(r){return r.spend;}))||1;
-// KPI cards
+// KPI cards — theo range đang chọn
 var h='<div class="sum-grid">';
-h+='<div class="sum-card"><div class="sum-label">Chi tiêu '+fd(adViewDate)+'</div><div class="sum-val" style="color:var(--teal);">'+ff(dayTotal)+'</div><div class="sum-note">'+rows.filter(function(r){return r.spend>0;}).length+' Tài khoản có chi tiêu</div></div>';
-h+='<div class="sum-card"><div class="sum-label">Tổng T'+parseInt(ms.split('-')[1])+' ('+monthDays.size+' ngày)</div><div class="sum-val" style="color:var(--teal);">'+fm(monthTotal)+'</div><div class="sum-note">Trung bình '+fm(Math.round(monthTotal/(monthDays.size||1)))+'/ngày</div></div>';
+h+='<div class="sum-card"><div class="sum-label">Chi tiêu '+esc(range.short)+'</div><div class="sum-val" style="color:var(--teal);">'+ff(rangeTotal)+'</div><div class="sum-note">'+rows.filter(function(r){return r.spend>0;}).length+' tài khoản có chi tiêu · '+rangeDaysWithData.size+'/'+rangeDayCount+' ngày có data</div></div>';
+h+='<div class="sum-card"><div class="sum-label">Trung bình/ngày</div><div class="sum-val" style="color:var(--teal);">'+fm(avgPerDay)+'</div><div class="sum-note">'+rangeDayCount+' ngày — '+esc(range.label)+'</div></div>';
 h+='<div class="sum-card"><div class="sum-label">Hoạt động</div><div class="sum-val">'+activeCount+'<span style="font-size:13px;color:var(--tx3);font-weight:400;">/'+adList.length+'</span></div><div class="sum-note">'+disabledCount+' vô hiệu · '+unassignedCount+' chưa gán</div></div>';
 h+='<div class="sum-card"><div class="sum-label">Dùng chung</div><div class="sum-val" style="color:var(--purple);">'+sharedCount+'</div><div class="sum-note">Tài khoản nhiều Nhân sự/Khách hàng</div></div></div>';
-// Toolbar
+// Toolbar — Row 1: Period chips + (custom range nếu chọn) + actions
+var pchip=function(mode,label){return '<button class="ad-period-chip'+(adViewMode===mode?' active':'')+'" onclick="setAdViewMode(\''+mode+'\')">'+label+'</button>';};
 h+='<div class="ad-toolbar">';
 h+='<div class="ad-toolbar-main">';
-h+='<input type="date" id="ad-view-date" value="'+adViewDate+'" onchange="adViewDate=this.value;render();" class="fi ad-toolbar-date">';
+h+='<div class="ad-period">'+pchip('today','Hôm nay')+pchip('yesterday','Hôm qua')+pchip('this_month','Tháng này')+pchip('last_month','Tháng trước')+pchip('custom','Tùy chỉnh')+'</div>';
+if(adViewMode==='custom'){
+  h+='<div class="ad-range-custom"><input type="date" value="'+(adRangeStart||td())+'" onchange="setAdCustomRange(\'start\',this.value)"><span class="arrow">→</span><input type="date" value="'+(adRangeEnd||td())+'" onchange="setAdCustomRange(\'end\',this.value)"></div>';
+}
+h+='<span class="ad-range-summary">'+esc(range.label)+(rangeDayCount>1?' · '+rangeDayCount+' ngày':'')+'</span>';
+h+='</div>';
+h+='<div class="ad-toolbar-actions"><span class="ad-toolbar-note"><span class="ad-toolbar-note-dot"></span>Meta tự đồng bộ khi mở trang</span><button class="btn btn-ghost btn-sm" onclick="doMetaSync2(this)">Đồng bộ '+fd(range.end)+'</button><button class="btn btn-sm btn-add-account" onclick="toggleAddTk()"><span class="btn-add-account-plus">+</span><span>Thêm tài khoản</span></button></div></div>';
+// Toolbar — Row 2: Search + filters + count
+h+='<div class="ad-toolbar" style="margin-top:-4px;">';
+h+='<div class="ad-toolbar-main">';
 h+='<input type="text" id="search-ad" placeholder="Tìm tài khoản, khách hàng..." value="'+esc(adSearchText)+'" oninput="filterAdTable()" class="fi ad-toolbar-search">';
 h+='<select id="filter-staff" onchange="filterAdTable()" class="fi ad-toolbar-filter"><option value="">Tất cả nhân viên</option>';
 staffList.forEach(function(s){h+='<option value="'+s.id+'"'+(s.id===adFilterStaff?' selected':'')+'>'+esc(s.short_name)+'</option>';});
@@ -3592,7 +3687,7 @@ clientList.forEach(function(c){h+='<option value="'+c.id+'"'+(c.id===adFilterCli
 h+='<option value="none"'+(adFilterClient==='none'?' selected':'')+'>— Chưa phân loại —</option></select>';
 h+='<select id="filter-status" onchange="filterAdTable()" class="fi ad-toolbar-filter"><option value="">Tất cả tình trạng</option><option value="1"'+(adFilterStatus==='1'?' selected':'')+'>● Hoạt động</option><option value="2"'+(adFilterStatus==='2'?' selected':'')+'>● Vô hiệu hoá</option><option value="3"'+(adFilterStatus==='3'?' selected':'')+'>● Cần thanh toán</option></select>';
 h+='<span class="ad-toolbar-count" id="filter-count">'+adList.length+'/'+adList.length+' tài khoản</span></div>';
-h+='<div class="ad-toolbar-actions"><span class="ad-toolbar-note"><span class="ad-toolbar-note-dot"></span>Meta và chi tiêu tự đồng bộ khi mở trang</span><button class="btn btn-ghost btn-sm" onclick="doMetaSync2(this)">Đồng bộ ngày '+fd(adViewDate)+'</button><button class="btn btn-sm btn-add-account" onclick="toggleAddTk()"><span class="btn-add-account-plus">+</span><span>Thêm tài khoản</span></button></div></div>';
+h+='</div>';
 // Add Tài khoản form (hidden by default)
 h+='<div id="add-tk-form" style="display:none;margin-bottom:12px;"><div class="form-card" style="margin-bottom:0;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-weight:500;font-size:14px;">Thêm tài khoản quảng cáo</span><span style="font-size:18px;cursor:pointer;color:var(--tx3);" onclick="toggleAddTk()">×</span></div>';
 h+='<div class="form-row"><div class="form-group"><label>Tên tài khoản</label><input type="text" id="new-tk-name" placeholder="VD: Tài khoản NBNB - 1234"></div><div class="form-group"><label>FB Account ID (bỏ trống = Tài khoản ngoài)</label><input type="text" id="new-tk-fbid" placeholder="act_123456789"></div></div>';
@@ -3612,7 +3707,7 @@ h+='<th><input type="checkbox" onchange="toggleCheckAll(this.checked)"></th>';
 h+=th('Tài khoản','name');
 h+=th('Nhân sự');
 h+=th('Khách hàng');
-h+=th('Chi tiêu '+fd(adViewDate),'spend','right');
+h+=th(range.colHeader,'spend','right');
 h+=th('Ngưỡng chi tiêu','balance','right');
 h+=th('Giá tối đa',null,'right');
 h+='</tr></thead><tbody>';
