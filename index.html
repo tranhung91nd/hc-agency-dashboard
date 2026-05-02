@@ -2593,7 +2593,9 @@ var isCEO=(Number(s.default_base_salary)===0)||/hưng coaching|hung coaching|ceo
 var comm=isCEO?{total:0,detail:[]}:computeStaffCommission(s.id,salaryMonth);
 // Giá trị hiển thị: ưu tiên DB, fallback default
 var baseVal=row&&row.base_salary!=null?Number(row.base_salary):(isCEO?0:(Number(s.default_base_salary)||4000000));
-var commVal=row&&row.commission!=null?Number(row.commission):comm.total;
+// Luôn hiển thị hoa hồng tự tính (comm.total) thay vì snapshot DB — vì spend Meta sync về có thể đã thay đổi
+// DB snapshot chỉ phục vụ historical, sẽ được auto-update khi edit ô nào đó hoặc bấm "Tính lại hoa hồng"
+var commVal=comm.total;
 var bonusVal=row&&row.bonus!=null?Number(row.bonus):0;
 var noteVal=row&&row.note?row.note:'';
 // Tổng phạt trong tháng (trừ vào lương)
