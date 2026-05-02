@@ -2158,8 +2158,8 @@ if(search){
 var hay=[c.name,c.contact_person,c.campaign_keyword].map(function(v){return String(v||'').toLowerCase();}).join(' ');
 if(hay.indexOf(search)<0)return false;
 }
-if(clientFilterPayment==='paid'&&c.payment_status!=='paid')return false;
-if(clientFilterPayment==='unpaid'&&c.payment_status==='paid')return false;
+var ps=getClientPaymentStatus(c);
+if(clientFilterPayment&&clientFilterPayment!==ps)return false;
 if(clientFilterVat==='vat'&&!getClientVatFlag(c))return false;
 if(clientFilterVat==='no_vat'&&getClientVatFlag(c))return false;
 if(clientFilterStatus&&c.status!==clientFilterStatus)return false;
@@ -2173,16 +2173,22 @@ function sortClientRows(rows,month){
 rows.sort(function(a,b){
 if(clientSortMode==='fee_desc'){var fA=getEffectiveServiceFee(a.c.id,month,a.c.service_fee)+getRentalFeeAmount(a.c,month,a.spend);var fB=getEffectiveServiceFee(b.c.id,month,b.c.service_fee)+getRentalFeeAmount(b.c,month,b.spend);return fB-fA||a.c.name.localeCompare(b.c.name);}
 if(clientSortMode==='name_asc')return a.c.name.localeCompare(b.c.name);
-if(clientSortMode==='unpaid_first'){var ap=a.c.payment_status==='paid'?1:0,bp=b.c.payment_status==='paid'?1:0;return ap-bp||b.spend-a.spend||a.c.name.localeCompare(b.c.name);}
+if(clientSortMode==='unpaid_first'){var pri={invoice_sent:0,unpaid:1,paid:2};var ap=pri[getClientPaymentStatus(a.c)],bp=pri[getClientPaymentStatus(b.c)];return ap-bp||b.spend-a.spend||a.c.name.localeCompare(b.c.name);}
 return b.spend-a.spend||a.c.name.localeCompare(b.c.name);
 });
 }
+// Trạng thái thanh toán: 'unpaid' (mặc định) | 'invoice_sent' | 'paid'
+function getClientPaymentStatus(c){var v=c&&c.payment_status;return(v==='paid'||v==='invoice_sent')?v:'unpaid';}
+function paymentLabel(s){return s==='paid'?'Đã thanh toán':(s==='invoice_sent'?'Đã gửi phiếu':'Chưa thanh toán');}
+function paymentBadgeClass(s){return s==='paid'?'b-green':(s==='invoice_sent'?'b-amber':'b-gray');}
+function paymentBadgeHtml(s){return '<span class="badge '+paymentBadgeClass(s)+'">'+paymentLabel(s)+'</span>';}
+function isPaymentDue(s){return s!=='paid';}
 function clientFilterLabel(kind,val){
-if(kind==='payment')return val==='paid'?'Đã thanh toán':'Chưa thanh toán';
+if(kind==='payment')return paymentLabel(val);
 if(kind==='vat')return val==='vat'?'Có VAT':'Không VAT';
 if(kind==='status')return val==='active'?'Đang hoạt động':(val==='paused'?'Tạm dừng':'Dừng');
 if(kind==='spend')return val==='has_spend'?'Có chi tiêu':'Chưa có chi tiêu';
-if(kind==='sort')return {spend_desc:'Chi tiêu cao nhất',fee_desc:'Phí Dịch vụ cao nhất',name_asc:'Tên A-Z',unpaid_first:'Chưa thanh toán trước'}[val]||'';
+if(kind==='sort')return {spend_desc:'Chi tiêu cao nhất',fee_desc:'Phí Dịch vụ cao nhất',name_asc:'Tên A-Z',unpaid_first:'Cần thu trước'}[val]||'';
 if(kind==='service')return(SERVICES[val]&&SERVICES[val].name)||val;
 if(kind==='care')return(CARE_STATUS[val]&&CARE_STATUS[val].name)||val;
 return val||'';
@@ -3015,13 +3021,13 @@ h+='</select><span style="font-size:12px;color:var(--tx3);margin-left:8px;">'+nd
 h+='<div class="ad-toolbar">';
 h+='<div class="ad-toolbar-main">';
 h+='<input type="text" id="client-search" placeholder="Tìm khách hàng, liên hệ..." value="'+esc(clientSearchText)+'" oninput="expandedClientId=null;hcSearchInput(\'clientSearchText\',this.value)" class="fi ad-toolbar-search">';
-h+='<select class="fi ad-toolbar-filter" onchange="clientFilterPayment=this.value;expandedClientId=null;render();"><option value="">Tất cả thanh toán</option><option value="paid"'+(clientFilterPayment==='paid'?' selected':'')+'>Đã thanh toán</option><option value="unpaid"'+(clientFilterPayment==='unpaid'?' selected':'')+'>Chưa thanh toán</option></select>';
+h+='<select class="fi ad-toolbar-filter" onchange="clientFilterPayment=this.value;expandedClientId=null;render();"><option value="">Tất cả thanh toán</option><option value="unpaid"'+(clientFilterPayment==='unpaid'?' selected':'')+'>Chưa thanh toán</option><option value="invoice_sent"'+(clientFilterPayment==='invoice_sent'?' selected':'')+'>Đã gửi phiếu</option><option value="paid"'+(clientFilterPayment==='paid'?' selected':'')+'>Đã thanh toán</option></select>';
 h+='<select class="fi ad-toolbar-filter" onchange="clientFilterVat=this.value;expandedClientId=null;render();"><option value="">Tất cả VAT</option><option value="vat"'+(clientFilterVat==='vat'?' selected':'')+'>Có VAT</option><option value="no_vat"'+(clientFilterVat==='no_vat'?' selected':'')+'>Không VAT</option></select>';
 h+='<select class="fi ad-toolbar-filter" onchange="clientFilterStatus=this.value;expandedClientId=null;render();"><option value="">Tất cả trạng thái</option><option value="active"'+(clientFilterStatus==='active'?' selected':'')+'>Đang hoạt động</option><option value="paused"'+(clientFilterStatus==='paused'?' selected':'')+'>Tạm dừng</option><option value="stopped"'+(clientFilterStatus==='stopped'?' selected':'')+'>Dừng</option></select>';
 h+='<select class="fi ad-toolbar-filter" onchange="clientFilterSpend=this.value;expandedClientId=null;render();"><option value="">Tất cả chi tiêu</option><option value="has_spend"'+(clientFilterSpend==='has_spend'?' selected':'')+'>Có chi tiêu</option><option value="no_spend"'+(clientFilterSpend==='no_spend'?' selected':'')+'>Chưa có chi tiêu</option></select>';
 h+='<select class="fi ad-toolbar-filter" onchange="clientFilterService=this.value;expandedClientId=null;render();"><option value="">Tất cả dịch vụ</option>';Object.keys(SERVICES).forEach(function(code){h+='<option value="'+code+'"'+(clientFilterService===code?' selected':'')+'>'+SERVICES[code].name+'</option>';});h+='</select>';
 h+='</div>';
-h+='<div class="ad-toolbar-actions"><select class="fi ad-toolbar-sort" onchange="clientSortMode=this.value;render();"><option value="spend_desc"'+(clientSortMode==='spend_desc'?' selected':'')+'>Chi tiêu cao nhất</option><option value="fee_desc"'+(clientSortMode==='fee_desc'?' selected':'')+'>Phí Dịch vụ cao nhất</option><option value="name_asc"'+(clientSortMode==='name_asc'?' selected':'')+'>Tên A-Z</option><option value="unpaid_first"'+(clientSortMode==='unpaid_first'?' selected':'')+'>Chưa thanh toán trước</option></select><button class="btn btn-ghost btn-sm" onclick="clearClientFilters()">Xóa bộ lọc</button></div></div>';
+h+='<div class="ad-toolbar-actions"><select class="fi ad-toolbar-sort" onchange="clientSortMode=this.value;render();"><option value="spend_desc"'+(clientSortMode==='spend_desc'?' selected':'')+'>Chi tiêu cao nhất</option><option value="fee_desc"'+(clientSortMode==='fee_desc'?' selected':'')+'>Phí Dịch vụ cao nhất</option><option value="name_asc"'+(clientSortMode==='name_asc'?' selected':'')+'>Tên A-Z</option><option value="unpaid_first"'+(clientSortMode==='unpaid_first'?' selected':'')+'>Cần thu trước</option></select><button class="btn btn-ghost btn-sm" onclick="clearClientFilters()">Xóa bộ lọc</button></div></div>';
 var clientChips=[];
 if(clientSearchText)clientChips.push('Tìm: '+esc(clientSearchText));
 if(clientFilterPayment)clientChips.push(clientFilterLabel('payment',clientFilterPayment));
@@ -3058,7 +3064,7 @@ h+='<td><span class="kh-num">'+(i+1)+'</span></td>';
 h+='<td><div class="kh-name-cell"><span class="kh-name-text">'+esc(c.name)+'</span>'+(getClientVatFlag(c)?'<span class="vat-badge b-blue" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',false)" title="Bấm để chuyển sang Không VAT">VAT 8%</span>':'<span class="vat-badge b-gray" onclick="event.stopPropagation();toggleClientVat(\''+c.id+'\',true)" title="Bấm để chuyển sang Có VAT">Không VAT</span>')+'<button class="kh-edit-btn" onclick="event.stopPropagation();openClientEditModal(\''+c.id+'\')" title="Sửa dịch vụ / Zalo / CSKH" aria-label="Sửa khách hàng"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></div></td>';
 h+='<td>'+renderServicesBadges(c.services,{compact:true})+'</td>';
 h+='<td style="font-size:12px;color:var(--tx2);"><div class="kh-contact"><span>'+esc(c.contact_person||'—')+'</span>'+renderZaloBtn(c)+'</div></td>';
-h+='<td>'+(c.payment_status==='paid'?'<span class="badge b-green">Đã thanh toán</span>':'<span class="badge b-gray">Chưa</span>')+'</td>';
+h+='<td>'+paymentBadgeHtml(getClientPaymentStatus(c))+'</td>';
 h+='<td style="text-align:right;">'+(sp?'<div style="font-weight:500;font-variant-numeric:tabular-nums;color:var(--teal);">'+fm(sp)+'</div><div class="bar-track" style="width:80px;margin-left:auto;margin-top:3px;"><div class="bar-fill" style="width:'+pct+'%;background:var(--teal);"></div></div>':'<span style="color:var(--tx3);">—</span>')+'</td>';
 h+='<td class="mono" style="text-align:right;">'+feeCellHtml+'</td>';
 h+='<td><span class="badge '+sb3+'">'+st2+'</span></td>';
@@ -3100,7 +3106,8 @@ if(hasRentalService(c)&&getRentalFeePct(c)>0){
   h+=renderRentalLedger(c,ms,sp,invoice);
 }
 h+='<div id="client-invoice-'+domId+'" class="invoice-card" data-client-id="'+esc(c.id)+'" data-month="'+ms+'" data-spend="'+sp+'" data-has-vat="'+(invoice.hasVat?'1':'0')+'">';
-h+='<div class="invoice-head"><div><div class="invoice-title">Phiếu thanh toán — '+esc(c.name)+'</div><div class="invoice-meta"><span>Kỳ: 01/'+parseInt(ms.split('-')[1])+' — '+dim+'/'+parseInt(ms.split('-')[1])+'/'+yLabel+'</span>'+(invoice.hasVat?'<span class="vat-badge b-blue">Có VAT</span>':'')+'</div></div><div>'+(c.payment_status==='paid'?'<span class="invoice-status-badge b-green">Đã thanh toán</span>':'<span class="invoice-status-badge b-gray">Chưa thanh toán</span>')+'</div></div>';
+var psNow=getClientPaymentStatus(c);
+h+='<div class="invoice-head"><div><div class="invoice-title">Phiếu thanh toán — '+esc(c.name)+'</div><div class="invoice-meta"><span>Kỳ: 01/'+parseInt(ms.split('-')[1])+' — '+dim+'/'+parseInt(ms.split('-')[1])+'/'+yLabel+'</span>'+(invoice.hasVat?'<span class="vat-badge b-blue">Có VAT</span>':'')+'</div></div><div><span class="invoice-status-badge '+paymentBadgeClass(psNow)+'">'+paymentLabel(psNow)+'</span></div></div>';
 h+='<div class="invoice-body">';
 h+='<div class="invoice-label">Chi tiết tài khoản Quảng cáo</div>';
 tkArr.forEach(function(tk){h+='<div class="invoice-account-row"><span class="invoice-account-name">'+esc(tk.name)+'</span><span class="invoice-account-value">'+ff(tk.spend)+'</span></div>';});
@@ -3123,9 +3130,13 @@ h+='<div class="invoice-actions">';
 h+='<button id="invoice-copy-'+domId+'" class="invoice-btn" type="button" onclick="copyClientInvoice('+safeJsAttrString(c.id)+','+safeJsAttrString(ms)+','+sp+')">Sao chép</button>';
 h+='<button class="invoice-btn" type="button" onclick="downloadClientInvoice('+safeJsAttrString(c.id)+','+safeJsAttrString(ms)+','+sp+',this)">Tải ảnh</button>';
 if(authUser){
-if(c.payment_status==='paid'){
-h+='<button class="invoice-btn" type="button" style="border-color:var(--red);color:var(--red);background:#fff;" onmouseenter="this.style.background=\'var(--red-bg)\'" onmouseleave="this.style.background=\'#fff\'" onclick="undoClientPayment('+safeJsAttrString(c.id)+','+safeJsAttrString(ms)+',this)">Hủy thanh toán</button>';
+if(psNow==='paid'){
+h+='<button class="invoice-btn" type="button" style="border-color:var(--red);color:var(--red);background:#fff;" onmouseenter="this.style.background=\'var(--red-bg)\'" onmouseleave="this.style.background=\'#fff\'" onclick="undoClientPayment('+safeJsAttrString(c.id)+','+safeJsAttrString(ms)+',this)">↩ Hủy thanh toán</button>';
+}else if(psNow==='invoice_sent'){
+h+='<button class="invoice-btn" type="button" style="background:linear-gradient(180deg,#10b981 0%,#059669 100%);color:#fff;border:none;box-shadow:0 2px 8px rgba(5,150,105,.3);min-width:160px;" onclick="confirmClientPayment('+safeJsAttrString(c.id)+','+safeJsAttrString(ms)+',this)">✓ Xác nhận thanh toán</button>';
+h+='<button class="invoice-btn" type="button" style="border-color:var(--bd2);color:var(--tx2);background:#fff;" onclick="markInvoiceUnsent('+safeJsAttrString(c.id)+',this)">↩ Chưa gửi</button>';
 }else{
+h+='<button class="invoice-btn" type="button" style="background:linear-gradient(180deg,#3b82f6 0%,#2563eb 100%);color:#fff;border:none;box-shadow:0 2px 8px rgba(37,99,235,.3);" onclick="markInvoiceSent('+safeJsAttrString(c.id)+',this)">✉ Đã gửi phiếu</button>';
 h+='<button class="invoice-btn" type="button" style="background:linear-gradient(180deg,#10b981 0%,#059669 100%);color:#fff;border:none;box-shadow:0 2px 8px rgba(5,150,105,.3);min-width:160px;" onclick="confirmClientPayment('+safeJsAttrString(c.id)+','+safeJsAttrString(ms)+',this)">✓ Xác nhận thanh toán</button>';
 }}
 h+='</div></div></td></tr>';}
@@ -3298,6 +3309,28 @@ r=await sb2.from('transaction').delete().eq('client_id',clientId).eq('month',mon
 }
 return r;
 }
+async function markInvoiceSent(clientId,btn){
+if(!needAuth())return;
+var oldText=btn?btn.textContent:'';
+if(btn){btn.disabled=true;btn.textContent='Đang lưu...';}
+try{
+var r=await sb2.from('client').update({payment_status:'invoice_sent'}).eq('id',clientId);
+if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+toast('Đã đánh dấu Đã gửi phiếu',true);
+await loadAll();render();
+}catch(e){toast('Lỗi: '+e.message,false);}
+finally{if(btn){btn.disabled=false;btn.textContent=oldText||'✉ Đã gửi phiếu';}}}
+async function markInvoiceUnsent(clientId,btn){
+if(!needAuth())return;
+var oldText=btn?btn.textContent:'';
+if(btn){btn.disabled=true;btn.textContent='Đang lưu...';}
+try{
+var r=await sb2.from('client').update({payment_status:'unpaid'}).eq('id',clientId);
+if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+toast('Đã chuyển về Chưa thanh toán',true);
+await loadAll();render();
+}catch(e){toast('Lỗi: '+e.message,false);}
+finally{if(btn){btn.disabled=false;btn.textContent=oldText||'↩ Chưa gửi';}}}
 async function confirmClientPayment(clientId,month,btn){
 if(!needAuth())return;
 var c=clientList.find(function(x){return x.id===clientId;});if(!c)return;
@@ -4562,7 +4595,7 @@ h+='<div class="section-title">Khách hàng ('+clientList.length+')</div><div cl
 clientList.forEach(function(c2){
 h+='<tr><td style="font-weight:500;">'+esc(c2.name)+'</td><td style="font-size:12px;color:var(--tx2);">'+esc(c2.contact_person||'—')+'</td><td style="font-size:11px;color:var(--purple);">'+esc(c2.campaign_keyword||'—')+'</td>';
 h+='<td>'+(getClientVatFlag(c2)?'<span class="badge b-blue" style="cursor:pointer;" onclick="toggleClientVat(\''+c2.id+'\',false)" title="Bấm để chuyển sang Không VAT">Có VAT 8%</span>':'<span class="badge b-gray" style="cursor:pointer;" onclick="toggleClientVat(\''+c2.id+'\',true)" title="Bấm để chuyển sang Có VAT">Không VAT</span>')+'</td><td class="mono">'+(c2.service_fee?fm(c2.service_fee):'—')+'</td>';
-h+='<td>'+(c2.payment_status==='paid'?'<span class="badge b-green">Đã thanh toán</span>':'<span class="badge b-gray">Chưa</span>')+'</td>';
+h+='<td>'+paymentBadgeHtml(getClientPaymentStatus(c2))+'</td>';
 h+='<td><button class="btn btn-ghost btn-sm" onclick="ecp(\''+c2.id+'\')">Sửa</button> <button class="btn btn-ghost btn-sm" onclick="tgp(this,\''+c2.id+'\',\''+(c2.payment_status==='paid'?'unpaid':'paid')+'\')">'+(c2.payment_status==='paid'?'Hủy thanh toán':'Đã thanh toán')+'</button></td></tr>';});
 h+='</table></div>';return h;}
 async function svc(btn){if(!needAuth())return;btn.disabled=true;var d={name:document.getElementById('cn').value,contact_person:document.getElementById('cc').value||null,service_fee:parseInt(document.getElementById('cf').value)||0,campaign_keyword:document.getElementById('ckw').value||null,has_vat:document.getElementById('cv').value==='true'};if(!d.name){toast('Nhập tên',false);btn.disabled=false;return;}var r=await sb2.from('client').insert(d);btn.disabled=false;if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã thêm',true);['cn','cc','cf','ckw'].forEach(function(x){document.getElementById(x).value='';});document.getElementById('cv').value='false';await loadLight();}}
@@ -7287,7 +7320,7 @@ var activeClientsForAI=clientList.filter(function(c){return c.status!=='prospect
 var prospectCountAI=clientList.length-activeClientsForAI.length;
 summary+='\n== KHÁCH HÀNG ('+activeClientsForAI.length+' chính thức'+(prospectCountAI?', '+prospectCountAI+' tiềm năng':'')+') ==\n';
 var cArr=Object.keys(cs).map(function(id){return cs[id];}).sort(function(a,b){return b.spend-a.spend;});
-cArr.forEach(function(c){if(c.spend>0||c.fee>0)summary+=c.name+': chi tiêu '+ff(c.spend)+', phí Dịch vụ '+ff(c.fee)+', Thanh toán: '+(c.payment==='paid'?'đã':'chưa')+', '+c.tkCount+' Tài khoản, '+c.status+'\n';});
+cArr.forEach(function(c){if(c.spend>0||c.fee>0)summary+=c.name+': chi tiêu '+ff(c.spend)+', phí Dịch vụ '+ff(c.fee)+', Thanh toán: '+(c.payment==='paid'?'đã thanh toán':(c.payment==='invoice_sent'?'đã gửi phiếu':'chưa thanh toán'))+', '+c.tkCount+' Tài khoản, '+c.status+'\n';});
 if(tkAlerts.length){summary+='\n== CẢNH BÁO NGÂN SÁCH Tài khoản ==\n';tkAlerts.sort(function(a,b){return b.pct-a.pct;}).forEach(function(a){summary+=a.name+': đã chi '+ff(a.spent)+'/'+ff(a.cap)+' ('+a.pct+'%)\n';});}
 summary+='\n== TÀI CHÍNH ==\nDoanh thu phí Dịch vụ: '+ff(inc)+'\nChi phí (lương+VH): '+ff(exp)+'\nLợi nhuận: '+ff(inc-exp)+'\n';
 summary+='Tổng Tài khoản: '+adList.length+' ('+adList.filter(function(a){return a.account_status===1;}).length+' hoạt động)\n';
