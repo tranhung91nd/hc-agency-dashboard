@@ -86,6 +86,62 @@ Script tự sync `~/Downloads/{index,nghiep}.html` → repo → commit → push.
 ## Stack
 
 - **Frontend:** Vanilla HTML/CSS/JS — single-page (`index.html` ~5500 dòng, không build step)
-- **Backend:** Supabase (Postgres + Auth + Storage + RPC)
+- **Backend:** Supabase (Postgres + Auth + Storage + RPC) + Vercel Serverless `/api/telegram` (bot)
 - **Hosting:** Vercel (auto-deploy từ GitHub main)
 - **Meta API:** Graph API v25.0 (insights + adaccounts + adsets)
+
+---
+
+## Telegram Bot
+
+Webhook serverless tại `/api/telegram.js` — kết nối HC AI qua Telegram.
+
+### Setup 1 lần
+
+**1. Tạo bot:**
+- Mở Telegram, chat với [@BotFather](https://t.me/BotFather) → `/newbot` → đặt tên + username
+- Lưu `BOT_TOKEN` (vd `123456:AAH...`)
+
+**2. Lấy chat_id của anh:**
+- Chat với bot 1 câu bất kỳ → mở `https://api.telegram.org/bot<BOT_TOKEN>/getUpdates` xem `chat.id` (số nguyên)
+- Hoặc chat với [@userinfobot](https://t.me/userinfobot)
+
+**3. Thêm env vars trên Vercel:**
+| Key | Value | Ghi chú |
+|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | từ BotFather | bắt buộc |
+| `TELEGRAM_ALLOWED_CHAT_IDS` | chat_id anh, ngăn cách dấu phẩy | whitelist |
+| `TELEGRAM_WEBHOOK_SECRET` | chuỗi random 32 ký tự | bảo vệ webhook |
+| `SUPABASE_URL` | URL Supabase project | đã có sẵn |
+| `SUPABASE_SERVICE_ROLE_KEY` | service role key (bypass RLS) | **giữ kín** |
+| `OPENAI_API_KEY` | `sk-proj-...` | cho free-text AI |
+| `OPENAI_MODEL` | `gpt-4o-mini` (mặc định) | tuỳ chọn |
+
+**4. Deploy lên Vercel:**
+```bash
+git push origin main
+```
+Vercel tự build, endpoint thành `https://<your-domain>.vercel.app/api/telegram`.
+
+**5. Đăng ký webhook với Telegram:**
+```bash
+curl "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
+  -d "url=https://<your-domain>.vercel.app/api/telegram" \
+  -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
+```
+Trả về `{"ok":true,"result":true,"description":"Webhook was set"}` là OK.
+
+### Lệnh bot
+
+| Lệnh | Tác dụng |
+|---|---|
+| `/help` | Menu lệnh |
+| `/chitieu` | Spend hôm nay theo nhân sự |
+| `/canhbao` | TKQC sắp hết tiền (≥80%) |
+| `/canthu` | Khách chưa thanh toán + đã gửi phiếu |
+| Câu hỏi tự nhiên | Bot dựng context dashboard → trả lời qua OpenAI |
+
+### Debug
+
+- Vercel Dashboard → Project → Deployments → click deployment → Functions → `api/telegram` → xem logs
+- Test webhook handshake: `curl https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo`

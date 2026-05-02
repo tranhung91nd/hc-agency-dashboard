@@ -1,0 +1,9 @@
+{
+  "name": "hc-agency-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HC Agency Dashboard — Telegram bot serverless function",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}
