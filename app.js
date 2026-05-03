@@ -101,7 +101,7 @@ function renderZaloBtn(c){
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],clientDepositData=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc';
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc';
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -686,8 +686,7 @@ var SUBNAV_CONFIG={
   3:{title:'Khách hàng',sections:[{label:'PHÂN LOẠI',items:[
     {key:'cli-active',label:'Khách chính thức',action:"setClientTab('active')",match:function(){return curPage===3&&clientTab==='active';},badgeFn:function(){return clientList.filter(function(c){return c.status!=='prospect';}).length;}},
     {key:'cli-prospect',label:'Tiềm năng',action:"setClientTab('prospect')",match:function(){return curPage===3&&clientTab==='prospect';},badgeFn:function(){return clientList.filter(function(c){return c.status==='prospect';}).length;}},
-    {key:'cli-quote',label:'Báo giá',action:"setClientTab('quotation')",match:function(){return curPage===3&&clientTab==='quotation';},badgeFn:function(){return quotationList.length;}},
-    {key:'cli-report',label:'Báo cáo',action:"setClientTab('report')",match:function(){return curPage===3&&clientTab==='report';}}
+    {key:'cli-quote',label:'Báo giá',action:"setClientTab('quotation')",match:function(){return curPage===3&&clientTab==='quotation';},badgeFn:function(){return quotationList.length;}}
   ]}]},
   4:{title:'Tài chính',sections:[{label:'',items:[{key:'main',label:'Thu chi',action:"pg(4)",match:function(){return curPage===4;}}]}]},
   5:{title:'Admin',sections:[{label:'QUẢN LÝ',items:[
@@ -734,7 +733,8 @@ function syncSidebarNav(){
   renderSubnav();
 }
 function setSpendTab(i){spendTab=i;syncSidebarNav();render();}
-function setClientTab(t){clientTab=t;expandedClientId=null;syncSidebarNav();render();}
+function setClientTab(t){clientTab=t;clientActiveSubTab='overview';expandedClientId=null;syncSidebarNav();render();}
+function setClientActiveSubTab(t){clientActiveSubTab=t;expandedClientId=null;render();}
 function openAdTab(i){spendTab=i;pg(1);}
 function toggleSubnav(){
   var app=document.getElementById('app');
@@ -1434,7 +1434,6 @@ var quoteCount=quotationList.length;
 var tabH='<div role="tabpanel" id="cpanel-'+clientTab+'">';
 if(clientTab==='prospect')return p3Prospect(tabH);
 if(clientTab==='quotation')return p3Quotation(tabH);
-if(clientTab==='report')return p3Report(tabH);
 var ms=clientMonth||lm();
 var allMonths=new Set();dates.forEach(function(d){allMonths.add(d.substring(0,7));});
 var monthList=Array.from(allMonths).sort().reverse();
@@ -1457,6 +1456,15 @@ var totalFee=rows.reduce(function(t,r){return t+getEffectiveServiceFee(r.c.id,ms
 if(expandedClientId&&!rows.some(function(r){return r.c.id===expandedClientId;}))expandedClientId=null;
 var h='<div class="page-title">Khách hàng</div><div class="page-sub">Tổng '+activeClients.length+' chính thức · '+prospectCount+' tiềm năng</div>';
 h+=tabH;
+// Sub-tab bar (Tổng quan / Báo cáo Ads) — chỉ hiện trong Khách chính thức
+h+='<div class="client-tab-bar" role="tablist" aria-label="Phân loại nội dung khách chính thức" style="margin-bottom:14px;">';
+h+='<button role="tab" aria-selected="'+(clientActiveSubTab==='overview')+'" class="'+(clientActiveSubTab==='overview'?'active':'')+'" onclick="setClientActiveSubTab(\'overview\')">Tổng quan</button>';
+h+='<button role="tab" aria-selected="'+(clientActiveSubTab==='report')+'" class="'+(clientActiveSubTab==='report'?'active':'')+'" onclick="setClientActiveSubTab(\'report\')">Báo cáo Ads</button>';
+h+='</div>';
+// Nếu sub-tab='report' → render bảng báo cáo daily, return early
+if(clientActiveSubTab==='report'){
+  return h+p3ActiveReportContent();
+}
 h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;"><span style="font-size:12px;color:var(--tx3);">Tháng:</span><select class="fi" style="width:140px;" onchange="clientMonth=this.value;expandedClientId=null;render();">';
 monthList.forEach(function(m){h+='<option value="'+m+'"'+(m===ms?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
 h+='</select><span style="font-size:12px;color:var(--tx3);margin-left:8px;">'+nd+' ngày dữ liệu</span></div>';
@@ -3739,7 +3747,8 @@ function _rptClientForMess(r){
   var asg=getAssign(r.ad_account_id,r.report_date);
   return asg.length?asg[0].client_id:aa.client_id;
 }
-function p3Report(tabH){
+// Render content báo cáo daily (không bao gồm page-title) — dùng làm sub-tab trong Khách chính thức
+function p3ActiveReportContent(){
   var rows=clientList.filter(function(c){return c.status!=='prospect';});
   if(clientSearchText){
     var q=clientSearchText.toLowerCase();
@@ -3757,8 +3766,7 @@ function p3Report(tabH){
   });
   rows.sort(function(a,b){return(spendByClient[b.id]||0)-(spendByClient[a.id]||0);});
   var mLabel='T'+parseInt(ms.split('-')[1])+'/'+ms.split('-')[0];
-  var h='<div class="page-title">Khách hàng</div><div class="page-sub">Báo cáo chi tiết theo ngày — data đồng bộ tự động từ Meta API</div>';
-  h+=tabH;
+  var h='';
   // Toolbar: chọn tháng + search
   h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;"><span style="font-size:12px;color:var(--tx3);">Tháng:</span><select class="fi" style="width:140px;" onchange="clientMonth=this.value;expandedClientId=null;render();">';
   if(!monthList.length)h+='<option>'+mLabel+'</option>';
