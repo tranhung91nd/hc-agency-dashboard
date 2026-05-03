@@ -2200,46 +2200,71 @@ page.querySelectorAll('.table-wrap table').forEach(function(tbl){if(tbl.querySel
 }
 
 // ═══ LOAD ALL DATA ═══
+// Tier 1 perf: chia 2 wave để first paint nhanh.
+// Wave 1 (await + render): 8 query critical, daily_spend chỉ 60 ngày gần nhất
+// Wave 2 (background): 7 query phụ + daily_spend mở rộng 60→180 ngày
+// Globals deferred init = [] để code hiện tại không lỗi khi gọi sớm.
 async function fetchPaged(query){var all=[],from=0,size=1000;while(true){var{data,error}=await query.range(from,from+size-1);if(error)return{data:all,error:error};all=all.concat(data||[]);if(!data||data.length<size)break;from+=size;}return{data:all,error:null};}
 async function loadAll(){try{
- var minDate=new Date(Date.now()-180*86400000).toISOString().substring(0,10);
- var[s,c,aa,ds,sal,tx,mr,sc2,asgn,cmess,mf,ctr,qt,pnl,dep]=await Promise.all([
+ var minDate60=new Date(Date.now()-60*86400000).toISOString().substring(0,10);
+ // ─── Wave 1: critical cho first paint ───
+ var[s,c,aa,ds,asgn,mf,sc2,tx]=await Promise.all([
 sb2.from('staff').select('*').order('monthly_budget',{ascending:false}),
 sb2.from('client').select('*').order('name'),
 sb2.from('ad_account').select('*,client(name)').order('account_name'),
-fetchPaged(sb2.from('daily_spend').select('*,staff_id,matched_client_id,ad_account(id,account_name,client_id,client(name))').gte('report_date',minDate).order('report_date')),
-sb2.from('salary').select('*,staff(short_name)').order('month',{ascending:false}),
-sb2.from('transaction').select('*,client(name),staff(short_name)').order('txn_date',{ascending:false}),
-sb2.from('monthly_revenue').select('*,staff(short_name,code)').order('month'),
-sb2.from('staff_client').select('*,client(name)'),
+fetchPaged(sb2.from('daily_spend').select('*,staff_id,matched_client_id,ad_account(id,account_name,client_id,client(name))').gte('report_date',minDate60).order('report_date')),
 sb2.from('assignment').select('*').order('start_date',{ascending:false}),
-fetchPaged(sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,max_lead_cost,client(name))').order('report_date',{ascending:false})),
- sb2.from('client_monthly_fee').select('*').order('month',{ascending:false}),
- sb2.from('contract').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
- sb2.from('quotation').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
- sb2.from('penalty').select('*').order('penalty_date',{ascending:false}),
- sb2.from('client_deposit').select('*').order('deposit_date',{ascending:false})
+sb2.from('client_monthly_fee').select('*').order('month',{ascending:false}),
+sb2.from('staff_client').select('*,client(name)'),
+sb2.from('transaction').select('*,client(name),staff(short_name)').order('txn_date',{ascending:false})
 ]);
 var errs=[];
- [['staff',s],['client',c],['ad_account',aa],['daily_spend',ds],['salary',sal],['transaction',tx],['monthly_revenue',mr],['staff_client',sc2],['assignment',asgn],['campaign_daily_mess',cmess]].forEach(function(pair){if(pair[1].error)errs.push(pair[0]+': '+pair[1].error.message);});
+ [['staff',s],['client',c],['ad_account',aa],['daily_spend',ds],['assignment',asgn],['transaction',tx]].forEach(function(pair){if(pair[1].error)errs.push(pair[0]+': '+pair[1].error.message);});
  if(mf.error)console.warn('[client_monthly_fee]',String(mf.error.message||mf.error));
- if(ctr.error)console.warn('[contract]',String(ctr.error.message||ctr.error));
- if(qt&&qt.error)console.warn('[quotation]',String(qt.error.message||qt.error));
  if(errs.length)throw new Error(errs.join('; '));
  allStaff=s.data||[];staffList=allStaff.filter(function(x){return x.is_active;});
  clientList=c.data||[];adList=aa.data||[];dailyData=ds.data||[];
- salaryData=sal.data||[];txnData=tx.data||[];monthlyRevData=mr.data||[];
- scData=sc2.data||[];assignData=asgn.data||[];campaignMessData=cmess.data||[];monthlyFeeData=mf.error?[]:(mf.data||[]);
- contractList=ctr.error?[]:(ctr.data||[]);
- quotationList=(qt&&!qt.error)?(qt.data||[]):[];
- // penaltyData — nếu table chưa tồn tại (user chưa chạy migration) thì im lặng để không vỡ app
- penaltyData=(typeof pnl!=='undefined'&&pnl&&!pnl.error)?(pnl.data||[]):[];
- // clientDepositData — silent nếu chưa migrate
- clientDepositData=(typeof dep!=='undefined'&&dep&&!dep.error)?(dep.data||[]):[];
+ txnData=tx.data||[];
+ scData=sc2.data||[];assignData=asgn.data||[];
+ monthlyFeeData=mf.error?[]:(mf.data||[]);
+ // Defer empty defaults — wave 2 sẽ ghi đè
+ salaryData=salaryData||[];monthlyRevData=monthlyRevData||[];campaignMessData=campaignMessData||[];
+ contractList=contractList||[];quotationList=quotationList||[];penaltyData=penaltyData||[];clientDepositData=clientDepositData||[];
  var ds2=new Set();dailyData.forEach(function(d){ds2.add(d.report_date);});
 dates=Array.from(ds2).sort();if(dates.length)cDay=dates.length-1;
 if(!finMonth)finMonth=lm();if(!adViewDate)adViewDate=td();if(!rptMonth)rptMonth=lm();if(!clientMonth)clientMonth=lm();
-render();}catch(e){document.getElementById('page').innerHTML='<div class="error-box">Lỗi: '+esc(e.message)+'</div>';}}
+render();
+// ─── Wave 2: background, không await ───
+loadDeferred();
+}catch(e){document.getElementById('page').innerHTML='<div class="error-box">Lỗi: '+esc(e.message)+'</div>';}}
+async function loadDeferred(){try{
+ var minDate60=new Date(Date.now()-60*86400000).toISOString().substring(0,10);
+ var minDate180=new Date(Date.now()-180*86400000).toISOString().substring(0,10);
+ var[sal,mr,cmess,ctr,qt,pnl,dep,dsExt]=await Promise.all([
+sb2.from('salary').select('*,staff(short_name)').order('month',{ascending:false}),
+sb2.from('monthly_revenue').select('*,staff(short_name,code)').order('month'),
+fetchPaged(sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,max_lead_cost,client(name))').order('report_date',{ascending:false})),
+sb2.from('contract').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
+sb2.from('quotation').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
+sb2.from('penalty').select('*').order('penalty_date',{ascending:false}),
+sb2.from('client_deposit').select('*').order('deposit_date',{ascending:false}),
+fetchPaged(sb2.from('daily_spend').select('*,staff_id,matched_client_id,ad_account(id,account_name,client_id,client(name))').gte('report_date',minDate180).lt('report_date',minDate60).order('report_date'))
+ ]);
+ if(sal&&!sal.error)salaryData=sal.data||[];
+ if(mr&&!mr.error)monthlyRevData=mr.data||[];
+ if(cmess&&!cmess.error)campaignMessData=cmess.data||[];
+ if(ctr&&!ctr.error)contractList=ctr.data||[];
+ if(qt&&!qt.error)quotationList=qt.data||[];
+ if(pnl&&!pnl.error)penaltyData=pnl.data||[];
+ if(dep&&!dep.error)clientDepositData=dep.data||[];
+ if(dsExt&&!dsExt.error&&dsExt.data&&dsExt.data.length){
+   dailyData=dailyData.concat(dsExt.data);
+   var ds2=new Set();dailyData.forEach(function(d){ds2.add(d.report_date);});
+   dates=Array.from(ds2).sort();
+ }
+ // Re-render để cập nhật tab nào đang xem nếu cần data wave 2
+ render();
+}catch(e){console.warn('[loadDeferred]',e.message);}}
 
 async function loadLight(){try{
 var[s,c,aa,sal,tx,sc2,asgn,mf,ctr,qt,dep]=await Promise.all([
@@ -6431,12 +6456,12 @@ var LEAD_COPY = {
   proofTitle:      'Những kết quả đã tạo ra cho khách hàng',
   proofSub:        'Các số liệu dưới đây được tổng hợp từ portfolio khách hàng đã chạy quảng cáo cùng Hưng Coaching / HC Agency.',
   proofCases:      [
-    {brand:'Lagin Túi Xách (by Tatu)',     tag:'Fanpage 195K follow',  metric:'Lợi nhuận 150-200 triệu/tháng', desc:'Khách hàng Hoài Thanh Vũ. Duy trì ngân sách quảng cáo đều đặn 35-40 triệu/tháng.', img:'/assets/cases/lagin.png'},
-    {brand:'Fitcity - Private Fitness',    tag:'Mùa hè 2022',          metric:'Doanh thu 3,85 tỷ trong 3 tháng', desc:'Team PT Hoàng Cầu. Chạy quảng cáo 3 tháng hè, doanh thu tăng mạnh trên cùng tệp khách.', img:'/assets/cases/Fitcity.png'},
-    {brand:'Đồ Gỗ Minh Vân',               tag:'Livestream ads',       metric:'Doanh số 1 tỷ/tháng',           desc:'Chạy quảng cáo livestream đều đặn với ngân sách khoảng 190 triệu/tháng.', img:'/assets/cases/dogominhvan.png'},
-    {brand:'Tổng kho nội thất Minh Khuê',  tag:'Nội thất',             metric:'Lợi nhuận 100-150 triệu/tháng', desc:'Hợp tác từ 2020 đến nay, tổng chi tiêu quảng cáo hơn 650 triệu.', img:'/assets/cases/minhkhue.png'},
-    {brand:'Hang Doan Boutique',           tag:'Thời trang nữ',        metric:'Lợi nhuận 120-150 triệu/tháng', desc:'Từ 5/2022 đến nay, ngân sách quảng cáo ~100 triệu/tháng, lợi nhuận thực sau khi trừ chi phí.', img:'/assets/cases/Hangdoanboutique.png'},
-    {brand:'Samkids VNXK - Xuất Dư',       tag:'Thời trang trẻ em',    metric:'300-400 đơn/ngày',              desc:'Giai đoạn 2019-2021, duy trì lượng đơn hàng trung bình cao đều mỗi ngày.', img:'/assets/cases/samkids.png'}
+    {brand:'Lagin Túi Xách (by Tatu)',     tag:'Fanpage 195K follow',  metric:'Lợi nhuận 150-200 triệu/tháng', desc:'Khách hàng Hoài Thanh Vũ. Duy trì ngân sách quảng cáo đều đặn 35-40 triệu/tháng.', img:'/assets/cases/lagin.jpg'},
+    {brand:'Fitcity - Private Fitness',    tag:'Mùa hè 2022',          metric:'Doanh thu 3,85 tỷ trong 3 tháng', desc:'Team PT Hoàng Cầu. Chạy quảng cáo 3 tháng hè, doanh thu tăng mạnh trên cùng tệp khách.', img:'/assets/cases/Fitcity.jpg'},
+    {brand:'Đồ Gỗ Minh Vân',               tag:'Livestream ads',       metric:'Doanh số 1 tỷ/tháng',           desc:'Chạy quảng cáo livestream đều đặn với ngân sách khoảng 190 triệu/tháng.'},
+    {brand:'Tổng kho nội thất Minh Khuê',  tag:'Nội thất',             metric:'Lợi nhuận 100-150 triệu/tháng', desc:'Hợp tác từ 2020 đến nay, tổng chi tiêu quảng cáo hơn 650 triệu.'},
+    {brand:'Hang Doan Boutique',           tag:'Thời trang nữ',        metric:'Lợi nhuận 120-150 triệu/tháng', desc:'Từ 5/2022 đến nay, ngân sách quảng cáo ~100 triệu/tháng, lợi nhuận thực sau khi trừ chi phí.'},
+    {brand:'Samkids VNXK - Xuất Dư',       tag:'Thời trang trẻ em',    metric:'300-400 đơn/ngày',              desc:'Giai đoạn 2019-2021, duy trì lượng đơn hàng trung bình cao đều mỗi ngày.'}
   ],
   proofFooter:     'Bạn không cần điền nhiều thông tin. Chỉ cần để lại SĐT, chuyên gia sẽ xem mô hình kinh doanh và gợi ý hướng chạy phù hợp trước khi báo phí.',
   // ── SIDEBAR ──────────────────────────────────────────────────────────
