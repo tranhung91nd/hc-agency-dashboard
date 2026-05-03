@@ -1380,10 +1380,12 @@ var tabH='<div class="client-tab-bar" role="tablist" aria-label="Phân loại kh
 tabH+='<button role="tab" id="ctab-active" aria-controls="cpanel-active" aria-selected="'+(clientTab==='active')+'" tabindex="'+(clientTab==='active'?'0':'-1')+'" class="'+(clientTab==='active'?'active':'')+'" onclick="clientTab=\'active\';expandedClientId=null;render();">Khách chính thức ('+activeCount+')</button>';
 tabH+='<button role="tab" id="ctab-prospect" aria-controls="cpanel-prospect" aria-selected="'+(clientTab==='prospect')+'" tabindex="'+(clientTab==='prospect'?'0':'-1')+'" class="'+(clientTab==='prospect'?'active':'')+'" onclick="clientTab=\'prospect\';expandedClientId=null;render();">Tiềm năng ('+prospectCount+')</button>';
 tabH+='<button role="tab" id="ctab-quotation" aria-controls="cpanel-quotation" aria-selected="'+(clientTab==='quotation')+'" tabindex="'+(clientTab==='quotation'?'0':'-1')+'" class="'+(clientTab==='quotation'?'active':'')+'" onclick="clientTab=\'quotation\';expandedClientId=null;render();">Báo giá ('+quoteCount+')</button>';
+tabH+='<button role="tab" id="ctab-report" aria-controls="cpanel-report" aria-selected="'+(clientTab==='report')+'" tabindex="'+(clientTab==='report'?'0':'-1')+'" class="'+(clientTab==='report'?'active':'')+'" onclick="clientTab=\'report\';expandedClientId=null;render();">Báo cáo ('+activeCount+')</button>';
 tabH+='</div>';
 tabH+='<div role="tabpanel" id="cpanel-'+clientTab+'" aria-labelledby="ctab-'+clientTab+'">';
 if(clientTab==='prospect')return p3Prospect(tabH);
 if(clientTab==='quotation')return p3Quotation(tabH);
+if(clientTab==='report')return p3Report(tabH);
 var ms=clientMonth||lm();
 var allMonths=new Set();dates.forEach(function(d){allMonths.add(d.substring(0,7));});
 var monthList=Array.from(allMonths).sort().reverse();
@@ -3681,6 +3683,57 @@ function p3Quotation(tabH){
   return h;
 }
 
+// ═══ P3 — TAB BÁO CÁO: Hệ thống báo cáo riêng cho từng khách hàng ═══
+function p3Report(tabH){
+  // Chỉ hiển thị khách chính thức (không bao gồm prospect)
+  var rows=clientList.filter(function(c){return c.status!=='prospect';});
+  if(clientSearchText){
+    var q=clientSearchText.toLowerCase();
+    rows=rows.filter(function(c){return(c.name||'').toLowerCase().indexOf(q)>=0||(c.company_full_name||'').toLowerCase().indexOf(q)>=0||(c.contact_person||'').toLowerCase().indexOf(q)>=0;});
+  }
+  // Sort: có link báo cáo lên trước, sau đó A-Z theo tên
+  rows.sort(function(a,b){
+    var ha=a.report_url?1:0,hb=b.report_url?1:0;
+    if(ha!==hb)return hb-ha;
+    return(a.name||'').localeCompare(b.name||'','vi');
+  });
+  var withReport=rows.filter(function(c){return c.report_url;}).length;
+  var withoutReport=rows.length-withReport;
+  var h='<div class="page-title">Khách hàng</div><div class="page-sub">Hệ thống báo cáo riêng — mỗi khách 1 link Google Sheet, bấm "Mở báo cáo" để xem</div>';
+  h+=tabH;
+  // KPI cards
+  h+='<div class="pr-kpi-grid">';
+  h+='<div class="pr-kpi-card"><div class="pr-kpi-lbl">Đã có báo cáo</div><div class="pr-kpi-val">'+withReport+'</div></div>';
+  h+='<div class="pr-kpi-card"><div class="pr-kpi-lbl">Chưa cấu hình</div><div class="pr-kpi-val'+(withoutReport>0?' urgent':'')+'">'+withoutReport+'</div></div>';
+  h+='<div class="pr-kpi-card"><div class="pr-kpi-lbl">Tổng khách</div><div class="pr-kpi-val">'+rows.length+'</div></div>';
+  h+='</div>';
+  // Search
+  h+='<input type="text" class="pr-search" placeholder="Tìm khách hàng..." value="'+esc(clientSearchText)+'" oninput="hcSearchInput(\'clientSearchText\',this.value)">';
+  if(!rows.length){
+    h+='<div class="empty-state" role="status"><div class="empty-state-icon" aria-hidden="true">📊</div><div class="empty-state-title">Chưa có khách hàng</div><div class="empty-state-desc">'+(clientSearchText?'Không tìm thấy khách khớp từ khoá.':'Thêm khách chính thức trước khi cấu hình báo cáo.')+'</div></div>';
+    return h;
+  }
+  h+='<div class="table-wrap"><table><thead><tr><th style="width:30px;">#</th><th>Khách hàng</th><th>Dịch vụ</th><th>Link báo cáo</th><th style="text-align:center;width:160px;">Thao tác</th></tr></thead><tbody>';
+  rows.forEach(function(c,i){
+    var hasReport=!!c.report_url;
+    var url=c.report_url||'';
+    h+='<tr>';
+    h+='<td><span class="kh-num">'+(i+1)+'</span></td>';
+    h+='<td><div class="kh-name-cell"><span class="kh-name-text">'+esc(c.name)+'</span></div></td>';
+    h+='<td>'+renderServicesBadges(c.services,{compact:true})+'</td>';
+    if(hasReport){
+      h+='<td style="font-size:12px;"><a href="'+esc(url)+'" target="_blank" rel="noopener" style="color:var(--blue-tx);text-decoration:none;word-break:break-all;" title="'+esc(url)+'">'+esc(url.length>60?url.substring(0,60)+'…':url)+'</a></td>';
+      h+='<td style="text-align:center;"><a href="'+esc(url)+'" target="_blank" rel="noopener" class="kh-open-btn is-active" style="text-decoration:none;display:inline-block;">Mở báo cáo ↗</a></td>';
+    }else{
+      h+='<td><span style="color:var(--tx3);font-size:12px;">Chưa cấu hình</span></td>';
+      h+='<td style="text-align:center;"><button class="kh-open-btn" onclick="openClientEditModal(\''+c.id+'\')">+ Thêm link</button></td>';
+    }
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  return h;
+}
+
 // ═══ POPOVER ⋯ TRONG BẢNG BÁO GIÁ ═══
 function closeQuotationMenus(){
   document.querySelectorAll('.qt-action-menu.open').forEach(function(el){
@@ -4487,6 +4540,7 @@ function renderClientEditModal(){
   h+='<div><label>Điện thoại</label><input id="ce-phone" class="fi" value="'+esc(c.phone||'')+'"></div>';
   h+='<div><label>Email nhận hóa đơn</label><input id="ce-email" class="fi" value="'+esc(c.email_invoice||'')+'"></div>';
   h+='<div><label>Zalo <span style="color:var(--tx3);font-weight:400;text-transform:none;">(số / username / link)</span></label><input id="ce-zalo" class="fi" value="'+esc(c.zalo||'')+'" placeholder="0912345678 hoặc quanglx hoặc link đầy đủ"></div>';
+  h+='<div style="grid-column:1/-1;"><label>Link báo cáo <span style="color:var(--tx3);font-weight:400;text-transform:none;">(Google Sheet / Drive — share quyền xem cho khách)</span></label><input id="ce-report-url" class="fi" value="'+esc(c.report_url||'')+'" placeholder="https://docs.google.com/spreadsheets/..."></div>';
   h+='</div>';
   h+='<div class="ce-section-label">Đại diện pháp lý</div>';
   h+='<div class="hc-form-grid">';
@@ -4545,7 +4599,8 @@ async function saveClientEditModal(btn){
     representative_title:get('ce-rep-title')||null,
     services:services,
     rental_fee_pct:rentalPct,
-    care_status:get('ce-care')||'new'
+    care_status:get('ce-care')||'new',
+    report_url:get('ce-report-url')||null
   };
   if(c.status==='prospect'){payload.prospect_note=get('ce-note')||null;}
   btn.disabled=true;btn.classList.add('is-loading');
@@ -4555,6 +4610,12 @@ async function saveClientEditModal(btn){
     var fallback=Object.assign({},payload);delete fallback.rental_fee_pct;
     r=await sb2.from('client').update(fallback).eq('id',clientEditModalId);
     if(!r.error&&rentalPct!==null)toast('⚠ Đã lưu nhưng chưa có cột rental_fee_pct trong DB. Hãy chạy migration để bật phí thuê TKQC.',false);
+  }
+  // Nếu DB chưa có cột report_url → retry không kèm cột đó
+  if(r.error&&isMissingColumnError(r.error)&&'report_url' in payload){
+    var fb2=Object.assign({},payload);delete fb2.report_url;
+    r=await sb2.from('client').update(fb2).eq('id',clientEditModalId);
+    if(!r.error&&payload.report_url)toast('⚠ Đã lưu nhưng chưa có cột report_url trong DB. Hãy chạy migration 2026-05-03_add_report_url.sql.',false);
   }
   btn.disabled=false;btn.classList.remove('is-loading');
   if(r.error){toast('Lỗi: '+r.error.message,false);return;}
