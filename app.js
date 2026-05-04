@@ -100,8 +100,8 @@ function renderZaloBtn(c){
 // Khi balance (spend_cap - amount_spent) < giá trị này → hiện cảnh báo ở P6.
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
-var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],clientDepositData=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc';
+var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],clientDepositData=[],bankReconcileData=[],bankImportLog=[];
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc',finTab='thuchi',reconcileMonth='';
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -573,7 +573,7 @@ loadDeferred();
 async function loadDeferred(){try{
  var minDate60=new Date(Date.now()-60*86400000).toISOString().substring(0,10);
  var minDate180=new Date(Date.now()-180*86400000).toISOString().substring(0,10);
- var[sal,mr,cmess,ctr,qt,pnl,dep,dsExt]=await Promise.all([
+ var[sal,mr,cmess,ctr,qt,pnl,dep,dsExt,brec,blog]=await Promise.all([
 sb2.from('salary').select('*,staff(short_name)').order('month',{ascending:false}),
 sb2.from('monthly_revenue').select('*,staff(short_name,code)').order('month'),
 fetchPaged(sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,max_lead_cost,client(name))').order('report_date',{ascending:false})),
@@ -581,7 +581,9 @@ sb2.from('contract').select('*,client(name,company_full_name)').order('created_a
 sb2.from('quotation').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
 sb2.from('penalty').select('*').order('penalty_date',{ascending:false}),
 sb2.from('client_deposit').select('*').order('deposit_date',{ascending:false}),
-fetchPaged(sb2.from('daily_spend').select('id,report_date,ad_account_id,spend_amount,staff_id,matched_client_id').gte('report_date',minDate180).lt('report_date',minDate60).order('report_date'))
+fetchPaged(sb2.from('daily_spend').select('id,report_date,ad_account_id,spend_amount,staff_id,matched_client_id').gte('report_date',minDate180).lt('report_date',minDate60).order('report_date')),
+sb2.from('bank_reconcile').select('*').order('bank_date',{ascending:false}),
+sb2.from('bank_import_log').select('*').order('uploaded_at',{ascending:false}).limit(50)
  ]);
  if(sal&&!sal.error)salaryData=sal.data||[];
  if(mr&&!mr.error)monthlyRevData=mr.data||[];
@@ -590,6 +592,8 @@ fetchPaged(sb2.from('daily_spend').select('id,report_date,ad_account_id,spend_am
  if(qt&&!qt.error)quotationList=qt.data||[];
  if(pnl&&!pnl.error)penaltyData=pnl.data||[];
  if(dep&&!dep.error)clientDepositData=dep.data||[];
+ if(brec&&!brec.error)bankReconcileData=brec.data||[];
+ if(blog&&!blog.error)bankImportLog=blog.data||[];
  if(dsExt&&!dsExt.error&&dsExt.data&&dsExt.data.length){
    dailyData=dailyData.concat(dsExt.data);
    var ds2=new Set();dailyData.forEach(function(d){ds2.add(d.report_date);});
@@ -1931,8 +1935,13 @@ var h='';
 if(authUser&&!isAdmin()){
 h+='<div class="logout-bar"><span>'+esc(authUser.email)+' <span class="badge b-blue" style="margin-left:6px;">'+esc(userRole==='accountant'?'Kế toán':userRole)+'</span></span><button class="btn btn-ghost btn-sm" onclick="doLogout()">Đăng xuất</button></div>';}
 h+='<div class="page-title">Tài chính</div>';
-return h+p4ThuChi();
+h+='<div class="client-tab-bar" role="tablist" style="margin-bottom:14px;">';
+h+='<button role="tab" aria-selected="'+(finTab==='thuchi')+'" class="'+(finTab==='thuchi'?'active':'')+'" onclick="setFinTab(\'thuchi\')">Thu chi</button>';
+h+='<button role="tab" aria-selected="'+(finTab==='reconcile')+'" class="'+(finTab==='reconcile'?'active':'')+'" onclick="setFinTab(\'reconcile\')">Đối soát VCB</button>';
+h+='</div>';
+return h+(finTab==='reconcile'?p4DoiSoat():p4ThuChi());
 }
+function setFinTab(t){finTab=t;render();}
 function p4ThuChi(){
 var am=new Set();txnData.forEach(function(t){am.add(t.month);});var sm=Array.from(am).sort().reverse();
 if(!sm.includes(finMonth)&&sm.length)finMonth=sm[0];var mt=txnData.filter(function(t){return t.month===finMonth;}),inc=0,exp=0;
@@ -1973,6 +1982,271 @@ s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
 s.onload=function(){resolve(window.XLSX);};
 s.onerror=function(){reject(new Error('Không tải được thư viện XLSX'));};
 document.head.appendChild(s);});}
+
+// ═══ ĐỐI SOÁT VCB ═══
+var BANK_TOLERANCE_PCT=1.1; // chênh ≤ 1.1% (phí NH + phí thẻ) coi là khớp
+function categorizeBankRow(desc){
+  var d=String(desc||'');
+  if(/\*MV4B\b/i.test(d))return 'meta_verified';
+  if(/DG:FACEBK\s*\*[A-Z0-9]{6,}/i.test(d)||/DG:METAPAY\s*\*/i.test(d))return 'ads_meta';
+  return 'other';
+}
+function extractMetaInvoiceCode(desc){
+  var m=String(desc||'').match(/\*([A-Z0-9]{4,15})\b/);
+  return m?m[1]:'';
+}
+function reconcileStatus(row){
+  if(row.meta_amount==null||row.meta_amount==='')return{label:'Chưa đối soát',cls:'b-gray',diff:null};
+  var bank=Number(row.bank_amount)||0,meta=Number(row.meta_amount)||0;
+  if(bank===0)return{label:'Chưa đối soát',cls:'b-gray',diff:null};
+  var diffPct=Math.abs(bank-meta)/bank*100;
+  if(diffPct<=BANK_TOLERANCE_PCT)return{label:'Đã khớp',cls:'b-green',diff:diffPct};
+  return{label:'Sai lệch',cls:'b-red',diff:diffPct};
+}
+function p4DoiSoat(){
+  // Build month list từ bank_reconcile
+  var months=new Set();bankReconcileData.forEach(function(r){if(r.bank_date)months.add(r.bank_date.substring(0,7));});
+  var monthList=Array.from(months).sort().reverse();
+  if(!reconcileMonth)reconcileMonth=monthList[0]||lm()||gm();
+  var ms=reconcileMonth;
+  var rows=bankReconcileData.filter(function(r){return r.bank_date&&r.bank_date.substring(0,7)===ms;}).sort(function(a,b){return a.bank_date<b.bank_date?-1:1;});
+  // KPI
+  var totBank=0,totMeta=0,matched=0,reconciled=0;
+  rows.forEach(function(r){
+    totBank+=Number(r.bank_amount)||0;
+    if(r.meta_amount!=null&&r.meta_amount!==''){
+      totMeta+=Number(r.meta_amount)||0;
+      reconciled++;
+      var st=reconcileStatus(r);if(st.label==='Đã khớp')matched++;
+    }
+  });
+  var pctReconciled=rows.length?Math.round(reconciled/rows.length*100):0;
+  var totDiff=totBank-totMeta;
+  var totDiffPct=totBank>0?Math.abs(totDiff)/totBank*100:0;
+  var h='';
+  // Toolbar
+  h+='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">';
+  h+='<label style="font-size:13px;color:var(--tx2);">Tháng:</label>';
+  h+='<select class="fi" style="width:140px;" onchange="reconcileMonth=this.value;render();">';
+  if(!monthList.length)h+='<option value="'+ms+'">T'+parseInt(ms.split("-")[1])+"/"+ms.split("-")[0]+"</option>";
+  monthList.forEach(function(m){h+='<option value="'+m+'"'+(m===ms?' selected':'')+'>T'+parseInt(m.split("-")[1])+"/"+m.split("-")[0]+"</option>";});
+  h+='</select>';
+  if(authUser){
+    h+='<button class="btn btn-primary btn-sm" onclick="openVcbImportModal()">📥 Import sao kê VCB</button>';
+  }
+  h+='</div>';
+  // KPI
+  h+='<div class="kpi-grid kpi-4" style="margin-bottom:18px;">';
+  h+='<div class="kpi"><div class="kpi-label">Tổng VCB trừ</div><div class="kpi-value" style="color:var(--red);">'+(totBank?ff(totBank):'—')+'</div><div class="kpi-note">'+rows.length+' giao dịch</div></div>';
+  h+='<div class="kpi"><div class="kpi-label">Tổng Meta đã nhập</div><div class="kpi-value" style="color:var(--blue-tx);">'+(totMeta?ff(totMeta):'—')+'</div><div class="kpi-note">'+reconciled+'/'+rows.length+' đã đối soát</div></div>';
+  h+='<div class="kpi"><div class="kpi-label">Chênh lệch</div><div class="kpi-value" style="color:var(--amber);">'+(totMeta?ff(Math.abs(totDiff)):'—')+'</div><div class="kpi-note">'+(totMeta?totDiffPct.toFixed(2)+'%':'—')+' (ngưỡng '+BANK_TOLERANCE_PCT+'%)</div></div>';
+  h+='<div class="kpi"><div class="kpi-label">Đã khớp</div><div class="kpi-value" style="color:var(--green);">'+matched+'/'+reconciled+'</div><div class="kpi-note">Tỷ lệ đối soát '+pctReconciled+'%</div></div>';
+  h+='</div>';
+  if(!rows.length){
+    h+='<div class="empty-state" role="status">';
+    h+='<div class="empty-state-icon" aria-hidden="true">🏦</div>';
+    h+='<div class="empty-state-title">Chưa có giao dịch đối soát trong tháng này</div>';
+    h+='<div class="empty-state-desc">Bấm "Import sao kê VCB" để upload file sao kê (.xlsx) từ Vietcombank. Hệ thống sẽ tự lọc các giao dịch trừ tiền Meta Ads + Tích xanh.</div>';
+    h+='</div>';
+    return h;
+  }
+  // Bảng đối soát
+  h+='<div class="table-wrap"><table style="font-size:13px;">';
+  h+='<thead><tr>';
+  h+='<th colspan="2" style="text-align:center;border-right:1px solid var(--bd1);">Ngân hàng</th>';
+  h+='<th colspan="3" style="text-align:center;border-right:1px solid var(--bd1);">Meta</th>';
+  h+='<th rowspan="2" style="text-align:right;">Chênh lệch</th>';
+  h+='<th rowspan="2" style="text-align:center;">Trạng thái</th>';
+  h+='</tr><tr>';
+  h+='<th>Ngày</th>';
+  h+='<th style="text-align:right;border-right:1px solid var(--bd1);">Số tiền</th>';
+  h+='<th>Mã giao dịch</th>';
+  h+='<th>Link giao dịch</th>';
+  h+='<th style="text-align:right;border-right:1px solid var(--bd1);">Số tiền</th>';
+  h+='</tr></thead><tbody>';
+  rows.forEach(function(r){
+    var st=reconcileStatus(r);
+    var dp=r.bank_date.split('-');var dayLabel=dp[2]+'/'+dp[1]+'/'+dp[0];
+    var diffNum=(r.meta_amount!=null&&r.meta_amount!=='')?Math.abs(Number(r.bank_amount)-Number(r.meta_amount)):null;
+    var catBadge=r.category==='meta_verified'?'<span class="badge b-purple" style="font-size:10px;margin-left:4px;">Tích xanh</span>':(r.category==='ads_meta'?'<span class="badge b-blue" style="font-size:10px;margin-left:4px;">Ads</span>':'');
+    h+='<tr>';
+    h+='<td>'+dayLabel+catBadge+'</td>';
+    h+='<td class="mono" style="text-align:right;font-weight:500;border-right:1px solid var(--bd1);">'+ff(r.bank_amount)+'</td>';
+    h+='<td class="mono" style="font-size:11px;color:var(--tx2);">'+esc(r.meta_invoice_code||'—')+'</td>';
+    if(authUser){
+      h+='<td><input type="url" value="'+esc(r.meta_link||'')+'" placeholder="https://business.facebook.com/..." style="width:100%;min-width:180px;font-size:11px;border:1px solid var(--bd1);border-radius:4px;padding:4px 6px;" onchange="saveReconcileEntry(\''+r.id+'\',\'meta_link\',this.value)"></td>';
+      h+='<td style="border-right:1px solid var(--bd1);"><input type="text" inputmode="numeric" value="'+(r.meta_amount!=null?Number(r.meta_amount).toLocaleString('vi-VN'):'')+'" placeholder="0" style="width:120px;text-align:right;font-family:monospace;border:1px solid var(--bd1);border-radius:4px;padding:4px 6px;" oninput="formatMoneyInput(this)" onchange="saveReconcileEntry(\''+r.id+'\',\'meta_amount\',this.value)"></td>';
+    }else{
+      h+='<td>'+(r.meta_link?'<a href="'+esc(r.meta_link)+'" target="_blank" rel="noopener" style="font-size:11px;">Mở</a>':'<span style="color:var(--tx3);">—</span>')+'</td>';
+      h+='<td class="mono" style="text-align:right;border-right:1px solid var(--bd1);">'+(r.meta_amount?ff(r.meta_amount):'—')+'</td>';
+    }
+    h+='<td class="mono" style="text-align:right;color:var(--amber);">'+(diffNum!=null?ff(diffNum)+(st.diff!=null?' <span style="font-size:10px;color:var(--tx3);">('+st.diff.toFixed(2)+'%)</span>':''):'—')+'</td>';
+    h+='<td style="text-align:center;"><span class="badge '+st.cls+'">'+st.label+'</span></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  // Lịch sử import file VCB
+  if(bankImportLog&&bankImportLog.length){
+    h+='<div class="section-title" style="margin-top:24px;">Lịch sử file VCB đã import</div>';
+    h+='<div class="table-wrap"><table style="font-size:12px;">';
+    h+='<thead><tr><th>Thời điểm upload</th><th>File</th><th>Kỳ sao kê</th><th style="text-align:right;">Tổng GD</th><th style="text-align:right;">Ads</th><th style="text-align:right;">Tích xanh</th><th>Người upload</th><th>Trạng thái</th></tr></thead><tbody>';
+    bankImportLog.forEach(function(L){
+      var dt=new Date(L.uploaded_at).toLocaleString('vi-VN');
+      var period=(L.period_from&&L.period_to)?(fd(L.period_from)+' → '+fd(L.period_to)):'—';
+      var stCls=L.status==='success'?'b-green':(L.status==='partial'?'b-amber':'b-red');
+      var stLabel=L.status==='success'?'Thành công':(L.status==='partial'?'Một phần':'Lỗi');
+      var sizeLbl=L.file_size?' ('+Math.round(L.file_size/1024)+' KB)':'';
+      h+='<tr>';
+      h+='<td>'+dt+'</td>';
+      h+='<td style="font-family:monospace;font-size:11px;">'+esc(L.file_name||'—')+sizeLbl+'</td>';
+      h+='<td>'+period+'</td>';
+      h+='<td class="mono" style="text-align:right;">'+L.total_rows+'</td>';
+      h+='<td class="mono" style="text-align:right;color:var(--blue-tx);">'+L.ads_rows+'</td>';
+      h+='<td class="mono" style="text-align:right;color:var(--purple,#9333ea);">'+L.verified_rows+'</td>';
+      h+='<td style="font-size:11px;color:var(--tx2);">'+esc(L.uploaded_by||'—')+'</td>';
+      h+='<td><span class="badge '+stCls+'">'+stLabel+'</span>'+(L.error_message?'<div style="font-size:10px;color:var(--tx3);margin-top:2px;">'+esc(L.error_message)+'</div>':'')+'</td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  return h;
+}
+
+async function saveReconcileEntry(id,field,value){
+  if(!authUser){toast('Cần đăng nhập admin',false);return;}
+  var update={};
+  if(field==='meta_amount'){
+    var num=parseInt(String(value||'').replace(/[^\d]/g,''))||0;
+    update[field]=num||null;
+  }else{
+    update[field]=String(value||'').trim()||null;
+  }
+  var r=await sb2.from('bank_reconcile').update(update).eq('id',id);
+  if(r.error){toast('Lỗi lưu: '+r.error.message,false);return;}
+  // Cập nhật local cache
+  var row=bankReconcileData.find(function(x){return x.id===id;});
+  if(row){Object.assign(row,update);}
+  // Re-render để cập nhật chênh lệch + trạng thái
+  render();
+}
+
+function openVcbImportModal(){
+  var root=document.getElementById('hc-modal-root')||(function(){var d=document.createElement('div');d.id='hc-modal-root';document.body.appendChild(d);return d;})();
+  var ex=document.getElementById('vcb-import-modal');if(ex)ex.remove();
+  var modal=document.createElement('div');modal.id='vcb-import-modal';modal.className='modal-overlay show';
+  modal.innerHTML=
+    '<div class="modal-card" style="max-width:560px;">'
+    +'<div class="modal-head"><h3>Import sao kê VCB</h3><button class="modal-close" onclick="closeVcbImportModal()" aria-label="Đóng">×</button></div>'
+    +'<div class="modal-body" style="padding:20px;">'
+    +'<p style="font-size:13px;color:var(--tx2);margin-bottom:14px;">Chọn file <code>.xlsx</code> sao kê VCB (định dạng "Lịch sử giao dịch tài khoản"). Hệ thống sẽ tự lọc các giao dịch trừ tiền Meta Ads + Tích xanh, bỏ qua giao dịch khác.</p>'
+    +'<input type="file" id="vcb-import-file" accept=".xlsx" style="font-size:13px;width:100%;padding:8px;border:1px dashed var(--bd2);border-radius:6px;background:var(--bg2);">'
+    +'<div id="vcb-import-status" style="margin-top:12px;font-size:12px;color:var(--tx3);"></div>'
+    +'<div class="btn-row" style="margin-top:18px;"><button class="btn btn-ghost" onclick="closeVcbImportModal()">Hủy</button><button class="btn btn-primary" onclick="runVcbImport(this)">Import</button></div>'
+    +'</div></div>';
+  root.appendChild(modal);
+}
+function closeVcbImportModal(){var m=document.getElementById('vcb-import-modal');if(m)m.remove();}
+async function runVcbImport(btn){
+  var f=document.getElementById('vcb-import-file');var status=document.getElementById('vcb-import-status');
+  if(!f||!f.files||!f.files[0]){if(status)status.textContent='⚠ Chọn file trước';return;}
+  if(btn){btn.disabled=true;btn.textContent='Đang xử lý...';}
+  try{
+    var XLSX=await loadXLSX();
+    var data=await f.files[0].arrayBuffer();
+    var wb=XLSX.read(data,{type:'array'});
+    var ws=wb.Sheets[wb.SheetNames[0]];
+    var arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+    // Tìm hàng header (chứa "STT" hoặc "Ngày")
+    var headerIdx=-1;
+    for(var i=0;i<Math.min(20,arr.length);i++){
+      var row=(arr[i]||[]).map(function(c){return String(c||'');});
+      if(row.some(function(c){return /STT/.test(c);})&&row.some(function(c){return /Ngày/.test(c);})){headerIdx=i;break;}
+    }
+    if(headerIdx<0){throw new Error('Không tìm thấy header bảng (STT, Ngày). Kiểm tra lại format file.');}
+    var rows=[];
+    for(var j=headerIdx+1;j<arr.length;j++){
+      var r=arr[j]||[];
+      // Format: [_, STT, "DD/MM/YYYY\nXXXX-XXXXX", debit, credit, balance, desc]
+      // Có thể col 0 là NaN hoặc empty.
+      var stt=null,dateDoc=null,debit=null,credit=null,desc=null;
+      // Tìm cell chứa "DD/MM/YYYY"
+      r.forEach(function(c){
+        var s=String(c||'');
+        if(!dateDoc&&/^\d{2}\/\d{2}\/\d{4}/.test(s))dateDoc=s;
+      });
+      if(!dateDoc)continue; // Skip non-data rows (totals, footer)
+      // Lấy debit (cell sau dateDoc trong cùng row)
+      var didx=r.findIndex(function(c){return String(c||'')===dateDoc;});
+      debit=r[didx+1];
+      credit=r[didx+2];
+      desc=r[r.length-1]||r[didx+4]||'';
+      // Skip nếu không có debit (chỉ giao dịch trừ)
+      var debitNum=parseInt(String(debit||'').replace(/[^\d]/g,''))||0;
+      if(!debitNum)continue;
+      // Parse ngày
+      var dm=dateDoc.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if(!dm)continue;
+      var bankDate=dm[3]+'-'+dm[2]+'-'+dm[1];
+      // Lấy doc no (sau "\n")
+      var docMatch=dateDoc.match(/\n([\d\-\s]+)/);
+      var docNo=docMatch?docMatch[1].trim():'';
+      var descStr=String(desc||'');
+      var cat=categorizeBankRow(descStr);
+      if(cat==='other')continue; // Bỏ qua giao dịch không liên quan Meta
+      rows.push({
+        bank_date:bankDate,
+        bank_amount:debitNum,
+        bank_doc_no:docNo,
+        bank_desc:descStr,
+        meta_invoice_code:extractMetaInvoiceCode(descStr),
+        category:cat
+      });
+    }
+    var fileObj=f.files[0];
+    var fileName=fileObj.name,fileSize=fileObj.size;
+    if(!rows.length){
+      // Vẫn log để admin biết đã upload nhưng không có data Meta
+      await sb2.from('bank_import_log').insert({file_name:fileName,file_size:fileSize,total_rows:0,ads_rows:0,verified_rows:0,status:'partial',error_message:'Không có giao dịch Meta nào trong file',uploaded_by:authUser&&authUser.email||null});
+      if(status)status.innerHTML='<span style="color:var(--amber);">Không tìm thấy giao dịch Meta nào trong file.</span>';
+      if(btn){btn.disabled=false;btn.textContent='Import';}
+      return;
+    }
+    if(status)status.textContent='Tìm thấy '+rows.length+' giao dịch Meta, đang lưu...';
+    // Upsert (theo bank_date + bank_doc_no UNIQUE)
+    var saved=0,errors=0;
+    for(var k=0;k<rows.length;k+=50){
+      var batch=rows.slice(k,k+50);
+      var ur=await sb2.from('bank_reconcile').upsert(batch,{onConflict:'bank_date,bank_doc_no',ignoreDuplicates:false});
+      if(ur.error){errors+=batch.length;console.warn('[VCB import]',ur.error.message);}
+      else saved+=batch.length;
+    }
+    // Log import
+    var dates=rows.map(function(r){return r.bank_date;}).sort();
+    var adsCnt=rows.filter(function(r){return r.category==='ads_meta';}).length;
+    var vfCnt=rows.filter(function(r){return r.category==='meta_verified';}).length;
+    var logEntry={
+      file_name:fileName,file_size:fileSize,
+      period_from:dates[0],period_to:dates[dates.length-1],
+      total_rows:saved,ads_rows:adsCnt,verified_rows:vfCnt,
+      status:errors?'partial':'success',
+      error_message:errors?(errors+' dòng lỗi upsert'):null,
+      uploaded_by:authUser&&authUser.email||null
+    };
+    await sb2.from('bank_import_log').insert(logEntry);
+    if(status)status.innerHTML='<span style="color:var(--green);">✓ Import xong: '+saved+' giao dịch'+(errors?' ('+errors+' lỗi)':'')+'</span>';
+    // Reload data + đóng modal sau 1.5s
+    var[rl,lg]=await Promise.all([
+      sb2.from('bank_reconcile').select('*').order('bank_date',{ascending:false}),
+      sb2.from('bank_import_log').select('*').order('uploaded_at',{ascending:false}).limit(50)
+    ]);
+    if(rl&&!rl.error)bankReconcileData=rl.data||[];
+    if(lg&&!lg.error)bankImportLog=lg.data||[];
+    setTimeout(function(){closeVcbImportModal();render();},1500);
+  }catch(e){
+    if(status)status.innerHTML='<span style="color:var(--red);">Lỗi: '+esc(e.message)+'</span>';
+    if(btn){btn.disabled=false;btn.textContent='Import';}
+  }
+}
 
 async function showMetaSyncStatus(btn){
 if(btn){btn.disabled=true;btn.textContent='Đang đọc...';}
