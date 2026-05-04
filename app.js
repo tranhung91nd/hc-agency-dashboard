@@ -682,9 +682,9 @@ if(sid&&r[sid]){
 var SUBNAV_CONFIG={
   0:{title:'Tổng quan',sections:[{label:'',items:[{key:'main',label:'Tổng quan',action:"pg(0)"}]}]},
   1:{title:'Tài khoản quảng cáo',sections:[{label:'TÀI KHOẢN',items:[
-    {key:'spend0',label:'Tài khoản quảng cáo',action:"setSpendTab(0)",match:function(){return curPage===1&&spendTab===0;}},
-    {key:'spend1',label:'Chi tiêu theo nhân sự',action:"setSpendTab(1)",match:function(){return curPage===1&&spendTab===1;}},
-    {key:'spend2',label:'Chi tiêu theo khách hàng',action:"setSpendTab(2)",match:function(){return curPage===1&&spendTab===2;}}
+    {key:'spend0',label:'Tài khoản quảng cáo',action:"setSpendTab(0)",permKey:'p1.tkqc',match:function(){return curPage===1&&spendTab===0;}},
+    {key:'spend1',label:'Chi tiêu theo nhân sự',action:"setSpendTab(1)",permKey:'p1.staff',match:function(){return curPage===1&&spendTab===1;}},
+    {key:'spend2',label:'Chi tiêu theo khách hàng',action:"setSpendTab(2)",permKey:'p1.client',match:function(){return curPage===1&&spendTab===2;}}
   ]}]},
   2:{title:'Nhân sự',sections:[{label:'',items:[{key:'main',label:'Nhân sự',action:"pg(2)",match:function(){return curPage===2;}}]}]},
   3:{title:'Khách hàng',sections:[{label:'PHÂN LOẠI',items:[
@@ -692,7 +692,10 @@ var SUBNAV_CONFIG={
     {key:'cli-prospect',label:'Tiềm năng',action:"setClientTab('prospect')",match:function(){return curPage===3&&clientTab==='prospect';},badgeFn:function(){return clientList.filter(function(c){return c.status==='prospect';}).length;}},
     {key:'cli-quote',label:'Báo giá',action:"setClientTab('quotation')",match:function(){return curPage===3&&clientTab==='quotation';},badgeFn:function(){return quotationList.length;}}
   ]}]},
-  4:{title:'Tài chính',sections:[{label:'',items:[{key:'main',label:'Thu chi',action:"pg(4)",match:function(){return curPage===4;}}]}]},
+  4:{title:'Tài chính',sections:[{label:'',items:[
+    {key:'fin-thuchi',label:'Thu chi',action:"pg(4);setFinTab('thuchi')",permKey:'p4.thuchi',match:function(){return curPage===4&&finTab==='thuchi';}},
+    {key:'fin-reconcile',label:'Đối soát VCB',action:"pg(4);setFinTab('reconcile')",permKey:'p4.reconcile',match:function(){return curPage===4&&finTab==='reconcile';}}
+  ]}]},
   5:{title:'Admin',sections:[{label:'QUẢN LÝ',items:[
     {key:'adm0',label:'Tổng quan',action:"sat(0)",match:function(){return curPage===5&&adminTab===0;}},
     {key:'adm1',label:'Nhân sự',action:"sat(1)",match:function(){return curPage===5&&adminTab===1;}},
@@ -701,9 +704,9 @@ var SUBNAV_CONFIG={
     {key:'adm4',label:'Cài đặt',action:"sat(4)",match:function(){return curPage===5&&adminTab===4;}}
   ]}]},
   6:{title:'Cảnh báo',sections:[{label:'LOẠI CẢNH BÁO',items:[
-    {key:'p6-mess',label:'Cảnh báo Messenger',action:"setP6Tab(0)",match:function(){return curPage===6&&p6Tab===0;},badgeFn:function(){try{return getMessAlerts().length;}catch(e){return 0;}}},
-    {key:'p6-form',label:'Cảnh báo Form',action:"setP6Tab(1)",match:function(){return curPage===6&&p6Tab===1;},badgeFn:function(){try{return getLeadAlerts().length;}catch(e){return 0;}}},
-    {key:'p6-bal',label:'Số dư thấp',action:"setP6Tab(2)",match:function(){return curPage===6&&p6Tab===2;},badgeFn:function(){try{return getBalanceAlerts().length;}catch(e){return 0;}}}
+    {key:'p6-mess',label:'Cảnh báo Messenger',action:"setP6Tab(0)",permKey:'p6.mess',match:function(){return curPage===6&&p6Tab===0;},badgeFn:function(){try{return getMessAlerts().length;}catch(e){return 0;}}},
+    {key:'p6-form',label:'Cảnh báo Form',action:"setP6Tab(1)",permKey:'p6.form',match:function(){return curPage===6&&p6Tab===1;},badgeFn:function(){try{return getLeadAlerts().length;}catch(e){return 0;}}},
+    {key:'p6-bal',label:'Số dư thấp',action:"setP6Tab(2)",permKey:'p6.balance',match:function(){return curPage===6&&p6Tab===2;},badgeFn:function(){try{return getBalanceAlerts().length;}catch(e){return 0;}}}
   ]}]}
 };
 function renderSubnav(){
@@ -715,9 +718,11 @@ function renderSubnav(){
   titleEl.textContent=cfg.title;
   var html='';
   cfg.sections.forEach(function(sec){
+    var visibleItems=sec.items.filter(function(it){return !it.permKey||canAccessKey(it.permKey);});
+    if(!visibleItems.length)return;
     html+='<div class="subnav-section">';
     if(sec.label)html+='<div class="subnav-section-label">'+sec.label+'</div>';
-    sec.items.forEach(function(it){
+    visibleItems.forEach(function(it){
       var isActive=it.match?it.match():false;
       var badge='';
       if(it.badgeFn){try{var b=it.badgeFn();if(b)badge='<span class="subnav-item-badge">'+b+'</span>';}catch(e){}}
@@ -1461,9 +1466,12 @@ if(expandedClientId&&!rows.some(function(r){return r.c.id===expandedClientId;}))
 var h='<div class="page-title">Khách hàng</div><div class="page-sub">Tổng '+activeClients.length+' chính thức · '+prospectCount+' tiềm năng</div>';
 h+=tabH;
 // Sub-tab bar (Tổng quan / Báo cáo Ads) — chỉ hiện trong Khách chính thức
+var canKhOverview=canAccessKey('p3.overview'),canKhReport=canAccessKey('p3.report');
+if(clientActiveSubTab==='overview'&&!canKhOverview&&canKhReport)clientActiveSubTab='report';
+if(clientActiveSubTab==='report'&&!canKhReport&&canKhOverview)clientActiveSubTab='overview';
 h+='<div class="client-tab-bar" role="tablist" aria-label="Phân loại nội dung khách chính thức" style="margin-bottom:14px;">';
-h+='<button role="tab" aria-selected="'+(clientActiveSubTab==='overview')+'" class="'+(clientActiveSubTab==='overview'?'active':'')+'" onclick="setClientActiveSubTab(\'overview\')">Tổng quan</button>';
-h+='<button role="tab" aria-selected="'+(clientActiveSubTab==='report')+'" class="'+(clientActiveSubTab==='report'?'active':'')+'" onclick="setClientActiveSubTab(\'report\')">Báo cáo Ads</button>';
+if(canKhOverview)h+='<button role="tab" aria-selected="'+(clientActiveSubTab==='overview')+'" class="'+(clientActiveSubTab==='overview'?'active':'')+'" onclick="setClientActiveSubTab(\'overview\')">Tổng quan</button>';
+if(canKhReport)h+='<button role="tab" aria-selected="'+(clientActiveSubTab==='report')+'" class="'+(clientActiveSubTab==='report'?'active':'')+'" onclick="setClientActiveSubTab(\'report\')">Báo cáo Ads</button>';
 h+='</div>';
 // Nếu sub-tab='report' → render bảng báo cáo daily, return early
 if(clientActiveSubTab==='report'){
@@ -1935,9 +1943,13 @@ var h='';
 if(authUser&&!isAdmin()){
 h+='<div class="logout-bar"><span>'+esc(authUser.email)+' <span class="badge b-blue" style="margin-left:6px;">'+esc(userRole==='accountant'?'Kế toán':userRole)+'</span></span><button class="btn btn-ghost btn-sm" onclick="doLogout()">Đăng xuất</button></div>';}
 h+='<div class="page-title">Tài chính</div>';
+var canThuChi=canAccessKey('p4.thuchi'),canReconcile=canAccessKey('p4.reconcile');
+// Auto-switch sang tab user có quyền nếu đang ở tab bị cấm
+if(finTab==='thuchi'&&!canThuChi&&canReconcile)finTab='reconcile';
+if(finTab==='reconcile'&&!canReconcile&&canThuChi)finTab='thuchi';
 h+='<div class="client-tab-bar" role="tablist" style="margin-bottom:14px;">';
-h+='<button role="tab" aria-selected="'+(finTab==='thuchi')+'" class="'+(finTab==='thuchi'?'active':'')+'" onclick="setFinTab(\'thuchi\')">Thu chi</button>';
-h+='<button role="tab" aria-selected="'+(finTab==='reconcile')+'" class="'+(finTab==='reconcile'?'active':'')+'" onclick="setFinTab(\'reconcile\')">Đối soát VCB</button>';
+if(canThuChi)h+='<button role="tab" aria-selected="'+(finTab==='thuchi')+'" class="'+(finTab==='thuchi'?'active':'')+'" onclick="setFinTab(\'thuchi\')">Thu chi</button>';
+if(canReconcile)h+='<button role="tab" aria-selected="'+(finTab==='reconcile')+'" class="'+(finTab==='reconcile'?'active':'')+'" onclick="setFinTab(\'reconcile\')">Đối soát VCB</button>';
 h+='</div>';
 return h+(finTab==='reconcile'?p4DoiSoat():p4ThuChi());
 }
@@ -2394,15 +2406,76 @@ var{data,error}=await sb2.from('user_roles').select('*').eq('email',authUser.ema
 if(data){userRole=data.role||'accountant';userAllowedPages=data.allowed_pages||[4];}
 else{userRole='admin';userAllowedPages=null;}
 }catch(e){userRole='admin';userAllowedPages=null;}}
+// ═══ PERMISSION TREE ═══
+// Cấu trúc phân quyền: page chính + sub-tab. Admin (không có user_roles entry) full quyền.
+// User có "p4" → full page Tài chính; chỉ có "p4.reconcile" → chỉ vào sub-tab Đối soát.
+var PERMISSION_TREE=[
+  {key:'p0',label:'Tổng quan'},
+  {key:'p1',label:'Tài khoản Quảng cáo',sub:[
+    {key:'p1.tkqc',label:'Tài khoản quảng cáo'},
+    {key:'p1.staff',label:'Chi tiêu theo nhân sự'},
+    {key:'p1.client',label:'Chi tiêu theo khách hàng'}
+  ]},
+  {key:'p2',label:'Nhân sự'},
+  {key:'p3',label:'Khách hàng',sub:[
+    {key:'p3.overview',label:'Tổng quan khách'},
+    {key:'p3.report',label:'Báo cáo Ads khách'}
+  ]},
+  {key:'p4',label:'Tài chính',sub:[
+    {key:'p4.thuchi',label:'Thu chi'},
+    {key:'p4.reconcile',label:'Đối soát VCB'}
+  ]},
+  {key:'p6',label:'Cảnh báo',sub:[
+    {key:'p6.mess',label:'Mess'},
+    {key:'p6.form',label:'Form'},
+    {key:'p6.balance',label:'Số dư'}
+  ]}
+];
+function permissionLabel(k){
+  for(var i=0;i<PERMISSION_TREE.length;i++){
+    var n=PERMISSION_TREE[i];
+    if(n.key===k)return n.label;
+    if(n.sub){for(var j=0;j<n.sub.length;j++){if(n.sub[j].key===k)return n.label+' · '+n.sub[j].label;}}
+  }
+  // Legacy số (vd 4) → coi là full page
+  if(/^\d+$/.test(String(k))){
+    var num=parseInt(k);
+    var node=PERMISSION_TREE.find(function(n){return n.key==='p'+num;});
+    return node?node.label:('p'+num);
+  }
+  return String(k);
+}
+// Normalize user permission từ DB: chấp nhận cả số (legacy) lẫn string
+function normalizePermKey(p){
+  var s=String(p);
+  if(/^\d+(\.\d+)?$/.test(s)){
+    // Legacy: 4 → "p4". Bỏ qua phần thập phân (vd 4.1 → "p4")
+    return 'p'+parseInt(s);
+  }
+  return s;
+}
+// Check user có quyền truy cập 1 key cụ thể (vd "p4.reconcile")
+function canAccessKey(key){
+  if(!authUser)return true;
+  if(userRole==='admin'||!userAllowedPages)return true;
+  for(var i=0;i<userAllowedPages.length;i++){
+    var s=normalizePermKey(userAllowedPages[i]);
+    if(s===key)return true;
+    if(key.indexOf(s+'.')===0)return true; // user có quyền cha → cho child
+  }
+  return false;
+}
 function canAccessPage(pageNum){
-if(!authUser)return true;
-if(userRole==='admin'||!userAllowedPages)return true;
-for(var i=0;i<userAllowedPages.length;i++){
-var p=userAllowedPages[i];
-if(p===pageNum)return true;
-if(typeof p==='number'&&Math.floor(p)===pageNum)return true;
-if(typeof p==='string'&&parseInt(p)===pageNum)return true;
-}return false;}
+  if(!authUser)return true;
+  if(userRole==='admin'||!userAllowedPages)return true;
+  var pageKey='p'+pageNum;
+  for(var i=0;i<userAllowedPages.length;i++){
+    var s=normalizePermKey(userAllowedPages[i]);
+    if(s===pageKey)return true; // full page
+    if(s.indexOf(pageKey+'.')===0)return true; // có sub → cho vào page
+  }
+  return false;
+}
 function isAdmin(){return authUser&&(userRole==='admin'||!userAllowedPages);}
 async function loadAllUserRoles(){
 try{var{data}=await sb2.from('user_roles').select('*').order('created_at');allUserRoles=data||[];}catch(e){allUserRoles=[];}}
@@ -3122,10 +3195,15 @@ h+='<div class="kpi"><div class="kpi-label">Vượt ngưỡng Messenger</div><di
 h+='<div class="kpi"><div class="kpi-label">Vượt ngưỡng Form</div><div class="kpi-value" style="color:'+(leadAlerts.length?'var(--red)':'var(--green)')+';">'+leadAlerts.length+'</div><div class="kpi-note">'+tkLead+' Tài khoản đặt ngưỡng form</div></div>';
 h+='<div class="kpi"><div class="kpi-label">Tài khoản sắp hết tiền</div><div class="kpi-value" style="color:'+(balAlerts.length?'var(--red)':'var(--green)')+';">'+balAlerts.length+'</div><div class="kpi-note">Dưới '+ff(BALANCE_ALERT_THRESHOLD)+'đ · '+tkActive+' Tài khoản đang chạy</div></div>';
 h+='<div class="kpi"><div class="kpi-label">Lần quét gần nhất</div><div class="kpi-value" style="font-size:14px;">'+(campaignMessData.length?campaignMessData[0].report_date:'Chưa quét')+'</div></div></div>';
+// Auto-redirect nếu user không có quyền tab hiện tại
+var canMess=canAccessKey('p6.mess'),canForm=canAccessKey('p6.form'),canBal=canAccessKey('p6.balance');
+if(p6Tab===0&&!canMess){if(canForm)p6Tab=1;else if(canBal)p6Tab=2;}
+else if(p6Tab===1&&!canForm){if(canMess)p6Tab=0;else if(canBal)p6Tab=2;}
+else if(p6Tab===2&&!canBal){if(canMess)p6Tab=0;else if(canForm)p6Tab=1;}
 // Tab điều khiển từ subnav
-if(p6Tab===0)h+=p6AlertList(messAlerts,'mess');
-else if(p6Tab===1)h+=p6AlertList(leadAlerts,'lead');
-else h+=p6BalanceList(balAlerts);
+if(p6Tab===0&&canMess)h+=p6AlertList(messAlerts,'mess');
+else if(p6Tab===1&&canForm)h+=p6AlertList(leadAlerts,'lead');
+else if(p6Tab===2&&canBal)h+=p6BalanceList(balAlerts);
 return h;}
 function p6AlertList(alerts,type){
 var isMess=type==='mess';
@@ -6222,27 +6300,47 @@ h+='<div class="form-card"><h3>Phân quyền tài khoản</h3>';
 h+='<div style="padding:10px 14px;background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;">Nếu email không có trong danh sách này, tài khoản sẽ mặc định là Admin (toàn quyền). Thêm email vào đây để giới hạn quyền.</div>';
 h+='<div class="form-row"><div class="form-group"><label>Email</label><input type="email" id="ur-email" placeholder="VD: linh.kt@hcagency.vn"></div><div class="form-group"><label>Tên hiển thị</label><input type="text" id="ur-name" placeholder="VD: Ngọc Linh"></div></div>';
 h+='<div class="form-row"><div class="form-group"><label>Mật khẩu đăng nhập</label><input type="text" id="ur-pass" placeholder="Tạo mật khẩu cho tài khoản này" style="font-family:monospace;"></div><div class="form-group"><label>Vai trò</label><select id="ur-role"><option value="accountant">Kế toán</option><option value="viewer">Chỉ xem</option></select></div></div>';
-var pageNames={0:'Tổng quan',1:'Tài khoản Quảng cáo',2:'Nhân sự',3:'Khách hàng',4:'Tài chính',6:'Cảnh báo'};
-h+='<div style="font-size:12px;font-weight:500;color:var(--tx2);margin:8px 0 6px;">Quyền truy cập trang</div>';
-h+='<div style="display:flex;flex-wrap:wrap;gap:6px;">';
-[0,1,2,3,4,6].forEach(function(p){
-var checked=(p===4)?' checked':'';
-h+='<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--bd1);border-radius:var(--radius);font-size:12px;cursor:pointer;"><input type="checkbox" class="ur-page-cb" value="'+p+'"'+checked+'> '+pageNames[p]+'</label>';});
+h+='<div style="font-size:12px;font-weight:500;color:var(--tx2);margin:8px 0 6px;">Quyền truy cập</div>';
+h+='<div style="font-size:11px;color:var(--tx3);margin-bottom:10px;">Chọn quyền cho từng mục lớn (toàn quyền page) hoặc mục nhỏ (chỉ sub-tab cụ thể). Tick mục lớn = toàn quyền, tự bỏ tick các mục nhỏ.</div>';
+h+='<div style="display:flex;flex-direction:column;gap:8px;border:1px solid var(--bd1);border-radius:var(--radius);padding:12px;background:var(--bg2);">';
+PERMISSION_TREE.forEach(function(node){
+  h+='<div style="border-bottom:1px solid var(--bd1);padding-bottom:8px;">';
+  h+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;cursor:pointer;"><input type="checkbox" class="ur-perm-cb ur-perm-parent" data-key="'+node.key+'" onchange="onPermParentChange(this)"> '+esc(node.label)+'</label>';
+  if(node.sub){
+    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;margin-left:24px;">';
+    node.sub.forEach(function(c){
+      h+='<label style="display:flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--bd1);border-radius:var(--radius);font-size:12px;cursor:pointer;background:var(--bg1);"><input type="checkbox" class="ur-perm-cb ur-perm-child" data-key="'+c.key+'" data-parent="'+node.key+'" onchange="onPermChildChange(this)"> '+esc(c.label)+'</label>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+});
 h+='</div>';
 h+='<div class="btn-row" style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="addUserRole(this)">Thêm tài khoản</button></div></div>';
 // List existing roles
 h+='<div class="form-card"><h3>Danh sách tài khoản đã phân quyền ('+allUserRoles.length+')</h3>';
 if(allUserRoles.length){
-h+='<div class="table-wrap"><table><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Trang được phép</th><th></th></tr>';
-var pn2={0:'Tổng quan',1:'Tài khoản Quảng cáo',2:'Nhân sự',3:'Khách hàng',4:'Tài chính',5:'Admin',6:'Cảnh báo'};
+h+='<div class="table-wrap"><table><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Quyền truy cập</th><th></th></tr>';
 allUserRoles.forEach(function(ur){
-var pages=(ur.allowed_pages||[]).map(function(p){return pn2[p]||pn2[String(p)]||('p'+p);}).join(', ');
+var pages=(ur.allowed_pages||[]).map(function(p){return permissionLabel(normalizePermKey(p));}).join(', ');
 var roleLabel=ur.role==='accountant'?'Kế toán':(ur.role==='viewer'?'Chỉ xem':ur.role);
-h+='<tr><td style="font-weight:500;">'+esc(ur.display_name||'—')+'</td><td style="font-size:12px;color:var(--tx2);">'+esc(ur.email)+'</td><td><span class="badge b-blue">'+esc(roleLabel)+'</span></td><td style="font-size:11px;">'+esc(pages)+'</td><td><button class="btn btn-red btn-sm" onclick="deleteUserRole(this,\''+ur.id+'\')">Xóa</button></td></tr>';});
+h+='<tr><td style="font-weight:500;">'+esc(ur.display_name||'—')+'</td><td style="font-size:12px;color:var(--tx2);">'+esc(ur.email)+'</td><td><span class="badge b-blue">'+esc(roleLabel)+'</span></td><td style="font-size:11px;">'+esc(pages||'—')+'</td><td><button class="btn btn-red btn-sm" onclick="deleteUserRole(this,\''+ur.id+'\')">Xóa</button></td></tr>';});
 h+='</table></div>';
 }else{h+='<div style="font-size:13px;color:var(--tx3);padding:12px 0;">Chưa có tài khoản nào. Tất cả đăng nhập sẽ là Admin.</div>';}
 h+='</div>';
 return h;}
+
+// Tick parent → bỏ tick children (vì parent đã cover toàn bộ)
+function onPermParentChange(cb){
+  if(!cb.checked)return;
+  document.querySelectorAll('.ur-perm-child[data-parent="'+cb.dataset.key+'"]').forEach(function(c){c.checked=false;});
+}
+// Tick child → bỏ tick parent (để chỉ giới hạn ở sub-tab)
+function onPermChildChange(cb){
+  if(!cb.checked)return;
+  var parentCb=document.querySelector('.ur-perm-parent[data-key="'+cb.dataset.parent+'"]');
+  if(parentCb)parentCb.checked=false;
+}
 
 async function saveMetaSettings(btn){
 if(!isAdmin())return;
@@ -6293,8 +6391,8 @@ var name=document.getElementById('ur-name').value.trim();
 var pass=document.getElementById('ur-pass').value.trim();
 var role=document.getElementById('ur-role').value;
 if(!email){toast('Vui lòng nhập email.',false);return;}
-var pages=[];document.querySelectorAll('.ur-page-cb:checked').forEach(function(cb){var v=cb.value;pages.push(isNaN(v)?v:parseFloat(v));});
-if(!pages.length){toast('Vui lòng chọn ít nhất 1 trang mà tài khoản này được phép truy cập.',false);return;}
+var pages=[];document.querySelectorAll('.ur-perm-cb:checked').forEach(function(cb){pages.push(cb.dataset.key);});
+if(!pages.length){toast('Vui lòng chọn ít nhất 1 quyền truy cập.',false);return;}
 btn.disabled=true;btn.textContent='Đang tạo...';
 // Tạo tài khoản đăng nhập nếu có mật khẩu
 if(pass){
