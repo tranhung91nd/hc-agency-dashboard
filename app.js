@@ -2228,7 +2228,7 @@ async function runVcbImport(btn){
       // Toàn bộ fail — thường do migration chưa chạy hoặc RLS chặn
       var hint=firstErrMsg;
       if(/relation.*does not exist/i.test(firstErrMsg))hint='⚠ Bảng <code>bank_reconcile</code> chưa được tạo. Chạy migration <code>2026-05-04_bank_reconcile.sql</code> trên Supabase trước.';
-      else if(/permission denied|row.level security/i.test(firstErrMsg))hint='⚠ Tài khoản hiện tại không có quyền insert. Đăng nhập admin và check RLS policy.';
+      else if(/permission denied|row.level security|row-level security/i.test(firstErrMsg))hint='⚠ RLS policy đang chặn insert. Chạy migration <code>2026-05-04_bank_reconcile_rls.sql</code> trên Supabase để cấp quyền cho admin.';
       if(status)status.innerHTML='<span style="color:var(--red);">Lỗi '+errors+'/'+rows.length+' dòng:</span><br>'+hint;
       // Vẫn log thất bại
       await sb2.from('bank_import_log').insert({file_name:fileName,file_size:fileSize,total_rows:0,ads_rows:0,verified_rows:0,status:'failed',error_message:firstErrMsg.substring(0,200),uploaded_by:authUser&&authUser.email||null});
