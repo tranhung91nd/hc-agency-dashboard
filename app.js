@@ -3772,7 +3772,7 @@ function p3ActiveReportContent(){
   if(!monthList.length)h+='<option>'+mLabel+'</option>';
   monthList.forEach(function(m){h+='<option value="'+m+'"'+(m===ms?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
   h+='</select>';
-  h+='<input type="text" placeholder="Tìm khách hàng..." value="'+esc(clientSearchText)+'" oninput="expandedClientId=null;hcSearchInput(\'clientSearchText\',this.value)" class="fi" style="flex:1;max-width:280px;">';
+  h+='<input type="text" id="client-report-search" placeholder="Tìm khách hàng..." value="'+esc(clientSearchText)+'" oninput="expandedClientId=null;hcSearchInput(\'clientSearchText\',this.value)" class="fi" style="flex:1;max-width:280px;">';
   h+='</div>';
   if(!rows.length){
     h+='<div class="empty-state" role="status"><div class="empty-state-icon" aria-hidden="true">📊</div><div class="empty-state-title">Chưa có khách hàng</div><div class="empty-state-desc">'+(clientSearchText?'Không tìm thấy khách khớp từ khoá.':'Thêm khách chính thức trước.')+'</div></div>';
