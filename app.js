@@ -2781,8 +2781,9 @@ return{rows:allRows,errors:errors,errorSamples:errorSamples};
 async function syncCampaignMess(btn,skipRefresh){
 var oldText=btn?btn.textContent:'Quét giá Messenger';
 if(btn){btn.disabled=true;btn.textContent='Đang quét...';}
-// Quét cửa sổ D-3, D-2, D-1 (không gồm hôm nay) — data đã chốt, không bị nhiễu giờ giấc
-var d1=vnDateStr(-86400000),d3=vnDateStr(-259200000);
+// Quét cửa sổ D-3 → D0 (gồm hôm nay) để báo cáo khách thấy realtime.
+// Cảnh báo Mess/Form vẫn chỉ tính D-3..D-1 (xem buildCampAggregates) — D0 không trigger noti.
+var d1=vnDateStr(0),d3=vnDateStr(-259200000);
 var mapped=adList.filter(function(a){return a.fb_account_id&&(a.max_mess_cost||a.max_lead_cost);});
 if(!mapped.length){if(btn){toast('Chưa có Tài khoản nào đặt ngưỡng giá Messenger/form',false);btn.disabled=false;btn.textContent=oldText;}return;}
 var errors=0;
@@ -3868,8 +3869,10 @@ function renderClientReportInline(clientId,month){
     var dp=date.split('-');
     var dayLabel=dp[2]+'/'+dp[1]+'/'+dp[0];
     var isFuture=date>today;
+    var isToday=date===today;
+    var dayCell=dayLabel+(isToday?' <span style="display:inline-block;font-size:10px;background:var(--amber-bg);color:var(--amber-tx);padding:1px 6px;border-radius:8px;font-weight:500;margin-left:4px;" title="Số liệu hôm nay đang cập nhật, chưa chốt">⟳ Đang cập nhật</span>':'');
     h+='<tr style="'+(isFuture?'opacity:.4;':'')+'">';
-    h+='<td style="text-align:center;">'+dayLabel+'</td>';
+    h+='<td style="text-align:center;">'+dayCell+'</td>';
     h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(x.spend?fmtVndPlain(x.spend)+' đ':'<span style="color:var(--tx3);">—</span>')+'</td>';
     h+='<td style="text-align:center;">'+(x.mess||'<span style="color:var(--tx3);">—</span>')+'</td>';
     h+='<td style="text-align:center;">'+(x.cmt||'<span style="color:var(--tx3);">—</span>')+'</td>';
@@ -5105,8 +5108,10 @@ function renderPublicReportPage(){
     var dp=date.split('-');
     var dayLabel=dp[2]+'/'+dp[1]+'/'+dp[0];
     var isFuture=date>today;
+    var isToday=date===today;
+    var dayCell=dayLabel+(isToday?' <span style="display:inline-block;font-size:10px;background:var(--amber-bg);color:var(--amber-tx);padding:1px 6px;border-radius:8px;font-weight:500;margin-left:4px;" title="Số liệu hôm nay đang cập nhật, chưa chốt">⟳ Đang cập nhật</span>':'');
     h+='<tr style="'+(isFuture?'opacity:.4;':'')+'">';
-    h+='<td style="text-align:center;">'+dayLabel+'</td>';
+    h+='<td style="text-align:center;">'+dayCell+'</td>';
     h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(x.spend?fmtVndPlain(x.spend)+' đ':'<span style="color:var(--tx3);">—</span>')+'</td>';
     h+='<td style="text-align:center;">'+(x.mess||'<span style="color:var(--tx3);">—</span>')+'</td>';
     h+='<td style="text-align:center;">'+(x.cmt||'<span style="color:var(--tx3);">—</span>')+'</td>';

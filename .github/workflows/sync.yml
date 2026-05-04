@@ -1,17 +1,20 @@
-name: HC Agency - Auto Sync
+name: HC Agency - Realtime Sync
 
 on:
   schedule:
-    # 7h sáng VN (0:00 UTC) → sync chi tiêu ngày hôm qua (lần 1)
-    - cron: '0 0 * * *'
-    # 23h đêm VN (16:00 UTC) → sync chi tiêu ngày hôm qua (lần 2, chốt lại)
-    - cron: '0 16 * * *'
+    # Mỗi 15 phút: sync chi tiêu + mess/comment/checkout của HÔM NAY (D0)
+    # Đảm bảo báo cáo khách thấy data realtime trong vòng 15 phút.
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     # Cho phép chạy thủ công từ GitHub Actions tab
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    # Tránh job chồng job nếu lần trước chạy chưa xong
+    concurrency:
+      group: hc-sync
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
