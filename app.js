@@ -2725,13 +2725,14 @@ if(!campMeta[cid]||campMeta[cid].type==='other'){
 campMeta[cid]={optimization_goal:s.optimization_goal||null,destination_type:s.destination_type||null,type:t};
 }});
 return (insBody.data||[]).map(function(r){
-var spend=Math.round(parseFloat(r.spend||0)),messCount=0,leadCount=0;
+var spend=Math.round(parseFloat(r.spend||0)),messCount=0,leadCount=0,checkoutCount=0;
 if(r.actions){r.actions.forEach(function(act){
 if(act.action_type&&(act.action_type.indexOf('messaging_conversation_started')>=0||act.action_type==='onsite_conversion.messaging_conversation_started_7d'))messCount+=parseInt(act.value)||0;
 if(act.action_type&&(act.action_type==='lead'||act.action_type==='leadgen_grouped'))leadCount+=parseInt(act.value)||0;
+if(act.action_type&&(act.action_type==='offsite_conversion.fb_pixel_initiate_checkout'||act.action_type==='onsite_conversion.initiate_checkout'||act.action_type==='initiate_checkout'))checkoutCount+=parseInt(act.value)||0;
 });}
 var meta=campMeta[r.campaign_id]||{optimization_goal:null,destination_type:null,type:null};
-return{ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount,lead_count:leadCount,campaign_status:activeIds.has(r.campaign_id)?'ACTIVE':'PAUSED',campaign_type:meta.type,optimization_goal:meta.optimization_goal,destination_type:meta.destination_type};
+return{ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount,lead_count:leadCount,checkout_count:checkoutCount,campaign_status:activeIds.has(r.campaign_id)?'ACTIVE':'PAUSED',campaign_type:meta.type,optimization_goal:meta.optimization_goal,destination_type:meta.destination_type};
 });
 }
 async function fetchCampaignMessBatch(accounts,d3,d1){
@@ -3808,7 +3809,7 @@ function renderClientReportInline(clientId,month){
   var data={};
   for(var d=1;d<=dim;d++){
     var ds=year+'-'+(mn<10?'0'+mn:mn)+'-'+(d<10?'0'+d:d);
-    data[ds]={spend:0,mess:0,cmt:0};
+    data[ds]={spend:0,mess:0,cmt:0,checkout:0};
   }
   // Spend từ daily_spend
   dailyData.filter(function(x){return x.report_date&&x.report_date.substring(0,7)===month;}).forEach(function(x){
@@ -3816,22 +3817,24 @@ function renderClientReportInline(clientId,month){
     if(cid!==clientId)return;
     if(data[x.report_date])data[x.report_date].spend+=x.spend_amount||0;
   });
-  // Mess + cmt từ campaign_daily_mess
+  // Mess + cmt + checkout từ campaign_daily_mess
   campaignMessData.filter(function(x){return x.report_date&&x.report_date.substring(0,7)===month;}).forEach(function(x){
     var cid=_rptClientForMess(x);
     if(cid!==clientId)return;
     if(data[x.report_date]){
       data[x.report_date].mess+=x.mess_count||0;
       data[x.report_date].cmt+=x.lead_count||0;
+      data[x.report_date].checkout+=x.checkout_count||0;
     }
   });
   // Tính tổng
-  var totalSpend=0,totalMess=0,totalCmt=0;
+  var totalSpend=0,totalMess=0,totalCmt=0,totalCheckout=0;
   Object.keys(data).forEach(function(k){
-    totalSpend+=data[k].spend;totalMess+=data[k].mess;totalCmt+=data[k].cmt;
+    totalSpend+=data[k].spend;totalMess+=data[k].mess;totalCmt+=data[k].cmt;totalCheckout+=data[k].checkout;
   });
   var totalResult=totalMess+totalCmt;
   var totalCostPer=totalResult?Math.round(totalSpend/totalResult):0;
+  var totalCostCheckout=totalCheckout?Math.round(totalSpend/totalCheckout):0;
   // Tìm ngày data gần nhất để biết giới hạn (tránh hiển thị #DIV/0 cho ngày tương lai)
   var today=td();
   var c=clientList.find(function(x){return x.id===clientId;});
@@ -3843,7 +3846,7 @@ function renderClientReportInline(clientId,month){
   if(!hasMessSync)h+='<div style="font-size:11px;color:var(--tx3);background:var(--amber-bg);color:var(--amber-tx);padding:4px 10px;border-radius:6px;">⚠ Chưa quét Mess/Cmt cho khách này — vào Cảnh báo bấm "Quét giá Messenger"</div>';
   h+='</div>';
   h+='<div class="table-wrap" style="background:var(--bg1);border-radius:var(--radius);"><table style="font-size:13px;"><thead>';
-  h+='<tr><th style="text-align:center;">NGÀY</th><th style="text-align:right;">CHI PHÍ ADS</th><th style="text-align:center;">Số Mess</th><th style="text-align:center;">Số Cmt</th><th style="text-align:right;">Giá kết quả</th></tr>';
+  h+='<tr><th style="text-align:center;">NGÀY</th><th style="text-align:right;">CHI PHÍ ADS</th><th style="text-align:center;">Số Mess</th><th style="text-align:center;">Số Cmt</th><th style="text-align:right;">Giá kết quả</th><th style="text-align:center;">Lượt thanh toán</th><th style="text-align:right;">Giá / Lượt thanh toán</th></tr>';
   h+='</thead><tbody>';
   // Dòng tổng
   h+='<tr style="background:var(--bg2);font-weight:600;color:var(--red);">';
@@ -3852,12 +3855,15 @@ function renderClientReportInline(clientId,month){
   h+='<td style="text-align:center;">'+totalMess+'</td>';
   h+='<td style="text-align:center;">'+totalCmt+'</td>';
   h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(totalResult?fmtVndPlain(totalCostPer)+' đ':'—')+'</td>';
+  h+='<td style="text-align:center;">'+totalCheckout+'</td>';
+  h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(totalCheckout?fmtVndPlain(totalCostCheckout)+' đ':'—')+'</td>';
   h+='</tr>';
   // Daily rows
   Object.keys(data).sort().forEach(function(date){
     var x=data[date];
     var result=x.mess+x.cmt;
     var costPer=result?Math.round(x.spend/result):0;
+    var costCheckout=x.checkout?Math.round(x.spend/x.checkout):0;
     var dp=date.split('-');
     var dayLabel=dp[2]+'/'+dp[1]+'/'+dp[0];
     var isFuture=date>today;
@@ -3867,6 +3873,8 @@ function renderClientReportInline(clientId,month){
     h+='<td style="text-align:center;">'+(x.mess||'<span style="color:var(--tx3);">—</span>')+'</td>';
     h+='<td style="text-align:center;">'+(x.cmt||'<span style="color:var(--tx3);">—</span>')+'</td>';
     h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(result?fmtVndPlain(costPer)+' đ':'<span style="color:var(--tx3);">—</span>')+'</td>';
+    h+='<td style="text-align:center;">'+(x.checkout||'<span style="color:var(--tx3);">—</span>')+'</td>';
+    h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(x.checkout?fmtVndPlain(costCheckout)+' đ':'<span style="color:var(--tx3);">—</span>')+'</td>';
     h+='</tr>';
   });
   h+='</tbody></table></div>';
@@ -5041,18 +5049,19 @@ function renderPublicReportPage(){
   var data={};
   for(var d=1;d<=dim;d++){
     var ds=year+'-'+(mn<10?'0'+mn:mn)+'-'+(d<10?'0'+d:d);
-    data[ds]={spend:0,mess:0,cmt:0};
+    data[ds]={spend:0,mess:0,cmt:0,checkout:0};
   }
   dailyData.filter(function(x){return x.report_date&&x.report_date.substring(0,7)===ms;}).forEach(function(x){
     if(data[x.report_date])data[x.report_date].spend+=x.spend_amount||0;
   });
   campaignMessData.filter(function(x){return x.report_date&&x.report_date.substring(0,7)===ms;}).forEach(function(x){
-    if(data[x.report_date]){data[x.report_date].mess+=x.mess_count||0;data[x.report_date].cmt+=x.lead_count||0;}
+    if(data[x.report_date]){data[x.report_date].mess+=x.mess_count||0;data[x.report_date].cmt+=x.lead_count||0;data[x.report_date].checkout+=x.checkout_count||0;}
   });
-  var totalSpend=0,totalMess=0,totalCmt=0;
-  Object.keys(data).forEach(function(k){totalSpend+=data[k].spend;totalMess+=data[k].mess;totalCmt+=data[k].cmt;});
+  var totalSpend=0,totalMess=0,totalCmt=0,totalCheckout=0;
+  Object.keys(data).forEach(function(k){totalSpend+=data[k].spend;totalMess+=data[k].mess;totalCmt+=data[k].cmt;totalCheckout+=data[k].checkout;});
   var totalResult=totalMess+totalCmt;
   var totalCostPer=totalResult?Math.round(totalSpend/totalResult):0;
+  var totalCostCheckout=totalCheckout?Math.round(totalSpend/totalCheckout):0;
   var today=td();
   var hasMess=campaignMessData.length>0;
   var h='<div class="public-wrap" style="max-width:980px;margin:0 auto;padding:24px 16px 60px;">';
@@ -5076,7 +5085,7 @@ function renderPublicReportPage(){
   h+='</div>';
   // Bảng daily
   h+='<div class="table-wrap" style="background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius);"><table style="font-size:13px;"><thead>';
-  h+='<tr><th style="text-align:center;">NGÀY</th><th style="text-align:right;">CHI PHÍ ADS</th><th style="text-align:center;">Số Mess</th><th style="text-align:center;">Số Cmt</th><th style="text-align:right;">Giá kết quả</th></tr>';
+  h+='<tr><th style="text-align:center;">NGÀY</th><th style="text-align:right;">CHI PHÍ ADS</th><th style="text-align:center;">Số Mess</th><th style="text-align:center;">Số Cmt</th><th style="text-align:right;">Giá kết quả</th><th style="text-align:center;">Lượt thanh toán</th><th style="text-align:right;">Giá / Lượt thanh toán</th></tr>';
   h+='</thead><tbody>';
   h+='<tr style="background:var(--bg2);font-weight:600;color:var(--red);">';
   h+='<td style="text-align:center;">Tổng</td>';
@@ -5084,11 +5093,14 @@ function renderPublicReportPage(){
   h+='<td style="text-align:center;">'+totalMess+'</td>';
   h+='<td style="text-align:center;">'+totalCmt+'</td>';
   h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(totalResult?fmtVndPlain(totalCostPer)+' đ':'—')+'</td>';
+  h+='<td style="text-align:center;">'+totalCheckout+'</td>';
+  h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(totalCheckout?fmtVndPlain(totalCostCheckout)+' đ':'—')+'</td>';
   h+='</tr>';
   Object.keys(data).sort().forEach(function(date){
     var x=data[date];
     var result=x.mess+x.cmt;
     var costPer=result?Math.round(x.spend/result):0;
+    var costCheckout=x.checkout?Math.round(x.spend/x.checkout):0;
     var dp=date.split('-');
     var dayLabel=dp[2]+'/'+dp[1]+'/'+dp[0];
     var isFuture=date>today;
@@ -5098,6 +5110,8 @@ function renderPublicReportPage(){
     h+='<td style="text-align:center;">'+(x.mess||'<span style="color:var(--tx3);">—</span>')+'</td>';
     h+='<td style="text-align:center;">'+(x.cmt||'<span style="color:var(--tx3);">—</span>')+'</td>';
     h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(result?fmtVndPlain(costPer)+' đ':'<span style="color:var(--tx3);">—</span>')+'</td>';
+    h+='<td style="text-align:center;">'+(x.checkout||'<span style="color:var(--tx3);">—</span>')+'</td>';
+    h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(x.checkout?fmtVndPlain(costCheckout)+' đ':'<span style="color:var(--tx3);">—</span>')+'</td>';
     h+='</tr>';
   });
   h+='</tbody></table></div>';
