@@ -5260,11 +5260,13 @@ async function copyClientShareLink(clientId,btn){
 function initPublicLedgerMode(){
   var p=new URLSearchParams(window.location.search);
   var lid=p.get('ledger'),tok=p.get('token');
-  if(!lid||!tok)return false;
-  publicLedgerMode=true;publicLedgerClientId=lid;publicLedgerToken=tok;
+  // Có ledger= → coi là public mode, kể cả khi thiếu token (sẽ render error rõ ràng thay vì login screen)
+  if(!lid)return false;
+  publicLedgerMode=true;publicLedgerClientId=lid;publicLedgerToken=tok||'';
   document.body.classList.add('public-mode');
   return true;
 }
+function isValidUuid(s){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s||'');}
 function renderPublicError(title,msg){
   return '<div class="public-error"><div class="public-error-icon" aria-hidden="true">⚠️</div><div class="public-error-title">'+esc(title)+'</div><div class="public-error-msg">'+esc(msg)+'</div></div>';
 }
@@ -5274,6 +5276,14 @@ async function loadPublicLedger(){
   if(subnav)subnav.style.display='none';
   if(appEl)appEl.style.gridTemplateColumns='1fr';
   var page=document.getElementById('page');
+  if(!isValidUuid(publicLedgerClientId)){
+    page.innerHTML=renderPublicError('Link không hợp lệ','Mã khách trong link bị sai hoặc cắt thiếu (có dấu "..." giữa). Vui lòng nhờ HC Agency gửi lại link đầy đủ qua Zalo.');
+    return;
+  }
+  if(!publicLedgerToken){
+    page.innerHTML=renderPublicError('Link thiếu mã xác thực','Link bị thiếu đoạn &token=... — thường do app rút gọn link khi forward. Vui lòng nhờ HC Agency gửi lại link đầy đủ qua Zalo.');
+    return;
+  }
   if(!clientList.length)page.innerHTML='<div style="padding:80px;text-align:center;color:var(--tx2);font-size:14px;">Đang tải Sổ rental...</div>';
   try{
     // Gọi RPC SECURITY DEFINER để bypass RLS — chuẩn cho public share
@@ -5364,8 +5374,8 @@ var publicReportMode=false,publicReportClientId=null,publicReportToken=null,publ
 function initPublicReportMode(){
   var p=new URLSearchParams(window.location.search);
   var rid=p.get('report'),tok=p.get('token');
-  if(!rid||!tok)return false;
-  publicReportMode=true;publicReportClientId=rid;publicReportToken=tok;
+  if(!rid)return false;
+  publicReportMode=true;publicReportClientId=rid;publicReportToken=tok||'';
   document.body.classList.add('public-mode');
   return true;
 }
@@ -5375,6 +5385,14 @@ async function loadPublicReport(){
   if(subnav)subnav.style.display='none';
   if(appEl)appEl.style.gridTemplateColumns='1fr';
   var page=document.getElementById('page');
+  if(!isValidUuid(publicReportClientId)){
+    page.innerHTML=renderPublicError('Link không hợp lệ','Mã khách trong link bị sai hoặc cắt thiếu (có dấu "..." giữa). Vui lòng nhờ HC Agency gửi lại link đầy đủ qua Zalo.');
+    return;
+  }
+  if(!publicReportToken){
+    page.innerHTML=renderPublicError('Link thiếu mã xác thực','Link bị thiếu đoạn &token=... — thường do app rút gọn link khi forward. Vui lòng nhờ HC Agency gửi lại link đầy đủ qua Zalo.');
+    return;
+  }
   page.innerHTML='<div style="padding:80px;text-align:center;color:var(--tx2);font-size:14px;">Đang tải báo cáo...</div>';
   try{
     var r=await sb2.rpc('get_public_client_report',{p_client_id:publicReportClientId,p_token:publicReportToken});

@@ -2,7 +2,7 @@
 // Lần load đầu: như network (chưa có cache)
 // Lần load thứ 2 trở đi: trả cache ngay → fetch mới ở background → update cache
 // → Cảm nhận tải gần như tức thì sau lần đầu.
-var CACHE_NAME = 'hc-agency-v5';
+var CACHE_NAME = 'hc-agency-v6';
 
 self.addEventListener('install', function(e) {
   self.skipWaiting();
