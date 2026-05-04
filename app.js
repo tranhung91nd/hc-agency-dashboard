@@ -2088,7 +2088,12 @@ function p4DoiSoat(){
     h+='<td class="mono" style="text-align:right;font-weight:500;border-right:1px solid var(--bd1);">'+ff(r.bank_amount)+'</td>';
     h+='<td class="mono" style="font-size:11px;color:var(--tx2);">'+esc(r.meta_invoice_code||'—')+'</td>';
     if(authUser){
-      h+='<td><input type="url" value="'+esc(r.meta_link||'')+'" placeholder="https://business.facebook.com/..." style="width:100%;min-width:180px;font-size:11px;border:1px solid var(--bd1);border-radius:4px;padding:4px 6px;" onchange="saveReconcileEntry(\''+r.id+'\',\'meta_link\',this.value)"></td>';
+      var linkVal=r.meta_link||'';
+      var isUrl=/^https?:\/\//i.test(linkVal);
+      h+='<td><div style="display:flex;gap:4px;align-items:center;">';
+      h+='<input type="text" value="'+esc(linkVal)+'" placeholder="https://business.facebook.com/..." style="flex:1;min-width:160px;font-size:11px;border:1px solid var(--bd1);border-radius:4px;padding:4px 6px;" onchange="saveReconcileEntry(\''+r.id+'\',\'meta_link\',this.value)">';
+      if(isUrl)h+='<a href="'+esc(linkVal)+'" target="_blank" rel="noopener" title="Mở link giao dịch" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--bd1);border-radius:4px;text-decoration:none;font-size:13px;color:var(--blue-tx);background:var(--bg1);">↗</a>';
+      h+='</div></td>';
       h+='<td style="border-right:1px solid var(--bd1);"><input type="text" inputmode="numeric" value="'+(r.meta_amount!=null?Number(r.meta_amount).toLocaleString('vi-VN'):'')+'" placeholder="0" style="width:120px;text-align:right;font-family:monospace;border:1px solid var(--bd1);border-radius:4px;padding:4px 6px;" oninput="formatMoneyInput(this)" onchange="saveReconcileEntry(\''+r.id+'\',\'meta_amount\',this.value)"></td>';
     }else{
       h+='<td>'+(r.meta_link?'<a href="'+esc(r.meta_link)+'" target="_blank" rel="noopener" style="font-size:11px;">Mở</a>':'<span style="color:var(--tx3);">—</span>')+'</td>';
