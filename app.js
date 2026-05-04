@@ -101,7 +101,7 @@ function renderZaloBtn(c){
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],clientDepositData=[],bankReconcileData=[],bankImportLog=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc',finTab='thuchi',reconcileMonth='';
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc',finTab='thuchi',reconcileMonth='',editingUserRoleId=null;
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -6296,39 +6296,73 @@ h+='<div><div style="font-size:12px;font-weight:500;color:var(--blue);margin-bot
 h+='<div style="font-size:12px;color:var(--tx2);line-height:1.8;">Ngân hàng: '+esc(BANK_PROFILES.personal.bank)+'<br>STK: '+esc(BANK_PROFILES.personal.accountNo)+'<br>Chủ Tài khoản: '+esc(BANK_PROFILES.personal.accountName)+'</div></div>';
 h+='</div><div style="font-size:11px;color:var(--tx3);margin-top:10px;">Thông tin ngân hàng đang hardcode trong code. Liên hệ dev để thay đổi.</div></div>';
 // User roles management
-h+='<div class="form-card"><h3>Phân quyền tài khoản</h3>';
-h+='<div style="padding:10px 14px;background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;">Nếu email không có trong danh sách này, tài khoản sẽ mặc định là Admin (toàn quyền). Thêm email vào đây để giới hạn quyền.</div>';
-h+='<div class="form-row"><div class="form-group"><label>Email</label><input type="email" id="ur-email" placeholder="VD: linh.kt@hcagency.vn"></div><div class="form-group"><label>Tên hiển thị</label><input type="text" id="ur-name" placeholder="VD: Ngọc Linh"></div></div>';
-h+='<div class="form-row"><div class="form-group"><label>Mật khẩu đăng nhập</label><input type="text" id="ur-pass" placeholder="Tạo mật khẩu cho tài khoản này" style="font-family:monospace;"></div><div class="form-group"><label>Vai trò</label><select id="ur-role"><option value="accountant">Kế toán</option><option value="viewer">Chỉ xem</option></select></div></div>';
+var editingUR=editingUserRoleId?allUserRoles.find(function(u){return u.id===editingUserRoleId;}):null;
+var formTitle=editingUR?'Cập nhật quyền — '+esc(editingUR.email):'Phân quyền tài khoản';
+var btnLabel=editingUR?'Lưu cập nhật':'Thêm tài khoản';
+h+='<div class="form-card" id="ur-form-card"><h3>'+formTitle+'</h3>';
+if(editingUR){
+  h+='<div style="padding:10px 14px;background:var(--amber-bg);color:var(--amber-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;">Đang sửa quyền cho <b>'+esc(editingUR.display_name||editingUR.email)+'</b>. Email không đổi được. Mật khẩu để trống = giữ nguyên mật khẩu cũ.</div>';
+}else{
+  h+='<div style="padding:10px 14px;background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;">Nếu email không có trong danh sách này, tài khoản sẽ mặc định là Admin (toàn quyền). Thêm email vào đây để giới hạn quyền.</div>';
+}
+var emailVal=editingUR?esc(editingUR.email):'';
+var nameVal=editingUR?esc(editingUR.display_name||''):'';
+var roleVal=editingUR?editingUR.role:'accountant';
+h+='<div class="form-row"><div class="form-group"><label>Email</label><input type="email" id="ur-email" value="'+emailVal+'" placeholder="VD: linh.kt@hcagency.vn"'+(editingUR?' readonly style="background:var(--bg2);color:var(--tx3);"':'')+'></div><div class="form-group"><label>Tên hiển thị</label><input type="text" id="ur-name" value="'+nameVal+'" placeholder="VD: Ngọc Linh"></div></div>';
+h+='<div class="form-row"><div class="form-group"><label>Mật khẩu '+(editingUR?'mới (để trống = giữ nguyên)':'đăng nhập')+'</label><input type="text" id="ur-pass" placeholder="'+(editingUR?'Để trống nếu không đổi':'Tạo mật khẩu cho tài khoản này')+'" style="font-family:monospace;"></div><div class="form-group"><label>Vai trò</label><select id="ur-role"><option value="accountant"'+(roleVal==='accountant'?' selected':'')+'>Kế toán</option><option value="viewer"'+(roleVal==='viewer'?' selected':'')+'>Chỉ xem</option></select></div></div>';
 h+='<div style="font-size:12px;font-weight:500;color:var(--tx2);margin:8px 0 6px;">Quyền truy cập</div>';
 h+='<div style="font-size:11px;color:var(--tx3);margin-bottom:10px;">Chọn quyền cho từng mục lớn (toàn quyền page) hoặc mục nhỏ (chỉ sub-tab cụ thể). Tick mục lớn = toàn quyền, tự bỏ tick các mục nhỏ.</div>';
+// Pre-checked set từ data đang edit
+var preChecked=new Set();
+if(editingUR&&editingUR.allowed_pages){editingUR.allowed_pages.forEach(function(p){preChecked.add(normalizePermKey(p));});}
 h+='<div style="display:flex;flex-direction:column;gap:8px;border:1px solid var(--bd1);border-radius:var(--radius);padding:12px;background:var(--bg2);">';
 PERMISSION_TREE.forEach(function(node){
+  var parentChecked=preChecked.has(node.key)?' checked':'';
   h+='<div style="border-bottom:1px solid var(--bd1);padding-bottom:8px;">';
-  h+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;cursor:pointer;"><input type="checkbox" class="ur-perm-cb ur-perm-parent" data-key="'+node.key+'" onchange="onPermParentChange(this)"> '+esc(node.label)+'</label>';
+  h+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;cursor:pointer;"><input type="checkbox" class="ur-perm-cb ur-perm-parent" data-key="'+node.key+'"'+parentChecked+' onchange="onPermParentChange(this)"> '+esc(node.label)+'</label>';
   if(node.sub){
     h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;margin-left:24px;">';
     node.sub.forEach(function(c){
-      h+='<label style="display:flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--bd1);border-radius:var(--radius);font-size:12px;cursor:pointer;background:var(--bg1);"><input type="checkbox" class="ur-perm-cb ur-perm-child" data-key="'+c.key+'" data-parent="'+node.key+'" onchange="onPermChildChange(this)"> '+esc(c.label)+'</label>';
+      var childChecked=preChecked.has(c.key)?' checked':'';
+      h+='<label style="display:flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--bd1);border-radius:var(--radius);font-size:12px;cursor:pointer;background:var(--bg1);"><input type="checkbox" class="ur-perm-cb ur-perm-child" data-key="'+c.key+'" data-parent="'+node.key+'"'+childChecked+' onchange="onPermChildChange(this)"> '+esc(c.label)+'</label>';
     });
     h+='</div>';
   }
   h+='</div>';
 });
 h+='</div>';
-h+='<div class="btn-row" style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="addUserRole(this)">Thêm tài khoản</button></div></div>';
+h+='<div class="btn-row" style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="addUserRole(this)">'+btnLabel+'</button>';
+if(editingUR)h+='<button class="btn btn-ghost btn-sm" onclick="cancelEditUserRole()">Hủy</button>';
+h+='</div></div>';
 // List existing roles
 h+='<div class="form-card"><h3>Danh sách tài khoản đã phân quyền ('+allUserRoles.length+')</h3>';
 if(allUserRoles.length){
-h+='<div class="table-wrap"><table><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Quyền truy cập</th><th></th></tr>';
+h+='<div class="table-wrap"><table><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Quyền truy cập</th><th style="text-align:right;">Thao tác</th></tr>';
 allUserRoles.forEach(function(ur){
 var pages=(ur.allowed_pages||[]).map(function(p){return permissionLabel(normalizePermKey(p));}).join(', ');
 var roleLabel=ur.role==='accountant'?'Kế toán':(ur.role==='viewer'?'Chỉ xem':ur.role);
-h+='<tr><td style="font-weight:500;">'+esc(ur.display_name||'—')+'</td><td style="font-size:12px;color:var(--tx2);">'+esc(ur.email)+'</td><td><span class="badge b-blue">'+esc(roleLabel)+'</span></td><td style="font-size:11px;">'+esc(pages||'—')+'</td><td><button class="btn btn-red btn-sm" onclick="deleteUserRole(this,\''+ur.id+'\')">Xóa</button></td></tr>';});
+var isEditing=editingUserRoleId===ur.id;
+h+='<tr'+(isEditing?' style="background:var(--amber-bg);"':'')+'>';
+h+='<td style="font-weight:500;">'+esc(ur.display_name||'—')+'</td>';
+h+='<td style="font-size:12px;color:var(--tx2);">'+esc(ur.email)+'</td>';
+h+='<td><span class="badge b-blue">'+esc(roleLabel)+'</span></td>';
+h+='<td style="font-size:11px;">'+esc(pages||'—')+'</td>';
+h+='<td style="text-align:right;white-space:nowrap;">';
+h+='<button class="btn btn-ghost btn-sm" onclick="editUserRole(\''+ur.id+'\')" style="margin-right:6px;">✏ Sửa</button>';
+h+='<button class="btn btn-red btn-sm" onclick="deleteUserRole(this,\''+ur.id+'\')">Xóa</button>';
+h+='</td></tr>';});
 h+='</table></div>';
 }else{h+='<div style="font-size:13px;color:var(--tx3);padding:12px 0;">Chưa có tài khoản nào. Tất cả đăng nhập sẽ là Admin.</div>';}
 h+='</div>';
 return h;}
+
+function editUserRole(id){
+  editingUserRoleId=id;
+  render();
+  // Scroll to form sau khi render
+  setTimeout(function(){var el=document.getElementById('ur-form-card');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},50);
+}
+function cancelEditUserRole(){editingUserRoleId=null;render();}
 
 // Tick parent → bỏ tick children (vì parent đã cover toàn bộ)
 function onPermParentChange(cb){
@@ -6386,6 +6420,8 @@ render();}
 
 async function addUserRole(btn){
 if(!isAdmin())return;
+var isEdit=!!editingUserRoleId;
+var origLabel=isEdit?'Lưu cập nhật':'Thêm tài khoản';
 var email=document.getElementById('ur-email').value.trim();
 var name=document.getElementById('ur-name').value.trim();
 var pass=document.getElementById('ur-pass').value.trim();
@@ -6393,21 +6429,29 @@ var role=document.getElementById('ur-role').value;
 if(!email){toast('Vui lòng nhập email.',false);return;}
 var pages=[];document.querySelectorAll('.ur-perm-cb:checked').forEach(function(cb){pages.push(cb.dataset.key);});
 if(!pages.length){toast('Vui lòng chọn ít nhất 1 quyền truy cập.',false);return;}
-btn.disabled=true;btn.textContent='Đang tạo...';
-// Tạo tài khoản đăng nhập nếu có mật khẩu
+btn.disabled=true;btn.textContent=isEdit?'Đang lưu...':'Đang tạo...';
+// Tạo tài khoản đăng nhập nếu có mật khẩu (cả Add lẫn Edit có pass mới đều signup; nếu user đã tồn tại Supabase báo lỗi và mình bỏ qua)
 if(pass){
-if(pass.length<6){toast('Mật khẩu phải có ít nhất 6 ký tự.',false);btn.disabled=false;btn.textContent='Thêm tài khoản';return;}
+if(pass.length<6){toast('Mật khẩu phải có ít nhất 6 ký tự.',false);btn.disabled=false;btn.textContent=origLabel;return;}
 var{data:signData,error:signErr}=await sb2.auth.signUp({email:email,password:pass,options:{data:{display_name:name}}});
 if(signErr){
 if(signErr.message.indexOf('already registered')>=0||signErr.message.indexOf('already been registered')>=0){
-// User đã tồn tại → OK, chỉ cần lưu role
-}else{toast('Lỗi tạo tài khoản: '+signErr.message,false);btn.disabled=false;btn.textContent='Thêm tài khoản';return;}}
+// User đã tồn tại → OK, chỉ cần lưu role. Lưu ý: Supabase không cho update mật khẩu user khác qua client SDK — anh phải reset trong Supabase Dashboard nếu muốn đổi pass user cũ.
+}else{toast('Lỗi tạo tài khoản: '+signErr.message,false);btn.disabled=false;btn.textContent=origLabel;return;}}
 }
-// Lưu phân quyền
-var{error}=await sb2.from('user_roles').upsert({email:email,display_name:name,role:role,allowed_pages:pages},{onConflict:'email'});
-btn.disabled=false;btn.textContent='Thêm tài khoản';
-if(error){toast('Lỗi lưu quyền: '+error.message,false);}
-else{toast('Đã tạo: '+email+' ('+role+')'+(pass?' + tài khoản đăng nhập':''),true);document.getElementById('ur-email').value='';document.getElementById('ur-name').value='';document.getElementById('ur-pass').value='';await loadAllUserRoles();render();}}
+// Lưu/cập nhật phân quyền
+var payload={email:email,display_name:name,role:role,allowed_pages:pages};
+var resp;
+if(isEdit){
+  resp=await sb2.from('user_roles').update(payload).eq('id',editingUserRoleId);
+}else{
+  resp=await sb2.from('user_roles').upsert(payload,{onConflict:'email'});
+}
+btn.disabled=false;btn.textContent=origLabel;
+if(resp.error){toast('Lỗi lưu quyền: '+resp.error.message,false);return;}
+toast(isEdit?'Đã cập nhật: '+email:'Đã tạo: '+email+' ('+role+')'+(pass?' + tài khoản đăng nhập':''),true);
+editingUserRoleId=null;
+await loadAllUserRoles();render();}
 
 async function deleteUserRole(btn,id){
 if(!isAdmin())return;
