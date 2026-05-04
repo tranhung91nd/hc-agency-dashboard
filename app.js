@@ -2725,14 +2725,15 @@ if(!campMeta[cid]||campMeta[cid].type==='other'){
 campMeta[cid]={optimization_goal:s.optimization_goal||null,destination_type:s.destination_type||null,type:t};
 }});
 return (insBody.data||[]).map(function(r){
-var spend=Math.round(parseFloat(r.spend||0)),messCount=0,leadCount=0,checkoutCount=0;
+var spend=Math.round(parseFloat(r.spend||0)),messCount=0,leadCount=0,commentCount=0,checkoutCount=0;
 if(r.actions){r.actions.forEach(function(act){
 if(act.action_type&&(act.action_type.indexOf('messaging_conversation_started')>=0||act.action_type==='onsite_conversion.messaging_conversation_started_7d'))messCount+=parseInt(act.value)||0;
 if(act.action_type&&(act.action_type==='lead'||act.action_type==='leadgen_grouped'))leadCount+=parseInt(act.value)||0;
+if(act.action_type==='comment')commentCount+=parseInt(act.value)||0;
 if(act.action_type&&(act.action_type==='offsite_conversion.fb_pixel_initiate_checkout'||act.action_type==='onsite_conversion.initiate_checkout'||act.action_type==='initiate_checkout'))checkoutCount+=parseInt(act.value)||0;
 });}
 var meta=campMeta[r.campaign_id]||{optimization_goal:null,destination_type:null,type:null};
-return{ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount,lead_count:leadCount,checkout_count:checkoutCount,campaign_status:activeIds.has(r.campaign_id)?'ACTIVE':'PAUSED',campaign_type:meta.type,optimization_goal:meta.optimization_goal,destination_type:meta.destination_type};
+return{ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_name,report_date:r.date_start,spend:spend,mess_count:messCount,lead_count:leadCount,comment_count:commentCount,checkout_count:checkoutCount,campaign_status:activeIds.has(r.campaign_id)?'ACTIVE':'PAUSED',campaign_type:meta.type,optimization_goal:meta.optimization_goal,destination_type:meta.destination_type};
 });
 }
 async function fetchCampaignMessBatch(accounts,d3,d1){
@@ -3800,7 +3801,7 @@ function p3ActiveReportContent(){
 function toggleReportClient(clientId){
   expandedClientId=expandedClientId===clientId?null:clientId;render();
 }
-// Render bảng báo cáo daily cho 1 khách × tháng (giống Google Sheet: Ngày | Chi phí | Mess | Cmt | Giá kết quả)
+// Render bảng báo cáo daily cho 1 khách × tháng (giống Google Sheet: Ngày | Chi phí | Mess | Bình luận | Giá kết quả | Lượt thanh toán)
 function renderClientReportInline(clientId,month){
   var dim=new Date(parseInt(month.split('-')[0]),parseInt(month.split('-')[1]),0).getDate();
   var year=parseInt(month.split('-')[0]);
@@ -3817,13 +3818,13 @@ function renderClientReportInline(clientId,month){
     if(cid!==clientId)return;
     if(data[x.report_date])data[x.report_date].spend+=x.spend_amount||0;
   });
-  // Mess + cmt + checkout từ campaign_daily_mess
+  // Mess + comment + checkout từ campaign_daily_mess
   campaignMessData.filter(function(x){return x.report_date&&x.report_date.substring(0,7)===month;}).forEach(function(x){
     var cid=_rptClientForMess(x);
     if(cid!==clientId)return;
     if(data[x.report_date]){
       data[x.report_date].mess+=x.mess_count||0;
-      data[x.report_date].cmt+=x.lead_count||0;
+      data[x.report_date].cmt+=x.comment_count||0;
       data[x.report_date].checkout+=x.checkout_count||0;
     }
   });
@@ -3843,10 +3844,10 @@ function renderClientReportInline(clientId,month){
   var h='<div style="padding:14px 16px;">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">';
   h+='<div style="font-weight:600;font-size:14px;">📊 Báo cáo chi phí Ads — '+esc(clientName)+' — T'+mn+'/'+year+'</div>';
-  if(!hasMessSync)h+='<div style="font-size:11px;color:var(--tx3);background:var(--amber-bg);color:var(--amber-tx);padding:4px 10px;border-radius:6px;">⚠ Chưa quét Mess/Cmt cho khách này — vào Cảnh báo bấm "Quét giá Messenger"</div>';
+  if(!hasMessSync)h+='<div style="font-size:11px;color:var(--tx3);background:var(--amber-bg);color:var(--amber-tx);padding:4px 10px;border-radius:6px;">⚠ Chưa quét Mess/Bình luận cho khách này — vào Cảnh báo bấm "Quét giá Messenger"</div>';
   h+='</div>';
   h+='<div class="table-wrap" style="background:var(--bg1);border-radius:var(--radius);"><table style="font-size:13px;"><thead>';
-  h+='<tr><th style="text-align:center;">NGÀY</th><th style="text-align:right;">CHI PHÍ ADS</th><th style="text-align:center;">Số Mess</th><th style="text-align:center;">Số Cmt</th><th style="text-align:right;">Giá kết quả</th><th style="text-align:center;">Lượt thanh toán</th><th style="text-align:right;">Giá / Lượt thanh toán</th></tr>';
+  h+='<tr><th style="text-align:center;">NGÀY</th><th style="text-align:right;">CHI PHÍ ADS</th><th style="text-align:center;">Số Mess</th><th style="text-align:center;">Số Bình luận</th><th style="text-align:right;">Giá kết quả</th><th style="text-align:center;">Lượt thanh toán</th><th style="text-align:right;">Giá / Lượt thanh toán</th></tr>';
   h+='</thead><tbody>';
   // Dòng tổng
   h+='<tr style="background:var(--bg2);font-weight:600;color:var(--red);">';
@@ -5055,7 +5056,7 @@ function renderPublicReportPage(){
     if(data[x.report_date])data[x.report_date].spend+=x.spend_amount||0;
   });
   campaignMessData.filter(function(x){return x.report_date&&x.report_date.substring(0,7)===ms;}).forEach(function(x){
-    if(data[x.report_date]){data[x.report_date].mess+=x.mess_count||0;data[x.report_date].cmt+=x.lead_count||0;data[x.report_date].checkout+=x.checkout_count||0;}
+    if(data[x.report_date]){data[x.report_date].mess+=x.mess_count||0;data[x.report_date].cmt+=x.comment_count||0;data[x.report_date].checkout+=x.checkout_count||0;}
   });
   var totalSpend=0,totalMess=0,totalCmt=0,totalCheckout=0;
   Object.keys(data).forEach(function(k){totalSpend+=data[k].spend;totalMess+=data[k].mess;totalCmt+=data[k].cmt;totalCheckout+=data[k].checkout;});
@@ -5075,17 +5076,17 @@ function renderPublicReportPage(){
   h+='</select>';
   h+='<button class="btn btn-sm btn-ghost" onclick="reloadPublicReport(this)" title="Tải dữ liệu mới nhất">🔄 Tải lại</button>';
   h+='</div>';
-  if(!hasMess)h+='<div style="background:var(--amber-bg);color:var(--amber-tx);padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:12px;">⚠ Chưa có data Mess/Cmt — sẽ hiển thị khi HC Agency cập nhật.</div>';
+  if(!hasMess)h+='<div style="background:var(--amber-bg);color:var(--amber-tx);padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:12px;">⚠ Chưa có data Mess/Bình luận — sẽ hiển thị khi HC Agency cập nhật.</div>';
   // KPI tổng
   h+='<div class="kpi-grid kpi-4" style="margin-bottom:18px;">';
   h+='<div class="kpi"><div class="kpi-label">Tổng chi phí</div><div class="kpi-value" style="color:var(--teal);">'+(totalSpend?fmtVndPlain(totalSpend)+' đ':'—')+'</div></div>';
   h+='<div class="kpi"><div class="kpi-label">Tổng Mess</div><div class="kpi-value">'+totalMess+'</div></div>';
-  h+='<div class="kpi"><div class="kpi-label">Tổng Cmt</div><div class="kpi-value">'+totalCmt+'</div></div>';
+  h+='<div class="kpi"><div class="kpi-label">Tổng Bình luận</div><div class="kpi-value">'+totalCmt+'</div></div>';
   h+='<div class="kpi"><div class="kpi-label">Giá kết quả TB</div><div class="kpi-value" style="color:var(--blue-tx);">'+(totalResult?fmtVndPlain(totalCostPer)+' đ':'—')+'</div></div>';
   h+='</div>';
   // Bảng daily
   h+='<div class="table-wrap" style="background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius);"><table style="font-size:13px;"><thead>';
-  h+='<tr><th style="text-align:center;">NGÀY</th><th style="text-align:right;">CHI PHÍ ADS</th><th style="text-align:center;">Số Mess</th><th style="text-align:center;">Số Cmt</th><th style="text-align:right;">Giá kết quả</th><th style="text-align:center;">Lượt thanh toán</th><th style="text-align:right;">Giá / Lượt thanh toán</th></tr>';
+  h+='<tr><th style="text-align:center;">NGÀY</th><th style="text-align:right;">CHI PHÍ ADS</th><th style="text-align:center;">Số Mess</th><th style="text-align:center;">Số Bình luận</th><th style="text-align:right;">Giá kết quả</th><th style="text-align:center;">Lượt thanh toán</th><th style="text-align:right;">Giá / Lượt thanh toán</th></tr>';
   h+='</thead><tbody>';
   h+='<tr style="background:var(--bg2);font-weight:600;color:var(--red);">';
   h+='<td style="text-align:center;">Tổng</td>';
