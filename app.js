@@ -2214,12 +2214,26 @@ async function runVcbImport(btn){
     }
     if(status)status.textContent='Tìm thấy '+rows.length+' giao dịch Meta, đang lưu...';
     // Upsert (theo bank_date + bank_doc_no UNIQUE)
-    var saved=0,errors=0;
+    var saved=0,errors=0,firstErrMsg='';
     for(var k=0;k<rows.length;k+=50){
       var batch=rows.slice(k,k+50);
       var ur=await sb2.from('bank_reconcile').upsert(batch,{onConflict:'bank_date,bank_doc_no',ignoreDuplicates:false});
-      if(ur.error){errors+=batch.length;console.warn('[VCB import]',ur.error.message);}
-      else saved+=batch.length;
+      if(ur.error){
+        errors+=batch.length;
+        if(!firstErrMsg)firstErrMsg=ur.error.message||String(ur.error);
+        console.warn('[VCB import]',ur.error);
+      }else saved+=batch.length;
+    }
+    if(errors&&!saved){
+      // Toàn bộ fail — thường do migration chưa chạy hoặc RLS chặn
+      var hint=firstErrMsg;
+      if(/relation.*does not exist/i.test(firstErrMsg))hint='⚠ Bảng <code>bank_reconcile</code> chưa được tạo. Chạy migration <code>2026-05-04_bank_reconcile.sql</code> trên Supabase trước.';
+      else if(/permission denied|row.level security/i.test(firstErrMsg))hint='⚠ Tài khoản hiện tại không có quyền insert. Đăng nhập admin và check RLS policy.';
+      if(status)status.innerHTML='<span style="color:var(--red);">Lỗi '+errors+'/'+rows.length+' dòng:</span><br>'+hint;
+      // Vẫn log thất bại
+      await sb2.from('bank_import_log').insert({file_name:fileName,file_size:fileSize,total_rows:0,ads_rows:0,verified_rows:0,status:'failed',error_message:firstErrMsg.substring(0,200),uploaded_by:authUser&&authUser.email||null});
+      if(btn){btn.disabled=false;btn.textContent='Nhập';}
+      return;
     }
     // Log import
     var dates=rows.map(function(r){return r.bank_date;}).sort();
