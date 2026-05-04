@@ -6309,7 +6309,11 @@ var emailVal=editingUR?esc(editingUR.email):'';
 var nameVal=editingUR?esc(editingUR.display_name||''):'';
 var roleVal=editingUR?editingUR.role:'accountant';
 h+='<div class="form-row"><div class="form-group"><label>Email</label><input type="email" id="ur-email" value="'+emailVal+'" placeholder="VD: linh.kt@hcagency.vn"'+(editingUR?' readonly style="background:var(--bg2);color:var(--tx3);"':'')+'></div><div class="form-group"><label>Tên hiển thị</label><input type="text" id="ur-name" value="'+nameVal+'" placeholder="VD: Ngọc Linh"></div></div>';
-h+='<div class="form-row"><div class="form-group"><label>Mật khẩu '+(editingUR?'mới (để trống = giữ nguyên)':'đăng nhập')+'</label><input type="text" id="ur-pass" placeholder="'+(editingUR?'Để trống nếu không đổi':'Tạo mật khẩu cho tài khoản này')+'" style="font-family:monospace;"></div><div class="form-group"><label>Vai trò</label><select id="ur-role"><option value="accountant"'+(roleVal==='accountant'?' selected':'')+'>Kế toán</option><option value="viewer"'+(roleVal==='viewer'?' selected':'')+'>Chỉ xem</option></select></div></div>';
+h+='<div class="form-row"><div class="form-group"><label>Mật khẩu '+(editingUR?'(chỉ áp dụng nếu user chưa có Auth account)':'đăng nhập')+'</label><input type="text" id="ur-pass" placeholder="'+(editingUR?'Để trống nếu không đổi':'Tạo mật khẩu cho tài khoản này')+'" style="font-family:monospace;"></div><div class="form-group"><label>Vai trò</label><select id="ur-role"><option value="accountant"'+(roleVal==='accountant'?' selected':'')+'>Kế toán</option><option value="viewer"'+(roleVal==='viewer'?' selected':'')+'>Chỉ xem</option></select></div></div>';
+if(editingUR){
+  h+='<div style="font-size:11px;color:var(--tx3);margin:4px 0 10px;background:var(--bg2);padding:8px 12px;border-radius:6px;border-left:3px solid var(--blue);">⚠ Supabase không cho admin đổi mật khẩu user khác từ trình duyệt. Để user quên/đổi mật khẩu, bấm nút bên dưới — Supabase sẽ gửi email link đặt lại password cho user đó.</div>';
+  h+='<div class="btn-row" style="margin-bottom:14px;"><button class="btn btn-ghost btn-sm" onclick="sendPasswordResetLink(this,\''+esc(editingUR.email)+'\')">📧 Gửi link đặt lại mật khẩu cho '+esc(editingUR.email)+'</button></div>';
+}
 h+='<div style="font-size:12px;font-weight:500;color:var(--tx2);margin:8px 0 6px;">Quyền truy cập</div>';
 h+='<div style="font-size:11px;color:var(--tx3);margin-bottom:10px;">Chọn quyền cho từng mục lớn (toàn quyền page) hoặc mục nhỏ (chỉ sub-tab cụ thể). Tick mục lớn = toàn quyền, tự bỏ tick các mục nhỏ.</div>';
 // Pre-checked set từ data đang edit
@@ -6363,6 +6367,18 @@ function editUserRole(id){
   setTimeout(function(){var el=document.getElementById('ur-form-card');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},50);
 }
 function cancelEditUserRole(){editingUserRoleId=null;render();}
+async function sendPasswordResetLink(btn,email){
+  if(!isAdmin())return;
+  if(!email){toast('Thiếu email',false);return;}
+  btn.disabled=true;var oldText=btn.textContent;btn.textContent='Đang gửi...';
+  try{
+    var{error}=await sb2.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin});
+    if(error)throw error;
+    toast('Đã gửi link đặt lại mật khẩu tới '+email+'. User check email và click link để đổi password.',true,{duration:6000});
+  }catch(e){
+    toast('Lỗi: '+(e.message||e),false);
+  }finally{btn.disabled=false;btn.textContent=oldText;}
+}
 
 // Tick parent → bỏ tick children (vì parent đã cover toàn bộ)
 function onPermParentChange(cb){
