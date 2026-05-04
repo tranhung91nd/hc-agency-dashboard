@@ -487,7 +487,7 @@ tr:hover .kh-num{background:var(--blue-bg);color:var(--blue-tx);}
 /* ═══ PUBLIC LEDGER MODE — khách xem Sổ rental qua URL ═══ */
 body.public-mode{background:var(--bg3);}
 body.public-mode .app{display:block;grid-template-columns:1fr;}
-body.public-mode .mobile-header,body.public-mode #sidebar,body.public-mode #overlay,body.public-mode .ai-fab{display:none !important;}
+body.public-mode .mobile-header,body.public-mode .rail,body.public-mode .subnav,body.public-mode .subnav-reopen,body.public-mode #overlay,body.public-mode .ai-fab{display:none !important;}
 body.public-mode .main{padding:0;}
 .public-container{max-width:1280px;margin:0 auto;padding:20px 24px 28px;}
 @media(max-width:640px){.public-container{padding:14px;}}

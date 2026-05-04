@@ -5269,8 +5269,9 @@ function renderPublicError(title,msg){
   return '<div class="public-error"><div class="public-error-icon" aria-hidden="true">⚠️</div><div class="public-error-title">'+esc(title)+'</div><div class="public-error-msg">'+esc(msg)+'</div></div>';
 }
 async function loadPublicLedger(){
-  var sb=document.getElementById('sidebar'),appEl=document.querySelector('.app');
-  if(sb)sb.style.display='none';
+  var rail=document.getElementById('rail'),subnav=document.getElementById('subnav'),appEl=document.getElementById('app');
+  if(rail)rail.style.display='none';
+  if(subnav)subnav.style.display='none';
   if(appEl)appEl.style.gridTemplateColumns='1fr';
   var page=document.getElementById('page');
   if(!clientList.length)page.innerHTML='<div style="padding:80px;text-align:center;color:var(--tx2);font-size:14px;">Đang tải Sổ rental...</div>';
@@ -5683,8 +5684,9 @@ function initPublicLeadFormMode(){
   return true;
 }
 function renderLeadFormPage(){
-  var sb=document.getElementById('sidebar'),appEl=document.querySelector('.app');
-  if(sb)sb.style.display='none';
+  var rail=document.getElementById('rail'),subnav=document.getElementById('subnav'),appEl=document.getElementById('app');
+  if(rail)rail.style.display='none';
+  if(subnav)subnav.style.display='none';
   if(appEl)appEl.style.gridTemplateColumns='1fr';
   var a=Math.floor(Math.random()*9)+1,b=Math.floor(Math.random()*9)+1;
   publicLeadFormCaptcha=a+b;
