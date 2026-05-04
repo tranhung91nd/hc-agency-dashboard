@@ -3787,7 +3787,7 @@ function p3ActiveReportContent(){
     h+='<td><div class="kh-name-cell"><span class="kh-name-text">'+esc(c.name)+'</span></div></td>';
     h+='<td>'+renderServicesBadges(c.services,{compact:true})+'</td>';
     h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(sp?'<span style="color:var(--teal);font-weight:500;">'+fm(sp)+'</span>':'<span style="color:var(--tx3);">—</span>')+'</td>';
-    h+='<td style="text-align:center;"><button class="kh-open-btn'+(isExp?' is-active':'')+'" onclick="toggleReportClient(\''+c.id+'\')">'+(isExp?'Thu gọn':'Xem báo cáo')+'</button></td>';
+    h+='<td style="text-align:center;white-space:nowrap;"><button class="kh-open-btn'+(isExp?' is-active':'')+'" onclick="toggleReportClient(\''+c.id+'\')">'+(isExp?'Thu gọn':'Xem báo cáo')+'</button> <button class="btn btn-ghost btn-sm" onclick="copyClientReportLink(\''+c.id+'\',this)" title="Lấy link cho khách xem">📋</button></td>';
     h+='</tr>';
     if(isExp){
       h+='<tr><td colspan="5" style="padding:0;background:var(--bg2);">'+renderClientReportInline(c.id,ms)+'</td></tr>';
@@ -4971,6 +4971,164 @@ function renderPublicLedgerPage(){
   startPublicLedgerPoll();
 }
 
+// ═══ PUBLIC REPORT MODE — khách xem báo cáo Ads daily qua URL ═══
+// URL: ?report=<client_id>&token=<share_token>
+var publicReportMode=false,publicReportClientId=null,publicReportToken=null,publicReportMonth=null,publicReportPollTimer=null;
+function initPublicReportMode(){
+  var p=new URLSearchParams(window.location.search);
+  var rid=p.get('report'),tok=p.get('token');
+  if(!rid||!tok)return false;
+  publicReportMode=true;publicReportClientId=rid;publicReportToken=tok;
+  document.body.classList.add('public-mode');
+  return true;
+}
+async function loadPublicReport(){
+  var rail=document.getElementById('rail'),subnav=document.getElementById('subnav'),appEl=document.getElementById('app');
+  if(rail)rail.style.display='none';
+  if(subnav)subnav.style.display='none';
+  if(appEl)appEl.style.gridTemplateColumns='1fr';
+  var page=document.getElementById('page');
+  page.innerHTML='<div style="padding:80px;text-align:center;color:var(--tx2);font-size:14px;">Đang tải báo cáo...</div>';
+  try{
+    var r=await sb2.rpc('get_public_client_report',{p_client_id:publicReportClientId,p_token:publicReportToken});
+    if(r.error){
+      var msg=String(r.error.message||r.error);
+      if(/Invalid token|client not found/i.test(msg)){
+        page.innerHTML=renderPublicError('Link không hợp lệ','Token không khớp hoặc đã thu hồi. Liên hệ HC Agency để lấy link mới.');
+        return;
+      }
+      if(/function .* does not exist/i.test(msg)||/Could not find the function/i.test(msg)){
+        page.innerHTML=renderPublicError('Hệ thống cần migration','Admin chưa chạy file SQL get_public_client_report. Báo HC Agency.');
+        return;
+      }
+      page.innerHTML=renderPublicError('Không tải được dữ liệu',msg);
+      return;
+    }
+    var d=r.data||{};
+    if(!d.client){page.innerHTML=renderPublicError('Link không hợp lệ','Khách hàng không tồn tại.');return;}
+    clientList=[d.client];
+    adList=d.ad_accounts||[];
+    assignData=d.assignments||[];
+    rebuildAssignIndex();
+    dailyData=d.daily_spend||[];
+    campaignMessData=d.campaign_mess||[];
+    if(!publicReportMonth)publicReportMonth=lm()||gm();
+    renderPublicReportPage();
+    startPublicReportPoll();
+  }catch(e){page.innerHTML=renderPublicError('Lỗi tải dữ liệu',e.message);}
+}
+async function reloadPublicReport(btn){
+  var oldText=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Đang tải...';}
+  try{await loadPublicReport();}
+  finally{if(btn){btn.disabled=false;btn.textContent=oldText||'🔄 Tải lại';}}
+}
+function startPublicReportPoll(){
+  if(publicReportPollTimer)clearInterval(publicReportPollTimer);
+  publicReportPollTimer=setInterval(function(){if(document.visibilityState==='visible')loadPublicReport();},120000);
+}
+function renderPublicReportPage(){
+  var c=clientList[0];if(!c)return;
+  var ms=publicReportMonth||lm()||gm();
+  // List tháng từ daily_spend
+  var allMonths=new Set();
+  dailyData.forEach(function(d){if(d.report_date)allMonths.add(d.report_date.substring(0,7));});
+  if(!allMonths.size)allMonths.add(ms);
+  var monthList=Array.from(allMonths).sort().reverse();
+  var mn=parseInt(ms.split('-')[1]),year=parseInt(ms.split('-')[0]);
+  var dim=new Date(year,mn,0).getDate();
+  // Build data theo ngày
+  var data={};
+  for(var d=1;d<=dim;d++){
+    var ds=year+'-'+(mn<10?'0'+mn:mn)+'-'+(d<10?'0'+d:d);
+    data[ds]={spend:0,mess:0,cmt:0};
+  }
+  dailyData.filter(function(x){return x.report_date&&x.report_date.substring(0,7)===ms;}).forEach(function(x){
+    if(data[x.report_date])data[x.report_date].spend+=x.spend_amount||0;
+  });
+  campaignMessData.filter(function(x){return x.report_date&&x.report_date.substring(0,7)===ms;}).forEach(function(x){
+    if(data[x.report_date]){data[x.report_date].mess+=x.mess_count||0;data[x.report_date].cmt+=x.lead_count||0;}
+  });
+  var totalSpend=0,totalMess=0,totalCmt=0;
+  Object.keys(data).forEach(function(k){totalSpend+=data[k].spend;totalMess+=data[k].mess;totalCmt+=data[k].cmt;});
+  var totalResult=totalMess+totalCmt;
+  var totalCostPer=totalResult?Math.round(totalSpend/totalResult):0;
+  var today=td();
+  var hasMess=campaignMessData.length>0;
+  var h='<div class="public-wrap" style="max-width:980px;margin:0 auto;padding:24px 16px 60px;">';
+  h+='<div class="public-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--bd1);">';
+  h+='<div><div style="font-size:22px;font-weight:700;color:var(--tx1);">📊 Báo cáo chi phí Ads</div><div style="font-size:14px;color:var(--tx2);margin-top:4px;">'+esc(c.name)+(c.company_full_name?' · '+esc(c.company_full_name):'')+'</div></div>';
+  h+='<div style="text-align:right;"><div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;">Cung cấp bởi</div><div style="font-size:14px;font-weight:600;color:var(--blue-tx);">HC Agency</div></div>';
+  h+='</div>';
+  // Toolbar
+  h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;"><span style="font-size:12px;color:var(--tx3);">Kỳ báo cáo:</span><select class="fi" style="width:140px;" onchange="publicReportMonth=this.value;renderPublicReportPage();">';
+  monthList.forEach(function(m){h+='<option value="'+m+'"'+(m===ms?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
+  h+='</select>';
+  h+='<button class="btn btn-sm btn-ghost" onclick="reloadPublicReport(this)" title="Tải dữ liệu mới nhất">🔄 Tải lại</button>';
+  h+='</div>';
+  if(!hasMess)h+='<div style="background:var(--amber-bg);color:var(--amber-tx);padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:12px;">⚠ Chưa có data Mess/Cmt — sẽ hiển thị khi HC Agency cập nhật.</div>';
+  // KPI tổng
+  h+='<div class="kpi-grid kpi-4" style="margin-bottom:18px;">';
+  h+='<div class="kpi"><div class="kpi-label">Tổng chi phí</div><div class="kpi-value" style="color:var(--teal);">'+(totalSpend?fmtVndPlain(totalSpend)+' đ':'—')+'</div></div>';
+  h+='<div class="kpi"><div class="kpi-label">Tổng Mess</div><div class="kpi-value">'+totalMess+'</div></div>';
+  h+='<div class="kpi"><div class="kpi-label">Tổng Cmt</div><div class="kpi-value">'+totalCmt+'</div></div>';
+  h+='<div class="kpi"><div class="kpi-label">Giá kết quả TB</div><div class="kpi-value" style="color:var(--blue-tx);">'+(totalResult?fmtVndPlain(totalCostPer)+' đ':'—')+'</div></div>';
+  h+='</div>';
+  // Bảng daily
+  h+='<div class="table-wrap" style="background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius);"><table style="font-size:13px;"><thead>';
+  h+='<tr><th style="text-align:center;">NGÀY</th><th style="text-align:right;">CHI PHÍ ADS</th><th style="text-align:center;">Số Mess</th><th style="text-align:center;">Số Cmt</th><th style="text-align:right;">Giá kết quả</th></tr>';
+  h+='</thead><tbody>';
+  h+='<tr style="background:var(--bg2);font-weight:600;color:var(--red);">';
+  h+='<td style="text-align:center;">Tổng</td>';
+  h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(totalSpend?fmtVndPlain(totalSpend)+' đ':'—')+'</td>';
+  h+='<td style="text-align:center;">'+totalMess+'</td>';
+  h+='<td style="text-align:center;">'+totalCmt+'</td>';
+  h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(totalResult?fmtVndPlain(totalCostPer)+' đ':'—')+'</td>';
+  h+='</tr>';
+  Object.keys(data).sort().forEach(function(date){
+    var x=data[date];
+    var result=x.mess+x.cmt;
+    var costPer=result?Math.round(x.spend/result):0;
+    var dp=date.split('-');
+    var dayLabel=dp[2]+'/'+dp[1]+'/'+dp[0];
+    var isFuture=date>today;
+    h+='<tr style="'+(isFuture?'opacity:.4;':'')+'">';
+    h+='<td style="text-align:center;">'+dayLabel+'</td>';
+    h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(x.spend?fmtVndPlain(x.spend)+' đ':'<span style="color:var(--tx3);">—</span>')+'</td>';
+    h+='<td style="text-align:center;">'+(x.mess||'<span style="color:var(--tx3);">—</span>')+'</td>';
+    h+='<td style="text-align:center;">'+(x.cmt||'<span style="color:var(--tx3);">—</span>')+'</td>';
+    h+='<td style="text-align:right;font-variant-numeric:tabular-nums;">'+(result?fmtVndPlain(costPer)+' đ':'<span style="color:var(--tx3);">—</span>')+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  h+='<div style="margin-top:24px;text-align:center;font-size:11px;color:var(--tx3);">Báo cáo tự động sync từ Meta Ads API · Cập nhật mỗi 2 phút khi mở trang · © HC Agency</div>';
+  h+='</div>';
+  document.getElementById('page').innerHTML=h;
+}
+// Copy URL public report cho khách
+async function copyClientReportLink(clientId,btn){
+  if(!needAuth())return;
+  var c=clientList.find(function(x){return x.id===clientId;});if(!c)return;
+  var token=c.share_token;
+  var oldText=btn?btn.textContent:'';
+  if(!token){
+    if(btn){btn.disabled=true;btn.textContent='Đang tạo link...';}
+    token=genShareToken();
+    var r=await sb2.from('client').update({share_token:token}).eq('id',clientId);
+    if(btn){btn.disabled=false;btn.textContent=oldText||'📋 Lấy link';}
+    if(r.error){
+      if(isMissingColumnError(r.error))toast('Thiếu cột share_token. Chạy migration 2026-04-27_add_share_token.sql trước.',false);
+      else toast('Lỗi: '+r.error.message,false);
+      return;
+    }
+    c.share_token=token;
+  }
+  var origin=window.location.origin,path=window.location.pathname.replace(/[^\/]*$/,'')+'index.html';
+  var url=origin+path+'?report='+clientId+'&token='+token;
+  try{await navigator.clipboard.writeText(url);toast('Đã sao chép link · gửi cho khách qua Zalo',true);}
+  catch(e){window.prompt('Sao chép link sau (Ctrl+C):',url);}
+}
+
 // ═══ PHASE 1.1 CRM: PUBLIC LEAD FORM — NỘI DUNG CÓ THỂ SỬA TẠI ĐÂY ═══
 var LEAD_COPY = {
   // ── HERO ──────────────────────────────────────────────────────────────
@@ -6133,6 +6291,11 @@ async function init(){try{
   // Public ledger mode — khách rental xem qua URL ?ledger=<id>&token=<x>
   if(initPublicLedgerMode()){
     await loadPublicLedger();
+    return;
+  }
+  // Public report mode — khách xem báo cáo Ads daily qua URL ?report=<id>&token=<x>
+  if(initPublicReportMode()){
+    await loadPublicReport();
     return;
   }
   await checkAuth();
