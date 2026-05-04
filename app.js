@@ -2032,7 +2032,7 @@ function p4DoiSoat(){
   monthList.forEach(function(m){h+='<option value="'+m+'"'+(m===ms?' selected':'')+'>T'+parseInt(m.split("-")[1])+"/"+m.split("-")[0]+"</option>";});
   h+='</select>';
   if(authUser){
-    h+='<button class="btn btn-primary btn-sm" onclick="openVcbImportModal()">📥 Import sao kê VCB</button>';
+    h+='<button class="btn btn-primary btn-sm" onclick="openVcbImportModal()">📥 Nhập sao kê</button>';
   }
   h+='</div>';
   // KPI
@@ -2046,7 +2046,7 @@ function p4DoiSoat(){
     h+='<div class="empty-state" role="status">';
     h+='<div class="empty-state-icon" aria-hidden="true">🏦</div>';
     h+='<div class="empty-state-title">Chưa có giao dịch đối soát trong tháng này</div>';
-    h+='<div class="empty-state-desc">Bấm "Import sao kê VCB" để upload file sao kê (.xlsx) từ Vietcombank. Hệ thống sẽ tự lọc các giao dịch trừ tiền Meta Ads + Tích xanh.</div>';
+    h+='<div class="empty-state-desc">Bấm "Nhập sao kê" để upload file sao kê (.xlsx) từ Vietcombank. Hệ thống sẽ tự lọc các giao dịch trừ tiền Meta Ads + Tích xanh.</div>';
     h+='</div>';
     return h;
   }
@@ -2133,15 +2133,16 @@ async function saveReconcileEntry(id,field,value){
 function openVcbImportModal(){
   var root=document.getElementById('hc-modal-root')||(function(){var d=document.createElement('div');d.id='hc-modal-root';document.body.appendChild(d);return d;})();
   var ex=document.getElementById('vcb-import-modal');if(ex)ex.remove();
-  var modal=document.createElement('div');modal.id='vcb-import-modal';modal.className='modal-overlay show';
+  var modal=document.createElement('div');modal.id='vcb-import-modal';modal.className='hc-modal-backdrop';
+  modal.setAttribute('onclick','if(event.target===this)closeVcbImportModal()');
   modal.innerHTML=
-    '<div class="modal-card" style="max-width:560px;">'
-    +'<div class="modal-head"><h3>Import sao kê VCB</h3><button class="modal-close" onclick="closeVcbImportModal()" aria-label="Đóng">×</button></div>'
-    +'<div class="modal-body" style="padding:20px;">'
+    '<div class="hc-modal" style="max-width:560px;">'
+    +'<div class="hc-modal-head"><h3>Nhập sao kê VCB</h3><button class="hc-modal-close" onclick="closeVcbImportModal()" aria-label="Đóng">×</button></div>'
+    +'<div class="hc-modal-body">'
     +'<p style="font-size:13px;color:var(--tx2);margin-bottom:14px;">Chọn file <code>.xlsx</code> sao kê VCB (định dạng "Lịch sử giao dịch tài khoản"). Hệ thống sẽ tự lọc các giao dịch trừ tiền Meta Ads + Tích xanh, bỏ qua giao dịch khác.</p>'
     +'<input type="file" id="vcb-import-file" accept=".xlsx" style="font-size:13px;width:100%;padding:8px;border:1px dashed var(--bd2);border-radius:6px;background:var(--bg2);">'
     +'<div id="vcb-import-status" style="margin-top:12px;font-size:12px;color:var(--tx3);"></div>'
-    +'<div class="btn-row" style="margin-top:18px;"><button class="btn btn-ghost" onclick="closeVcbImportModal()">Hủy</button><button class="btn btn-primary" onclick="runVcbImport(this)">Import</button></div>'
+    +'<div class="btn-row" style="margin-top:18px;"><button class="btn btn-ghost" onclick="closeVcbImportModal()">Hủy</button><button class="btn btn-primary" onclick="runVcbImport(this)">Nhập</button></div>'
     +'</div></div>';
   root.appendChild(modal);
 }
@@ -2208,7 +2209,7 @@ async function runVcbImport(btn){
       // Vẫn log để admin biết đã upload nhưng không có data Meta
       await sb2.from('bank_import_log').insert({file_name:fileName,file_size:fileSize,total_rows:0,ads_rows:0,verified_rows:0,status:'partial',error_message:'Không có giao dịch Meta nào trong file',uploaded_by:authUser&&authUser.email||null});
       if(status)status.innerHTML='<span style="color:var(--amber);">Không tìm thấy giao dịch Meta nào trong file.</span>';
-      if(btn){btn.disabled=false;btn.textContent='Import';}
+      if(btn){btn.disabled=false;btn.textContent='Nhập';}
       return;
     }
     if(status)status.textContent='Tìm thấy '+rows.length+' giao dịch Meta, đang lưu...';
@@ -2244,7 +2245,7 @@ async function runVcbImport(btn){
     setTimeout(function(){closeVcbImportModal();render();},1500);
   }catch(e){
     if(status)status.innerHTML='<span style="color:var(--red);">Lỗi: '+esc(e.message)+'</span>';
-    if(btn){btn.disabled=false;btn.textContent='Import';}
+    if(btn){btn.disabled=false;btn.textContent='Nhập';}
   }
 }
 
