@@ -1997,6 +1997,7 @@ document.head.appendChild(s);});}
 
 // ═══ ĐỐI SOÁT VCB ═══
 var BANK_TOLERANCE_PCT=1.1; // chênh ≤ 1.1% (phí NH + phí thẻ) coi là khớp
+var VCB_MIN_FEE=9900; // phí thu tối thiểu của VCB; khi giao dịch nhỏ thì phí cố định = 9.900đ
 function categorizeBankRow(desc){
   var d=String(desc||'');
   if(/\*MV4B\b/i.test(d))return 'meta_verified';
@@ -2011,8 +2012,9 @@ function reconcileStatus(row){
   if(row.meta_amount==null||row.meta_amount==='')return{label:'Chưa đối soát',cls:'b-gray',diff:null};
   var bank=Number(row.bank_amount)||0,meta=Number(row.meta_amount)||0;
   if(bank===0)return{label:'Chưa đối soát',cls:'b-gray',diff:null};
-  var diffPct=Math.abs(bank-meta)/bank*100;
-  if(diffPct<=BANK_TOLERANCE_PCT)return{label:'Đã khớp',cls:'b-green',diff:diffPct};
+  var absDiff=Math.abs(bank-meta);
+  var diffPct=absDiff/bank*100;
+  if(diffPct<=BANK_TOLERANCE_PCT||absDiff<=VCB_MIN_FEE)return{label:'Đã khớp',cls:'b-green',diff:diffPct};
   return{label:'Sai lệch',cls:'b-red',diff:diffPct};
 }
 function p4DoiSoat(){
