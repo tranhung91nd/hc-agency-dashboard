@@ -374,7 +374,11 @@ function buildRentalMatrix(clientId,month){
     if(ag.end_date&&ag.end_date<firstDay)return;           // assignment kết thúc trước tháng
     if(accMap[ag.ad_account_id])return;
     var acc=adList.find(function(x){return x.id===ag.ad_account_id;});
-    if(acc)accMap[acc.id]={id:acc.id,name:acc.account_name||acc.fb_account_id||acc.id,daily:new Array(daysInMonth).fill(0)};
+    if(acc){
+      // Ưu tiên snapshot tên TKQC tại thời điểm assignment (giữ tên cũ trong báo cáo lịch sử). Fallback về tên hiện tại nếu chưa có snapshot.
+      var nm=ag.account_name_snapshot||acc.account_name||acc.fb_account_id||acc.id;
+      accMap[acc.id]={id:acc.id,name:nm,daily:new Array(daysInMonth).fill(0)};
+    }
   });
   // Fallback: TKQC gán cứng client_id nhưng chưa có assignment nào
   adList.forEach(function(a){
@@ -2848,7 +2852,7 @@ var r=await sb2.from('ad_account').insert(ins).select('id').single();
 btn.disabled=false;
 if(r.error){toast('Lỗi: '+r.error.message,false);return;}
 if(staffId&&r.data){
-await sb2.from('assignment').insert({ad_account_id:r.data.id,staff_id:staffId,client_id:clientId,start_date:td(),end_date:null});}
+await _insertAssignment(_assignSnapshot(r.data.id,{ad_account_id:r.data.id,staff_id:staffId,client_id:clientId,start_date:td(),end_date:null}));}
 toast('Đã thêm Tài khoản: '+name,true);
 document.getElementById('new-tk-name').value='';document.getElementById('new-tk-fbid').value='';
 toggleAddTk();await loadAll();stayPage();}async function quickAssignStaff(adId,staffId){
@@ -2860,7 +2864,7 @@ var r=await sb2.from('assignment').update({staff_id:staffId}).eq('id',existing.i
 if(!r.error){toast('Đã cập nhật Nhân sự',true);await loadAll();stayPage();}else toast('Lỗi',false);
 }else{
 var ad=adList.find(function(a){return a.id===adId;});
-var r2=await sb2.from('assignment').insert({ad_account_id:adId,staff_id:staffId,client_id:ad?ad.client_id:null,start_date:adViewDate,end_date:null});
+var r2=await _insertAssignment(_assignSnapshot(adId,{ad_account_id:adId,staff_id:staffId,client_id:ad?ad.client_id:null,start_date:adViewDate,end_date:null}));
 if(!r2.error){toast('Đã gán Nhân sự',true);await loadAll();stayPage();}else toast('Lỗi: '+r2.error.message,false);}}
 async function quickAssignClient(adId,clientId){
 if(!needAuth())return;
@@ -2870,7 +2874,7 @@ if(existing){
 var r=await sb2.from('assignment').update({client_id:clientId}).eq('id',existing.id);
 if(!r.error){toast('Đã cập nhật Khách hàng',true);await loadAll();stayPage();}else toast('Lỗi',false);
 }else{
-var r2=await sb2.from('assignment').insert({ad_account_id:adId,staff_id:null,client_id:clientId,start_date:adViewDate,end_date:null});
+var r2=await _insertAssignment(_assignSnapshot(adId,{ad_account_id:adId,staff_id:null,client_id:clientId,start_date:adViewDate,end_date:null}));
 if(!r2.error){toast('Đã gán Khách hàng',true);await loadAll();stayPage();}else toast('Lỗi: '+r2.error.message,false);}
 // Also update ad_account.client_id
 await sb2.from('ad_account').update({client_id:clientId}).eq('id',adId);}
@@ -2897,6 +2901,17 @@ var r=await sb2.from('ad_account').update({max_lead_cost:val||null}).eq('id',adI
 if(!r.error){toast('Đã lưu giá form tối đa: '+ff(val),true);await loadAll();if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}
 else toast('Lỗi: '+r.error.message,false);}
 async function deleteCheckedAd(){if(!needAuth())return;var checks=document.querySelectorAll('.ad-check:checked');if(!checks.length){toast('Vui lòng chọn ít nhất một tài khoản quảng cáo.',false);return;}if(!confirm('Xóa '+checks.length+' tài khoản?'))return;var c=0;for(var i=0;i<checks.length;i++){var r=await sb2.from('ad_account').delete().eq('id',checks[i].value);if(!r.error)c++;}toast('Đã xóa '+c+' Tài khoản!',true);await loadAll();stayPage();}
+// Helper: gắn snapshot tên TKQC tại thời điểm tạo assignment (giữ tên cũ trong báo cáo lịch sử dù admin đổi tên TKQC sau này)
+function _assignSnapshot(adId,payload){var acc=adList.find(function(x){return x.id===adId;});payload.account_name_snapshot=acc?(acc.account_name||null):null;return payload;}
+// Helper: insert assignment, fallback bỏ account_name_snapshot nếu DB chưa chạy migration
+async function _insertAssignment(payload){
+  var r=await sb2.from('assignment').insert(payload);
+  if(r.error&&isMissingColumnError(r.error)&&'account_name_snapshot' in payload){
+    var fb=Object.assign({},payload);delete fb.account_name_snapshot;
+    r=await sb2.from('assignment').insert(fb);
+  }
+  return r;
+}
 async function addAssignment(adId){
 if(!needAuth())return;
 var staffId=prompt('Nhân sự (chọn số):\n'+staffList.map(function(s,i){return(i+1)+'. '+s.short_name;}).join('\n'));
@@ -2905,7 +2920,7 @@ var clientId=prompt('Khách hàng (chọn số):\n'+clientList.map(function(c,i)
 if(!clientId)return;var ci=clientList[parseInt(clientId)-1];if(!ci){toast('Số không hợp lệ',false);return;}
 var sd=prompt('Từ ngày (YYYY-MM-DD):',td());if(!sd)return;
 var ed=prompt('Đến ngày (YYYY-MM-DD, bỏ trống = đang chạy):','');
-var r=await sb2.from('assignment').insert({ad_account_id:adId,staff_id:si.id,client_id:ci.id,start_date:sd,end_date:ed||null});
+var r=await _insertAssignment(_assignSnapshot(adId,{ad_account_id:adId,staff_id:si.id,client_id:ci.id,start_date:sd,end_date:ed||null}));
 if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã thêm phân công',true);await loadAll();stayPage();}}
 async function updateAssignDate(id,field,val){
 if(!needAuth())return;
