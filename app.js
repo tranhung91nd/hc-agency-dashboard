@@ -5088,9 +5088,22 @@ function renderClientEditModal(){
   }
   h+='</div>';
   h+='</div>';
-  h+='<div class="hc-modal-foot"><button class="btn" onclick="closeClientEditModal()">Hủy</button><button class="btn btn-primary" onclick="saveClientEditModal(this)">Lưu</button></div>';
+  h+='<div class="hc-modal-foot"><button class="btn btn-red btn-ghost" style="margin-right:auto;color:var(--red);border-color:var(--red);background:transparent;" onclick="deleteClientFromEditModal()">Xoá khách hàng</button><button class="btn" onclick="closeClientEditModal()">Hủy</button><button class="btn btn-primary" onclick="saveClientEditModal(this)">Lưu</button></div>';
   h+='</div></div>';
   return h;
+}
+async function deleteClientFromEditModal(){
+  if(!needAuth())return;
+  if(!clientEditModalId)return;
+  var c=clientList.find(function(x){return x.id===clientEditModalId;});
+  if(!c)return;
+  var msg='Xoá vĩnh viễn "'+c.name+'"? Hành động không thể hoàn tác. Nếu khách đã có dữ liệu liên quan (phân công, spend, hợp đồng, giao dịch…), DB có thể chặn xoá — khi đó hãy đổi trạng thái sang "Dừng" thay vì xoá.';
+  if(!(await hcConfirm({title:'Xoá khách hàng',message:msg,confirmLabel:'Xoá vĩnh viễn',danger:true})))return;
+  var r=await sb2.from('client').delete().eq('id',clientEditModalId);
+  if(r.error){toast('Không xoá được: '+r.error.message,false);return;}
+  toast('Đã xoá khách hàng',true);
+  clientEditModalId=null;
+  await loadLight();
 }
 async function saveClientEditModal(btn){
   if(!needAuth())return;
