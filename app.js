@@ -1,12 +1,25 @@
 // ⚠ WARNING: SB_KEY (anon) is designed to be public but should be paired with RLS policies.
-// ⚠ META_TOKEN is a SECRET — move to a backend proxy (e.g. Supabase Edge Function) to avoid exposure.
 var SB_URL='https://eqsnohwymgmdvbqwflas.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxc25vaHd5bWdtZHZicXdmbGFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzU1NzUsImV4cCI6MjA5MTIxMTU3NX0.0cv-j9zJUfVAj9LBG8VFHNO0Jke4JjehBKSzDVd1nA0';
 var sb2=supabase.createClient(SB_URL,SB_KEY);
-// TODO: Move META_TOKEN to server-side (Supabase Edge Function / backend API) — currently exposed in client HTML
-// Token được load từ Supabase app_settings — không hardcode trong HTML
-var META_TOKEN='';
+// Meta access token KHÔNG còn ở client. Tất cả call Meta API đi qua /api/meta proxy
+// (xem helper metaGet/metaPost/metaBatch bên dưới). Token thật ở Vercel env.
 var META_BUSINESS_ID='';
 var META_GLOBAL_SCOPE_ID='';
+// ═══ META API PROXY HELPERS ═══
+async function _metaProxyAuthHeader(){var s=await sb2.auth.getSession();var t=s&&s.data&&s.data.session&&s.data.session.access_token;return t?'Bearer '+t:'';}
+async function metaApiCall(payload){
+  var auth=await _metaProxyAuthHeader();
+  if(!auth)return{error:{message:'Chưa đăng nhập'}};
+  try{
+    var resp=await fetch('/api/meta',{method:'POST',headers:{'Content-Type':'application/json',Authorization:auth},body:JSON.stringify(payload)});
+    var data;try{data=await resp.json();}catch(e){data={error:{message:'Phản hồi proxy không phải JSON (HTTP '+resp.status+')'}};}
+    if(!resp.ok&&data&&!data.error)data={error:{message:'HTTP '+resp.status}};
+    return data;
+  }catch(e){return{error:{message:'Lỗi mạng: '+(e.message||e)}};}
+}
+async function metaGet(path){return await metaApiCall({op:'get',path:path});}
+async function metaPost(path){return await metaApiCall({op:'post',path:path});}
+async function metaBatch(batchReqs){return await metaApiCall({op:'batch',batch:batchReqs});}
 var CL={purple:{c:'var(--purple)',bg:'var(--purple-bg)',tx:'var(--purple-tx)'},teal:{c:'var(--teal)',bg:'var(--teal-bg)',tx:'var(--teal-tx)'},coral:{c:'var(--coral)',bg:'var(--coral-bg)',tx:'var(--coral-tx)'},pink:{c:'var(--pink)',bg:'var(--pink-bg)',tx:'var(--pink-tx)'},blue:{c:'var(--blue)',bg:'var(--blue-bg)',tx:'var(--blue-tx)'},green:{c:'var(--green)',bg:'var(--green-bg)',tx:'var(--green-tx)'},amber:{c:'var(--amber)',bg:'var(--amber-bg)',tx:'var(--amber-tx)'}};
 function sc(c){return CL[c]||CL.blue;}
 // ═══ SERVICES CATALOG (dịch vụ HC Agency cung cấp) ═══
@@ -2345,10 +2358,8 @@ el.innerHTML='<div style="padding:12px;color:var(--tx3);font-size:12px;">Đang g
 try{
 var needed=['ads_read','ads_management','business_management'];
 var billingNeeded=['ads_read'];
-var r1=await fetch('https://graph.facebook.com/v25.0/me/permissions?access_token='+META_TOKEN);
-var d1=await r1.json();
-var r2=await fetch('https://graph.facebook.com/v25.0/debug_token?input_token='+META_TOKEN+'&access_token='+META_TOKEN);
-var d2=await r2.json();
+var d1=await metaGet('me/permissions');
+var d2=await metaGet('debug_token');
 var h='<div style="margin-top:14px;padding:16px;border:1px solid var(--bd1);border-radius:var(--radius-lg);background:var(--bg1);font-size:12px;">';
 h+='<div style="font-weight:600;font-size:13px;margin-bottom:10px;">Kết quả kiểm tra Meta Token</div>';
 if(d2.data){
@@ -2380,8 +2391,7 @@ var testAcc=adList.find(function(a){return a.fb_account_id;});
 if(testAcc){
 h+='<div style="font-weight:500;margin-bottom:6px;">Test gọi /transactions:</div>';
 try{
-var tr=await fetch('https://graph.facebook.com/v25.0/'+testAcc.fb_account_id+'/transactions?fields=id,time,billing_amount,fatura_id&limit=3&access_token='+META_TOKEN);
-var td3=await tr.json();
+var td3=await metaGet(testAcc.fb_account_id+'/transactions?fields=id,time,billing_amount,fatura_id&limit=3');
 if(td3.error){h+='<div style="padding:8px 12px;border-radius:8px;background:var(--red-bg);color:var(--red-tx);font-size:11px;"><strong>Lỗi:</strong> '+esc(td3.error.message)+'<br><strong>Code:</strong> '+td3.error.code+' / Subcode: '+(td3.error.error_subcode||'—')+'</div>';}
 else if(td3.data){h+='<div style="padding:8px 12px;border-radius:8px;background:var(--green-bg);color:var(--green-tx);font-size:11px;"><strong>Thành công!</strong> Trả về '+td3.data.length+' giao dịch từ Tài khoản '+esc(testAcc.account_name)+'</div>';
 if(td3.data.length)h+='<pre style="margin-top:6px;font-size:10px;background:var(--bg3);padding:8px;border-radius:6px;overflow-x:auto;max-height:120px;">'+esc(JSON.stringify(td3.data[0],null,2))+'</pre>';}
@@ -2420,7 +2430,7 @@ return'<div style="display:flex;align-items:center;justify-content:center;min-he
 +'<div style="text-align:center;margin-top:16px;font-size:11px;color:var(--tx3);">HC Agency &copy; 2026</div>'
 +'</div></div>';}
 async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){var firstPage=typeof userAllowedPages[0]==='string'?parseInt(userAllowedPages[0]):userAllowedPages[0];curPage=firstPage;}else{curPage=0;}toast('Đăng nhập thành công! ('+userRole+')',true);autoSync();render();}}
-async function doLogout(){await sb2.auth.signOut();authUser=null;userRole='guest';userAllowedPages=null;META_TOKEN='';curPage=0;toast('Đã đăng xuất',true);render();}
+async function doLogout(){await sb2.auth.signOut();authUser=null;userRole='guest';userAllowedPages=null;curPage=0;toast('Đã đăng xuất',true);render();}
 async function checkAuth(){var{data}=await sb2.auth.getSession();if(data.session){authUser=data.session.user;await loadUserRole();}}
 async function loadUserRole(){
 if(!authUser){userRole='guest';userAllowedPages=null;return;}
@@ -2508,7 +2518,6 @@ var{data,error}=await sb2.from('app_settings').select('key,value');
 if(error){console.warn('[app_settings]',String(error.message||error));return;}
 if(!data)return;
 data.forEach(function(r){
-if(r.key==='META_TOKEN'&&r.value)META_TOKEN=r.value;
 if(r.key==='META_BUSINESS_ID'&&r.value)META_BUSINESS_ID=r.value;
 if(r.key==='META_GLOBAL_SCOPE_ID'&&r.value)META_GLOBAL_SCOPE_ID=r.value;
 });
@@ -2906,7 +2915,6 @@ async function editAdAccountName(adId){
   if(!needAuth())return;
   var a=adList.find(function(x){return x.id===adId;});if(!a)return;
   if(!a.fb_account_id){toast('TKQC chưa ghép Meta — không đổi được tên qua API. Hãy ghép FB Account ID trước.',false);return;}
-  if(!META_TOKEN){toast('Chưa có Meta token. Vào Admin → Cài đặt Meta để nhập.',false);return;}
   var newName=prompt('Đổi tên TKQC trên Meta:\nTên hiện tại: '+(a.account_name||'')+'\n\nNhập tên mới:',a.account_name||'');
   if(newName===null)return;
   newName=(newName||'').trim();
@@ -2914,8 +2922,7 @@ async function editAdAccountName(adId){
   if(newName===a.account_name)return;
   if(!confirm('Đổi tên TKQC trên Meta thành "'+newName+'"?\n→ Tên Ads Manager đổi theo, mọi nơi dùng Meta API sẽ thấy tên mới.\n→ Báo cáo lịch sử của khách cũ vẫn giữ tên cũ qua snapshot assignment.'))return;
   try{
-    var resp=await fetch('https://graph.facebook.com/v25.0/'+a.fb_account_id+'?name='+encodeURIComponent(newName)+'&access_token='+META_TOKEN,{method:'POST'});
-    var data=await resp.json();
+    var data=await metaPost(a.fb_account_id+'?name='+encodeURIComponent(newName));
     if(data.error){toast('Meta lỗi: '+data.error.message,false);return;}
     if(data.success===false){toast('Meta không xác nhận thành công',false);return;}
     var r=await sb2.from('ad_account').update({account_name:newName}).eq('id',adId);
@@ -2929,7 +2936,6 @@ async function editSpendCap(adId){
   if(!needAuth())return;
   var a=adList.find(function(x){return x.id===adId;});if(!a)return;
   if(!a.fb_account_id){toast('TKQC chưa ghép Meta — không đổi được ngưỡng qua API.',false);return;}
-  if(!META_TOKEN){toast('Chưa có Meta token. Vào Admin → Cài đặt Meta.',false);return;}
   var cur=a.spend_cap||0,spent=a.amount_spent||0;
   var v=prompt('Đổi ngưỡng chi tiêu (spend_cap) trên Meta\nTKQC: '+(a.account_name||'')+'\nĐã chi: '+ff(spent)+' đ\nNgưỡng hiện tại: '+(cur?ff(cur)+' đ':'Không giới hạn')+'\n\nNhập ngưỡng mới (VNĐ, để trống = bỏ giới hạn):',cur||'');
   if(v===null)return;
@@ -2939,8 +2945,7 @@ async function editSpendCap(adId){
   if(newCap>0&&newCap<spent){toast('Ngưỡng mới ('+ff(newCap)+') không được nhỏ hơn đã chi ('+ff(spent)+'). Meta sẽ reject.',false);return;}
   if(!confirm('Đổi spend_cap trên Meta = '+(newCap?ff(newCap)+' đ':'Không giới hạn')+'?\n→ Meta sẽ tự dừng ads khi đạt ngưỡng này.'))return;
   try{
-    var resp=await fetch('https://graph.facebook.com/v25.0/'+a.fb_account_id+'?spend_cap='+newCap+'&access_token='+META_TOKEN,{method:'POST'});
-    var data=await resp.json();
+    var data=await metaPost(a.fb_account_id+'?spend_cap='+newCap);
     if(data.error){toast('Meta lỗi: '+data.error.message,false);return;}
     if(data.success===false){toast('Meta không xác nhận thành công',false);return;}
     var r=await sb2.from('ad_account').update({spend_cap:newCap||null}).eq('id',adId);
@@ -3111,8 +3116,7 @@ for(var b=0;b<shared.length;b+=50){
 var chunk=shared.slice(b,b+50);
 var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.fb_account_id+'/insights?level=campaign&fields=campaign_name,spend&time_range={"since":"'+date+'","until":"'+date+'"}&limit=500'};});
 try{
-var bResp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
-var bResults=await bResp.json();
+var bResults=await metaBatch(batchReqs);
 if(!Array.isArray(bResults)){
 var em=(bResults&&bResults.error&&bResults.error.message)||'Batch không phải mảng';
 console.warn('[Shared spend sync]',date,'batch-level error:',em);
@@ -3204,8 +3208,7 @@ batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/insights?level=campa
 batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/adsets?fields=campaign_id,optimization_goal,destination_type&limit=500'});
 });
 try{
-var bResp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
-var bResults=await bResp.json();
+var bResults=await metaBatch(batchReqs);
 // Batch-level error (token invalid, app blocked, rate limit) — toàn bộ chunk fail, bResults là object thay vì array
 if(!Array.isArray(bResults)){
 var em=(bResults&&bResults.error&&bResults.error.message)||'Batch API trả về không phải mảng';
@@ -3421,20 +3424,20 @@ await loadAll();stayPage();}
 async function loadMetaAccounts(force,silent){
 if(!force&&metaAccounts.length)return;
 try{
-var all=[],url='https://graph.facebook.com/v25.0/me/adaccounts?fields=id,name,account_status&limit=100&access_token='+META_TOKEN;
-while(url){
-var resp=await fetch(url),data=await resp.json();
+var all=[],path='me/adaccounts?fields=id,name,account_status&limit=100';
+while(path){
+var data=await metaGet(path);
 if(data.error){if(!silent)toast('Meta API lỗi: '+data.error.message,false);return;}
 all=all.concat(data.data||[]);
-url=data.paging&&data.paging.next?data.paging.next:null;
+var nextCursor=data.paging&&data.paging.next&&data.paging.cursors&&data.paging.cursors.after;
+path=nextCursor?'me/adaccounts?fields=id,name,account_status&limit=100&after='+encodeURIComponent(nextCursor):null;
 }
 var detailed=[];
 for(var b=0;b<all.length;b+=50){
 var chunk=all.slice(b,b+50);
 var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.id+'?fields=id,name,account_status,spend_cap,amount_spent'};});
 try{
-var bResp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
-var bResults=await bResp.json();
+var bResults=await metaBatch(batchReqs);
 for(var j=0;j<chunk.length;j++){
 try{var body=JSON.parse((bResults[j]&&bResults[j].body)||'{}');
 if(!body.error&&body.id)detailed.push(body);else detailed.push(chunk[j]);
@@ -5302,7 +5305,6 @@ async function deleteDeposit(id){
 // ═══ SYNC META cho 1 khách (dùng trên Sổ rental) ═══
 async function syncMetaForClient(clientId,month,btn){
   if(!needAuth())return;
-  if(!META_TOKEN){toast('Chưa cấu hình META_TOKEN trong Admin → Settings',false);return;}
   // Lấy TKQC của khách (gắn cứng + assignment) có fb_account_id
   var clientAccIds={};
   adList.forEach(function(a){if(a.client_id===clientId&&a.fb_account_id)clientAccIds[a.id]=true;});
@@ -6393,10 +6395,8 @@ async function dlsl(btn,id){
 
 // ═══ A6: CÀI ĐẶT ═══
 function a6Settings(){
-var tokenPreview=META_TOKEN?('***'+META_TOKEN.slice(-8)):'Chưa nhập';
 var h='<div class="form-card"><h3>Cấu hình Meta API</h3>';
-h+='<div style="padding:10px 14px;background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;">Token và ID được lưu an toàn trong database Supabase (bảng app_settings). Chỉ admin đã đăng nhập mới đọc được. Không lưu trong source code HTML.</div>';
-h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Meta access token</label><div style="display:flex;gap:8px;align-items:center;"><input type="password" id="set-meta-token" value="'+esc(META_TOKEN)+'" placeholder="EAAxxxxx..." style="flex:1;font-family:monospace;font-size:12px;"><button class="btn btn-ghost btn-sm" onclick="var el=document.getElementById(\'set-meta-token\');el.type=el.type===\'password\'?\'text\':\'password\';">Hiện/Ẩn</button></div><div style="font-size:11px;color:var(--tx3);margin-top:4px;">Hiện tại: '+tokenPreview+'</div></div></div>';
+h+='<div style="padding:10px 14px;background:var(--green-bg);color:var(--green-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;"><b>Meta access token đã được chuyển ra Vercel env</b> — không còn lộ ở trình duyệt. Mọi call Meta API đi qua proxy <code>/api/meta</code> (whitelist + JWT auth). Để đổi token, sửa biến <code>META_TOKEN</code> trong Vercel Project Settings → Environment Variables → Redeploy.</div>';
 h+='<div class="form-row"><div class="form-group"><label>Business ID</label><input type="text" id="set-business-id" value="'+esc(META_BUSINESS_ID)+'" placeholder="906359547034707" style="font-family:monospace;font-size:12px;"></div><div class="form-group"><label>Global scope ID</label><input type="text" id="set-global-scope" value="'+esc(META_GLOBAL_SCOPE_ID)+'" placeholder="5673838172639075" style="font-family:monospace;font-size:12px;"></div></div>';
 h+='<div class="btn-row"><button class="btn btn-primary" onclick="saveMetaSettings(this)">Lưu cài đặt</button><button class="btn btn-ghost" onclick="checkMetaTokenPermissions(this)">Kiểm tra quyền token</button></div>';
 h+='<div id="token-check-result"></div>';
@@ -6517,14 +6517,12 @@ function onPermChildChange(cb){
 async function saveMetaSettings(btn){
 if(!isAdmin())return;
 btn.disabled=true;btn.textContent='Đang lưu...';
-var token=document.getElementById('set-meta-token').value.trim();
 var bizId=document.getElementById('set-business-id').value.trim();
 var gsId=document.getElementById('set-global-scope').value.trim();
-var ok1=await saveAppSetting('META_TOKEN',token);
-var ok2=await saveAppSetting('META_BUSINESS_ID',bizId);
-var ok3=await saveAppSetting('META_GLOBAL_SCOPE_ID',gsId);
-if(ok1&&ok2&&ok3){
-META_TOKEN=token;META_BUSINESS_ID=bizId;META_GLOBAL_SCOPE_ID=gsId;
+var ok1=await saveAppSetting('META_BUSINESS_ID',bizId);
+var ok2=await saveAppSetting('META_GLOBAL_SCOPE_ID',gsId);
+if(ok1&&ok2){
+META_BUSINESS_ID=bizId;META_GLOBAL_SCOPE_ID=gsId;
 toast('Đã lưu cài đặt Meta',true);
 }else{toast('Có lỗi khi lưu',false);}
 btn.disabled=false;btn.textContent='Lưu cài đặt';
@@ -6779,8 +6777,7 @@ for(var b=0;b<normal.length;b+=50){
 var chunk=normal.slice(b,b+50);
 var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.fb_account_id+'/insights?fields=spend&time_range={"since":"'+date+'","until":"'+date+'"}'};});
 try{
-var bResp=await fetch('https://graph.facebook.com/v25.0/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'batch='+encodeURIComponent(JSON.stringify(batchReqs))+'&access_token='+META_TOKEN+'&include_headers=false'});
-var bResults=await bResp.json();
+var bResults=await metaBatch(batchReqs);
 // Batch-level failure (token invalid, app block, …) — KHÔNG xoá data cũ
 if(!Array.isArray(bResults)){
 var em=(bResults&&bResults.error&&bResults.error.message)||'Batch không phải mảng';

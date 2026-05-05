@@ -86,9 +86,38 @@ Script tự sync `~/Downloads/{index,nghiep}.html` → repo → commit → push.
 ## Stack
 
 - **Frontend:** Vanilla HTML/CSS/JS — single-page (`index.html` ~5500 dòng, không build step)
-- **Backend:** Supabase (Postgres + Auth + Storage + RPC) + Vercel Serverless `/api/telegram` (bot)
+- **Backend:** Supabase (Postgres + Auth + Storage + RPC) + Vercel Serverless `/api/telegram` (bot) + `/api/meta` (Meta proxy)
 - **Hosting:** Vercel (auto-deploy từ GitHub main)
-- **Meta API:** Graph API v25.0 (insights + adaccounts + adsets)
+- **Meta API:** Graph API v25.0 (insights + adaccounts + adsets) — gọi qua `/api/meta` proxy, token KHÔNG lộ ở client
+
+---
+
+## Meta API Proxy (`/api/meta`)
+
+Token Meta là secret — không bao giờ load vào browser nữa. Mọi call từ dashboard đi qua proxy serverless này.
+
+### Setup 1 lần
+
+**Env vars trên Vercel:**
+
+| Key | Value | Ghi chú |
+|---|---|---|
+| `META_TOKEN` | Meta access token (system user) | bắt buộc, **giữ kín** |
+| `SUPABASE_URL` | đã có sẵn | dùng để verify JWT |
+| `SUPABASE_SERVICE_ROLE_KEY` | đã có sẵn | dùng để verify JWT |
+
+**Sau khi đổi token:** Vercel → Project → Deployments → Redeploy (env mới chỉ áp dụng cho deploy mới).
+
+**Whitelist path** (sửa trong `api/meta.js` nếu cần thêm endpoint Meta mới):
+- `me/permissions`, `me/adaccounts`, `debug_token`
+- `act_{id}` (GET/POST: rename, spend_cap)
+- `act_{id}/(transactions|insights|adsets|campaigns)` (GET)
+- Batch endpoint (root) — server validate từng `relative_url`
+
+**Migration cũ:** row `META_TOKEN` trong bảng `app_settings` không còn được đọc nữa. Có thể xoá thủ công bằng:
+```sql
+DELETE FROM app_settings WHERE key = 'META_TOKEN';
+```
 
 ---
 
