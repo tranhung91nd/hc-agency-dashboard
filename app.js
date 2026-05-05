@@ -2632,7 +2632,7 @@ var directClient=a.client_id?clientList.find(function(c2){return c2.id===a.clien
 var searchHay=[a.account_name,a.fb_account_id,searchStaffNames,searchClientNames,directClient?directClient.name:''].join(' ').toLowerCase();
 h+='<tr class="ad-row'+(a.is_shared?' shared-row':'')+'" data-staff="'+staffStrs.join(',')+'" data-client="'+allClientIds.join(',')+'" data-status="'+status+'" data-name="'+esc(searchHay)+'" data-spend="'+ds+'" style="'+(status===2?'opacity:.3;':(!hasAssign&&status===1?'opacity:.6;':''))+'">';
 h+='<td><input type="checkbox" class="ad-check" value="'+a.id+'" aria-label="Chọn Tài khoản '+esc(a.account_name||a.fb_account_id||'')+'"></td>';
-h+='<td><div class="ad-account-cell"><div class="ad-account-top"><span class="state-pill '+(status===2?'off':(status===3?'warn':''))+'"><span class="dot '+(stDot[status]||'dot-ok')+'"></span>'+(stLabel[status]||'—')+'</span><div class="ad-account-name" onclick="toggleExpand(\''+a.id+'\')">'+esc(a.account_name)+'</div>'+(a.fb_account_id?'<a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+a.fb_account_id.replace('act_','')+'" target="_blank" rel="noopener" title="Mở Meta Ads Manager" style="flex-shrink:0;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;background:var(--blue-bg);color:var(--blue);text-decoration:none;font-size:11px;transition:all .15s;" onmouseover="this.style.background=\'var(--blue)\';this.style.color=\'#fff\';" onmouseout="this.style.background=\'var(--blue-bg)\';this.style.color=\'var(--blue)\';">↗</a>':'')+'</div><div class="ad-account-meta">'+(a.fb_account_id?esc(a.fb_account_id):'<span style="color:var(--amber);">chưa ghép Meta</span>')+'<span class="account-type-pill '+(a.is_shared?'shared':'')+'" onclick="toggleShared(\''+a.id+'\','+!a.is_shared+')" title="Bấm để đổi loại">'+(a.is_shared?'Dùng chung':'Riêng')+'</span></div></div></td>';
+h+='<td><div class="ad-account-cell"><div class="ad-account-top"><span class="state-pill '+(status===2?'off':(status===3?'warn':''))+'"><span class="dot '+(stDot[status]||'dot-ok')+'"></span>'+(stLabel[status]||'—')+'</span><div class="ad-account-name" onclick="toggleExpand(\''+a.id+'\')">'+esc(a.account_name)+'</div>'+(a.fb_account_id?'<button class="kh-edit-btn" onclick="event.stopPropagation();editAdAccountName(\''+a.id+'\')" title="Đổi tên TKQC trên Meta" aria-label="Đổi tên TKQC"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button><a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+a.fb_account_id.replace('act_','')+'" target="_blank" rel="noopener" title="Mở Meta Ads Manager" style="flex-shrink:0;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;background:var(--blue-bg);color:var(--blue);text-decoration:none;font-size:11px;transition:all .15s;" onmouseover="this.style.background=\'var(--blue)\';this.style.color=\'#fff\';" onmouseout="this.style.background=\'var(--blue-bg)\';this.style.color=\'var(--blue)\';">↗</a>':'')+'</div><div class="ad-account-meta">'+(a.fb_account_id?esc(a.fb_account_id):'<span style="color:var(--amber);">chưa ghép Meta</span>')+'<span class="account-type-pill '+(a.is_shared?'shared':'')+'" onclick="toggleShared(\''+a.id+'\','+!a.is_shared+')" title="Bấm để đổi loại">'+(a.is_shared?'Dùng chung':'Riêng')+'</span></div></div></td>';
 // Staff column
 h+='<td class="ad-select-cell">';
 if(a.is_shared){
@@ -2670,11 +2670,11 @@ h+='<td style="padding-right:16px;">'+(ds?'<div style="text-align:right;"><div c
 if(a.spend_cap){
 if(hasComparableSpendCap(a)){
 var bal=a.spend_cap-(a.amount_spent||0),balPct=Math.round((a.amount_spent||0)/a.spend_cap*100),balCls=balPct>80?'bal-danger':(balPct>50?'bal-warn':'bal-ok'),barCls=balPct>80?'bal-used-danger':(balPct>50?'bal-used-warn':'bal-used-ok');
-h+='<td class="spend-cap-cell"><div class="bal-val '+balCls+'">'+fm(bal)+'</div><div class="bal-track"><div class="bal-used '+barCls+'" style="width:'+Math.min(balPct,100)+'%;"></div></div><div class="bal-sub">'+fm(a.amount_spent||0)+'/'+fm(a.spend_cap)+'</div></td>';
+h+='<td class="spend-cap-cell" onclick="event.stopPropagation();editSpendCap(\''+a.id+'\')" title="Bấm để đổi ngưỡng trên Meta" style="cursor:pointer;"><div class="bal-val '+balCls+'">'+fm(bal)+'</div><div class="bal-track"><div class="bal-used '+barCls+'" style="width:'+Math.min(balPct,100)+'%;"></div></div><div class="bal-sub">'+fm(a.amount_spent||0)+'/'+fm(a.spend_cap)+'</div></td>';
 }else{
-h+='<td class="spend-cap-cell"><div class="bal-val bal-ok">'+fm(a.spend_cap)+'</div><div class="bal-track"><div class="bal-used bal-used-ok" style="width:0%;"></div></div><div class="bal-sub">Ngưỡng Meta</div></td>';
+h+='<td class="spend-cap-cell" onclick="event.stopPropagation();editSpendCap(\''+a.id+'\')" title="Bấm để đổi ngưỡng trên Meta" style="cursor:pointer;"><div class="bal-val bal-ok">'+fm(a.spend_cap)+'</div><div class="bal-track"><div class="bal-used bal-used-ok" style="width:0%;"></div></div><div class="bal-sub">Ngưỡng Meta</div></td>';
 }
-}else{h+='<td class="spend-cap-cell"><div class="bal-val bal-ok">—</div><div class="bal-track"><div class="bal-used" style="width:0%;"></div></div><div class="bal-sub">Không giới hạn</div></td>';}
+}else{h+='<td class="spend-cap-cell" onclick="event.stopPropagation();editSpendCap(\''+a.id+'\')" title="Bấm để đặt ngưỡng trên Meta" style="cursor:pointer;"><div class="bal-val bal-ok">—</div><div class="bal-track"><div class="bal-used" style="width:0%;"></div></div><div class="bal-sub">Không giới hạn</div></td>';}
 // Max cost combined cell (Kết quả tối đa)
 h+='<td class="td-price-pair"><div class="price-pair">';
 h+='<div class="price-tag" onclick="editMaxMess(\''+a.id+'\','+(a.max_mess_cost||0)+')" title="Giá Messenger tối đa — bấm để sửa"><span class="price-tag-label">Mess</span>';
@@ -2901,6 +2901,54 @@ var r=await sb2.from('ad_account').update({max_lead_cost:val||null}).eq('id',adI
 if(!r.error){toast('Đã lưu giá form tối đa: '+ff(val),true);await loadAll();if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}
 else toast('Lỗi: '+r.error.message,false);}
 async function deleteCheckedAd(){if(!needAuth())return;var checks=document.querySelectorAll('.ad-check:checked');if(!checks.length){toast('Vui lòng chọn ít nhất một tài khoản quảng cáo.',false);return;}if(!confirm('Xóa '+checks.length+' tài khoản?'))return;var c=0;for(var i=0;i<checks.length;i++){var r=await sb2.from('ad_account').delete().eq('id',checks[i].value);if(!r.error)c++;}toast('Đã xóa '+c+' Tài khoản!',true);await loadAll();stayPage();}
+// Đổi tên TKQC trên Meta (POST /{ad-account-id}?name=...) → đồng bộ về DB local
+async function editAdAccountName(adId){
+  if(!needAuth())return;
+  var a=adList.find(function(x){return x.id===adId;});if(!a)return;
+  if(!a.fb_account_id){toast('TKQC chưa ghép Meta — không đổi được tên qua API. Hãy ghép FB Account ID trước.',false);return;}
+  if(!META_TOKEN){toast('Chưa có Meta token. Vào Admin → Cài đặt Meta để nhập.',false);return;}
+  var newName=prompt('Đổi tên TKQC trên Meta:\nTên hiện tại: '+(a.account_name||'')+'\n\nNhập tên mới:',a.account_name||'');
+  if(newName===null)return;
+  newName=(newName||'').trim();
+  if(!newName){toast('Tên không được để trống',false);return;}
+  if(newName===a.account_name)return;
+  if(!confirm('Đổi tên TKQC trên Meta thành "'+newName+'"?\n→ Tên Ads Manager đổi theo, mọi nơi dùng Meta API sẽ thấy tên mới.\n→ Báo cáo lịch sử của khách cũ vẫn giữ tên cũ qua snapshot assignment.'))return;
+  try{
+    var resp=await fetch('https://graph.facebook.com/v25.0/'+a.fb_account_id+'?name='+encodeURIComponent(newName)+'&access_token='+META_TOKEN,{method:'POST'});
+    var data=await resp.json();
+    if(data.error){toast('Meta lỗi: '+data.error.message,false);return;}
+    if(data.success===false){toast('Meta không xác nhận thành công',false);return;}
+    var r=await sb2.from('ad_account').update({account_name:newName}).eq('id',adId);
+    if(r.error){toast('Đổi Meta OK nhưng lưu DB lỗi: '+r.error.message,false);return;}
+    toast('Đã đổi tên TKQC → '+newName,true);
+    await loadAll();stayPage();
+  }catch(e){toast('Lỗi mạng: '+e.message,false);}
+}
+// Đổi ngưỡng chi tiêu (spend_cap) trên Meta (POST /{ad-account-id}?spend_cap=...) → đồng bộ về DB local
+async function editSpendCap(adId){
+  if(!needAuth())return;
+  var a=adList.find(function(x){return x.id===adId;});if(!a)return;
+  if(!a.fb_account_id){toast('TKQC chưa ghép Meta — không đổi được ngưỡng qua API.',false);return;}
+  if(!META_TOKEN){toast('Chưa có Meta token. Vào Admin → Cài đặt Meta.',false);return;}
+  var cur=a.spend_cap||0,spent=a.amount_spent||0;
+  var v=prompt('Đổi ngưỡng chi tiêu (spend_cap) trên Meta\nTKQC: '+(a.account_name||'')+'\nĐã chi: '+ff(spent)+' đ\nNgưỡng hiện tại: '+(cur?ff(cur)+' đ':'Không giới hạn')+'\n\nNhập ngưỡng mới (VNĐ, để trống = bỏ giới hạn):',cur||'');
+  if(v===null)return;
+  v=String(v).replace(/[^0-9]/g,'');
+  var newCap=v===''?0:parseInt(v);
+  if(newCap===cur)return;
+  if(newCap>0&&newCap<spent){toast('Ngưỡng mới ('+ff(newCap)+') không được nhỏ hơn đã chi ('+ff(spent)+'). Meta sẽ reject.',false);return;}
+  if(!confirm('Đổi spend_cap trên Meta = '+(newCap?ff(newCap)+' đ':'Không giới hạn')+'?\n→ Meta sẽ tự dừng ads khi đạt ngưỡng này.'))return;
+  try{
+    var resp=await fetch('https://graph.facebook.com/v25.0/'+a.fb_account_id+'?spend_cap='+newCap+'&access_token='+META_TOKEN,{method:'POST'});
+    var data=await resp.json();
+    if(data.error){toast('Meta lỗi: '+data.error.message,false);return;}
+    if(data.success===false){toast('Meta không xác nhận thành công',false);return;}
+    var r=await sb2.from('ad_account').update({spend_cap:newCap||null}).eq('id',adId);
+    if(r.error){toast('Đổi Meta OK nhưng lưu DB lỗi: '+r.error.message,false);return;}
+    toast('Đã đổi ngưỡng → '+(newCap?ff(newCap)+' đ':'Không giới hạn'),true);
+    await loadAll();stayPage();
+  }catch(e){toast('Lỗi mạng: '+e.message,false);}
+}
 // Helper: gắn snapshot tên TKQC tại thời điểm tạo assignment (giữ tên cũ trong báo cáo lịch sử dù admin đổi tên TKQC sau này)
 function _assignSnapshot(adId,payload){var acc=adList.find(function(x){return x.id===adId;});payload.account_name_snapshot=acc?(acc.account_name||null):null;return payload;}
 // Helper: insert assignment, fallback bỏ account_name_snapshot nếu DB chưa chạy migration
