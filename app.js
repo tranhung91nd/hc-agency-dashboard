@@ -362,14 +362,26 @@ function buildRentalMatrix(clientId,month){
     if(sd.length===3&&parseInt(sd[0])===year&&parseInt(sd[1])===mo)startDayIdx=parseInt(sd[2])-1;
     else if(startDate>ms+'-31')startDayIdx=daysInMonth; // start_date sau tháng đang xem → không có gì
   }
-  // Lấy tất cả TKQC liên quan: gán cố định client_id hoặc qua assignment
+  // Lấy tất cả TKQC liên quan TRONG THÁNG đang xem:
+  // - Có assignment client_id===clientId overlap với tháng (start ≤ lastDay, end null hoặc ≥ firstDay)
+  // - Fallback: ad_account.client_id===clientId VÀ chưa từng có assignment nào (TKQC mới chưa setup phân công)
+  // → Sau khi assignment kết thúc (vd end_date=30/04), tháng 5 sẽ KHÔNG còn hiện TKQC đó nữa.
+  var firstDay=ms+'-01',lastDay=ms+'-'+(daysInMonth<10?'0'+daysInMonth:daysInMonth);
   var accMap={};
-  adList.forEach(function(a){if(a.client_id===clientId)accMap[a.id]={id:a.id,name:a.account_name||a.fb_account_id||a.id,daily:new Array(daysInMonth).fill(0)};});
   assignData.forEach(function(ag){
-    if(ag.client_id===clientId&&!accMap[ag.ad_account_id]){
-      var acc=adList.find(function(x){return x.id===ag.ad_account_id;});
-      if(acc)accMap[acc.id]={id:acc.id,name:acc.account_name||acc.fb_account_id||acc.id,daily:new Array(daysInMonth).fill(0)};
-    }
+    if(ag.client_id!==clientId)return;
+    if(ag.start_date&&ag.start_date>lastDay)return;        // assignment bắt đầu sau tháng
+    if(ag.end_date&&ag.end_date<firstDay)return;           // assignment kết thúc trước tháng
+    if(accMap[ag.ad_account_id])return;
+    var acc=adList.find(function(x){return x.id===ag.ad_account_id;});
+    if(acc)accMap[acc.id]={id:acc.id,name:acc.account_name||acc.fb_account_id||acc.id,daily:new Array(daysInMonth).fill(0)};
+  });
+  // Fallback: TKQC gán cứng client_id nhưng chưa có assignment nào
+  adList.forEach(function(a){
+    if(a.client_id!==clientId||accMap[a.id])return;
+    var hasAnyAssign=assignData.some(function(ag){return ag.ad_account_id===a.id;});
+    if(hasAnyAssign)return; // đã có assignment record → ưu tiên logic overlap ở trên
+    accMap[a.id]={id:a.id,name:a.account_name||a.fb_account_id||a.id,daily:new Array(daysInMonth).fill(0)};
   });
   // Tổng hợp spend từ dailyData
   dailyData.forEach(function(d){
