@@ -2897,6 +2897,7 @@ var r=await sb2.from('assignment').insert({ad_account_id:adId,staff_id:si.id,cli
 if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã thêm phân công',true);await loadAll();stayPage();}}
 async function updateAssignDate(id,field,val){
 if(!needAuth())return;
+if(field==='start_date'&&!val){toast('Ngày bắt đầu không được để trống. Muốn xoá phân công thì dùng nút "Xoá".',false);await loadAll();stayPage();return;}
 var upd={};upd[field]=val||null;
 var r=await sb2.from('assignment').update(upd).eq('id',id);
 if(!r.error){toast('Đã cập nhật',true);await loadAll();if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}else toast('Lỗi: '+r.error.message,false);}
