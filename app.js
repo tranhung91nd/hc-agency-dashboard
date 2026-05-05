@@ -2737,7 +2737,7 @@ h+='<div class="assign-row" style="'+(isAct?'':'opacity:.5;')+'">';
 h+='<span style="display:flex;align-items:center;gap:4px;">'+(sn?'<div class="avatar" style="width:18px;height:18px;font-size:8px;background:'+sc(sn.color_code).bg+';color:'+sc(sn.color_code).tx+';">'+esc(sn.avatar_initials)+'</div>'+esc(sn.short_name):'—')+'</span>';
 h+='<span>'+(cn?esc(cn.name):'—')+'</span>';
 h+='<span><input type="date" class="fi" style="width:120px;font-size:11px;padding:3px 6px;text-align:center;" value="'+ag.start_date+'" onchange="updateAssignDate(\''+ag.id+'\',\'start_date\',this.value)"></span>';
-h+='<span>'+(ag.end_date?'<input type="date" class="fi" style="width:120px;font-size:11px;padding:3px 6px;text-align:center;" value="'+ag.end_date+'" onchange="updateAssignDate(\''+ag.id+'\',\'end_date\',this.value)">':'<span class="badge b-green" style="cursor:pointer;font-size:10px;" onclick="setEndDate(\''+ag.id+'\')">Đang chạy</span>')+'</span>';
+h+='<span>'+(ag.end_date?'<input type="date" class="fi" style="width:120px;font-size:11px;padding:3px 6px;text-align:center;" value="'+ag.end_date+'" onchange="updateAssignDate(\''+ag.id+'\',\'end_date\',this.value)" title="Bỏ trống = đang chạy">':'<input type="date" class="fi" style="width:120px;font-size:11px;padding:3px 6px;text-align:center;border-color:var(--green);color:var(--green-tx);background:var(--green-bg);" value="" onchange="updateAssignDate(\''+ag.id+'\',\'end_date\',this.value)" title="Đang chạy · chọn ngày để đặt Đến ngày">')+'</span>';
 h+='<span><button class="btn btn-red btn-sm" style="padding:2px 6px;" onclick="deleteAssign(\''+ag.id+'\')">Xóa</button></span></div>';});}
 else h+='<div style="font-size:12px;color:var(--tx3);padding:8px 0;">Chưa có phân công — bấm "+ Thêm khoảng"</div>';
 h+='<div style="font-size:11px;color:var(--tx3);padding:8px 18px;background:var(--bg2);border-top:1px solid var(--bd1);display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;border-radius:50%;background:var(--blue-bg);color:var(--blue-tx);display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;">i</span>Sửa ngày trực tiếp → tự động lưu. Bỏ trống Đến ngày = đang chạy.</div>';
@@ -2757,7 +2757,7 @@ h+='<div class="assign-row" style="'+(isAct?'':'opacity:.5;')+'">';
 h+='<span style="display:flex;align-items:center;gap:4px;">'+(sn?'<div class="avatar" style="width:18px;height:18px;font-size:8px;background:'+sc(sn.color_code).bg+';color:'+sc(sn.color_code).tx+';">'+esc(sn.avatar_initials)+'</div>'+esc(sn.short_name):'—')+'</span>';
 h+='<span>'+(cn?esc(cn.name):'—')+'</span>';
 h+='<span><input type="date" class="fi" style="width:120px;font-size:11px;padding:3px 6px;text-align:center;" value="'+ag.start_date+'" onchange="updateAssignDate(\''+ag.id+'\',\'start_date\',this.value)"></span>';
-h+='<span>'+(ag.end_date?'<input type="date" class="fi" style="width:120px;font-size:11px;padding:3px 6px;text-align:center;" value="'+ag.end_date+'" onchange="updateAssignDate(\''+ag.id+'\',\'end_date\',this.value)">':'<span class="badge b-green" style="cursor:pointer;font-size:10px;" onclick="setEndDate(\''+ag.id+'\')">Đang chạy</span>')+'</span>';
+h+='<span>'+(ag.end_date?'<input type="date" class="fi" style="width:120px;font-size:11px;padding:3px 6px;text-align:center;" value="'+ag.end_date+'" onchange="updateAssignDate(\''+ag.id+'\',\'end_date\',this.value)" title="Bỏ trống = đang chạy">':'<input type="date" class="fi" style="width:120px;font-size:11px;padding:3px 6px;text-align:center;border-color:var(--green);color:var(--green-tx);background:var(--green-bg);" value="" onchange="updateAssignDate(\''+ag.id+'\',\'end_date\',this.value)" title="Đang chạy · chọn ngày để đặt Đến ngày">')+'</span>';
 h+='<span><button class="btn btn-red btn-sm" style="padding:2px 6px;" onclick="deleteAssign(\''+ag.id+'\')">Xóa</button></span></div>';});}
 else h+='<div style="font-size:12px;color:var(--tx3);padding:8px 0;">Chưa có phân công — bấm "+ Thêm khoảng"</div>';
 h+='<div style="font-size:11px;color:var(--tx3);padding:8px 18px;background:var(--bg2);border-top:1px solid var(--bd1);display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;border-radius:50%;background:var(--blue-bg);color:var(--blue-tx);display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;">i</span>Sửa ngày trực tiếp → tự động lưu. Bỏ trống Đến ngày = đang chạy.</div>';
@@ -2904,12 +2904,18 @@ if(!r.error){toast('Đã cập nhật',true);await loadAll();if(curPage===1){ren
 async function setEndDate(id){
 if(!needAuth())return;
 var val=prompt('Đến ngày (YYYY-MM-DD):',td());if(val===null)return;
+val=(val||'').trim();
+// Validate end_date >= start_date để tránh lỗi DB constraint hoặc data invalid
+if(val){
+  var ag=assignData.find(function(x){return x.id===id;});
+  if(ag&&ag.start_date&&val<ag.start_date){toast('Đến ngày ('+val+') không được trước Từ ngày ('+ag.start_date+').',false);return;}
+}
 var r=await sb2.from('assignment').update({end_date:val||null}).eq('id',id);
-if(!r.error){toast('Đã cập nhật',true);await loadAll();if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}else toast('Lỗi',false);}
+if(!r.error){toast('Đã cập nhật',true);await loadAll();if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}else toast('Lỗi: '+r.error.message,false);}
 async function deleteAssign(id){
 if(!needAuth())return;if(!confirm('Xóa phân công này?'))return;
 var r=await sb2.from('assignment').delete().eq('id',id);
-if(!r.error){toast('Đã xóa',true);await loadAll();stayPage();}else toast('Lỗi',false);}
+if(!r.error){toast('Đã xóa',true);await loadAll();stayPage();}else toast('Lỗi: '+r.error.message,false);}
 
 // ═══ CAMPAIGN ALERTS (MESS + FORM) ═══
 // Quét cửa sổ 3 ngày D-3, D-2, D-1 (không gồm hôm nay) — data đã chốt, chính xác hơn
