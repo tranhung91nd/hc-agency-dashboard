@@ -496,12 +496,16 @@ function buildRentalMatrix(clientId,month){
     var cid=d.matched_client_id||null;
     if(!cid){var aa=adList.find(function(a){return a.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
     if(cid!==clientId)return;
+    var spendVal=metaNum(d.spend_amount);
     if(!accMap[d.ad_account_id]){
+      // Chỉ auto-add TKQC chưa có trong matrix khi thực sự có spend > 0.
+      // Tránh case: cron sync luôn insert row spend=0 cho TK đã end assignment → vẫn hiện trong sổ.
+      if(spendVal<=0)return;
       var aa2=adList.find(function(a){return a.id===d.ad_account_id;});
       accMap[d.ad_account_id]={id:d.ad_account_id,name:aa2?(aa2.account_name||aa2.fb_account_id):'TKQC #'+d.ad_account_id.substring(0,6),daily:new Array(daysInMonth).fill(0)};
     }
     var day=parseInt(d.report_date.substring(8,10))-1;
-    if(day>=0&&day<daysInMonth)accMap[d.ad_account_id].daily[day]+=metaNum(d.spend_amount);
+    if(day>=0&&day<daysInMonth)accMap[d.ad_account_id].daily[day]+=spendVal;
   });
   var accounts=Object.values(accMap).sort(function(a,b){var sa=a.daily.reduce(function(t,v){return t+v;},0),sb=b.daily.reduce(function(t,v){return t+v;},0);return sb-sa||(a.name||'').localeCompare(b.name||'');});
   var dayTotals=new Array(daysInMonth).fill(0),grandTotal=0;
