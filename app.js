@@ -246,6 +246,95 @@ function trapFocus(container){
   container.addEventListener('keydown',handler);
   return function(){container.removeEventListener('keydown',handler);};
 }
+/* ===== SEARCHABLE SELECT (vanilla, không lib) =====
+   Cách dùng:
+   var html = searchableSelect({
+     id: 'new-tk-client',           // id của hidden input chứa value (đọc qua getElementById)
+     options: [{value, label}, ...], // KHÔNG cần option rỗng — placeholder lo phần đó
+     value: '',                       // value hiện tại
+     placeholder: '— Chọn —',
+     onChange: function(value){...}   // optional, gọi khi user chọn
+   });
+*/
+var SSEL_REG={};
+function searchableSelect(o){
+  var sid=o.id||('ssel_'+Math.random().toString(36).slice(2,9));
+  SSEL_REG[sid]={options:o.options||[],value:o.value==null?'':String(o.value),onChange:o.onChange||null,placeholder:o.placeholder||'— Chọn —'};
+  var sel=SSEL_REG[sid].options.find(function(x){return String(x.value)===SSEL_REG[sid].value;});
+  var dispText=sel?sel.label:'';
+  var arrow='<svg class="ssel-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+  return '<div class="ssel" data-ssel-id="'+sid+'">'+
+    '<input type="hidden" id="'+sid+'" value="'+esc(SSEL_REG[sid].value)+'">'+
+    '<div class="ssel-display" tabindex="0" onclick="sselToggle(\''+sid+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();sselToggle(\''+sid+'\');}">'+
+      '<span class="ssel-text'+(dispText?'':' empty')+'">'+esc(dispText||SSEL_REG[sid].placeholder)+'</span>'+
+      arrow+
+    '</div>'+
+    '<div class="ssel-pop" hidden>'+
+      '<input type="text" class="ssel-search" placeholder="Tìm..." oninput="sselFilter(\''+sid+'\',this.value)" onkeydown="sselSearchKey(event,\''+sid+'\')">'+
+      '<div class="ssel-list" id="'+sid+'__list">'+_sselRenderOpts(sid,'')+'</div>'+
+    '</div>'+
+  '</div>';
+}
+function _sselRenderOpts(sid,query){
+  var reg=SSEL_REG[sid];if(!reg)return'';
+  var q=(query||'').toLowerCase().trim();
+  // Bỏ dấu tiếng Việt cho search dễ ("4cats" tìm bằng "cats", "cong" tìm "Chống Thấm")
+  function strip(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d');}
+  var qN=strip(q);
+  var filtered=reg.options.filter(function(o){
+    if(!q)return true;
+    var ln=strip(o.label);
+    return ln.indexOf(qN)>=0;
+  });
+  if(!filtered.length)return'<div class="ssel-empty">Không có kết quả</div>';
+  return filtered.map(function(o){
+    var sel=String(o.value)===reg.value?' ssel-opt-selected':'';
+    var v=esc(String(o.value));
+    return '<div class="ssel-opt'+sel+'" data-value="'+v+'" onclick="sselPick(\''+sid+'\',this.dataset.value)">'+esc(o.label)+'</div>';
+  }).join('');
+}
+function sselToggle(sid){
+  var wrap=document.querySelector('[data-ssel-id="'+sid+'"]');if(!wrap)return;
+  var pop=wrap.querySelector('.ssel-pop');if(!pop)return;
+  var willOpen=pop.hasAttribute('hidden');
+  // Đóng các ssel khác đang mở
+  document.querySelectorAll('.ssel-pop').forEach(function(p){if(p!==pop)p.setAttribute('hidden','');});
+  if(willOpen){
+    pop.removeAttribute('hidden');
+    var search=pop.querySelector('.ssel-search');
+    if(search){search.value='';_sselRefresh(sid,'');setTimeout(function(){search.focus();},10);}
+  }else pop.setAttribute('hidden','');
+}
+function sselFilter(sid,q){_sselRefresh(sid,q);}
+function _sselRefresh(sid,q){
+  var list=document.getElementById(sid+'__list');
+  if(list)list.innerHTML=_sselRenderOpts(sid,q);
+}
+function sselPick(sid,value){
+  var reg=SSEL_REG[sid];if(!reg)return;
+  reg.value=String(value);
+  var hidden=document.getElementById(sid);if(hidden)hidden.value=reg.value;
+  var sel=reg.options.find(function(x){return String(x.value)===reg.value;});
+  var dispText=sel?sel.label:'';
+  var wrap=document.querySelector('[data-ssel-id="'+sid+'"]');if(!wrap)return;
+  var t=wrap.querySelector('.ssel-text');
+  if(t){t.textContent=dispText||reg.placeholder;t.classList.toggle('empty',!dispText);}
+  var pop=wrap.querySelector('.ssel-pop');if(pop)pop.setAttribute('hidden','');
+  if(reg.onChange)try{reg.onChange(reg.value);}catch(e){console.warn('[ssel onChange]',e);}
+}
+function sselSearchKey(e,sid){
+  if(e.key==='Escape'){e.preventDefault();sselToggle(sid);}
+  else if(e.key==='Enter'){
+    e.preventDefault();
+    var first=document.querySelector('[data-ssel-id="'+sid+'"] .ssel-opt');
+    if(first)sselPick(sid,first.dataset.value);
+  }
+}
+// Click outside → đóng tất cả ssel pop
+document.addEventListener('click',function(e){
+  if(e.target.closest('.ssel'))return;
+  document.querySelectorAll('.ssel-pop').forEach(function(p){p.setAttribute('hidden','');});
+});
 /* Auto-attach focus trap khi modal xuất hiện */
 var _activeTrap=null;
 function ensureModalFocusTrap(){
@@ -2609,9 +2698,9 @@ h+='</div>';
 // Add Tài khoản form (hidden by default)
 h+='<div id="add-tk-form" style="display:none;margin-bottom:12px;"><div class="form-card" style="margin-bottom:0;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-weight:500;font-size:14px;">Thêm tài khoản quảng cáo</span><span style="font-size:18px;cursor:pointer;color:var(--tx3);" onclick="toggleAddTk()">×</span></div>';
 h+='<div class="form-row"><div class="form-group"><label>Tên tài khoản</label><input type="text" id="new-tk-name" placeholder="VD: Tài khoản NBNB - 1234"></div><div class="form-group"><label>FB Account ID (bỏ trống = Tài khoản ngoài)</label><input type="text" id="new-tk-fbid" placeholder="act_123456789"></div></div>';
-h+='<div class="form-row"><div class="form-group"><label>Khách hàng</label><select id="new-tk-client"><option value="">— Chọn Khách hàng —</option>';
-clientList.forEach(function(c2){h+='<option value="'+c2.id+'">'+esc(c2.name)+'</option>';});
-h+='</select></div><div class="form-group"><label>Nhân sự phụ trách</label><select id="new-tk-staff"><option value="">— Chọn Nhân sự —</option>';
+h+='<div class="form-row"><div class="form-group"><label>Khách hàng</label>'+
+  searchableSelect({id:'new-tk-client',options:clientList.map(function(c2){return{value:c2.id,label:c2.name};}),placeholder:'— Chọn Khách hàng —'})+
+  '</div><div class="form-group"><label>Nhân sự phụ trách</label><select id="new-tk-staff"><option value="">— Chọn Nhân sự —</option>';
 staffList.forEach(function(s2){h+='<option value="'+s2.id+'">'+esc(s2.short_name)+'</option>';});
 h+='</select></div><div class="form-group"><label>Loại</label><select id="new-tk-shared"><option value="false">Riêng (1 Nhân sự)</option><option value="true">Dùng chung (nhiều Nhân sự)</option></select></div></div>';
 h+='<div style="display:flex;gap:8px;align-items:center;"><button class="btn btn-primary" onclick="saveNewTk(this)">+ Thêm Tài khoản</button><span style="font-size:11px;color:var(--tx3);">Bỏ trống FB ID = tài khoản ngoài Business Manager, nhập doanh số thủ công</span></div></div></div>';
@@ -2667,9 +2756,7 @@ var uniqC=[...new Set(cNames)];
 if(uniqC.length){uniqC.slice(0,2).forEach(function(n){h+='<span class="ad-shared-chip client">'+esc(n)+'</span>';});if(uniqC.length>2)h+='<span class="ad-shared-chip empty">+'+(uniqC.length-2)+'</span>';}else h+='<span class="ad-shared-chip empty">tự động</span>';
 h+='</div>';
 }else{
-h+='<select class="fi" onchange="quickAssignClient(\''+a.id+'\',this.value)"><option value="">— Chọn Khách hàng —</option>';
-clientList.forEach(function(c2){h+='<option value="'+c2.id+'"'+(c2.id===curClientId?' selected':'')+'>'+esc(c2.name)+'</option>';});
-h+='</select>';
+h+=searchableSelect({options:clientList.map(function(c2){return{value:c2.id,label:c2.name};}),value:curClientId,placeholder:'— Chọn Khách hàng —',onChange:(function(adId){return function(v){quickAssignClient(adId,v);};})(a.id)});
 }
 h+='</td>';
 // Spend column with bar
