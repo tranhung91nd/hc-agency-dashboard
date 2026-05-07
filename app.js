@@ -808,7 +808,10 @@ var SUBNAV_CONFIG={
     {key:'spend1',label:'Chi tiêu theo nhân sự',action:"setSpendTab(1)",permKey:'p1.staff',match:function(){return curPage===1&&spendTab===1;}},
     {key:'spend2',label:'Chi tiêu theo khách hàng',action:"setSpendTab(2)",permKey:'p1.client',match:function(){return curPage===1&&spendTab===2;}}
   ]}]},
-  2:{title:'Nhân sự',sections:[{label:'',items:[{key:'main',label:'Nhân sự',action:"pg(2)",match:function(){return curPage===2;}}]}]},
+  2:{title:'Nhân sự',sections:[{label:'',items:[
+    {key:'p2-salary',label:'Lương + Hoa hồng',action:"setP2Tab(0)",permKey:'p2.salary',match:function(){return curPage===2&&p2Tab===0;}},
+    {key:'p2-penalty',label:'Sổ phạt',action:"setP2Tab(1)",permKey:'p2.penalty',match:function(){return curPage===2&&p2Tab===1;}}
+  ]}]},
   3:{title:'Khách hàng',sections:[{label:'PHÂN LOẠI',items:[
     {key:'cli-active',label:'Khách chính thức',action:"setClientTab('active')",match:function(){return curPage===3&&clientTab==='active';},badgeFn:function(){return clientList.filter(function(c){return c.status!=='prospect';}).length;}},
     {key:'cli-prospect',label:'Tiềm năng',action:"setClientTab('prospect')",match:function(){return curPage===3&&clientTab==='prospect';},badgeFn:function(){return clientList.filter(function(c){return c.status==='prospect';}).length;}},
@@ -1258,20 +1261,62 @@ breakdown.sort(function(a,b){return b.amount-a.amount;});
 var total=breakdown.reduce(function(t,x){return t+x.amount;},0);
 return{total:total,detail:breakdown};}
 
-function p2(){var nd=dates.length||1,st={};staffList.forEach(function(s){st[s.id]=0;});
+// p2Tab: 0 = Lương + Hoa hồng (default), 1 = Sổ phạt
+var p2Tab=0;
+function setP2Tab(i){p2Tab=i;syncSidebarNav();render();}
+function p2(){
+// Auto-redirect nếu user không có quyền tab hiện tại
+var canSalary=canAccessKey('p2.salary')||canAccessKey('p2'),canPenalty=canAccessKey('p2.penalty')||canAccessKey('p2');
+if(p2Tab===0&&!canSalary){if(canPenalty)p2Tab=1;}
+if(p2Tab===1&&!canPenalty){if(canSalary)p2Tab=0;}
+if(p2Tab===1)return p2Penalty();
+return p2Salary();
+}
+// Sub-tab 0: Lương + Hoa hồng
+function p2Salary(){
+var nd=dates.length||1,st={};staffList.forEach(function(s){st[s.id]=0;});
 dailyData.forEach(function(d){var sid=gsfa(d.ad_account_id,d.report_date,d.staff_id);if(sid)st[sid]+=d.spend_amount;});
-var h='<div class="page-title">Nhân sự</div><div class="page-sub">'+staffList.length+' Chuyên viên quảng cáo</div>';
+var h='<div class="page-title">Nhân sự</div><div class="page-sub">'+staffList.length+' Chuyên viên quảng cáo · Lương + Hoa hồng</div>';
 h+='<div class="table-wrap"><table><tr><th></th><th>Họ tên</th><th>Ngân sách</th><th>DS ('+nd+' ngày)</th><th>Lương</th></tr>';
 staffList.forEach(function(s){var c=sc(s.color_code),sal=salaryData.find(function(x){return x.staff_id===s.id;});
 h+='<tr><td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div></td><td style="font-weight:500;">'+esc(s.full_name)+'</td><td class="mono">'+fm(s.monthly_budget)+'</td><td class="mono" style="color:'+c.c+';font-weight:500;">'+fm(st[s.id])+'</td><td class="mono">'+(sal?fm(sal.total):'—')+'</td></tr>';});
 h+='</table></div>';
 // ═══ BẢNG LƯƠNG THÁNG ═══
 h+=renderSalaryTable();
-// ═══ SỔ PHẠT ═══
-h+=renderPenaltyTable();
 var ms=new Set();monthlyRevData.forEach(function(r){ms.add(r.month);});var sm=Array.from(ms).sort();
 if(sm.length){h+='<div class="section-title">Chi tiêu lịch sử</div><div class="table-wrap"><table><tr><th>Tháng</th>';staffList.forEach(function(s){h+='<th style="text-align:right;">'+esc(s.short_name)+'</th>';});h+='<th style="text-align:right;">Tổng</th></tr>';
 sm.forEach(function(m){var tt=0;h+='<tr><td>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</td>';staffList.forEach(function(s){var rv=monthlyRevData.find(function(r){return r.staff_id===s.id&&r.month===m;}),v=rv?rv.total_spend:0;tt+=v;h+='<td class="mono" style="text-align:right;">'+fm(v)+'</td>';});h+='<td class="mono" style="text-align:right;font-weight:600;">'+fm(tt)+'</td></tr>';});h+='</table></div>';}
+return h;}
+// Sub-tab 1: Sổ phạt + Tổng phạt theo nhân sự + Sao chép link cho từng người
+function p2Penalty(){
+var h='<div class="page-title">Sổ phạt</div><div class="page-sub">Quản lý phạt + chia sẻ link riêng cho từng nhân sự xem</div>';
+// Bảng tổng phạt theo nhân sự (tháng đang xem)
+var month=penaltyMonth||lm();
+var totByStaff={};
+penaltyData.forEach(function(p){
+  if((p.penalty_date||'').substring(0,7)!==month)return;
+  var sid=p.staff_id||('raw:'+(p.staff_name_raw||'?'));
+  if(!totByStaff[sid])totByStaff[sid]={count:0,total:0};
+  totByStaff[sid].count++;totByStaff[sid].total+=Number(p.amount)||0;
+});
+var grandCount=0,grandTotal=0;
+h+='<div class="section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;"><div>Tổng phạt theo nhân sự — T'+parseInt(month.split('-')[1])+'/'+month.split('-')[0]+'</div></div>';
+h+='<div class="table-wrap"><table><thead><tr><th></th><th>Nhân sự</th><th style="text-align:right;">Số lần phạt</th><th style="text-align:right;">Tổng tiền phạt</th><th style="text-align:right;min-width:200px;">Link sổ phạt riêng</th></tr></thead><tbody>';
+staffList.forEach(function(s){
+  var rec=totByStaff[s.id]||{count:0,total:0};
+  grandCount+=rec.count;grandTotal+=rec.total;
+  var c=sc(s.color_code);
+  h+='<tr><td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div></td>';
+  h+='<td style="font-weight:500;">'+esc(s.full_name)+'</td>';
+  h+='<td style="text-align:right;" class="mono">'+(rec.count?rec.count:'—')+'</td>';
+  h+='<td style="text-align:right;" class="mono"><span style="color:'+(rec.total>0?'var(--red)':'var(--tx3)')+';font-weight:'+(rec.total>0?'500':'400')+';">'+(rec.total>0?'−'+ff(rec.total):'—')+'</span></td>';
+  h+='<td style="text-align:right;"><button class="btn btn-ghost btn-sm" onclick="copyStaffPenaltyLink(\''+s.id+'\',this)">📋 Sao chép link</button></td>';
+  h+='</tr>';
+});
+h+='<tr style="border-top:2px solid var(--bd1);background:var(--bg2);"><td colspan="2" style="text-align:right;font-weight:600;padding:10px;">Tổng cộng tháng này</td><td style="text-align:right;font-weight:600;padding:10px;" class="mono">'+(grandCount?grandCount+' lần':'—')+'</td><td style="text-align:right;font-weight:600;padding:10px;color:var(--red);" class="mono">'+(grandTotal>0?'−'+ff(grandTotal):'—')+'</td><td></td></tr>';
+h+='</tbody></table></div>';
+// ═══ SỔ PHẠT chi tiết ═══
+h+=renderPenaltyTable();
 return h;}
 
 // ═══ BẢNG LƯƠNG THÁNG (inline edit + autosave) ═══
@@ -2542,7 +2587,10 @@ var PERMISSION_TREE=[
     {key:'p1.staff',label:'Chi tiêu theo nhân sự'},
     {key:'p1.client',label:'Chi tiêu theo khách hàng'}
   ]},
-  {key:'p2',label:'Nhân sự'},
+  {key:'p2',label:'Nhân sự',sub:[
+    {key:'p2.salary',label:'Lương + Hoa hồng'},
+    {key:'p2.penalty',label:'Sổ phạt'}
+  ]},
   {key:'p3',label:'Khách hàng',sub:[
     {key:'p3.overview',label:'Tổng quan khách'},
     {key:'p3.report',label:'Báo cáo Ads khách'}
@@ -5562,6 +5610,137 @@ function renderPublicLedgerPage(){
   startPublicLedgerPoll();
 }
 
+// ═══ SHARE LINK SỔ PHẠT cho từng nhân sự ═══
+async function copyStaffPenaltyLink(staffId,btn){
+  if(!needAuth())return;
+  var s=staffList.find(function(x){return x.id===staffId;});
+  if(!s)s=allStaff.find(function(x){return x.id===staffId;});
+  if(!s){toast('Không tìm thấy nhân sự',false);return;}
+  var token=s.share_token;
+  var oldText=btn?btn.textContent:'';
+  if(!token){
+    if(btn){btn.disabled=true;btn.textContent='Đang tạo link...';}
+    token=genShareToken();
+    var r=await sb2.from('staff').update({share_token:token}).eq('id',staffId);
+    if(btn){btn.disabled=false;btn.textContent=oldText||'📋 Sao chép link';}
+    if(r.error){
+      if(isMissingColumnError(r.error))toast('Thiếu cột share_token. Chạy migration 2026-05-07_staff_penalty_share.sql trước.',false);
+      else toast('Lỗi tạo link: '+r.error.message,false);
+      return;
+    }
+    s.share_token=token;
+  }
+  var origin=window.location.origin,path=window.location.pathname.replace(/[^\/]*$/,'')+'index.html';
+  var url=origin+path+'?penalty='+staffId+'&token='+token;
+  try{await navigator.clipboard.writeText(url);toast('Đã sao chép link · gửi cho '+s.full_name+' qua Zalo',true);}
+  catch(e){window.prompt('Sao chép link sau (Ctrl+C):',url);}
+}
+
+// ═══ PUBLIC PENALTY MODE — nhân sự xem sổ phạt riêng qua URL ═══
+// URL: ?penalty=<staff_id>&token=<share_token>
+// Chỉ trả về phạt + tên + tháng. KHÔNG trả lương/hoa hồng/info người khác.
+var publicPenaltyMode=false,publicPenaltyStaffId=null,publicPenaltyToken=null,publicPenaltyMonth=null,publicPenaltyData=null,publicPenaltyPollTimer=null,publicPenaltyLoadedAt=null;
+function initPublicPenaltyMode(){
+  var p=new URLSearchParams(window.location.search);
+  var sid=p.get('penalty'),tok=p.get('token');
+  if(!sid)return false;
+  publicPenaltyMode=true;publicPenaltyStaffId=sid;publicPenaltyToken=tok||'';
+  document.body.classList.add('public-mode');
+  return true;
+}
+async function loadPublicPenalty(){
+  var rail=document.getElementById('rail'),subnav=document.getElementById('subnav'),appEl=document.getElementById('app');
+  if(rail)rail.style.display='none';
+  if(subnav)subnav.style.display='none';
+  if(appEl)appEl.style.gridTemplateColumns='1fr';
+  var page=document.getElementById('page');
+  if(!isValidUuid(publicPenaltyStaffId)){
+    page.innerHTML=renderPublicError('Link không hợp lệ','Mã nhân sự trong link bị sai hoặc cắt thiếu. Vui lòng nhờ HC Agency gửi lại link đầy đủ qua Zalo.');
+    return;
+  }
+  if(!publicPenaltyToken){
+    page.innerHTML=renderPublicError('Link thiếu mã xác thực','Link bị thiếu đoạn &token=... — thường do app rút gọn link khi forward. Vui lòng nhờ HC Agency gửi lại link đầy đủ.');
+    return;
+  }
+  page.innerHTML='<div style="padding:80px;text-align:center;color:var(--tx2);font-size:14px;">Đang tải sổ phạt...</div>';
+  try{
+    var r=await sb2.rpc('get_public_staff_penalty',{p_staff_id:publicPenaltyStaffId,p_token:publicPenaltyToken,p_month:publicPenaltyMonth});
+    if(r.error){
+      var msg=String(r.error.message||r.error);
+      if(/Invalid token|staff not found/i.test(msg)){
+        page.innerHTML=renderPublicError('Link không hợp lệ','Token không khớp hoặc đã thu hồi. Liên hệ HC Agency để lấy link mới.');
+        return;
+      }
+      if(/function .* does not exist/i.test(msg)||/Could not find the function/i.test(msg)){
+        page.innerHTML=renderPublicError('Hệ thống cần migration','Admin chưa chạy file SQL 2026-05-07_staff_penalty_share.sql. Vui lòng báo HC Agency.');
+        return;
+      }
+      page.innerHTML=renderPublicError('Không tải được dữ liệu',msg);
+      return;
+    }
+    publicPenaltyData=r.data||{};
+    if(!publicPenaltyData.staff){page.innerHTML=renderPublicError('Link không hợp lệ','Nhân sự không tồn tại.');return;}
+    publicPenaltyMonth=publicPenaltyData.month||publicPenaltyMonth;
+    renderPublicPenaltyPage();
+    startPublicPenaltyPoll();
+  }catch(e){page.innerHTML=renderPublicError('Lỗi tải dữ liệu',e.message);}
+}
+function startPublicPenaltyPoll(){
+  if(publicPenaltyPollTimer)clearInterval(publicPenaltyPollTimer);
+  publicPenaltyPollTimer=setInterval(function(){if(document.visibilityState==='visible')loadPublicPenalty();},120000); // 2 phút
+}
+async function reloadPublicPenalty(btn){
+  var oldText=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Đang tải...';}
+  try{await loadPublicPenalty();}
+  finally{if(btn){btn.disabled=false;btn.textContent=oldText||'🔄 Tải lại';}}
+}
+function changePublicPenaltyMonth(m){publicPenaltyMonth=m;loadPublicPenalty();}
+function renderPublicPenaltyPage(){
+  var d=publicPenaltyData||{},s=d.staff||{},pens=d.penalties||[],total=Number(d.total)||0,count=Number(d.count)||0;
+  var months=Array.isArray(d.available_months)?d.available_months.slice():[];
+  var ms=publicPenaltyMonth||lm();
+  if(months.indexOf(ms)<0)months.unshift(ms);
+  publicPenaltyLoadedAt=new Date();
+  var loadedAtStr=publicPenaltyLoadedAt.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' · '+publicPenaltyLoadedAt.toLocaleDateString('vi-VN');
+  var c=sc(s.color_code||'blue');
+  var h='<div class="public-container">';
+  h+='<div class="public-header">';
+  h+='<div class="public-brand"><div class="public-brand-name">HC Agency</div><div class="public-brand-sub">Sổ phạt cá nhân</div></div>';
+  h+='<div class="public-toolbar"><div class="public-month-pick"><span style="font-size:12px;color:var(--tx3);">Kỳ:</span> <select class="fi" onchange="changePublicPenaltyMonth(this.value)">';
+  months.forEach(function(m){h+='<option value="'+m+'"'+(m===ms?' selected':'')+'>T'+parseInt(m.split('-')[1])+'/'+m.split('-')[0]+'</option>';});
+  h+='</select></div>';
+  h+='<button class="btn btn-sm" onclick="reloadPublicPenalty(this)" title="Tải dữ liệu mới nhất">🔄 Tải lại</button>';
+  h+='</div></div>';
+  // Tên nhân sự + tháng
+  h+='<div style="background:var(--bg1);border:1px solid var(--bd1);border-left:4px solid '+c.c+';border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:14px;display:flex;align-items:center;gap:14px;">';
+  h+='<div class="avatar" style="width:46px;height:46px;font-size:16px;background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials||'?')+'</div>';
+  h+='<div style="flex:1;"><div style="font-size:16px;font-weight:600;">'+esc(s.full_name||'')+'</div><div style="font-size:12px;color:var(--tx3);margin-top:2px;">Sổ phạt T'+parseInt(ms.split('-')[1])+'/'+ms.split('-')[0]+'</div></div>';
+  h+='</div>';
+  // Tổng kết: số lần + tổng tiền (số to)
+  h+='<div class="kpi-grid kpi-2" style="margin-bottom:14px;">';
+  h+='<div class="kpi"><div class="kpi-label">Số lần phạt</div><div class="kpi-value" style="color:'+(count?'var(--red)':'var(--green)')+';">'+count+'</div><div class="kpi-note">trong tháng này</div></div>';
+  h+='<div class="kpi"><div class="kpi-label">Tổng tiền phạt</div><div class="kpi-value" style="color:'+(total>0?'var(--red)':'var(--green)')+';">'+(total>0?'−'+ff(total):'0')+'</div><div class="kpi-note">sẽ trừ vào lương tháng này</div></div>';
+  h+='</div>';
+  // Bảng chi tiết phạt
+  if(pens.length){
+    h+='<div class="form-card" style="padding:0;overflow:hidden;"><div style="padding:14px 18px;border-bottom:1px solid var(--bd1);"><div style="font-weight:600;font-size:14px;">Chi tiết phạt</div><div style="font-size:11px;color:var(--tx3);margin-top:2px;">Sắp xếp theo ngày mới nhất</div></div>';
+    h+='<div class="table-wrap"><table style="margin:0;"><thead><tr><th style="padding-left:18px;">Ngày</th><th>Lý do</th><th style="text-align:right;padding-right:18px;">Số tiền</th></tr></thead><tbody>';
+    pens.forEach(function(p){
+      var d=(p.penalty_date||'').split('-');
+      var dateStr=d.length===3?(d[2]+'/'+d[1]+'/'+d[0]):'';
+      h+='<tr><td style="padding-left:18px;font-weight:500;" class="mono">'+esc(dateStr)+'</td><td>'+esc(p.reason||'(không ghi lý do)')+'</td><td style="text-align:right;padding-right:18px;color:var(--red);font-weight:500;" class="mono">−'+ff(Number(p.amount)||0)+'</td></tr>';
+    });
+    h+='</tbody></table></div></div>';
+  }else{
+    h+='<div class="form-card" style="text-align:center;padding:40px 20px;color:var(--tx3);"><div style="font-size:36px;margin-bottom:8px;">🎉</div><div style="font-size:14px;color:var(--tx2);font-weight:500;">Tháng này không bị phạt lần nào</div><div style="font-size:12px;margin-top:4px;">Cứ giữ phong độ nhé!</div></div>';
+  }
+  h+='<div class="public-footer" style="margin-top:18px;">Báo cáo HC Agency · ⏱ Tải lúc '+esc(loadedAtStr)+' · tự refresh mỗi 2 phút · có thắc mắc liên hệ HC Agency qua Zalo</div>';
+  h+='</div>';
+  document.getElementById('page').innerHTML=h;
+  if(typeof enhanceUI==='function')try{enhanceUI();}catch(e){}
+}
+
 // ═══ PUBLIC REPORT MODE — khách xem báo cáo Ads daily qua URL ═══
 // URL: ?report=<client_id>&token=<share_token>
 var publicReportMode=false,publicReportClientId=null,publicReportToken=null,publicReportMonth=null,publicReportPollTimer=null;
@@ -6979,6 +7158,11 @@ async function init(){try{
   // Public report mode — khách xem báo cáo Ads daily qua URL ?report=<id>&token=<x>
   if(initPublicReportMode()){
     await loadPublicReport();
+    return;
+  }
+  // Public penalty mode — nhân sự xem sổ phạt riêng qua URL ?penalty=<staff_id>&token=<x>
+  if(initPublicPenaltyMode()){
+    await loadPublicPenalty();
     return;
   }
   await checkAuth();
