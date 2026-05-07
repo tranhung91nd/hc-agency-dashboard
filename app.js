@@ -2522,7 +2522,7 @@ return'<div style="display:flex;align-items:center;justify-content:center;min-he
 +'</div>'
 +'<div style="text-align:center;margin-top:16px;font-size:11px;color:var(--tx3);">HC Agency &copy; 2026</div>'
 +'</div></div>';}
-async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){var firstPage=typeof userAllowedPages[0]==='string'?parseInt(userAllowedPages[0]):userAllowedPages[0];curPage=firstPage;}else{curPage=0;}toast('Đăng nhập thành công! ('+userRole+')',true);autoSync();render();}}
+async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){curPage=permKeyToPage(userAllowedPages[0]);}else{curPage=0;}toast('Đăng nhập thành công! ('+userRole+')',true);autoSync();render();}}
 async function doLogout(){await sb2.auth.signOut();authUser=null;userRole='guest';userAllowedPages=null;curPage=0;toast('Đã đăng xuất',true);render();}
 async function checkAuth(){var{data}=await sb2.auth.getSession();if(data.session){authUser=data.session.user;await loadUserRole();}}
 async function loadUserRole(){
@@ -2579,6 +2579,12 @@ function normalizePermKey(p){
     return 'p'+parseInt(s);
   }
   return s;
+}
+// Lấy số page (0-6) từ permission key bất kỳ. "p4" → 4, "p4.reconcile" → 4, 4 → 4, "4" → 4
+function permKeyToPage(p){
+  var s=normalizePermKey(p);
+  var m=s.match(/^p(\d+)/);
+  return m?parseInt(m[1]):0;
 }
 // Check user có quyền truy cập 1 key cụ thể (vd "p4.reconcile")
 function canAccessKey(key){
@@ -6980,7 +6986,7 @@ async function init(){try{
   await loadAppSettings();
   if(isAdmin())await loadAllUserRoles();
   await loadAll();
-  if(authUser&&userAllowedPages&&userAllowedPages.length){var fp=typeof userAllowedPages[0]==='string'?parseInt(userAllowedPages[0]):userAllowedPages[0];if(!canAccessPage(curPage))curPage=fp;}
+  if(authUser&&userAllowedPages&&userAllowedPages.length){var fp=permKeyToPage(userAllowedPages[0]);if(!canAccessPage(curPage))curPage=fp;}
   autoSync();
   render();
 }catch(e){document.getElementById('page').innerHTML='<div style="padding:40px;text-align:center;color:var(--tx2);"><div style="font-size:16px;font-weight:500;margin-bottom:8px;">Không thể kết nối</div><div style="font-size:13px;margin-bottom:16px;">'+esc(e.message)+'</div><button class="btn btn-primary" onclick="location.reload()">Thử lại</button></div>';}}
