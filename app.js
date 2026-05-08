@@ -847,7 +847,8 @@ function _sbItemHtml(it){
   var isActive=it.match?it.match():false;
   var badge='';
   if(it.badgeFn){try{var b=it.badgeFn();if(b)badge='<span class="sb-item-badge'+(it.badgeAlert?' alert':'')+'">'+b+'</span>';}catch(e){}}
-  return '<button type="button" class="sb-item'+(isActive?' active':'')+'" onclick="'+it.action+'"><span class="sb-item-dot"></span><span class="sb-item-label">'+esc(it.label)+'</span>'+badge+'</button>';
+  // data-sb-action thay vì onclick → event delegation gắn 1 lần ở document, không bị xoá khi re-render
+  return '<button type="button" class="sb-item'+(isActive?' active':'')+'" data-sb-action="'+esc(it.action)+'"><span class="sb-item-dot"></span><span class="sb-item-label">'+esc(it.label)+'</span>'+badge+'</button>';
 }
 // Icon SVG cho mỗi page (dùng ở mode collapsed)
 var PAGE_ICONS={
@@ -876,9 +877,9 @@ function renderSidebarV2(){
       var cfg=SUBNAV_CONFIG[pNum];if(!cfg)return;
       var isActive=curPage===pNum;
       var ic=PAGE_ICONS[pNum]||'';
-      html+='<button type="button" class="sb-item sb-item-iconly'+(isActive?' active':'')+'" onclick="pg('+pNum+')" title="'+esc(cfg.title)+'">'+ic+'</button>';
+      html+='<button type="button" class="sb-item sb-item-iconly'+(isActive?' active':'')+'" data-sb-action="pg('+pNum+')" title="'+esc(cfg.title)+'">'+ic+'</button>';
     });
-    html+='<button type="button" class="sb-item sb-item-iconly" onclick="window.open(\'/nghiep.html\',\'_blank\')" title="CEO Hưng Coaching">'+PAGE_ICONS.ceo+'</button>';
+    html+='<button type="button" class="sb-item sb-item-iconly" data-sb-action="window.open(\'/nghiep.html\',\'_blank\')" title="CEO Hưng Coaching">'+PAGE_ICONS.ceo+'</button>';
   }else{
     pageOrder.forEach(function(pNum){
       if(authUser&&!canAccessPage(pNum))return;
@@ -901,7 +902,7 @@ function renderSidebarV2(){
       }
     });
     // CEO HC link external (luôn hiện ở cuối)
-    html+='<div class="sb-section"><button type="button" class="sb-item" onclick="window.open(\'/nghiep.html\',\'_blank\')"><span class="sb-item-dot"></span><span class="sb-item-label">CEO Hưng Coaching ↗</span></button></div>';
+    html+='<div class="sb-section"><button type="button" class="sb-item" data-sb-action="window.open(\'/nghiep.html\',\'_blank\')"><span class="sb-item-dot"></span><span class="sb-item-label">CEO Hưng Coaching ↗</span></button></div>';
   }
   nav.innerHTML=html;
   // Render footer
@@ -932,6 +933,20 @@ function toggleSidebarV2(){
   var apply=function(){var app=document.getElementById('app');if(app)app.classList.add('sidebar-collapsed');};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply);else apply();
 }}catch(e){}})();
+// Event delegation cho sidebar items: click bubble lên document → match data-sb-action → eval.
+// Listener gắn 1 lần, không bị xoá khi re-render sidebar → click không bị "lúc được lúc không".
+(function(){
+  if(window._sbDelegationAttached)return;
+  window._sbDelegationAttached=true;
+  document.addEventListener('click',function(e){
+    var el=e.target&&e.target.closest&&e.target.closest('[data-sb-action]');
+    if(!el)return;
+    var action=el.getAttribute('data-sb-action');
+    if(!action)return;
+    e.preventDefault();
+    try{(0,eval)(action);}catch(err){console.warn('[sb-action]',action,err);}
+  });
+})();
 function setSpendTab(i){spendTab=i;syncSidebarNav();render();}
 function setClientTab(t){clientTab=t;clientActiveSubTab='overview';expandedClientId=null;syncSidebarNav();render();}
 function setClientActiveSubTab(t){clientActiveSubTab=t;expandedClientId=null;render();}
