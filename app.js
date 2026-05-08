@@ -380,7 +380,7 @@ function td(){return vnDateStr(0);}
 function gm(){return td().substring(0,7);}
 function lm(){return dates.length?dates[dates.length-1].substring(0,7):gm();}
 function yesterday(){return vnDateStr(-86400000);}
-function toggleSidebar(){var rail=document.getElementById('rail');var ov=document.getElementById('overlay');if(rail)rail.classList.toggle('open');if(ov)ov.classList.toggle('show');}
+function toggleSidebar(){var sb=document.getElementById('sidebar');var ov=document.getElementById('overlay');if(sb)sb.classList.toggle('open');if(ov)ov.classList.toggle('show');}
 function metaNum(v){var n=parseInt(v,10);return isNaN(n)?0:n;}
 function hasComparableSpendCap(a){return !!(a&&a.spend_cap&&a.amount_spent>=0&&a.amount_spent<=a.spend_cap);}
 function isMissingRelationError(err){return !!(err&&err.message&&/relation .* does not exist/i.test(err.message));}
@@ -802,7 +802,7 @@ if(sid&&r[sid]){
 // === SIDEBAR 2 LỚP: rail (icon) + subnav (panel) ===
 // Cấu hình sub-items cho từng page
 var SUBNAV_CONFIG={
-  0:{title:'Tổng quan',sections:[{label:'',items:[{key:'main',label:'Tổng quan',action:"pg(0)"}]}]},
+  0:{title:'Tổng quan',sections:[{label:'',items:[{key:'main',label:'Tổng quan',action:"pg(0)",match:function(){return curPage===0;}}]}]},
   1:{title:'Tài khoản quảng cáo',sections:[{label:'TÀI KHOẢN',items:[
     {key:'spend0',label:'Tài khoản quảng cáo',action:"setSpendTab(0)",permKey:'p1.tkqc',match:function(){return curPage===1&&spendTab===0;}},
     {key:'spend1',label:'Chi tiêu theo nhân sự',action:"setSpendTab(1)",permKey:'p1.staff',match:function(){return curPage===1&&spendTab===1;}},
@@ -835,51 +835,87 @@ var SUBNAV_CONFIG={
   ]}]}
 };
 function renderSubnav(){
-  var body=document.getElementById('subnav-body');
-  var titleEl=document.getElementById('subnav-title');
-  if(!body||!titleEl)return;
-  var cfg=SUBNAV_CONFIG[curPage];
-  if(!cfg){body.innerHTML='';titleEl.textContent='';return;}
-  titleEl.textContent=cfg.title;
+  // Legacy stub — kept for backwards compat. Sidebar v2 thay thế hoàn toàn.
+  // Vẫn re-render sidebar v2 mỗi lần navigation thay đổi.
+  renderSidebarV2();
+}
+// ═══ SIDEBAR V2 — 1 lớp, hiển thị tất cả page + sub-items (giống GoClaw) ═══
+// Page có sub: render section header (uppercase) + sub-items
+// Page không sub: render 1 dòng đơn không header (Tổng quan)
+// Active item highlight bằng background nhẹ + dot xanh.
+function _sbItemHtml(it){
+  var isActive=it.match?it.match():false;
+  var badge='';
+  if(it.badgeFn){try{var b=it.badgeFn();if(b)badge='<span class="sb-item-badge'+(it.badgeAlert?' alert':'')+'">'+b+'</span>';}catch(e){}}
+  return '<button type="button" class="sb-item'+(isActive?' active':'')+'" onclick="'+it.action+'"><span class="sb-item-dot"></span><span class="sb-item-label">'+esc(it.label)+'</span>'+badge+'</button>';
+}
+function renderSidebarV2(){
+  var nav=document.getElementById('sb-nav');
+  var footer=document.getElementById('sb-footer');
+  if(!nav)return;
   var html='';
-  cfg.sections.forEach(function(sec){
-    var visibleItems=sec.items.filter(function(it){return !it.permKey||canAccessKey(it.permKey);});
-    if(!visibleItems.length)return;
-    html+='<div class="subnav-section">';
-    if(sec.label)html+='<div class="subnav-section-label">'+sec.label+'</div>';
-    visibleItems.forEach(function(it){
-      var isActive=it.match?it.match():false;
-      var badge='';
-      if(it.badgeFn){try{var b=it.badgeFn();if(b)badge='<span class="subnav-item-badge">'+b+'</span>';}catch(e){}}
-      html+='<button type="button" class="subnav-item'+(isActive?' active':'')+'" onclick="'+it.action+'"><span class="subnav-item-dot"></span><span>'+it.label+'</span>'+badge+'</button>';
+  // Iterate qua các page có config (theo thứ tự PERMISSION_TREE)
+  var pageOrder=[0,1,2,3,4,6,5]; // Admin xuống cuối
+  pageOrder.forEach(function(pNum){
+    if(authUser&&!canAccessPage(pNum))return;
+    var cfg=SUBNAV_CONFIG[pNum];if(!cfg)return;
+    var allItems=[];
+    cfg.sections.forEach(function(sec){
+      sec.items.forEach(function(it){if(!it.permKey||canAccessKey(it.permKey))allItems.push(it);});
     });
-    html+='</div>';
+    if(!allItems.length)return;
+    // Page chỉ có 1 sub item (vd Tổng quan) → render 1 dòng đơn không section header
+    if(allItems.length===1){
+      var only=Object.assign({},allItems[0]);
+      // Override label để dùng tên page (vd "Tổng quan" thay vì "main")
+      if(only.key==='main')only.label=cfg.title;
+      html+='<div class="sb-section">'+_sbItemHtml(only)+'</div>';
+    }else{
+      html+='<div class="sb-section">';
+      html+='<div class="sb-section-label">'+esc(cfg.title)+'</div>';
+      allItems.forEach(function(it){html+=_sbItemHtml(it);});
+      html+='</div>';
+    }
   });
-  body.innerHTML=html;
+  // CEO HC link external (luôn hiện ở cuối)
+  html+='<div class="sb-section"><button type="button" class="sb-item" onclick="window.open(\'/nghiep.html\',\'_blank\')"><span class="sb-item-dot"></span><span class="sb-item-label">CEO Hưng Coaching ↗</span></button></div>';
+  nav.innerHTML=html;
+  // Render footer
+  if(footer){
+    if(authUser){
+      var em=authUser.email||'',roleLbl=userRole==='admin'?'Admin':(userRole==='accountant'?'Kế toán':(userRole==='viewer'?'Chỉ xem':userRole));
+      var initials=(em.charAt(0)||'?').toUpperCase();
+      footer.innerHTML='<div class="sb-user"><div class="sb-user-avatar">'+esc(initials)+'</div><div class="sb-user-info"><div class="sb-user-name">'+esc(em)+'</div><div class="sb-user-meta"><span class="sb-user-status-dot"></span><span>Đã kết nối</span><span class="sb-user-role'+(userRole==='admin'?' admin':'')+'">'+esc(roleLbl)+'</span></div></div></div><button class="sb-logout" onclick="doLogout()" title="Đăng xuất"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Đăng xuất</span></button>';
+    }else footer.innerHTML='';
+  }
+  // Legacy stub elements (for code đang gọi getElementById('subnav-body'/'subnav-title'))
+  var legBody=document.getElementById('subnav-body');if(legBody)legBody.innerHTML='';
+  var legTitle=document.getElementById('subnav-title');if(legTitle)legTitle.textContent='';
 }
 function syncSidebarNav(){
-  document.querySelectorAll('.rail-item[data-page]').forEach(function(n){
-    var pNum=parseInt(n.dataset.page);
-    n.classList.toggle('active',pNum===curPage);
-    if(authUser&&userAllowedPages){n.style.display=canAccessPage(pNum)?'':'none';}
-    else{n.style.display='';}
-  });
-  renderSubnav();
+  // Sidebar v2: chỉ cần re-render là đủ (active state nằm trong HTML render)
+  renderSidebarV2();
 }
+// Toggle thu hẹp sidebar (chỉ icon ↔ full)
+function toggleSidebarV2(){
+  var app=document.getElementById('app');if(!app)return;
+  app.classList.toggle('sidebar-collapsed');
+  try{localStorage.setItem('hcSidebarCollapsed',app.classList.contains('sidebar-collapsed')?'1':'0');}catch(e){}
+}
+// Khôi phục state collapsed lúc load
+(function(){try{if(localStorage.getItem('hcSidebarCollapsed')==='1'){
+  var apply=function(){var app=document.getElementById('app');if(app)app.classList.add('sidebar-collapsed');};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply);else apply();
+}}catch(e){}})();
 function setSpendTab(i){spendTab=i;syncSidebarNav();render();}
 function setClientTab(t){clientTab=t;clientActiveSubTab='overview';expandedClientId=null;syncSidebarNav();render();}
 function setClientActiveSubTab(t){clientActiveSubTab=t;expandedClientId=null;render();}
 function openAdTab(i){spendTab=i;pg(1);}
-function toggleSubnav(){
-  var app=document.getElementById('app');
-  if(!app)return;
-  app.classList.toggle('subnav-collapsed');
-  try{localStorage.setItem('hcSubnavCollapsed',app.classList.contains('subnav-collapsed')?'1':'0');}catch(e){}
-}
-function pg(i){if(authUser&&!canAccessPage(i)){toast('Bạn không có quyền truy cập trang này. Liên hệ quản trị viên để được cấp quyền.',false);return;}curPage=i;cStaff=null;syncSidebarNav();if(window.innerWidth<=768){var rail=document.getElementById('rail');var ov=document.getElementById('overlay');if(rail)rail.classList.remove('open');if(ov)ov.classList.remove('show');}render();}
+// Legacy: subnav cũ — alias sang sidebar v2 toggle
+function toggleSubnav(){toggleSidebarV2();}
+function pg(i){if(authUser&&!canAccessPage(i)){toast('Bạn không có quyền truy cập trang này. Liên hệ quản trị viên để được cấp quyền.',false);return;}curPage=i;cStaff=null;syncSidebarNav();if(window.innerWidth<=768){var sb=document.getElementById('sidebar');var ov=document.getElementById('overlay');if(sb)sb.classList.remove('open');if(ov)ov.classList.remove('show');}render();}
 function render(){
-var rail=document.getElementById('rail');
-var subnav=document.getElementById('subnav');
+var sb=document.getElementById('sidebar');
 var el=document.getElementById('page');
 var appEl=document.getElementById('app');
 var overlay=document.getElementById('overlay');
@@ -887,14 +923,12 @@ var overlay=document.getElementById('overlay');
 var ae=document.activeElement,prevFocusId=ae&&ae.id?ae.id:null,prevSelStart=null,prevSelEnd=null;
 if(prevFocusId&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')){try{prevSelStart=ae.selectionStart;prevSelEnd=ae.selectionEnd;}catch(e){}}
 if(!authUser){
-if(rail)rail.style.display='none';
-if(subnav)subnav.style.display='none';
+if(sb)sb.style.display='none';
 if(overlay)overlay.classList.remove('show');
 if(appEl)appEl.style.gridTemplateColumns='1fr';
 el.innerHTML=renderLoginScreen();
 return;}
-if(rail)rail.style.display='';
-if(subnav)subnav.style.display='';
+if(sb)sb.style.display='';
 if(appEl)appEl.style.gridTemplateColumns='';
 syncSidebarNav();
 if(curPage===0)el.innerHTML=p0();else if(curPage===1)el.innerHTML=p1();else if(curPage===2)el.innerHTML=p2();else if(curPage===3)el.innerHTML=p3();else if(curPage===4)el.innerHTML=p4();else if(curPage===5)el.innerHTML=p5();else if(curPage===6)el.innerHTML=p6();
@@ -5517,9 +5551,8 @@ function renderPublicError(title,msg){
   return '<div class="public-error"><div class="public-error-icon" aria-hidden="true">⚠️</div><div class="public-error-title">'+esc(title)+'</div><div class="public-error-msg">'+esc(msg)+'</div></div>';
 }
 async function loadPublicLedger(){
-  var rail=document.getElementById('rail'),subnav=document.getElementById('subnav'),appEl=document.getElementById('app');
-  if(rail)rail.style.display='none';
-  if(subnav)subnav.style.display='none';
+  var sb=document.getElementById('sidebar'),appEl=document.getElementById('app');
+  if(sb)sb.style.display='none';
   if(appEl)appEl.style.gridTemplateColumns='1fr';
   var page=document.getElementById('page');
   if(!isValidUuid(publicLedgerClientId)){
@@ -5662,9 +5695,8 @@ function initPublicPenaltyMode(){
   return true;
 }
 async function loadPublicPenalty(){
-  var rail=document.getElementById('rail'),subnav=document.getElementById('subnav'),appEl=document.getElementById('app');
-  if(rail)rail.style.display='none';
-  if(subnav)subnav.style.display='none';
+  var sb=document.getElementById('sidebar'),appEl=document.getElementById('app');
+  if(sb)sb.style.display='none';
   if(appEl)appEl.style.gridTemplateColumns='1fr';
   var page=document.getElementById('page');
   if(!publicPenaltyToken){
@@ -5773,9 +5805,8 @@ function initPublicReportMode(){
   return true;
 }
 async function loadPublicReport(){
-  var rail=document.getElementById('rail'),subnav=document.getElementById('subnav'),appEl=document.getElementById('app');
-  if(rail)rail.style.display='none';
-  if(subnav)subnav.style.display='none';
+  var sb=document.getElementById('sidebar'),appEl=document.getElementById('app');
+  if(sb)sb.style.display='none';
   if(appEl)appEl.style.gridTemplateColumns='1fr';
   var page=document.getElementById('page');
   if(!isValidUuid(publicReportClientId)){
@@ -6095,9 +6126,8 @@ function initPublicLeadFormMode(){
   return true;
 }
 function renderLeadFormPage(){
-  var rail=document.getElementById('rail'),subnav=document.getElementById('subnav'),appEl=document.getElementById('app');
-  if(rail)rail.style.display='none';
-  if(subnav)subnav.style.display='none';
+  var sb=document.getElementById('sidebar'),appEl=document.getElementById('app');
+  if(sb)sb.style.display='none';
   if(appEl)appEl.style.gridTemplateColumns='1fr';
   var a=Math.floor(Math.random()*9)+1,b=Math.floor(Math.random()*9)+1;
   publicLeadFormCaptcha=a+b;
