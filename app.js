@@ -113,7 +113,7 @@ function renderZaloBtn(c){
 // Khi balance (spend_cap - amount_spent) < giá trị này → hiện cảnh báo ở P6.
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
-var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],clientDepositData=[],bankReconcileData=[],bankImportLog=[];
+var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],teamFundData=[],clientDepositData=[],bankReconcileData=[],bankImportLog=[];
 var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc',finTab='thuchi',reconcileMonth='',editingUserRoleId=null;
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
@@ -684,7 +684,7 @@ var errs=[];
  monthlyFeeData=mf.error?[]:(mf.data||[]);
  // Defer empty defaults — wave 2 sẽ ghi đè
  salaryData=salaryData||[];monthlyRevData=monthlyRevData||[];campaignMessData=campaignMessData||[];
- contractList=contractList||[];quotationList=quotationList||[];penaltyData=penaltyData||[];clientDepositData=clientDepositData||[];
+ contractList=contractList||[];quotationList=quotationList||[];penaltyData=penaltyData||[];teamFundData=teamFundData||[];clientDepositData=clientDepositData||[];
  var ds2=new Set();dailyData.forEach(function(d){ds2.add(d.report_date);});
 dates=Array.from(ds2).sort();if(dates.length)cDay=dates.length-1;
 if(!finMonth)finMonth=lm();if(!adViewDate)adViewDate=td();if(!rptMonth)rptMonth=lm();if(!clientMonth)clientMonth=lm();
@@ -695,13 +695,14 @@ loadDeferred();
 async function loadDeferred(){try{
  var minDate60=new Date(Date.now()-60*86400000).toISOString().substring(0,10);
  var minDate180=new Date(Date.now()-180*86400000).toISOString().substring(0,10);
- var[sal,mr,cmess,ctr,qt,pnl,dep,dsExt,brec,blog]=await Promise.all([
+ var[sal,mr,cmess,ctr,qt,pnl,tfw,dep,dsExt,brec,blog]=await Promise.all([
 sb2.from('salary').select('*,staff(short_name)').order('month',{ascending:false}),
 sb2.from('monthly_revenue').select('*,staff(short_name,code)').order('month'),
 fetchPaged(sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,max_lead_cost,client(name))').order('report_date',{ascending:false})),
 sb2.from('contract').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
 sb2.from('quotation').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
 sb2.from('penalty').select('*').order('penalty_date',{ascending:false}),
+sb2.from('team_fund_withdrawal').select('*').order('withdrawal_date',{ascending:false}),
 sb2.from('client_deposit').select('*').order('deposit_date',{ascending:false}),
 fetchPaged(sb2.from('daily_spend').select('id,report_date,ad_account_id,spend_amount,staff_id,matched_client_id').gte('report_date',minDate180).lt('report_date',minDate60).order('report_date')),
 sb2.from('bank_reconcile').select('*').order('bank_date',{ascending:false}),
@@ -713,6 +714,7 @@ sb2.from('bank_import_log').select('*').order('uploaded_at',{ascending:false}).l
  if(ctr&&!ctr.error)contractList=ctr.data||[];
  if(qt&&!qt.error)quotationList=qt.data||[];
  if(pnl&&!pnl.error)penaltyData=pnl.data||[];
+ if(tfw&&!tfw.error)teamFundData=tfw.data||[];
  if(dep&&!dep.error)clientDepositData=dep.data||[];
  if(brec&&!brec.error)bankReconcileData=brec.data||[];
  if(blog&&!blog.error)bankImportLog=blog.data||[];
@@ -1377,10 +1379,13 @@ sm.forEach(function(m){var tt=0;h+='<tr><td>T'+parseInt(m.split('-')[1])+'/'+m.s
 return h;}
 // Sub-tab 1: Sổ phạt + Tổng phạt theo nhân sự + Link CHUNG cho cả team
 function p2Penalty(){
-var h='<div class="page-title">Sổ phạt</div><div class="page-sub">Quản lý phạt + 1 link chung để cả team cùng theo dõi</div>';
+var h='<div class="page-title">Sổ phạt</div><div class="page-sub">Quản lý phạt + Quỹ team chung + 1 link cho cả team</div>';
+// ═══ QUỸ TEAM (banner nhắc + card tổng quan) ═══
+h+=renderTeamFundBanner();
+h+=renderTeamFundCard();
 // Card share link chung
 h+='<div class="form-card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:14px 18px;margin-bottom:14px;">';
-h+='<div><div style="font-weight:600;font-size:14px;">Link sổ phạt chung của team</div><div style="font-size:12px;color:var(--tx3);margin-top:2px;">1 link gửi cả nhóm Zalo · ai mở cũng thấy phạt của tất cả mọi người · không thấy lương/hoa hồng</div></div>';
+h+='<div><div style="font-weight:600;font-size:14px;">Link sổ phạt chung của team</div><div style="font-size:12px;color:var(--tx3);margin-top:2px;">1 link gửi cả nhóm Zalo · ai mở cũng thấy phạt + quỹ team · không thấy lương/hoa hồng</div></div>';
 h+='<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-primary btn-sm" onclick="copyTeamPenaltyLink(this)">📋 Sao chép link sổ chung</button><button class="btn btn-ghost btn-sm" onclick="rotateTeamPenaltyLink(this)" title="Sinh token mới — link cũ sẽ mất hiệu lực">🔄 Đổi token</button></div>';
 h+='</div>';
 // Bảng tổng phạt theo nhân sự (tháng đang xem) — chỉ để admin tham khảo nhanh
@@ -1691,6 +1696,182 @@ for(var i=0;i<batches.length;i++){var r=await sb2.from('penalty').insert(batches
 toast('Import xong: '+saved+' OK'+(errs?', '+errs+' lỗi':''),!errs);
 await loadAll();render();
 }catch(e){toast('Lỗi đọc file: '+e.message,false);console.error(e);}}
+
+// ═══════════════════════════════════════════════════════════════════
+// QUỸ TEAM — gộp tất cả phạt thành 1 quỹ chung, trích cho liên hoan/thưởng/quà...
+// ═══════════════════════════════════════════════════════════════════
+var TEAM_FUND_CATEGORIES=[
+  {key:'lien_hoan',label:'Liên hoan',icon:'🍻'},
+  {key:'thuong',label:'Thưởng',icon:'🎁'},
+  {key:'team_building',label:'Team building',icon:'🏝'},
+  {key:'qua',label:'Quà',icon:'🎀'},
+  {key:'khac',label:'Khác',icon:'•'}
+];
+function teamFundCategoryLabel(key){
+  var c=TEAM_FUND_CATEGORIES.find(function(x){return x.key===key;});
+  return c?(c.icon+' '+c.label):'• Khác';
+}
+function teamFundMetrics(){
+  var totCol=0;penaltyData.forEach(function(p){totCol+=Number(p.amount)||0;});
+  var totWd=0;teamFundData.forEach(function(w){totWd+=Number(w.amount)||0;});
+  var n=new Date(),y=n.getFullYear(),qIdx=Math.floor(n.getMonth()/3);
+  var qStart=y+'-'+String(qIdx*3+1).padStart(2,'0')+'-01',yStart=y+'-01-01';
+  var qCol=0,yCol=0;
+  penaltyData.forEach(function(p){var d=p.penalty_date||'';if(d>=yStart)yCol+=Number(p.amount)||0;if(d>=qStart)qCol+=Number(p.amount)||0;});
+  return{balance:totCol-totWd,totCollected:totCol,totWithdrawn:totWd,quarterCollected:qCol,yearCollected:yCol,quarter:qIdx+1,year:y,qStart:qStart,yStart:yStart};
+}
+function renderTeamFundBanner(){
+  // Banner nhắc đầu Q (1, 4, 7, 10) ngày 1-7: thông báo Q vừa rồi đã thu được bao nhiêu
+  var n=new Date(),d=n.getDate(),m=n.getMonth()+1,y=n.getFullYear();
+  if(d>7||[1,4,7,10].indexOf(m)<0)return'';
+  var prevStart,prevEnd,prevLabel;
+  if(m===1){prevStart=(y-1)+'-10-01';prevEnd=(y-1)+'-12-31';prevLabel='Q4/'+(y-1)+' & năm '+(y-1);}
+  else{var pIdx=Math.floor((m-1)/3)-1,pYear=y;if(pIdx<0){pIdx+=4;pYear-=1;}
+    var sM=pIdx*3+1,eM=pIdx*3+3;
+    prevStart=pYear+'-'+String(sM).padStart(2,'0')+'-01';
+    prevEnd=pYear+'-'+String(eM).padStart(2,'0')+'-31';
+    prevLabel='Q'+(pIdx+1)+'/'+pYear;}
+  var prevTotal=0;penaltyData.forEach(function(p){var dt=p.penalty_date||'';if(dt>=prevStart&&dt<=prevEnd)prevTotal+=Number(p.amount)||0;});
+  if(prevTotal<=0)return'';
+  // Đã có lần trích nào trong cửa sổ nhắc (tháng này) chưa? Có rồi → bỏ banner
+  var monthStart=y+'-'+String(m).padStart(2,'0')+'-01';
+  if(teamFundData.some(function(w){return(w.withdrawal_date||'')>=monthStart;}))return'';
+  var html='<div class="form-card" style="background:var(--amber-bg);border-color:var(--amber-bd,var(--bd1));padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">';
+  html+='<div style="font-size:22px;">💡</div>';
+  html+='<div style="flex:1;min-width:240px;font-size:13px;color:var(--amber-tx);"><b>'+prevLabel+'</b> đã thu được <b>'+ff(prevTotal)+'đ</b> tiền phạt — cân nhắc trích quỹ liên hoan/thưởng cho team.</div>';
+  html+='<button class="btn btn-primary btn-sm" onclick="openTeamFundModal()">💰 Trích quỹ ngay</button>';
+  html+='</div>';
+  return html;
+}
+function renderTeamFundCard(){
+  var m=teamFundMetrics();
+  var h='<div class="form-card" style="padding:16px 18px;margin-bottom:14px;">';
+  h+='<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px;">';
+  h+='<div><div style="font-weight:600;font-size:14px;">Quỹ team</div><div style="font-size:12px;color:var(--tx3);margin-top:2px;">Gộp toàn bộ tiền phạt = quỹ chung · trích ra cho liên hoan, thưởng, team building...</div></div>';
+  h+=isAdmin()?'<button class="btn btn-primary btn-sm" onclick="openTeamFundModal()">💰 Trích quỹ</button>':'';
+  h+='</div>';
+  h+='<div class="kpi-grid kpi-4" style="gap:10px;">';
+  h+='<div class="kpi" style="padding:12px;"><div class="kpi-label">Quỹ hiện có</div><div class="kpi-value" style="color:'+(m.balance>0?'var(--green)':'var(--tx2)')+';">'+ff(m.balance)+'</div><div class="kpi-note">đ — sau khi đã trích</div></div>';
+  h+='<div class="kpi" style="padding:12px;"><div class="kpi-label">Q'+m.quarter+'/'+m.year+' đã thu</div><div class="kpi-value">'+ff(m.quarterCollected)+'</div><div class="kpi-note">phạt từ đầu quý đến nay</div></div>';
+  h+='<div class="kpi" style="padding:12px;"><div class="kpi-label">Năm '+m.year+' đã thu</div><div class="kpi-value">'+ff(m.yearCollected)+'</div><div class="kpi-note">phạt từ đầu năm đến nay</div></div>';
+  h+='<div class="kpi" style="padding:12px;"><div class="kpi-label">Đã trích all-time</div><div class="kpi-value" style="color:var(--red);">'+ff(m.totWithdrawn)+'</div><div class="kpi-note">'+teamFundData.length+' lần</div></div>';
+  h+='</div>';
+  if(teamFundData.length){
+    h+='<div style="margin-top:14px;border-top:1px solid var(--bd1);padding-top:12px;">';
+    h+='<div style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px;">Lịch sử trích quỹ — '+teamFundData.length+' lần</div>';
+    h+='<div class="table-wrap" style="margin:0;"><table style="margin:0;font-size:12px;"><thead><tr><th>Ngày</th><th>Mục đích</th><th>Phân loại</th><th style="text-align:right;">Số tiền</th>'+(isAdmin()?'<th style="text-align:right;width:50px;"></th>':'')+'</tr></thead><tbody>';
+    teamFundData.slice(0,20).forEach(function(w){
+      var dt=(w.withdrawal_date||'').split('-');
+      var dStr=dt.length===3?(dt[2]+'/'+dt[1]+'/'+dt[0]):'';
+      h+='<tr>';
+      h+='<td class="mono" style="white-space:nowrap;">'+esc(dStr)+'</td>';
+      h+='<td>'+esc(w.purpose||'')+(w.note?'<div style="font-size:11px;color:var(--tx3);margin-top:2px;">'+esc(w.note)+'</div>':'')+'</td>';
+      h+='<td style="font-size:11px;color:var(--tx3);">'+esc(teamFundCategoryLabel(w.category||'khac'))+'</td>';
+      h+='<td class="mono" style="text-align:right;color:var(--red);font-weight:500;">−'+ff(Number(w.amount)||0)+'</td>';
+      if(isAdmin())h+='<td style="text-align:right;"><button onclick="deleteTeamFundWithdrawal(\''+w.id+'\')" style="font-size:14px;border:0;background:none;color:var(--tx3);cursor:pointer;" title="Xóa">×</button></td>';
+      h+='</tr>';
+    });
+    if(teamFundData.length>20)h+='<tr><td colspan="'+(isAdmin()?5:4)+'" style="text-align:center;color:var(--tx3);font-size:11px;padding:8px;">… và '+(teamFundData.length-20)+' lần trước đó</td></tr>';
+    h+='</tbody></table></div></div>';
+  }
+  h+='</div>';
+  return h;
+}
+function openTeamFundModal(){
+  if(!isAdmin()){toast('Chỉ admin mới trích quỹ được',false);return;}
+  var root=document.getElementById('hc-modal-root')||(function(){var d=document.createElement('div');d.id='hc-modal-root';document.body.appendChild(d);return d;})();
+  var ex=document.getElementById('team-fund-modal');if(ex)ex.remove();
+  var nowD=new Date(),todayStr=nowD.getFullYear()+'-'+String(nowD.getMonth()+1).padStart(2,'0')+'-'+String(nowD.getDate()).padStart(2,'0');
+  var qNow=Math.floor(nowD.getMonth()/3)+1,yNow=nowD.getFullYear();
+  var defaultPurpose='Liên hoan Q'+qNow+'/'+yNow;
+  var modal=document.createElement('div');modal.id='team-fund-modal';modal.className='hc-modal-backdrop';
+  modal.setAttribute('onclick','if(event.target===this)closeTeamFundModal()');
+  var chips='';
+  TEAM_FUND_CATEGORIES.forEach(function(c){
+    chips+='<button type="button" class="btn btn-ghost btn-sm" data-cat="'+c.key+'" onclick="pickTeamFundCategory(\''+c.key+'\')" style="padding:6px 12px;font-size:12px;">'+c.icon+' '+c.label+'</button>';
+  });
+  var m=teamFundMetrics();
+  modal.innerHTML=
+    '<div class="hc-modal" role="dialog" aria-modal="true" style="max-width:480px;">'
+    +'<div class="hc-modal-head"><h3>Trích quỹ team</h3><button class="hc-modal-close" onclick="closeTeamFundModal()" aria-label="Đóng">×</button></div>'
+    +'<div class="hc-modal-body">'
+    +'<div style="font-size:12px;color:var(--tx3);margin-bottom:12px;">Quỹ hiện có: <b style="color:'+(m.balance>0?'var(--green)':'var(--tx2)')+';">'+ff(m.balance)+'đ</b></div>'
+    +'<div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--tx2);font-weight:500;">Phân loại</label>'
+    +'<div id="tf-cat-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">'+chips+'</div>'
+    +'<input type="hidden" id="tf-category" value="lien_hoan"></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">'
+    +'<div><label style="font-size:12px;color:var(--tx2);font-weight:500;">Ngày trích</label><input type="date" id="tf-date" class="fi" value="'+todayStr+'" style="width:100%;"></div>'
+    +'<div><label style="font-size:12px;color:var(--tx2);font-weight:500;">Số tiền (đ)</label><input type="text" id="tf-amount" inputmode="numeric" class="fi mono" placeholder="500000" style="width:100%;text-align:right;" oninput="fmtNumberInput(this)"></div>'
+    +'</div>'
+    +'<div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--tx2);font-weight:500;">Mục đích (hiển thị cho team)</label>'
+    +'<input type="text" id="tf-purpose" class="fi" value="'+esc(defaultPurpose)+'" placeholder="VD: Liên hoan Q2/2026" style="width:100%;margin-top:4px;"></div>'
+    +'<div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--tx2);font-weight:500;">Ghi chú thêm (không bắt buộc)</label>'
+    +'<input type="text" id="tf-note" class="fi" placeholder="VD: Bún đậu mắm tôm + bia" style="width:100%;margin-top:4px;"></div>'
+    +'<div class="btn-row" style="margin-top:18px;"><button class="btn btn-ghost" onclick="closeTeamFundModal()">Hủy</button><button class="btn btn-primary" onclick="saveTeamFundWithdrawal(this)">Trích quỹ</button></div>'
+    +'</div></div>';
+  root.appendChild(modal);
+  setTimeout(function(){pickTeamFundCategory('lien_hoan');var a=document.getElementById('tf-amount');if(a)a.focus();},20);
+}
+function closeTeamFundModal(){var m=document.getElementById('team-fund-modal');if(m)m.remove();}
+function pickTeamFundCategory(key){
+  var input=document.getElementById('tf-category');if(!input)return;
+  input.value=key;
+  var chips=document.querySelectorAll('#tf-cat-chips [data-cat]');
+  chips.forEach(function(c){
+    if(c.getAttribute('data-cat')===key){c.classList.remove('btn-ghost');c.classList.add('btn-primary');}
+    else{c.classList.add('btn-ghost');c.classList.remove('btn-primary');}
+  });
+  var p=document.getElementById('tf-purpose');if(!p)return;
+  var nowD=new Date(),qNow=Math.floor(nowD.getMonth()/3)+1,yNow=nowD.getFullYear();
+  var labels={lien_hoan:'Liên hoan Q'+qNow+'/'+yNow,thuong:'Thưởng team Q'+qNow+'/'+yNow,team_building:'Team building Q'+qNow+'/'+yNow,qua:'Quà cho team',khac:''};
+  var defaults=Object.keys(labels).map(function(k){return labels[k];});
+  if(defaults.indexOf(p.value)>=0||p.value==='')p.value=labels[key]||'';
+}
+function fmtNumberInput(el){
+  var raw=(el.value||'').replace(/\D/g,'');
+  var num=parseInt(raw)||0;
+  var caret=el.selectionStart||0;
+  var digitsBefore=((el.value||'').slice(0,caret).match(/\d/g)||[]).length;
+  var formatted=num?num.toLocaleString('vi-VN'):'';
+  el.value=formatted;
+  if(digitsBefore>0){
+    var newCaret=0,seen=0;
+    for(var i=0;i<formatted.length;i++){if(/\d/.test(formatted[i]))seen++;newCaret=i+1;if(seen>=digitsBefore)break;}
+    try{el.setSelectionRange(newCaret,newCaret);}catch(e){}
+  }
+}
+async function saveTeamFundWithdrawal(btn){
+  if(!needAuth())return;
+  if(!isAdmin()){toast('Chỉ admin mới trích quỹ được',false);return;}
+  var d=document.getElementById('tf-date').value;
+  var amtStr=document.getElementById('tf-amount').value.replace(/\D/g,'');
+  var amt=parseInt(amtStr,10);
+  var purpose=document.getElementById('tf-purpose').value.trim();
+  var note=document.getElementById('tf-note').value.trim();
+  var category=document.getElementById('tf-category').value||'khac';
+  if(!d||!amt||amt<=0||!purpose){toast('Thiếu thông tin: Ngày / Số tiền / Mục đích',false);return;}
+  var m=teamFundMetrics();
+  if(amt>m.balance){
+    var ok=await hcConfirm({title:'Vượt quỹ hiện có',message:'Số tiền trích ('+ff(amt)+'đ) lớn hơn quỹ hiện có ('+ff(m.balance)+'đ). Vẫn trích?',confirmLabel:'Vẫn trích',danger:true});
+    if(!ok)return;
+  }
+  if(btn){btn.disabled=true;btn.textContent='Đang lưu...';}
+  var r=await sb2.from('team_fund_withdrawal').insert({withdrawal_date:d,amount:amt,category:category,purpose:purpose,note:note||null,created_by:authUser?authUser.email:null});
+  if(btn){btn.disabled=false;btn.textContent='Trích quỹ';}
+  if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+  toast('Đã trích quỹ '+ff(amt)+'đ — '+purpose,true);
+  closeTeamFundModal();
+  await loadAll();render();
+}
+async function deleteTeamFundWithdrawal(id){
+  if(!isAdmin()){toast('Chỉ admin mới xóa được',false);return;}
+  var w=teamFundData.find(function(x){return x.id===id;});
+  var label=w?(w.purpose+' · '+ff(w.amount)+'đ'):'lần trích này';
+  if(!(await hcConfirm({title:'Xóa lần trích quỹ',message:'Xóa "'+label+'"? Quỹ sẽ được hoàn lại.',confirmLabel:'Xóa',danger:true})))return;
+  var r=await sb2.from('team_fund_withdrawal').delete().eq('id',id);
+  if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+  toast('Đã xóa',true);await loadAll();render();
+}
 
 // ═══ P3: KHÁCH HÀNG ═══
 function p3(){
@@ -5809,6 +5990,40 @@ function renderPublicPenaltyPage(){
   h+='<div class="kpi-grid kpi-2" style="margin-bottom:14px;">';
   h+='<div class="kpi"><div class="kpi-label">Tổng số lần phạt</div><div class="kpi-value" style="color:'+(count?'var(--red)':'var(--green)')+';">'+count+'</div><div class="kpi-note">cả team trong tháng</div></div>';
   h+='<div class="kpi"><div class="kpi-label">Tổng tiền phạt</div><div class="kpi-value" style="color:'+(total>0?'var(--red)':'var(--green)')+';">'+(total>0?'−'+ff(total):'0')+'</div><div class="kpi-note">đã trừ/sẽ trừ vào lương tháng</div></div>';
+  h+='</div>';
+  // ═══ QUỸ TEAM (public view) ═══
+  var fundBal=Number(d.fund_balance)||0;
+  var fundQ=Number(d.fund_quarter_collected)||0;
+  var fundY=Number(d.fund_year_collected)||0;
+  var fundWd=Number(d.fund_total_withdrawn)||0;
+  var withdrawals=Array.isArray(d.withdrawals)?d.withdrawals:[];
+  var nowD=new Date(),qNow=Math.floor(nowD.getMonth()/3)+1,yNow=nowD.getFullYear();
+  h+='<div class="form-card" style="padding:16px 18px;margin-bottom:14px;background:linear-gradient(135deg,rgba(34,197,94,0.06),rgba(59,130,246,0.04));">';
+  h+='<div style="font-weight:600;font-size:14px;margin-bottom:4px;">💰 Quỹ team</div>';
+  h+='<div style="font-size:12px;color:var(--tx3);margin-bottom:12px;">Tiền phạt được gộp vào quỹ chung · trích cho liên hoan, thưởng, team building</div>';
+  h+='<div class="kpi-grid kpi-4" style="gap:10px;">';
+  h+='<div class="kpi" style="padding:12px;"><div class="kpi-label">Quỹ hiện có</div><div class="kpi-value" style="color:'+(fundBal>0?'var(--green)':'var(--tx2)')+';">'+ff(fundBal)+'</div><div class="kpi-note">đ — sau khi đã trích</div></div>';
+  h+='<div class="kpi" style="padding:12px;"><div class="kpi-label">Q'+qNow+'/'+yNow+' đã thu</div><div class="kpi-value">'+ff(fundQ)+'</div><div class="kpi-note">phạt từ đầu quý</div></div>';
+  h+='<div class="kpi" style="padding:12px;"><div class="kpi-label">Năm '+yNow+' đã thu</div><div class="kpi-value">'+ff(fundY)+'</div><div class="kpi-note">phạt từ đầu năm</div></div>';
+  h+='<div class="kpi" style="padding:12px;"><div class="kpi-label">Đã trích</div><div class="kpi-value" style="color:var(--red);">'+ff(fundWd)+'</div><div class="kpi-note">'+withdrawals.length+' lần</div></div>';
+  h+='</div>';
+  if(withdrawals.length){
+    h+='<div style="margin-top:14px;border-top:1px solid var(--bd1);padding-top:12px;">';
+    h+='<div style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px;">Lịch sử trích quỹ</div>';
+    h+='<div class="table-wrap" style="margin:0;"><table style="margin:0;font-size:12px;"><thead><tr><th>Ngày</th><th>Mục đích</th><th>Phân loại</th><th style="text-align:right;">Số tiền</th></tr></thead><tbody>';
+    withdrawals.slice(0,15).forEach(function(w){
+      var dt=(w.withdrawal_date||'').split('-');
+      var dStr=dt.length===3?(dt[2]+'/'+dt[1]+'/'+dt[0]):'';
+      h+='<tr>';
+      h+='<td class="mono" style="white-space:nowrap;">'+esc(dStr)+'</td>';
+      h+='<td>'+esc(w.purpose||'')+(w.note?'<div style="font-size:11px;color:var(--tx3);margin-top:2px;">'+esc(w.note)+'</div>':'')+'</td>';
+      h+='<td style="font-size:11px;color:var(--tx3);">'+esc((typeof teamFundCategoryLabel==='function')?teamFundCategoryLabel(w.category||'khac'):(w.category||'khác'))+'</td>';
+      h+='<td class="mono" style="text-align:right;color:var(--red);font-weight:500;">−'+ff(Number(w.amount)||0)+'</td>';
+      h+='</tr>';
+    });
+    if(withdrawals.length>15)h+='<tr><td colspan="4" style="text-align:center;color:var(--tx3);font-size:11px;padding:8px;">… và '+(withdrawals.length-15)+' lần trước đó</td></tr>';
+    h+='</tbody></table></div></div>';
+  }
   h+='</div>';
   // Bảng tổng theo nhân sự
   if(perStaff.length){

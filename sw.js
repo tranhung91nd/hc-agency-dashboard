@@ -1,8 +1,8 @@
-// HC Agency SW v16 — network-first cho HTML/JS/CSS, stale-while-revalidate cho ảnh
+// HC Agency SW v17 — network-first cho HTML/JS/CSS, stale-while-revalidate cho ảnh
 // Code (HTML/JS/CSS): luôn fetch network → fallback cache nếu offline.
 //   → Deploy mới user thấy ngay lập tức, không cần reload 2 lần như SWR cũ.
 // Ảnh + assets tĩnh khác: stale-while-revalidate (load nhanh từ cache).
-var CACHE_NAME = 'hc-agency-v17';
+var CACHE_NAME = 'hc-agency-v18';
 
 self.addEventListener('install', function(e) {
   self.skipWaiting();
