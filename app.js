@@ -849,36 +849,60 @@ function _sbItemHtml(it){
   if(it.badgeFn){try{var b=it.badgeFn();if(b)badge='<span class="sb-item-badge'+(it.badgeAlert?' alert':'')+'">'+b+'</span>';}catch(e){}}
   return '<button type="button" class="sb-item'+(isActive?' active':'')+'" onclick="'+it.action+'"><span class="sb-item-dot"></span><span class="sb-item-label">'+esc(it.label)+'</span>'+badge+'</button>';
 }
+// Icon SVG cho mỗi page (dùng ở mode collapsed)
+var PAGE_ICONS={
+  0:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12L12 3l9 9"/><path d="M5 10v10h14V10"/></svg>',
+  1:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>',
+  2:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  3:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
+  4:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="17" cy="15" r="1.4"/></svg>',
+  5:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  6:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>',
+  ceo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="12" cy="10" r="3"/><path d="M6.5 19.5c0-2.8 2.5-5 5.5-5s5.5 2.2 5.5 5"/></svg>'
+};
 function renderSidebarV2(){
   var nav=document.getElementById('sb-nav');
   var footer=document.getElementById('sb-footer');
+  var app=document.getElementById('app');
   if(!nav)return;
+  var isCollapsed=app&&app.classList.contains('sidebar-collapsed');
   var html='';
   // Iterate qua các page có config (theo thứ tự PERMISSION_TREE)
   var pageOrder=[0,1,2,3,4,6,5]; // Admin xuống cuối
-  pageOrder.forEach(function(pNum){
-    if(authUser&&!canAccessPage(pNum))return;
-    var cfg=SUBNAV_CONFIG[pNum];if(!cfg)return;
-    var allItems=[];
-    cfg.sections.forEach(function(sec){
-      sec.items.forEach(function(it){if(!it.permKey||canAccessKey(it.permKey))allItems.push(it);});
+  if(isCollapsed){
+    // Mode thu gọn: chỉ icon đại diện cho mỗi page (giống rail cũ)
+    pageOrder.forEach(function(pNum){
+      if(authUser&&!canAccessPage(pNum))return;
+      var cfg=SUBNAV_CONFIG[pNum];if(!cfg)return;
+      var isActive=curPage===pNum;
+      var ic=PAGE_ICONS[pNum]||'';
+      html+='<button type="button" class="sb-item sb-item-iconly'+(isActive?' active':'')+'" onclick="pg('+pNum+')" title="'+esc(cfg.title)+'">'+ic+'</button>';
     });
-    if(!allItems.length)return;
-    // Page chỉ có 1 sub item (vd Tổng quan) → render 1 dòng đơn không section header
-    if(allItems.length===1){
-      var only=Object.assign({},allItems[0]);
-      // Override label để dùng tên page (vd "Tổng quan" thay vì "main")
-      if(only.key==='main')only.label=cfg.title;
-      html+='<div class="sb-section">'+_sbItemHtml(only)+'</div>';
-    }else{
-      html+='<div class="sb-section">';
-      html+='<div class="sb-section-label">'+esc(cfg.title)+'</div>';
-      allItems.forEach(function(it){html+=_sbItemHtml(it);});
-      html+='</div>';
-    }
-  });
-  // CEO HC link external (luôn hiện ở cuối)
-  html+='<div class="sb-section"><button type="button" class="sb-item" onclick="window.open(\'/nghiep.html\',\'_blank\')"><span class="sb-item-dot"></span><span class="sb-item-label">CEO Hưng Coaching ↗</span></button></div>';
+    html+='<button type="button" class="sb-item sb-item-iconly" onclick="window.open(\'/nghiep.html\',\'_blank\')" title="CEO Hưng Coaching">'+PAGE_ICONS.ceo+'</button>';
+  }else{
+    pageOrder.forEach(function(pNum){
+      if(authUser&&!canAccessPage(pNum))return;
+      var cfg=SUBNAV_CONFIG[pNum];if(!cfg)return;
+      var allItems=[];
+      cfg.sections.forEach(function(sec){
+        sec.items.forEach(function(it){if(!it.permKey||canAccessKey(it.permKey))allItems.push(it);});
+      });
+      if(!allItems.length)return;
+      // Page chỉ có 1 sub item (vd Tổng quan) → render 1 dòng đơn không section header
+      if(allItems.length===1){
+        var only=Object.assign({},allItems[0]);
+        if(only.key==='main')only.label=cfg.title;
+        html+='<div class="sb-section">'+_sbItemHtml(only)+'</div>';
+      }else{
+        html+='<div class="sb-section">';
+        html+='<div class="sb-section-label">'+esc(cfg.title)+'</div>';
+        allItems.forEach(function(it){html+=_sbItemHtml(it);});
+        html+='</div>';
+      }
+    });
+    // CEO HC link external (luôn hiện ở cuối)
+    html+='<div class="sb-section"><button type="button" class="sb-item" onclick="window.open(\'/nghiep.html\',\'_blank\')"><span class="sb-item-dot"></span><span class="sb-item-label">CEO Hưng Coaching ↗</span></button></div>';
+  }
   nav.innerHTML=html;
   // Render footer
   if(footer){
@@ -901,6 +925,7 @@ function toggleSidebarV2(){
   var app=document.getElementById('app');if(!app)return;
   app.classList.toggle('sidebar-collapsed');
   try{localStorage.setItem('hcSidebarCollapsed',app.classList.contains('sidebar-collapsed')?'1':'0');}catch(e){}
+  if(typeof renderSidebarV2==='function')renderSidebarV2();
 }
 // Khôi phục state collapsed lúc load
 (function(){try{if(localStorage.getItem('hcSidebarCollapsed')==='1'){
