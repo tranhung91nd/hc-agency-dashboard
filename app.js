@@ -889,15 +889,29 @@ function renderSidebarV2(){
         sec.items.forEach(function(it){if(!it.permKey||canAccessKey(it.permKey))allItems.push(it);});
       });
       if(!allItems.length)return;
+      // Wrap action: nếu user click sub-tab khi đang ở page khác → navigate page TRƯỚC, rồi set tab.
+      // (vd click "Sổ phạt" khi đang ở Tổng quan → "pg(2);setP2Tab(1)")
+      var wrapAction=function(action){
+        if(!action)return action;
+        // Nếu action đã chứa pg(...) thì giữ nguyên (vd page 4 đã có 'pg(4);setFinTab(...)')
+        if(/(^|[^\w])pg\s*\(/.test(action))return action;
+        // Page 0 (Tổng quan) action 'pg(0)' đã đủ — bỏ qua
+        if(/^pg\s*\(\s*\d+\s*\)\s*;?\s*$/.test(action))return action;
+        return 'pg('+pNum+');'+action;
+      };
       // Page chỉ có 1 sub item (vd Tổng quan) → render 1 dòng đơn không section header
       if(allItems.length===1){
         var only=Object.assign({},allItems[0]);
         if(only.key==='main')only.label=cfg.title;
+        only.action=wrapAction(only.action);
         html+='<div class="sb-section">'+_sbItemHtml(only)+'</div>';
       }else{
         html+='<div class="sb-section">';
         html+='<div class="sb-section-label">'+esc(cfg.title)+'</div>';
-        allItems.forEach(function(it){html+=_sbItemHtml(it);});
+        allItems.forEach(function(it){
+          var wrapped=Object.assign({},it,{action:wrapAction(it.action)});
+          html+=_sbItemHtml(wrapped);
+        });
         html+='</div>';
       }
     });
