@@ -1521,6 +1521,7 @@ h+='</select></div>';
 h+='<div class="form-group"><label>Ngày</label><input type="date" id="pn-date" value="'+td()+'"></div>';
 h+='<div class="form-group"><label>Số tiền</label><input type="number" id="pn-amount" placeholder="30000"></div></div>';
 h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Lý do</label><input type="text" id="pn-reason" placeholder="VD: Quên báo cáo, đi làm muộn…"></div></div>';
+h+='<div style="display:flex;align-items:center;gap:8px;margin:6px 0 10px;font-size:12px;color:var(--tx2);"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="pn-excluded" style="margin:0;"> 🏥 Bồi thường khách <span style="color:var(--tx3);">(vẫn trừ lương nhưng không vào quỹ team)</span></label></div>';
 h+='<div class="btn-row"><button class="btn btn-primary btn-sm" onclick="savePenalty(this)">Ghi phạt</button></div></div>';
 }
 // Pivot table: dòng = ngày, cột = nhân sự + Note
@@ -1555,8 +1556,18 @@ h+='<tr><td>'+fd(d)+'</td>';
 colStaff.forEach(function(s){
 var arr=byStaff[s.id]||[];var sum=arr.reduce(function(acc,p){return acc+(Number(p.amount)||0);},0);
 totals[s.id]+=sum;grandTot+=sum;
-if(sum){h+='<td style="text-align:right;" class="mono"><span style="color:var(--red);font-weight:500;" title="'+esc(arr.map(function(r){return r.reason||'(không ghi lý do)';}).join(' · '))+'">'+ff(sum)+'</span>'+(authUser&&isAdmin()&&arr.length===1?' <button onclick="deletePenalty(\''+arr[0].id+'\')" style="font-size:10px;border:0;background:none;color:var(--tx3);cursor:pointer;" title="Xóa">×</button>':'')+'</td>';}
-else h+='<td></td>';
+if(!sum){h+='<td></td>';return;}
+var allEx=arr.every(function(p){return p.excluded_from_fund;});
+var someEx=arr.some(function(p){return p.excluded_from_fund;});
+var color=allEx?'var(--amber-tx)':'var(--red)';
+var prefix=someEx?'🏥 ':'';
+var title=arr.map(function(r){return (r.excluded_from_fund?'🏥 ':'')+(r.reason||'(không ghi lý do)');}).join(' · ');
+h+='<td style="text-align:right;" class="mono"><span style="color:'+color+';font-weight:500;" title="'+esc(title)+'">'+prefix+ff(sum)+'</span>';
+if(authUser&&isAdmin()&&arr.length===1){
+  h+=' <button onclick="togglePenaltyExcluded(\''+arr[0].id+'\')" style="font-size:11px;border:0;background:none;color:var(--tx3);cursor:pointer;padding:0 2px;" title="'+(arr[0].excluded_from_fund?'Đưa lại vào quỹ':'Đánh dấu bồi thường khách (không vào quỹ)')+'">'+(arr[0].excluded_from_fund?'↩':'🏥')+'</button>';
+  h+=' <button onclick="deletePenalty(\''+arr[0].id+'\')" style="font-size:10px;border:0;background:none;color:var(--tx3);cursor:pointer;" title="Xóa">×</button>';
+}
+h+='</td>';
 });
 extraNames.forEach(function(n){
 var arr=byExtra[n]||[];var sum=arr.reduce(function(acc,p){return acc+(Number(p.amount)||0);},0);
@@ -1585,14 +1596,30 @@ var sid=document.getElementById('pn-staff').value;
 var d=document.getElementById('pn-date').value;
 var amt=parseInt(document.getElementById('pn-amount').value,10);
 var rs=document.getElementById('pn-reason').value.trim();
+var exEl=document.getElementById('pn-excluded');
+var excluded=!!(exEl&&exEl.checked);
 if(!sid||!d||!amt||amt<=0){toast('Thiếu thông tin: Nhân sự / Ngày / Số tiền',false);return;}
 if(btn){btn.disabled=true;btn.textContent='Đang lưu...';}
-var r=await sb2.from('penalty').insert({staff_id:sid,penalty_date:d,amount:amt,reason:rs,created_by:authUser?authUser.email:null});
+var r=await sb2.from('penalty').insert({staff_id:sid,penalty_date:d,amount:amt,reason:rs,excluded_from_fund:excluded,created_by:authUser?authUser.email:null});
 if(btn){btn.disabled=false;btn.textContent='Ghi phạt';}
 if(r.error){toast('Lỗi: '+r.error.message,false);return;}
-toast('Đã ghi phạt '+ff(amt),true);
+toast('Đã ghi phạt '+ff(amt)+(excluded?' (bồi thường khách)':''),true);
 document.getElementById('pn-amount').value='';document.getElementById('pn-reason').value='';
+if(exEl)exEl.checked=false;
 await loadAll();render();}
+async function togglePenaltyExcluded(id){
+  if(!isAdmin()){toast('Chỉ admin mới đổi được',false);return;}
+  var p=penaltyData.find(function(x){return x.id===id;});if(!p)return;
+  var newVal=!p.excluded_from_fund;
+  var msg=newVal
+    ?'Đánh dấu phạt này là "Bồi thường khách" — vẫn trừ lương nhưng KHÔNG cộng vào quỹ team. Tiếp tục?'
+    :'Đưa phạt này trở lại quỹ team — sẽ cộng vào quỹ chung. Tiếp tục?';
+  if(!(await hcConfirm({title:newVal?'Bồi thường khách':'Đưa lại vào quỹ',message:msg,confirmLabel:'Xác nhận'})))return;
+  var r=await sb2.from('penalty').update({excluded_from_fund:newVal}).eq('id',id);
+  if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+  toast(newVal?'Đã loại khỏi quỹ team':'Đã đưa lại vào quỹ',true);
+  await loadAll();render();
+}
 async function deletePenalty(id){
 if(!needAuth())return;
 if(!confirm('Xóa khoản phạt này?'))return;
@@ -1712,13 +1739,24 @@ function teamFundCategoryLabel(key){
   return c?(c.icon+' '+c.label):'• Khác';
 }
 function teamFundMetrics(){
-  var totCol=0;penaltyData.forEach(function(p){totCol+=Number(p.amount)||0;});
+  // Chỉ tính phạt KHÔNG bị loại khỏi quỹ (excluded_from_fund=false hoặc undefined)
+  var totCol=0,excludedTotal=0;
+  penaltyData.forEach(function(p){
+    var amt=Number(p.amount)||0;
+    if(p.excluded_from_fund)excludedTotal+=amt;
+    else totCol+=amt;
+  });
   var totWd=0;teamFundData.forEach(function(w){totWd+=Number(w.amount)||0;});
   var n=new Date(),y=n.getFullYear(),qIdx=Math.floor(n.getMonth()/3);
   var qStart=y+'-'+String(qIdx*3+1).padStart(2,'0')+'-01',yStart=y+'-01-01';
   var qCol=0,yCol=0;
-  penaltyData.forEach(function(p){var d=p.penalty_date||'';if(d>=yStart)yCol+=Number(p.amount)||0;if(d>=qStart)qCol+=Number(p.amount)||0;});
-  return{balance:totCol-totWd,totCollected:totCol,totWithdrawn:totWd,quarterCollected:qCol,yearCollected:yCol,quarter:qIdx+1,year:y,qStart:qStart,yStart:yStart};
+  penaltyData.forEach(function(p){
+    if(p.excluded_from_fund)return;
+    var d=p.penalty_date||'',amt=Number(p.amount)||0;
+    if(d>=yStart)yCol+=amt;
+    if(d>=qStart)qCol+=amt;
+  });
+  return{balance:totCol-totWd,totCollected:totCol,totWithdrawn:totWd,quarterCollected:qCol,yearCollected:yCol,excludedTotal:excludedTotal,quarter:qIdx+1,year:y,qStart:qStart,yStart:yStart};
 }
 function renderTeamFundBanner(){
   // Banner nhắc đầu Q (1, 4, 7, 10) ngày 1-7: thông báo Q vừa rồi đã thu được bao nhiêu
@@ -1731,7 +1769,7 @@ function renderTeamFundBanner(){
     prevStart=pYear+'-'+String(sM).padStart(2,'0')+'-01';
     prevEnd=pYear+'-'+String(eM).padStart(2,'0')+'-31';
     prevLabel='Q'+(pIdx+1)+'/'+pYear;}
-  var prevTotal=0;penaltyData.forEach(function(p){var dt=p.penalty_date||'';if(dt>=prevStart&&dt<=prevEnd)prevTotal+=Number(p.amount)||0;});
+  var prevTotal=0;penaltyData.forEach(function(p){if(p.excluded_from_fund)return;var dt=p.penalty_date||'';if(dt>=prevStart&&dt<=prevEnd)prevTotal+=Number(p.amount)||0;});
   if(prevTotal<=0)return'';
   // Đã có lần trích nào trong cửa sổ nhắc (tháng này) chưa? Có rồi → bỏ banner
   var monthStart=y+'-'+String(m).padStart(2,'0')+'-01';
@@ -1756,6 +1794,9 @@ function renderTeamFundCard(){
   h+='<div class="kpi" style="padding:12px;"><div class="kpi-label">Năm '+m.year+' đã thu</div><div class="kpi-value">'+ff(m.yearCollected)+'</div><div class="kpi-note">phạt từ đầu năm đến nay</div></div>';
   h+='<div class="kpi" style="padding:12px;"><div class="kpi-label">Đã trích all-time</div><div class="kpi-value" style="color:var(--red);">'+ff(m.totWithdrawn)+'</div><div class="kpi-note">'+teamFundData.length+' lần</div></div>';
   h+='</div>';
+  if(m.excludedTotal>0){
+    h+='<div style="margin-top:10px;padding:8px 12px;background:var(--bg2);border-radius:6px;font-size:11px;color:var(--tx3);">🏥 Đã loại khỏi quỹ <b style="color:var(--tx2);">'+ff(m.excludedTotal)+'đ</b> phạt bồi thường khách (vẫn trừ lương, không cộng vào quỹ chung)</div>';
+  }
   if(teamFundData.length){
     h+='<div style="margin-top:14px;border-top:1px solid var(--bd1);padding-top:12px;">';
     h+='<div style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px;">Lịch sử trích quỹ — '+teamFundData.length+' lần</div>';
@@ -6040,17 +6081,19 @@ function renderPublicPenaltyPage(){
   }
   // Bảng chi tiết phạt
   if(pens.length){
-    h+='<div class="form-card" style="padding:0;overflow:hidden;"><div style="padding:14px 18px;border-bottom:1px solid var(--bd1);"><div style="font-weight:600;font-size:14px;">Chi tiết phạt</div><div style="font-size:11px;color:var(--tx3);margin-top:2px;">Sắp xếp theo ngày mới nhất</div></div>';
+    var hasExcluded=pens.some(function(p){return p.excluded_from_fund;});
+    h+='<div class="form-card" style="padding:0;overflow:hidden;"><div style="padding:14px 18px;border-bottom:1px solid var(--bd1);"><div style="font-weight:600;font-size:14px;">Chi tiết phạt</div><div style="font-size:11px;color:var(--tx3);margin-top:2px;">Sắp xếp theo ngày mới nhất'+(hasExcluded?' · 🏥 = phạt bồi thường khách (vẫn trừ lương, không vào quỹ chung)':'')+'</div></div>';
     h+='<div class="table-wrap"><table style="margin:0;"><thead><tr><th style="padding-left:18px;">Ngày</th><th>Nhân sự</th><th>Lý do</th><th style="text-align:right;padding-right:18px;">Số tiền</th></tr></thead><tbody>';
     pens.forEach(function(p){
       var dt=(p.penalty_date||'').split('-');
       var dateStr=dt.length===3?(dt[2]+'/'+dt[1]+'/'+dt[0]):'';
       var c=sc(p.staff_color||'blue');
-      h+='<tr>';
+      var ex=!!p.excluded_from_fund;
+      h+='<tr'+(ex?' style="background:var(--bg2);"':'')+'>';
       h+='<td style="padding-left:18px;font-weight:500;" class="mono">'+esc(dateStr)+'</td>';
       h+='<td><div style="display:inline-flex;align-items:center;gap:8px;"><div class="avatar" style="width:24px;height:24px;font-size:10px;background:'+c.bg+';color:'+c.tx+';">'+esc(p.staff_initials||'?')+'</div><span>'+esc(p.staff_name||'')+'</span></div></td>';
-      h+='<td>'+esc(p.reason||'(không ghi lý do)')+'</td>';
-      h+='<td style="text-align:right;padding-right:18px;color:var(--red);font-weight:500;" class="mono">−'+ff(Number(p.amount)||0)+'</td></tr>';
+      h+='<td>'+(ex?'<span title="Bồi thường khách — không vào quỹ team" style="font-size:11px;padding:2px 6px;border-radius:4px;background:var(--amber-bg);color:var(--amber-tx);margin-right:6px;">🏥 bù khách</span>':'')+esc(p.reason||'(không ghi lý do)')+'</td>';
+      h+='<td style="text-align:right;padding-right:18px;color:'+(ex?'var(--amber-tx)':'var(--red)')+';font-weight:500;" class="mono">−'+ff(Number(p.amount)||0)+'</td></tr>';
     });
     h+='</tbody></table></div>';
   }else{
