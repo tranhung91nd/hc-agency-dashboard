@@ -114,7 +114,7 @@ function renderZaloBtn(c){
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],adPostData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],teamFundData=[],teamTaskData=[],clientDepositData=[],bankReconcileData=[],bankImportLog=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc',finTab='thuchi',reconcileMonth='',reconcileSearch='',editingUserRoleId=null;
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,currentUserRoleRecord=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc',finTab='thuchi',reconcileMonth='',reconcileSearch='',editingUserRoleId=null;
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -889,7 +889,7 @@ function renderSidebarV2(){
       var ic=PAGE_ICONS[pNum]||'';
       html+='<button type="button" class="sb-item sb-item-iconly'+(isActive?' active':'')+'" data-sb-action="pg('+pNum+')" title="'+esc(cfg.title)+'">'+ic+'</button>';
     });
-    if(isAdmin())html+='<button type="button" class="sb-item sb-item-iconly" data-sb-action="window.open(\'/nghiep.html\',\'_blank\')" title="CEO Hưng Coaching">'+PAGE_ICONS.ceo+'</button>';
+    if(isStrictAdmin())html+='<button type="button" class="sb-item sb-item-iconly" data-sb-action="window.open(\'/nghiep.html\',\'_blank\')" title="CEO Hưng Coaching">'+PAGE_ICONS.ceo+'</button>';
   }else{
     pageOrder.forEach(function(pNum){
       if(authUser&&!canAccessPage(pNum))return;
@@ -926,7 +926,7 @@ function renderSidebarV2(){
       }
     });
     // CEO HC link external (chỉ admin mới thấy)
-    if(isAdmin())html+='<div class="sb-section"><button type="button" class="sb-item" data-sb-action="window.open(\'/nghiep.html\',\'_blank\')"><span class="sb-item-dot"></span><span class="sb-item-label">CEO Hưng Coaching ↗</span></button></div>';
+    if(isStrictAdmin())html+='<div class="sb-section"><button type="button" class="sb-item" data-sb-action="window.open(\'/nghiep.html\',\'_blank\')"><span class="sb-item-dot"></span><span class="sb-item-label">CEO Hưng Coaching ↗</span></button></div>';
   }
   nav.innerHTML=html;
   // Render footer
@@ -968,6 +968,10 @@ function toggleSidebarV2(){
     var action=el.getAttribute('data-sb-action');
     if(!action)return;
     e.preventDefault();
+    if(action.indexOf('/nghiep.html')>=0&&!isStrictAdmin()){
+      toast('Bạn không có quyền truy cập giao diện Hưng Coaching.',false);
+      return;
+    }
     try{(0,eval)(action);}catch(err){console.warn('[sb-action]',action,err);}
   });
 })();
@@ -2925,15 +2929,15 @@ return'<div style="display:flex;align-items:center;justify-content:center;min-he
 +'<div style="text-align:center;margin-top:16px;font-size:11px;color:var(--tx3);">HC Agency &copy; 2026</div>'
 +'</div></div>';}
 async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){curPage=permKeyToPage(userAllowedPages[0]);}else{curPage=0;}toast('Đăng nhập thành công! ('+userRole+')',true);autoSync();render();}}
-async function doLogout(){await sb2.auth.signOut();authUser=null;userRole='guest';userAllowedPages=null;curPage=0;toast('Đã đăng xuất',true);render();}
+async function doLogout(){await sb2.auth.signOut();authUser=null;userRole='guest';userAllowedPages=null;currentUserRoleRecord=null;curPage=0;toast('Đã đăng xuất',true);render();}
 async function checkAuth(){var{data}=await sb2.auth.getSession();if(data.session){authUser=data.session.user;await loadUserRole();}}
 async function loadUserRole(){
-if(!authUser){userRole='guest';userAllowedPages=null;return;}
+if(!authUser){userRole='guest';userAllowedPages=null;currentUserRoleRecord=null;return;}
 try{
 var{data,error}=await sb2.from('user_roles').select('*').eq('email',authUser.email).maybeSingle();
-if(data){userRole=data.role||'accountant';userAllowedPages=data.allowed_pages||[4];}
-else{userRole='admin';userAllowedPages=null;}
-}catch(e){userRole='admin';userAllowedPages=null;}}
+if(data){currentUserRoleRecord=data;userRole=data.role||'accountant';userAllowedPages=data.allowed_pages||[4];}
+else{currentUserRoleRecord=null;userRole='admin';userAllowedPages=null;}
+}catch(e){currentUserRoleRecord=null;userRole='admin';userAllowedPages=null;}}
 var USER_ROLE_OPTIONS=[
   {value:'accountant',label:'Kế toán'},
   {value:'marketing',label:'Marketing'},
@@ -2950,6 +2954,44 @@ function userRoleOptionsHtml(selectedRole){
   return USER_ROLE_OPTIONS.map(function(r){
     return '<option value="'+esc(r.value)+'"'+(selectedRole===r.value?' selected':'')+'>'+esc(r.label)+'</option>';
   }).join('');
+}
+function normalizePersonKey(v){
+  return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-z0-9]+/g,'');
+}
+function normalizePersonAlias(v){
+  return normalizePersonKey(v).replace(/y/g,'i');
+}
+function getCurrentUserStaff(){
+  if(!authUser||isStrictAdmin())return null;
+  var hints=[];
+  if(currentUserRoleRecord&&currentUserRoleRecord.display_name)hints.push(currentUserRoleRecord.display_name);
+  if(authUser.user_metadata&&authUser.user_metadata.display_name)hints.push(authUser.user_metadata.display_name);
+  if(authUser.email)hints.push(String(authUser.email).split('@')[0]);
+  hints=hints.map(normalizePersonAlias).filter(Boolean);
+  if(!hints.length)return null;
+  var list=allStaff.length?allStaff:staffList;
+  for(var i=0;i<list.length;i++){
+    var s=list[i];
+    var keys=[s.short_name,s.full_name,s.code,s.campaign_keyword].map(normalizePersonAlias).filter(Boolean);
+    for(var h=0;h<hints.length;h++){
+      for(var k=0;k<keys.length;k++){
+        if(hints[h]===keys[k]||hints[h].indexOf(keys[k])>=0||keys[k].indexOf(hints[h])>=0)return s;
+      }
+    }
+  }
+  return null;
+}
+function isStaffScopedRole(){
+  return authUser&&!isStrictAdmin()&&userRole==='marketing';
+}
+function canSeeStaffScopedData(staff){
+  if(!isStaffScopedRole())return true;
+  var me=getCurrentUserStaff();
+  return !!(me&&staff&&staff.id===me.id);
+}
+function filterAlertsForCurrentUser(alerts){
+  if(!isStaffScopedRole())return alerts;
+  return alerts.filter(function(al){return canSeeStaffScopedData(al.staff);});
 }
 // ═══ PERMISSION TREE ═══
 // Cấu trúc phân quyền: page chính + sub-tab. Admin (không có user_roles entry) full quyền.
@@ -3031,6 +3073,7 @@ function canAccessPage(pageNum){
   }
   return false;
 }
+function isStrictAdmin(){return authUser&&userRole==='admin';}
 function isAdmin(){return authUser&&(userRole==='admin'||!userAllowedPages);}
 async function loadAllUserRoles(){
 try{var{data}=await sb2.from('user_roles').select('*').order('created_at');allUserRoles=data||[];}catch(e){allUserRoles=[];}}
@@ -3559,7 +3602,7 @@ var staffId=ca.length?ca[0].staff_id:null;
 var staff=staffId?allStaff.find(function(s){return s.id===staffId;}):null;
 alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_mess:costPerMess,max_cost:c.ad.max_mess_cost,spend_4d:c.spend,mess_4d:c.mess,staff:staff,days:c.days,type:'mess'});}});
 alerts.sort(function(a,b){return b.cost_per_mess-a.cost_per_mess;});
-return alerts;}
+return filterAlertsForCurrentUser(alerts);}
 function getLeadAlerts(){
 var agg=buildCampAggregates(),camps=agg.camps,today=agg.today;
 var alerts=[];
@@ -3578,7 +3621,7 @@ var staffId=ca.length?ca[0].staff_id:null;
 var staff=staffId?allStaff.find(function(s){return s.id===staffId;}):null;
 alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_lead:costPerLead,max_cost:c.ad.max_lead_cost,spend_4d:c.spend,leads_4d:c.leads,staff:staff,days:c.days,type:'lead'});}});
 alerts.sort(function(a,b){return b.cost_per_lead-a.cost_per_lead;});
-return alerts;}
+return filterAlertsForCurrentUser(alerts);}
 
 // Cảnh báo Tài khoản có số dư dưới ngưỡng BALANCE_ALERT_THRESHOLD
 function getBalanceAlerts(){
@@ -3608,7 +3651,7 @@ var clientId=ca.length?ca[0].client_id:a.client_id;
 var client=clientId?clientList.find(function(c){return c.id===clientId;}):null;
 alerts.push({ad_account_id:a.id,fb_account_id:a.fb_account_id,account_name:a.account_name,balance:balance<0?0:balance,spent:a.amount_spent,cap:a.spend_cap,avg_daily:avgDaily,days_left:daysLeft,staff:staff,client_name:client?client.name:''});});
 alerts.sort(function(a,b){return a.balance-b.balance;});
-return alerts;}
+return filterAlertsForCurrentUser(alerts);}
 
 async function runLimited(items,limit,worker){
 var out=new Array(items.length),next=0,count=Math.min(limit,items.length);
@@ -3887,8 +3930,10 @@ var totalAlerts=messAlerts.length+leadAlerts.length+balAlerts.length;
 var d1Label=fd(vnDateStr(-86400000)),d3Label=fd(vnDateStr(-259200000));
 var h='<div class="page-title">Cảnh báo</div><div class="page-sub">Giá trung bình 3 ngày ('+d3Label+' – '+d1Label+') · Số dư Tài khoản dưới '+ff(BALANCE_ALERT_THRESHOLD)+'đ</div>';
 h+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">';
+if(isStrictAdmin()){
 h+='<button class="btn btn-primary" onclick="syncCampaignMess(this)">Quét giá Messenger & form</button>';
 h+='<button class="btn btn-ghost" onclick="backfillAdPostsOnce(this)" title="Force re-sync bài chạy T4-T5 cho tất cả TK. Idempotent — chạy lại nhiều lần không trùng." style="border:1px dashed var(--bd2);">Backfill bài chạy T4-T5</button>';
+}
 h+='<span style="font-size:11px;color:var(--tx3);">Bài chạy đã quét: '+adPostData.length+' dòng (cron mỗi 15p)</span>';
 h+='</div>';
 // KPI
