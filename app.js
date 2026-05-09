@@ -4100,13 +4100,18 @@ function renderTaskRow(t,showAssignee,isOverdue){
   }
   var canEdit=isAdmin();
   var canTick=true; // open mode (xem CLAUDE.md notes)
+  var subsArr=Array.isArray(t.subtasks)?t.subtasks:[];
+  var hasSubsRow=subsArr.length>0;
+  var canExpandRow=hasSubsRow||canEdit;
   var h='<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--bd1);'+(checked?'opacity:0.55;':'')+'">';
   // Checkbox
   if(canTick){
     h+='<button onclick="toggleTaskStatus(\''+t.id+'\')" style="width:22px;height:22px;flex-shrink:0;border:1.5px solid '+(checked?'var(--green)':doing?'var(--blue)':'var(--bd2)')+';background:'+(checked?'var(--green)':doing?'rgba(59,130,246,0.1)':'transparent')+';border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:13px;padding:0;" title="'+(checked?'Hoàn thành — click để bỏ':doing?'Đang làm — click để hoàn thành':'Chưa làm — click để đánh dấu đang làm')+'">'+(checked?'✓':doing?'<span style="color:var(--blue);font-size:10px;">●</span>':'')+'</button>';
   }
-  // Title + meta
-  h+='<div style="flex:1;min-width:0;">';
+  // Title + meta (clickable to expand sub-tasks)
+  var titleWrapStyle='flex:1;min-width:0;'+(canExpandRow?'cursor:pointer;':'');
+  var titleWrapAttr=canExpandRow?' onclick="toggleTaskExpand(\''+t.id+'\')" title="'+(hasSubsRow?'Click để xem đầu việc nhỏ':'Click để thêm đầu việc nhỏ')+'"':'';
+  h+='<div style="'+titleWrapStyle+'"'+titleWrapAttr+'>';
   h+='<div style="font-size:13px;'+(checked?'text-decoration:line-through;':'')+(isOverdue?'color:var(--red);':'')+'">'+esc(t.title||'')+'</div>';
   var metaParts=[];
   if(showAssignee&&s)metaParts.push('<span style="display:inline-flex;align-items:center;gap:4px;"><span class="avatar" style="width:16px;height:16px;font-size:9px;background:'+sc(s.color_code).bg+';color:'+sc(s.color_code).tx+';">'+esc(s.avatar_initials)+'</span>'+esc(s.short_name)+'</span>');
