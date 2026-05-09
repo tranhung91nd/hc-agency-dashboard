@@ -41,6 +41,16 @@ CREATE INDEX IF NOT EXISTS idx_team_task_recurring_key
 CREATE INDEX IF NOT EXISTS idx_team_task_status
   ON team_task (status) WHERE status <> 'done';
 
+-- RLS: cho phép authenticated user (admin/staff đã login) full quyền
+ALTER TABLE team_task ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "team_task_authenticated_all" ON team_task;
+CREATE POLICY "team_task_authenticated_all" ON team_task
+  FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
 COMMENT ON TABLE team_task IS
   'Task hằng ngày của team. Mỗi ngày 1 task = 1 row. Recurring tasks copy client-side khi load page.';
 COMMENT ON COLUMN team_task.recurring_key IS
