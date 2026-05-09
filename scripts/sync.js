@@ -75,10 +75,15 @@ function parseMessRows(a, campBody, insBody, adsetsBody) {
   });
 }
 
-// ═══ Sync daily_spend cho 1 ngày ═══
+// ═══ Sync daily_spend cho 1 ngày (UPSERT idempotent) ═══
+// Yêu cầu: bảng daily_spend đã có UNIQUE constraint daily_spend_natural_uniq
+// (xem migrations/2026-05-09_daily_spend_unique.sql).
+// Với staff_id NULL, shared accounts trước khi upsert vẫn cần xóa orphan rows
+// (combos staff/client đã không còn trong batch hiện tại).
 async function syncDailySpendForDate(syncDate, normal, shared, staff, clients) {
   let saved = 0, errors = 0;
-  // Normal accounts
+  // ─── Normal accounts: 1 dòng/TK/ngày, staff_id=NULL, matched_client_id=NULL ───
+  const normalRows = [];
   for (let b = 0; b < normal.length; b += 50) {
     const chunk = normal.slice(b, b + 50);
     const batchReqs = chunk.map(a => ({
@@ -92,31 +97,29 @@ async function syncDailySpendForDate(syncDate, normal, shared, staff, clients) {
         body: `batch=${encodeURIComponent(JSON.stringify(batchReqs))}&access_token=${META_TOKEN}&include_headers=false`
       });
       const results = await resp.json();
-      const tasks = [];
       for (let j = 0; j < results.length; j++) {
-        const a = chunk[j];
-        tasks.push((async () => {
-          try {
-            const body = JSON.parse(results[j].body || '{}');
-            let spend = 0;
-            if (body.data && body.data.length) spend = Math.round(parseFloat(body.data[0].spend));
-            await sb.from('daily_spend').delete().eq('ad_account_id', a.id).eq('report_date', syncDate).is('staff_id', null);
-            const r = await sb.from('daily_spend').insert({ ad_account_id: a.id, report_date: syncDate, spend_amount: spend });
-            if (!r.error) saved++; else errors++;
-          } catch (e) { errors++; }
-        })());
-        if (tasks.length >= 10 || j === results.length - 1) { await Promise.all(tasks); tasks.length = 0; }
+        try {
+          const body = JSON.parse(results[j].body || '{}');
+          let spend = 0;
+          if (body.data && body.data.length) spend = Math.round(parseFloat(body.data[0].spend));
+          normalRows.push({ ad_account_id: chunk[j].id, report_date: syncDate, spend_amount: spend, staff_id: null, matched_client_id: null });
+        } catch (e) { errors++; }
       }
     } catch (e) { console.error(`[daily_spend ${syncDate}] batch error:`, e.message); errors += chunk.length; }
   }
-  // Shared accounts (TK dùng chung)
+  if (normalRows.length) {
+    const r = await sb.from('daily_spend').upsert(normalRows, { onConflict: 'ad_account_id,report_date,staff_id,matched_client_id' });
+    if (r.error) { console.error(`[daily_spend normal ${syncDate}] upsert:`, r.error.message); errors += normalRows.length; }
+    else saved += normalRows.length;
+  }
+  // ─── Shared accounts: nhiều dòng/TK/ngày (1 cho mỗi cặp staff×client) ───
+  // Pull insights theo campaign, parse keyword → list combos hiện tại, xóa orphan, upsert mới
   const sharedFns = shared.map(a => async () => {
     try {
       const url = `https://graph.facebook.com/v25.0/${a.fb_account_id}/insights?level=campaign&fields=campaign_name,spend&time_range={"since":"${syncDate}","until":"${syncDate}"}&limit=500&access_token=${META_TOKEN}`;
       const resp = await fetch(url);
       const data = await resp.json();
       if (data.error) { errors++; return; }
-      await sb.from('daily_spend').delete().eq('ad_account_id', a.id).eq('report_date', syncDate).not('staff_id', 'is', null);
       const combo = {};
       (data.data || []).forEach(c => {
         const spend = Math.round(parseFloat(c.spend || 0));
@@ -132,13 +135,22 @@ async function syncDailySpendForDate(syncDate, normal, shared, staff, clients) {
           combo[key].spend += spend;
         }
       });
-      for (const k of Object.keys(combo)) {
-        const cb = combo[k];
-        const r = await sb.from('daily_spend').insert({
-          ad_account_id: a.id, report_date: syncDate,
-          spend_amount: cb.spend, staff_id: cb.sid, matched_client_id: cb.cid
-        });
-        if (!r.error) saved++; else errors++;
+      const rows = Object.values(combo).map(cb => ({
+        ad_account_id: a.id, report_date: syncDate,
+        spend_amount: cb.spend, staff_id: cb.sid, matched_client_id: cb.cid
+      }));
+      // Xóa orphan: dòng staff_id NOT NULL của TK này × ngày này, KHÔNG nằm trong combos hiện tại
+      // (vd combo cũ đã bị xóa khỏi Meta hoặc đổi staff). Vẫn cần delete cho shared.
+      const validKeys = new Set(rows.map(r => r.staff_id + '|' + (r.matched_client_id || '')));
+      const existing = await sb.from('daily_spend').select('id,staff_id,matched_client_id').eq('ad_account_id', a.id).eq('report_date', syncDate).not('staff_id', 'is', null);
+      if (existing.data) {
+        const orphanIds = existing.data.filter(x => !validKeys.has(x.staff_id + '|' + (x.matched_client_id || ''))).map(x => x.id);
+        if (orphanIds.length) await sb.from('daily_spend').delete().in('id', orphanIds);
+      }
+      if (rows.length) {
+        const r = await sb.from('daily_spend').upsert(rows, { onConflict: 'ad_account_id,report_date,staff_id,matched_client_id' });
+        if (r.error) { errors += rows.length; console.warn(`[daily_spend shared ${a.id}]:`, r.error.message); }
+        else saved += rows.length;
       }
     } catch (e) { errors++; }
   });
@@ -203,6 +215,87 @@ async function syncCampaignMess(adAccounts) {
   return { saved, errors };
 }
 
+// ═══ Sync ad_daily_post cho range D0 (mỗi ad × ngày + post_id + creative) ═══
+async function syncAdDailyPost(adAccounts) {
+  const mapped = adAccounts.filter(a => a.fb_account_id && (a.max_mess_cost || a.max_lead_cost));
+  if (!mapped.length) {
+    console.log(`[ad_daily_post] Không có TK nào đặt ngưỡng — bỏ qua`);
+    return { saved: 0, errors: 0 };
+  }
+  console.log(`[ad_daily_post] ${mapped.length} TK, range ${MESS_SINCE} → ${MESS_UNTIL}`);
+  let saved = 0, errors = 0;
+  const allRows = [];
+  // 2 reqs/account (insights/ad + ads metadata) → chunk 24 để ≤50 reqs/batch
+  for (let b = 0; b < mapped.length; b += 24) {
+    const chunk = mapped.slice(b, b + 24);
+    const batchReqs = [];
+    chunk.forEach(a => {
+      batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/insights?level=ad&fields=ad_id,ad_name,campaign_id,campaign_name,spend,actions&time_range={"since":"${MESS_SINCE}","until":"${MESS_UNTIL}"}&time_increment=1&limit=500` });
+      batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/ads?fields=id,name,status,creative{effective_object_story_id,thumbnail_url}&limit=500` });
+    });
+    try {
+      const resp = await fetch('https://graph.facebook.com/v25.0/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `batch=${encodeURIComponent(JSON.stringify(batchReqs))}&access_token=${META_TOKEN}&include_headers=false`
+      });
+      const bResults = await resp.json();
+      if (!Array.isArray(bResults)) {
+        console.error(`[ad_daily_post] batch không trả mảng:`, bResults && bResults.error && bResults.error.message);
+        errors += chunk.length; continue;
+      }
+      for (let j = 0; j < chunk.length; j++) {
+        try {
+          const insBody = JSON.parse((bResults[j * 2] && bResults[j * 2].body) || '{}');
+          const adsBody = JSON.parse((bResults[j * 2 + 1] && bResults[j * 2 + 1].body) || '{}');
+          if (insBody.error) { console.warn(`[ad_daily_post] insights acc=${chunk[j].fb_account_id}:`, insBody.error.message); errors++; continue; }
+          // adsBody.error non-fatal — vẫn parse insights, chỉ thiếu post_id
+          const adsMeta = {};
+          ((adsBody && adsBody.data) || []).forEach(ad => {
+            const c = ad.creative || {};
+            const posid = c.effective_object_story_id || null;
+            let purl = null;
+            if (posid && posid.indexOf('_') > 0) {
+              const parts = posid.split('_');
+              purl = `https://www.facebook.com/${parts[0]}/posts/${parts[1]}`;
+            }
+            adsMeta[ad.id] = { status: ad.status || null, post_id: posid, post_url: purl, thumbnail_url: c.thumbnail_url || null };
+          });
+          (insBody.data || []).forEach(r => {
+            const spend = Math.round(parseFloat(r.spend || 0));
+            let messCount = 0, leadCount = 0, commentCount = 0, checkoutCount = 0;
+            if (r.actions) {
+              r.actions.forEach(act => {
+                const t = act.action_type || '';
+                if (t.indexOf('messaging_conversation_started') >= 0 || t === 'onsite_conversion.messaging_conversation_started_7d') messCount += parseInt(act.value) || 0;
+                if (t === 'lead' || t === 'leadgen_grouped') leadCount += parseInt(act.value) || 0;
+                if (t === 'comment') commentCount += parseInt(act.value) || 0;
+                if (t === 'offsite_conversion.fb_pixel_initiate_checkout' || t === 'onsite_conversion.initiate_checkout' || t === 'initiate_checkout') checkoutCount += parseInt(act.value) || 0;
+              });
+            }
+            const meta = adsMeta[r.ad_id] || {};
+            allRows.push({
+              ad_account_id: chunk[j].id, ad_id: r.ad_id, report_date: r.date_start,
+              ad_name: r.ad_name || null, campaign_id: r.campaign_id || null, campaign_name: r.campaign_name || null,
+              post_id: meta.post_id || null, post_url: meta.post_url || null, thumbnail_url: meta.thumbnail_url || null,
+              spend: spend, mess_count: messCount, comment_count: commentCount, lead_count: leadCount, checkout_count: checkoutCount,
+              ad_status: meta.status || null
+            });
+          });
+        } catch (e) { console.warn(`[ad_daily_post] parse acc=${chunk[j].fb_account_id}:`, e.message); errors++; }
+      }
+    } catch (e) { console.error(`[ad_daily_post] network:`, e.message); errors += chunk.length; }
+  }
+  for (let i = 0; i < allRows.length; i += 500) {
+    const batch = allRows.slice(i, i + 500);
+    const r = await sb.from('ad_daily_post').upsert(batch, { onConflict: 'ad_account_id,ad_id,report_date' });
+    if (r.error) { console.error(`[ad_daily_post] upsert:`, r.error.message); errors += batch.length; }
+    else saved += batch.length;
+  }
+  console.log(`[ad_daily_post] saved=${saved} errors=${errors}`);
+  return { saved, errors };
+}
+
 async function main() {
   const [staffRes, clientRes, adRes] = await Promise.all([
     sb.from('staff').select('*'),
@@ -255,6 +348,10 @@ async function main() {
   // ═══ Sync campaign_daily_mess cho range ═══
   const mr = await syncCampaignMess(adAccounts);
   totalSaved += mr.saved; totalErrors += mr.errors;
+
+  // ═══ Sync ad_daily_post (chi tiết từng bài chạy) ═══
+  const ar = await syncAdDailyPost(adAccounts);
+  totalSaved += ar.saved; totalErrors += ar.errors;
 
   console.log(`[HC Sync] Done! ${totalSaved} saved, ${totalErrors} errors`);
   if (totalErrors > 0 && totalSaved === 0) process.exit(1);

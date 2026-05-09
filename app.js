@@ -729,28 +729,7 @@ sb2.from('bank_import_log').select('*').order('uploaded_at',{ascending:false}).l
  }
  // Re-render để cập nhật tab nào đang xem nếu cần data wave 2
  render();
- // Auto-backfill ngầm dữ liệu bài chạy T4-T5 nếu chưa có (chỉ chạy 1 lần per device)
- maybeAutoBackfillAdPosts();
 }catch(e){console.warn('[loadDeferred]',e.message);}}
-
-// Quét ngầm dữ liệu bài chạy nếu chưa từng quét (kiểm tra qua localStorage)
-async function maybeAutoBackfillAdPosts(){
-  try{
-    if(!authUser||!isAdmin())return; // chỉ admin mới có quyền sync
-    var flag=localStorage.getItem('hc_ad_post_backfill_v1');
-    if(flag)return; // đã chạy rồi → skip (nếu cần re-run, xóa key này)
-    if(adPostData&&adPostData.length>50)return; // đã có sẵn nhiều dữ liệu → coi như xong
-    var mapped=adList.filter(function(a){return a.fb_account_id&&(a.max_mess_cost||a.max_lead_cost);});
-    if(!mapped.length)return; // không có TK nào để quét
-    console.log('[Auto-backfill bài chạy] Bắt đầu T4+T5 cho '+mapped.length+' TK...');
-    await syncAdDailyPost(null,{dateFrom:'2026-04-01',dateTo:vnDateStr(0),quiet:true,skipRefresh:true});
-    localStorage.setItem('hc_ad_post_backfill_v1',new Date().toISOString());
-    console.log('[Auto-backfill bài chạy] Xong: '+adPostData.length+' dòng');
-    // Re-fetch chỉ table ad_daily_post (không cần loadAll() đầy đủ — đỡ tốn)
-    var r=await sb2.from('ad_daily_post').select('*').gte('report_date','2026-04-01').order('report_date',{ascending:false}).limit(10000);
-    if(r&&!r.error){adPostData=r.data||[];render();}
-  }catch(e){console.warn('[Auto-backfill bài chạy] Lỗi:',e.message);}
-}
 
 async function loadLight(){try{
 var[s,c,aa,sal,tx,sc2,asgn,mf,ctr,qt,dep]=await Promise.all([
@@ -3793,113 +3772,6 @@ if(!skipRefresh)await loadAll();
 }catch(e){toast('Lỗi quét giá Messenger: '+e.message,false);}
 finally{if(btn){btn.disabled=false;btn.textContent=oldText;}}}
 
-// ═══ AD-LEVEL SYNC: hiệu quả theo bài chạy (post Facebook) ═══
-// Parse insights ở mức level=ad + ghép metadata ads (creative.effective_object_story_id, thumbnail_url, status)
-function parseAdRows(a,insBody,adsBody){
-var adsMeta={};
-((adsBody&&adsBody.data)||[]).forEach(function(ad){
-var c=ad.creative||{};
-var posid=c.effective_object_story_id||null,purl=null;
-if(posid&&posid.indexOf('_')>0){
-var parts=posid.split('_');
-purl='https://www.facebook.com/'+parts[0]+'/posts/'+parts[1];
-}
-adsMeta[ad.id]={status:ad.status||null,post_id:posid,post_url:purl,thumbnail_url:c.thumbnail_url||null};
-});
-return ((insBody&&insBody.data)||[]).map(function(r){
-var spend=Math.round(parseFloat(r.spend||0)),messCount=0,leadCount=0,commentCount=0,checkoutCount=0;
-if(r.actions){r.actions.forEach(function(act){
-if(act.action_type&&(act.action_type.indexOf('messaging_conversation_started')>=0||act.action_type==='onsite_conversion.messaging_conversation_started_7d'))messCount+=parseInt(act.value)||0;
-if(act.action_type&&(act.action_type==='lead'||act.action_type==='leadgen_grouped'))leadCount+=parseInt(act.value)||0;
-if(act.action_type==='comment')commentCount+=parseInt(act.value)||0;
-if(act.action_type&&(act.action_type==='offsite_conversion.fb_pixel_initiate_checkout'||act.action_type==='onsite_conversion.initiate_checkout'||act.action_type==='initiate_checkout'))checkoutCount+=parseInt(act.value)||0;
-});}
-var meta=adsMeta[r.ad_id]||{};
-return{
-ad_account_id:a.id,ad_id:r.ad_id,report_date:r.date_start,
-ad_name:r.ad_name||null,campaign_id:r.campaign_id||null,campaign_name:r.campaign_name||null,
-post_id:meta.post_id||null,post_url:meta.post_url||null,thumbnail_url:meta.thumbnail_url||null,
-spend:spend,mess_count:messCount,comment_count:commentCount,lead_count:leadCount,checkout_count:checkoutCount,
-ad_status:meta.status||null
-};
-});
-}
-async function fetchAdDailyPostBatch(accounts,dFrom,dTo){
-var allRows=[],errors=0,errorSamples=[];
-function pushErr(accId,phase,msg,code){
-errors++;
-if(errorSamples.length<5)errorSamples.push({accId:accId,phase:phase,msg:msg,code:code});
-console.warn('[Ad sync]',phase,'acc='+accId,'code='+code,msg);
-}
-// 2 requests/account → chunk 24 để ≤50 reqs/batch
-for(var b=0;b<accounts.length;b+=24){
-var chunk=accounts.slice(b,b+24);
-var batchReqs=[];
-chunk.forEach(function(a){
-batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/insights?level=ad&fields=ad_id,ad_name,campaign_id,campaign_name,spend,actions&time_range={"since":"'+dFrom+'","until":"'+dTo+'"}&time_increment=1&limit=500'});
-batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/ads?fields=id,name,status,creative{effective_object_story_id,thumbnail_url}&limit=500'});
-});
-try{
-var bResults=await metaBatch(batchReqs);
-if(!Array.isArray(bResults)){
-var em=(bResults&&bResults.error&&bResults.error.message)||'Batch API trả về không phải mảng';
-var ec=(bResults&&bResults.error&&bResults.error.code)||0;
-chunk.forEach(function(a){pushErr(a.fb_account_id,'batch',em,ec);});
-continue;
-}
-for(var j=0;j<chunk.length;j++){
-var accId=chunk[j].fb_account_id;
-try{
-var insRaw=bResults[j*2],adsRaw=bResults[j*2+1];
-var insBody=JSON.parse((insRaw&&insRaw.body)||'{}');
-var adsBody=JSON.parse((adsRaw&&adsRaw.body)||'{}');
-if(insBody.error){pushErr(accId,'insights',insBody.error.message,insBody.error.code);continue;}
-if(adsBody.error)console.warn('[Ad sync] ads non-fatal acc='+accId,adsBody.error.message);
-allRows=allRows.concat(parseAdRows(chunk[j],insBody,adsBody));
-}catch(e2){pushErr(accId,'parse',e2.message,0);}}
-}catch(e){chunk.forEach(function(a){pushErr(a.fb_account_id,'network',e.message,0);});}}
-return{rows:allRows,errors:errors,errorSamples:errorSamples};
-}
-// opts: {dateFrom,dateTo,skipRefresh,quiet}
-async function syncAdDailyPost(btn,opts){
-opts=opts||{};
-var oldText=btn?btn.textContent:'Quét bài chạy';
-if(btn){btn.disabled=true;btn.textContent='Đang quét bài chạy...';}
-var dTo=opts.dateTo||vnDateStr(0);
-var dFrom=opts.dateFrom||vnDateStr(-259200000); // mặc định D-3..D0
-var mapped=adList.filter(function(a){return a.fb_account_id&&(a.max_mess_cost||a.max_lead_cost);});
-if(!mapped.length){if(btn){toast('Chưa có Tài khoản nào đặt ngưỡng (cần để xác định tài khoản đang theo dõi)',false);btn.disabled=false;btn.textContent=oldText;}return;}
-var errors=0;
-try{
-if(btn)btn.textContent='Bài chạy: '+mapped.length+' TK ('+dFrom+' → '+dTo+')';
-var result=await fetchAdDailyPostBatch(mapped,dFrom,dTo);
-var rowsToSave=result.rows;errors=result.errors;
-var saved=0,batches=chunkArray(rowsToSave,500);
-for(var i=0;i<batches.length;i++){
-if(btn)btn.textContent='Bài chạy: lưu '+(i+1)+'/'+batches.length;
-var upsert=await sb2.from('ad_daily_post').upsert(batches[i],{onConflict:'ad_account_id,ad_id,report_date'});
-if(upsert.error){errors+=batches[i].length;console.warn('[Ad sync upsert]',upsert.error.message);}
-else saved+=batches[i].length;
-}
-var hint='';
-if(errors&&result.errorSamples&&result.errorSamples.length){
-var s0=result.errorSamples[0];
-var codeHint='';
-if(s0.code===190)codeHint=' — Token hết hạn';
-else if(s0.code===200||s0.code===100)codeHint=' — Thiếu quyền ads_read';
-else if(s0.code===17||s0.code===4||s0.code===32||s0.code===613)codeHint=' — Rate limit';
-hint=' ('+s0.phase+(s0.code?' #'+s0.code:'')+codeHint+')';
-}
-if(!opts.quiet)toast('Bài chạy: '+saved+' dòng'+(errors?' · '+errors+' lỗi'+hint:''),!errors);
-if(!opts.skipRefresh)await loadAll();
-}catch(e){toast('Lỗi quét bài chạy: '+e.message,false);}
-finally{if(btn){btn.disabled=false;btn.textContent=oldText;}}}
-// One-shot backfill T4 + T5/2026 (gọi từ button hoặc console: backfillAdDailyPost())
-async function backfillAdDailyPost(btn){
-if(!confirm('Backfill T4 + T5/2026 cho TẤT CẢ tài khoản? Có thể mất 1-2 phút.'))return;
-await syncAdDailyPost(btn,{dateFrom:'2026-04-01',dateTo:vnDateStr(0)});
-}
-
 // ═══ P6: CẢNH BÁO GIÁ CHIẾN DỊCH ═══
 var p6Tab=0;
 function setP6Tab(i){p6Tab=i;syncSidebarNav();render();}
@@ -3910,7 +3782,7 @@ var d1Label=fd(vnDateStr(-86400000)),d3Label=fd(vnDateStr(-259200000));
 var h='<div class="page-title">Cảnh báo</div><div class="page-sub">Giá trung bình 3 ngày ('+d3Label+' – '+d1Label+') · Số dư Tài khoản dưới '+ff(BALANCE_ALERT_THRESHOLD)+'đ</div>';
 h+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">';
 h+='<button class="btn btn-primary" onclick="syncCampaignMess(this)">Quét giá Messenger & form</button>';
-h+='<span style="font-size:11px;color:var(--tx3);">Bài chạy đã quét: '+adPostData.length+' dòng (tự động ngầm)</span>';
+h+='<span style="font-size:11px;color:var(--tx3);">Bài chạy đã quét: '+adPostData.length+' dòng (cron mỗi 15p)</span>';
 h+='</div>';
 // KPI
 var tkMess=adList.filter(function(a){return a.max_mess_cost;}).length;
