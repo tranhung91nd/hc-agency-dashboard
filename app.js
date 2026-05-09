@@ -3991,7 +3991,7 @@ function p7(){
   var relLabel=dayDiff===0?'hôm nay':(dayDiff===-1?'hôm qua':(dayDiff===1?'ngày mai':(dayDiff<0?Math.abs(dayDiff)+' ngày trước':'+'+dayDiff+' ngày')));
   var lastUpdate=teamTaskData.reduce(function(acc,x){var u=x.updated_at||x.created_at||'';return u>acc?u:acc;},'');
   var updateStr=lastUpdate?(' · cập nhật '+lastUpdate.substring(11,16)):'';
-  var h='<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px;">';
+  var h='<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px;padding-right:52px;">';
   h+='<div><div class="page-title">Bảng điều hành đội ngũ</div>';
   h+='<div class="page-sub" style="margin-top:4px;">📅 '+esc(dateStr)+' <span style="color:var(--tx3);">('+esc(relLabel)+')</span> · '+staffList.length+' thành viên'+esc(updateStr)+'</div></div>';
   // Date navigator + Giao việc
