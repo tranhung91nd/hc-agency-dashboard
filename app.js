@@ -8211,9 +8211,27 @@ var sharedResult=await replaceSharedSpendRows(shared,date);
 saved+=sharedResult.saved;errors+=sharedResult.errors;
 return{saved:saved,errors:errors,errorSamples:errorSamples};}
 
+// Check xem cron 15p vừa sync xong chưa — nếu < 5p thì autoSync skip để khỏi gọi Meta thừa
+async function isSyncFresh(){
+  try{
+    var r=await sb2.from('ad_daily_post').select('synced_at').order('synced_at',{ascending:false}).limit(1);
+    if(r.error||!r.data||!r.data.length)return null;
+    var lastSync=new Date(r.data[0].synced_at);
+    var minsAgo=Math.round((Date.now()-lastSync.getTime())/60000);
+    if(minsAgo<5)return{minsAgo:minsAgo};
+    return null;
+  }catch(e){return null;}
+}
 async function autoSync(){
 try{
 if(authUser){
+// Smart sync: nếu cron mới chạy < 5p, skip toàn bộ Meta calls để đỡ tốn API
+var fresh=await isSyncFresh();
+if(fresh){
+showSyncBar('✓ Data mới (cron sync '+fresh.minsAgo+'p trước)',true);
+setTimeout(hideSyncBar,2500);
+return;
+}
 showSyncBar('Đang cập nhật Meta...');
 await loadMetaAndSync({silent:true,skipAuth:true,refreshAfter:false});
 }
