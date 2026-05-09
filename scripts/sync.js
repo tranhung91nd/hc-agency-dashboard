@@ -20,13 +20,28 @@ function vnDate(offset) {
 }
 
 const D0 = vnDate(0);
-// Cron 15p chỉ quét D0 (hôm nay) để giữ tải nhẹ. Khi sang ngày mới, D0 cũ
-// đã được sync đầy đủ trước nửa đêm. Cảnh báo D-3..D-1 vẫn dùng data lịch sử
-// trong DB; user bấm "Quét giá Messenger" thủ công nếu cần làm tươi cảnh báo.
-const DAILY_DAYS = [D0];
-const MESS_SINCE = D0, MESS_UNTIL = D0;
+// Cron 15p mặc định chỉ quét D0 (hôm nay) để giữ tải nhẹ.
+// Để backfill range rộng (vd T4-T5), chạy workflow_dispatch với input
+// backfill_from=2026-04-01 (và tuỳ chọn backfill_to). Sẽ override D0.
+const BACKFILL_FROM = process.env.BACKFILL_FROM || null;
+const BACKFILL_TO = process.env.BACKFILL_TO || null;
+const IS_BACKFILL = !!BACKFILL_FROM;
+const MESS_SINCE = BACKFILL_FROM || D0;
+const MESS_UNTIL = BACKFILL_TO || D0;
 
-console.log(`[HC Sync] window = ${D0} (D0 only, mỗi 15p)`);
+// daily_spend cần list từng ngày để query insights from..until=same_day
+function buildDailyDays(from, to) {
+  if (!from) return [D0];
+  const days = [], d = new Date(from + 'T00:00:00Z'), end = new Date(to + 'T00:00:00Z');
+  while (d <= end) {
+    days.push(d.toISOString().substring(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return days;
+}
+const DAILY_DAYS = buildDailyDays(BACKFILL_FROM, BACKFILL_TO || D0);
+
+console.log(`[HC Sync] window = ${MESS_SINCE} → ${MESS_UNTIL}${IS_BACKFILL ? ' (BACKFILL mode, ' + DAILY_DAYS.length + ' ngày)' : ' (D0 only)'}`);
 
 // ═══ Phân loại campaign theo optimization_goal + destination_type ═══
 function classifyCampaign(optGoal, destType) {

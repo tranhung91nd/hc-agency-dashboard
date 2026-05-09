@@ -6,7 +6,16 @@ on:
     # Đảm bảo báo cáo khách thấy data realtime trong vòng 15 phút.
     - cron: '*/15 * * * *'
   workflow_dispatch:
-    # Cho phép chạy thủ công từ GitHub Actions tab
+    # Chạy thủ công từ GitHub Actions tab. Có thể truyền range để backfill.
+    inputs:
+      backfill_from:
+        description: 'Backfill từ ngày (YYYY-MM-DD). Để trống = chỉ D0.'
+        required: false
+        default: ''
+      backfill_to:
+        description: 'Backfill đến ngày (YYYY-MM-DD). Để trống = đến hôm nay.'
+        required: false
+        default: ''
 
 jobs:
   sync:
@@ -30,4 +39,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           META_TOKEN: ${{ secrets.META_TOKEN }}
+          BACKFILL_FROM: ${{ github.event.inputs.backfill_from }}
+          BACKFILL_TO: ${{ github.event.inputs.backfill_to }}
         run: node scripts/sync.js
