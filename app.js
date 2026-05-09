@@ -932,7 +932,7 @@ function renderSidebarV2(){
   // Render footer
   if(footer){
     if(authUser){
-      var em=authUser.email||'',roleLbl=userRole==='admin'?'Admin':(userRole==='accountant'?'Kế toán':(userRole==='marketing'?'Marketing':(userRole==='viewer'?'Chỉ xem':userRole)));
+      var em=authUser.email||'',roleLbl=userRoleLabel(userRole);
       var initials=(em.charAt(0)||'?').toUpperCase();
       footer.innerHTML='<div class="sb-user"><div class="sb-user-avatar">'+esc(initials)+'</div><div class="sb-user-info"><div class="sb-user-name">'+esc(em)+'</div><div class="sb-user-meta"><span class="sb-user-status-dot"></span><span>Đã kết nối</span><span class="sb-user-role'+(userRole==='admin'?' admin':'')+'">'+esc(roleLbl)+'</span></div></div></div><button class="sb-logout" onclick="doLogout()" title="Đăng xuất"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Đăng xuất</span></button>';
     }else footer.innerHTML='';
@@ -2430,7 +2430,7 @@ if(btn){btn.disabled=false;btn.textContent=originalText||'Tải ảnh';}
 function p4(){
 var h='';
 if(authUser&&!isAdmin()){
-h+='<div class="logout-bar"><span>'+esc(authUser.email)+' <span class="badge b-blue" style="margin-left:6px;">'+esc(userRole==='accountant'?'Kế toán':(userRole==='marketing'?'Marketing':(userRole==='viewer'?'Chỉ xem':userRole)))+'</span></span><button class="btn btn-ghost btn-sm" onclick="doLogout()">Đăng xuất</button></div>';}
+h+='<div class="logout-bar"><span>'+esc(authUser.email)+' <span class="badge b-blue" style="margin-left:6px;">'+esc(userRoleLabel(userRole))+'</span></span><button class="btn btn-ghost btn-sm" onclick="doLogout()">Đăng xuất</button></div>';}
 h+='<div class="page-title">Tài chính</div>';
 var canThuChi=canAccessKey('p4.thuchi'),canReconcile=canAccessKey('p4.reconcile');
 // Auto-switch sang tab user có quyền nếu đang ở tab bị cấm
@@ -2934,6 +2934,23 @@ var{data,error}=await sb2.from('user_roles').select('*').eq('email',authUser.ema
 if(data){userRole=data.role||'accountant';userAllowedPages=data.allowed_pages||[4];}
 else{userRole='admin';userAllowedPages=null;}
 }catch(e){userRole='admin';userAllowedPages=null;}}
+var USER_ROLE_OPTIONS=[
+  {value:'accountant',label:'Kế toán'},
+  {value:'marketing',label:'Marketing'},
+  {value:'viewer',label:'Chỉ xem'}
+];
+function userRoleLabel(role){
+  if(role==='admin')return'Admin';
+  for(var i=0;i<USER_ROLE_OPTIONS.length;i++){
+    if(USER_ROLE_OPTIONS[i].value===role)return USER_ROLE_OPTIONS[i].label;
+  }
+  return role||'';
+}
+function userRoleOptionsHtml(selectedRole){
+  return USER_ROLE_OPTIONS.map(function(r){
+    return '<option value="'+esc(r.value)+'"'+(selectedRole===r.value?' selected':'')+'>'+esc(r.label)+'</option>';
+  }).join('');
+}
 // ═══ PERMISSION TREE ═══
 // Cấu trúc phân quyền: page chính + sub-tab. Admin (không có user_roles entry) full quyền.
 // User có "p4" → full page Tài chính; chỉ có "p4.reconcile" → chỉ vào sub-tab Đối soát.
@@ -7838,7 +7855,7 @@ var emailVal=editingUR?esc(editingUR.email):'';
 var nameVal=editingUR?esc(editingUR.display_name||''):'';
 var roleVal=editingUR?editingUR.role:'accountant';
 h+='<div class="form-row"><div class="form-group"><label>Email</label><input type="email" id="ur-email" value="'+emailVal+'" placeholder="VD: linh.kt@hcagency.vn"'+(editingUR?' readonly style="background:var(--bg2);color:var(--tx3);"':'')+'></div><div class="form-group"><label>Tên hiển thị</label><input type="text" id="ur-name" value="'+nameVal+'" placeholder="VD: Ngọc Linh"></div></div>';
-h+='<div class="form-row"><div class="form-group"><label>Mật khẩu '+(editingUR?'(chỉ áp dụng nếu user chưa có Auth account)':'đăng nhập')+'</label><input type="text" id="ur-pass" placeholder="'+(editingUR?'Để trống nếu không đổi':'Tạo mật khẩu cho tài khoản này')+'" style="font-family:monospace;"></div><div class="form-group"><label>Vai trò</label><select id="ur-role"><option value="accountant"'+(roleVal==='accountant'?' selected':'')+'>Kế toán</option><option value="marketing"'+(roleVal==='marketing'?' selected':'')+'>Marketing</option><option value="viewer"'+(roleVal==='viewer'?' selected':'')+'>Chỉ xem</option></select></div></div>';
+h+='<div class="form-row"><div class="form-group"><label>Mật khẩu '+(editingUR?'(chỉ áp dụng nếu user chưa có Auth account)':'đăng nhập')+'</label><input type="text" id="ur-pass" placeholder="'+(editingUR?'Để trống nếu không đổi':'Tạo mật khẩu cho tài khoản này')+'" style="font-family:monospace;"></div><div class="form-group"><label>Vai trò</label><select id="ur-role">'+userRoleOptionsHtml(roleVal)+'</select></div></div>';
 if(editingUR){
   h+='<div style="font-size:11px;color:var(--tx3);margin:4px 0 10px;background:var(--bg2);padding:8px 12px;border-radius:6px;border-left:3px solid var(--blue);">⚠ Supabase không cho admin đổi mật khẩu user khác từ trình duyệt. Để user quên/đổi mật khẩu, bấm nút bên dưới — Supabase sẽ gửi email link đặt lại password cho user đó.</div>';
   h+='<div class="btn-row" style="margin-bottom:14px;"><button class="btn btn-ghost btn-sm" onclick="sendPasswordResetLink(this,\''+esc(editingUR.email)+'\')">📧 Gửi link đặt lại mật khẩu cho '+esc(editingUR.email)+'</button></div>';
@@ -7873,7 +7890,7 @@ if(allUserRoles.length){
 h+='<div class="table-wrap"><table><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Quyền truy cập</th><th style="text-align:right;">Thao tác</th></tr>';
 allUserRoles.forEach(function(ur){
 var pages=(ur.allowed_pages||[]).map(function(p){return permissionLabel(normalizePermKey(p));}).join(', ');
-var roleLabel=ur.role==='accountant'?'Kế toán':(ur.role==='marketing'?'Marketing':(ur.role==='viewer'?'Chỉ xem':ur.role));
+var roleLabel=userRoleLabel(ur.role);
 var isEditing=editingUserRoleId===ur.id;
 h+='<tr'+(isEditing?' style="background:var(--amber-bg);"':'')+'>';
 h+='<td style="font-weight:500;">'+esc(ur.display_name||'—')+'</td>';
@@ -7992,7 +8009,7 @@ if(isEdit){
 }
 btn.disabled=false;btn.textContent=origLabel;
 if(resp.error){toast('Lỗi lưu quyền: '+resp.error.message,false);return;}
-toast(isEdit?'Đã cập nhật: '+email:'Đã tạo: '+email+' ('+role+')'+(pass?' + tài khoản đăng nhập':''),true);
+toast(isEdit?'Đã cập nhật: '+email:'Đã tạo: '+email+' ('+userRoleLabel(role)+')'+(pass?' + tài khoản đăng nhập':''),true);
 editingUserRoleId=null;
 await loadAllUserRoles();render();}
 
