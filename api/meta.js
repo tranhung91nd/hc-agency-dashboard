@@ -24,7 +24,7 @@ const PATH_WHITELIST = [
   /^me\/adaccounts$/,
   /^debug_token$/,
   /^act_\d+$/,                                              // single account info / update (rename, spend_cap)
-  /^act_\d+\/(transactions|insights|adsets|campaigns)$/,    // GET sub-resources
+  /^act_\d+\/(transactions|insights|adsets|campaigns|ads)$/, // GET sub-resources
 ];
 
 function isPathAllowed(rawPath) {

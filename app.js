@@ -729,7 +729,28 @@ sb2.from('bank_import_log').select('*').order('uploaded_at',{ascending:false}).l
  }
  // Re-render để cập nhật tab nào đang xem nếu cần data wave 2
  render();
+ // Auto-backfill ngầm dữ liệu bài chạy T4-T5 nếu chưa có (chỉ chạy 1 lần per device)
+ maybeAutoBackfillAdPosts();
 }catch(e){console.warn('[loadDeferred]',e.message);}}
+
+// Quét ngầm dữ liệu bài chạy nếu chưa từng quét (kiểm tra qua localStorage)
+async function maybeAutoBackfillAdPosts(){
+  try{
+    if(!authUser||!isAdmin())return; // chỉ admin mới có quyền sync
+    var flag=localStorage.getItem('hc_ad_post_backfill_v1');
+    if(flag)return; // đã chạy rồi → skip (nếu cần re-run, xóa key này)
+    if(adPostData&&adPostData.length>50)return; // đã có sẵn nhiều dữ liệu → coi như xong
+    var mapped=adList.filter(function(a){return a.fb_account_id&&(a.max_mess_cost||a.max_lead_cost);});
+    if(!mapped.length)return; // không có TK nào để quét
+    console.log('[Auto-backfill bài chạy] Bắt đầu T4+T5 cho '+mapped.length+' TK...');
+    await syncAdDailyPost(null,{dateFrom:'2026-04-01',dateTo:vnDateStr(0),quiet:true,skipRefresh:true});
+    localStorage.setItem('hc_ad_post_backfill_v1',new Date().toISOString());
+    console.log('[Auto-backfill bài chạy] Xong: '+adPostData.length+' dòng');
+    // Re-fetch chỉ table ad_daily_post (không cần loadAll() đầy đủ — đỡ tốn)
+    var r=await sb2.from('ad_daily_post').select('*').gte('report_date','2026-04-01').order('report_date',{ascending:false}).limit(10000);
+    if(r&&!r.error){adPostData=r.data||[];render();}
+  }catch(e){console.warn('[Auto-backfill bài chạy] Lỗi:',e.message);}
+}
 
 async function loadLight(){try{
 var[s,c,aa,sal,tx,sc2,asgn,mf,ctr,qt,dep]=await Promise.all([
@@ -3887,11 +3908,9 @@ var messAlerts=getMessAlerts(),leadAlerts=getLeadAlerts(),balAlerts=getBalanceAl
 var totalAlerts=messAlerts.length+leadAlerts.length+balAlerts.length;
 var d1Label=fd(vnDateStr(-86400000)),d3Label=fd(vnDateStr(-259200000));
 var h='<div class="page-title">Cảnh báo</div><div class="page-sub">Giá trung bình 3 ngày ('+d3Label+' – '+d1Label+') · Số dư Tài khoản dưới '+ff(BALANCE_ALERT_THRESHOLD)+'đ</div>';
-h+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">';
+h+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">';
 h+='<button class="btn btn-primary" onclick="syncCampaignMess(this)">Quét giá Messenger & form</button>';
-h+='<button class="btn btn-ghost" onclick="syncAdDailyPost(this)" title="Pull dữ liệu hiệu quả từng bài chạy (post Facebook), 3 ngày gần nhất">Quét bài chạy</button>';
-h+='<button class="btn btn-ghost" onclick="backfillAdDailyPost(this)" title="Pull lại dữ liệu bài chạy T4 + T5/2026 (chỉ cần chạy 1 lần)" style="color:var(--tx2);">Backfill T4+T5</button>';
-h+='<span style="font-size:11px;color:var(--tx3);align-self:center;">Bài chạy đã quét: '+adPostData.length+' dòng</span>';
+h+='<span style="font-size:11px;color:var(--tx3);">Bài chạy đã quét: '+adPostData.length+' dòng (tự động ngầm)</span>';
 h+='</div>';
 // KPI
 var tkMess=adList.filter(function(a){return a.max_mess_cost;}).length;
