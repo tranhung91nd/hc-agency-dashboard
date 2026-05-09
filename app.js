@@ -3926,13 +3926,13 @@ var p6Tab=0;
 function setP6Tab(i){p6Tab=i;syncSidebarNav();render();}
 function p6(){
 var messAlerts=getMessAlerts(),leadAlerts=getLeadAlerts(),balAlerts=getBalanceAlerts();
+var canMess=canAccessKey('p6.mess'),canForm=canAccessKey('p6.form'),canBal=canAccessKey('p6.balance');
 var totalAlerts=messAlerts.length+leadAlerts.length+balAlerts.length;
 var d1Label=fd(vnDateStr(-86400000)),d3Label=fd(vnDateStr(-259200000));
 var h='<div class="page-title">Cảnh báo</div><div class="page-sub">Giá trung bình 3 ngày ('+d3Label+' – '+d1Label+') · Số dư Tài khoản dưới '+ff(BALANCE_ALERT_THRESHOLD)+'đ</div>';
 h+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">';
-if(isStrictAdmin()){
+if(canMess||canForm){
 h+='<button class="btn btn-primary" onclick="syncCampaignMess(this)">Quét giá Messenger & form</button>';
-h+='<button class="btn btn-ghost" onclick="backfillAdPostsOnce(this)" title="Force re-sync bài chạy T4-T5 cho tất cả TK. Idempotent — chạy lại nhiều lần không trùng." style="border:1px dashed var(--bd2);">Backfill bài chạy T4-T5</button>';
 }
 h+='<span style="font-size:11px;color:var(--tx3);">Bài chạy đã quét: '+adPostData.length+' dòng (cron mỗi 15p)</span>';
 h+='</div>';
@@ -3946,7 +3946,6 @@ h+='<div class="kpi"><div class="kpi-label">Vượt ngưỡng Form</div><div cla
 h+='<div class="kpi"><div class="kpi-label">Tài khoản sắp hết tiền</div><div class="kpi-value" style="color:'+(balAlerts.length?'var(--red)':'var(--green)')+';">'+balAlerts.length+'</div><div class="kpi-note">Dưới '+ff(BALANCE_ALERT_THRESHOLD)+'đ · '+tkActive+' Tài khoản đang chạy</div></div>';
 h+='<div class="kpi"><div class="kpi-label">Lần quét gần nhất</div><div class="kpi-value" style="font-size:14px;">'+(campaignMessData.length?campaignMessData[0].report_date:'Chưa quét')+'</div></div></div>';
 // Auto-redirect nếu user không có quyền tab hiện tại
-var canMess=canAccessKey('p6.mess'),canForm=canAccessKey('p6.form'),canBal=canAccessKey('p6.balance');
 if(p6Tab===0&&!canMess){if(canForm)p6Tab=1;else if(canBal)p6Tab=2;}
 else if(p6Tab===1&&!canForm){if(canMess)p6Tab=0;else if(canBal)p6Tab=2;}
 else if(p6Tab===2&&!canBal){if(canMess)p6Tab=0;else if(canForm)p6Tab=1;}
@@ -5508,7 +5507,7 @@ function renderClientPostWeekly(clientId,month){
   h+='</div>';
   if(!rows.length){
     h+='<div style="padding:14px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--tx3);">';
-    h+='Chưa có dữ liệu bài chạy cho khách này trong tháng. Vào <b>Cảnh báo</b> bấm <b>"Quét bài chạy"</b> (3 ngày gần nhất) hoặc <b>"Backfill T4+T5"</b> (1 lần đầu).';
+    h+='Chưa có dữ liệu bài chạy cho khách này trong tháng. Vào <b>Cảnh báo</b> bấm <b>"Quét giá Messenger & form"</b> để cập nhật dữ liệu mới nhất.';
     h+='</div></div>';
     return h;
   }
