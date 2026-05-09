@@ -114,7 +114,7 @@ function renderZaloBtn(c){
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],teamFundData=[],teamTaskData=[],clientDepositData=[],bankReconcileData=[],bankImportLog=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc',finTab='thuchi',reconcileMonth='',editingUserRoleId=null;
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc',finTab='thuchi',reconcileMonth='',reconcileSearch='',editingUserRoleId=null;
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -2495,6 +2495,12 @@ function extractMetaInvoiceCode(desc){
   var m=String(desc||'').match(/\*([A-Z0-9]{4,15})\b/);
   return m?m[1]:'';
 }
+var _reconcileSearchTimer=null;
+function onReconcileSearch(v){
+  reconcileSearch=v;
+  if(_reconcileSearchTimer)clearTimeout(_reconcileSearchTimer);
+  _reconcileSearchTimer=setTimeout(function(){render();},150);
+}
 function reconcileStatus(row){
   if(row.meta_amount==null||row.meta_amount==='')return{label:'Chưa đối soát',cls:'b-gray',diff:null};
   var bank=Number(row.bank_amount)||0,meta=Number(row.meta_amount)||0;
@@ -2510,10 +2516,10 @@ function p4DoiSoat(){
   var monthList=Array.from(months).sort().reverse();
   if(!reconcileMonth)reconcileMonth=monthList[0]||lm()||gm();
   var ms=reconcileMonth;
-  var rows=bankReconcileData.filter(function(r){return r.bank_date&&r.bank_date.substring(0,7)===ms;}).sort(function(a,b){return a.bank_date<b.bank_date?-1:1;});
-  // KPI
+  var allRows=bankReconcileData.filter(function(r){return r.bank_date&&r.bank_date.substring(0,7)===ms;}).sort(function(a,b){return a.bank_date<b.bank_date?-1:1;});
+  // KPI tính trên toàn tháng (không phụ thuộc search)
   var totBank=0,totMeta=0,matched=0,reconciled=0;
-  rows.forEach(function(r){
+  allRows.forEach(function(r){
     totBank+=Number(r.bank_amount)||0;
     if(r.meta_amount!=null&&r.meta_amount!==''){
       totMeta+=Number(r.meta_amount)||0;
@@ -2521,9 +2527,26 @@ function p4DoiSoat(){
       var st=reconcileStatus(r);if(st.label==='Đã khớp')matched++;
     }
   });
-  var pctReconciled=rows.length?Math.round(reconciled/rows.length*100):0;
+  var pctReconciled=allRows.length?Math.round(reconciled/allRows.length*100):0;
   var totDiff=totBank-totMeta;
   var totDiffPct=totBank>0?Math.abs(totDiff)/totBank*100:0;
+  // Filter rows hiển thị theo search query
+  var q=(reconcileSearch||'').trim().toLowerCase();
+  var qIsNumeric=q.length>0&&/^[\d.,\s]+$/.test(q); // chỉ digit/dấu phẩy/chấm/space → match số tiền
+  var qNum=qIsNumeric?q.replace(/[^0-9]/g,''):'';
+  var rows=allRows;
+  if(q){
+    rows=allRows.filter(function(r){
+      if((r.meta_invoice_code||'').toLowerCase().indexOf(q)>=0)return true;
+      if((r.meta_link||'').toLowerCase().indexOf(q)>=0)return true;
+      if((r.bank_date||'').indexOf(q)>=0)return true;
+      if(qNum){
+        if(String(r.bank_amount||'').indexOf(qNum)>=0)return true;
+        if(String(r.meta_amount||'').indexOf(qNum)>=0)return true;
+      }
+      return false;
+    });
+  }
   var h='';
   // Toolbar
   h+='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">';
@@ -2535,6 +2558,11 @@ function p4DoiSoat(){
   if(authUser){
     h+='<button class="btn btn-primary btn-sm" onclick="openVcbImportModal()">📥 Nhập sao kê</button>';
   }
+  h+='<div style="flex:1;display:flex;justify-content:flex-end;min-width:200px;"><div style="position:relative;display:inline-flex;align-items:center;">';
+  h+='<span style="position:absolute;left:10px;color:var(--tx3);font-size:13px;pointer-events:none;">🔍</span>';
+  h+='<input type="text" id="reconcile-search" class="fi" placeholder="Tìm mã giao dịch / số tiền / link..." value="'+esc(reconcileSearch)+'" oninput="onReconcileSearch(this.value)" style="width:280px;padding-left:30px;padding-right:'+(reconcileSearch?'28px':'10px')+';">';
+  if(reconcileSearch)h+='<button onclick="onReconcileSearch(\'\')" style="position:absolute;right:6px;border:0;background:none;color:var(--tx3);cursor:pointer;font-size:14px;padding:0 4px;" title="Xóa">×</button>';
+  h+='</div></div>';
   h+='</div>';
   // KPI
   h+='<div class="kpi-grid kpi-4" style="margin-bottom:18px;">';
@@ -2543,12 +2571,19 @@ function p4DoiSoat(){
   h+='<div class="kpi"><div class="kpi-label">Chênh lệch</div><div class="kpi-value" style="color:var(--amber);">'+(totMeta?ff(Math.abs(totDiff)):'—')+'</div><div class="kpi-note">'+(totMeta?totDiffPct.toFixed(2)+'%':'—')+' (ngưỡng '+BANK_TOLERANCE_PCT+'%)</div></div>';
   h+='<div class="kpi"><div class="kpi-label">Đã khớp</div><div class="kpi-value" style="color:var(--green);">'+matched+'/'+reconciled+'</div><div class="kpi-note">Tỷ lệ đối soát '+pctReconciled+'%</div></div>';
   h+='</div>';
-  if(!rows.length){
+  if(!allRows.length){
     h+='<div class="empty-state" role="status">';
     h+='<div class="empty-state-icon" aria-hidden="true">🏦</div>';
     h+='<div class="empty-state-title">Chưa có giao dịch đối soát trong tháng này</div>';
     h+='<div class="empty-state-desc">Bấm "Nhập sao kê" để upload file sao kê (.xlsx) từ Vietcombank. Hệ thống sẽ tự lọc các giao dịch trừ tiền Meta Ads + Tích xanh.</div>';
     h+='</div>';
+    return h;
+  }
+  if(q){
+    h+='<div style="font-size:12px;color:var(--tx3);margin-bottom:10px;padding:6px 12px;background:var(--bg2);border-radius:6px;display:inline-block;">🔍 Đang lọc theo "<b style="color:var(--tx2);">'+esc(reconcileSearch)+'</b>" — '+rows.length+'/'+allRows.length+' giao dịch khớp</div>';
+  }
+  if(!rows.length){
+    h+='<div class="empty-state" role="status"><div class="empty-state-icon" aria-hidden="true">🔎</div><div class="empty-state-title">Không tìm thấy giao dịch nào</div><div class="empty-state-desc">Thử từ khóa khác — hoặc bấm × để xóa filter.</div></div>';
     return h;
   }
   // Bảng đối soát
