@@ -4055,6 +4055,27 @@ function p7(){
       arr.forEach(function(t){h+=renderTaskRow(t);});
       h+='</div>';
     });
+    // Việc chưa phân công (assignee_staff_id null) — chỉ hiện khi không filter theo staff
+    var unassigned=taskFilterStaff==='all'?recurringToday.filter(function(x){return !x.assignee_staff_id;}):[];
+    if(unassigned.length){
+      var udone=unassigned.filter(function(x){return x.status==='done';}).length;
+      var upct=Math.round(udone*100/unassigned.length);
+      h+='<div class="form-card" style="padding:14px 16px;margin-bottom:10px;border-style:dashed;">';
+      h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+      h+='<div class="avatar" style="width:32px;height:32px;background:var(--bg2);color:var(--tx3);font-size:14px;">?</div>';
+      h+='<div style="flex:1;"><div style="font-weight:600;font-size:13px;color:var(--tx2);">Chưa phân công</div><div style="font-size:11px;color:var(--tx3);">'+udone+'/'+unassigned.length+' hoàn thành · cần admin gán người làm</div></div>';
+      h+='<div style="font-size:12px;font-weight:600;color:'+(upct>=100?'var(--green)':upct>=50?'var(--blue)':'var(--tx3)')+';padding:4px 10px;border-radius:12px;background:var(--bg2);">'+upct+'%</div>';
+      h+='</div>';
+      h+='<div style="height:4px;background:var(--bg2);border-radius:2px;margin-bottom:10px;overflow:hidden;"><div style="height:100%;width:'+upct+'%;background:var(--blue);transition:width 0.3s;"></div></div>';
+      unassigned.sort(function(a,b){
+        var sa=a.status==='done'?2:(a.status==='doing'?1:0);
+        var sb_=b.status==='done'?2:(b.status==='doing'?1:0);
+        if(sa!==sb_)return sa-sb_;
+        return (a.due_at||'').localeCompare(b.due_at||'');
+      });
+      unassigned.forEach(function(t){h+=renderTaskRow(t);});
+      h+='</div>';
+    }
   }
   // ═══ Section 2: Việc phát sinh ═══
   var adhocList=filteredToday.filter(function(x){return !x.is_recurring;});
