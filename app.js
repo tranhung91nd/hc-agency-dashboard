@@ -6919,6 +6919,7 @@ async function loadPublicReport(){
     rebuildAssignIndex();
     dailyData=d.daily_spend||[];
     campaignMessData=d.campaign_mess||[];
+    adPostData=d.ad_post||[];
     if(!publicReportMonth)publicReportMonth=lm()||gm();
     renderPublicReportPage();
     startPublicReportPoll();
@@ -7016,6 +7017,8 @@ function renderPublicReportPage(){
     h+='</tr>';
   });
   h+='</tbody></table></div>';
+  // Bảng "Hiệu quả theo bài chạy × tuần" — dùng chung function với báo cáo admin
+  h+=renderClientPostWeekly(c.id,ms);
   h+='<div style="margin-top:24px;text-align:center;font-size:11px;color:var(--tx3);">Báo cáo tự động sync từ Meta Ads API · Cập nhật mỗi 2 phút khi mở trang · © HC Agency</div>';
   h+='</div>';
   document.getElementById('page').innerHTML=h;
