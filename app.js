@@ -3772,6 +3772,95 @@ if(!skipRefresh)await loadAll();
 }catch(e){toast('Lỗi quét giá Messenger: '+e.message,false);}
 finally{if(btn){btn.disabled=false;btn.textContent=oldText;}}}
 
+// ═══ ONE-SHOT BACKFILL ad_daily_post (T4-T5 + debug) ═══
+// Click → pull tất cả TK có max_mess_cost/max_lead_cost từ 2026-04-01 → hôm nay
+// Sau khi xong sẽ toast cụ thể số dòng + lỗi (nếu có). Dùng để bù data hoặc force re-sync khi cron skip.
+async function backfillAdPostsOnce(btn){
+  if(!isAdmin()){toast('Chỉ admin',false);return;}
+  if(!confirm('Backfill bài chạy T4 + T5/2026 từ Meta API?\n\nMất khoảng 1-2 phút. Có thể chạy lại nhiều lần (upsert idempotent — không trùng).'))return;
+  var oldText=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Đang backfill...';}
+  try{
+    var dFrom='2026-04-01',dTo=vnDateStr(0);
+    var mapped=adList.filter(function(a){return a.fb_account_id&&(a.max_mess_cost||a.max_lead_cost);});
+    if(!mapped.length){toast('Không có TK nào đặt ngưỡng',false);return;}
+    var allRows=[],errors=0,errorSamples=[],failedAccs=[];
+    for(var b=0;b<mapped.length;b+=24){
+      var chunk=mapped.slice(b,b+24);
+      if(btn)btn.textContent='Backfill: TK '+Math.min(b+24,mapped.length)+'/'+mapped.length;
+      var batchReqs=[];
+      chunk.forEach(function(a){
+        batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/insights?level=ad&fields=ad_id,ad_name,campaign_id,campaign_name,spend,actions&time_range={"since":"'+dFrom+'","until":"'+dTo+'"}&time_increment=1&limit=500'});
+        batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/ads?fields=id,name,status,creative{effective_object_story_id,thumbnail_url}&limit=500'});
+      });
+      try{
+        var bResults=await metaBatch(batchReqs);
+        if(!Array.isArray(bResults)){
+          errors+=chunk.length;
+          chunk.forEach(function(a){failedAccs.push(a.account_name);});
+          if(errorSamples.length<3)errorSamples.push((bResults&&bResults.error&&bResults.error.message)||'batch error');
+          continue;
+        }
+        for(var j=0;j<chunk.length;j++){
+          try{
+            var insBody=JSON.parse((bResults[j*2]&&bResults[j*2].body)||'{}');
+            var adsBody=JSON.parse((bResults[j*2+1]&&bResults[j*2+1].body)||'{}');
+            if(insBody.error){
+              errors++;
+              failedAccs.push(chunk[j].account_name);
+              if(errorSamples.length<3)errorSamples.push(chunk[j].account_name+': '+insBody.error.message);
+              continue;
+            }
+            var adsMeta={};
+            ((adsBody&&adsBody.data)||[]).forEach(function(ad){
+              var c=ad.creative||{};var posid=c.effective_object_story_id||null,purl=null;
+              if(posid&&posid.indexOf('_')>0){var parts=posid.split('_');purl='https://www.facebook.com/'+parts[0]+'/posts/'+parts[1];}
+              adsMeta[ad.id]={status:ad.status||null,post_id:posid,post_url:purl,thumbnail_url:c.thumbnail_url||null};
+            });
+            (insBody.data||[]).forEach(function(r){
+              var spend=Math.round(parseFloat(r.spend||0)),mc=0,lc=0,cc=0,kc=0;
+              if(r.actions)r.actions.forEach(function(act){
+                var t=act.action_type||'';
+                if(t.indexOf('messaging_conversation_started')>=0||t==='onsite_conversion.messaging_conversation_started_7d')mc+=parseInt(act.value)||0;
+                if(t==='lead'||t==='leadgen_grouped')lc+=parseInt(act.value)||0;
+                if(t==='comment')cc+=parseInt(act.value)||0;
+                if(t==='offsite_conversion.fb_pixel_initiate_checkout'||t==='onsite_conversion.initiate_checkout'||t==='initiate_checkout')kc+=parseInt(act.value)||0;
+              });
+              var m=adsMeta[r.ad_id]||{};
+              allRows.push({
+                ad_account_id:chunk[j].id,ad_id:r.ad_id,report_date:r.date_start,
+                ad_name:r.ad_name||null,campaign_id:r.campaign_id||null,campaign_name:r.campaign_name||null,
+                post_id:m.post_id||null,post_url:m.post_url||null,thumbnail_url:m.thumbnail_url||null,
+                spend:spend,mess_count:mc,comment_count:cc,lead_count:lc,checkout_count:kc,
+                ad_status:m.status||null
+              });
+            });
+          }catch(e2){errors++;}
+        }
+      }catch(e){errors+=chunk.length;chunk.forEach(function(a){failedAccs.push(a.account_name);});}
+    }
+    var saved=0,batches=chunkArray(allRows,500);
+    for(var i=0;i<batches.length;i++){
+      if(btn)btn.textContent='Backfill: lưu '+(i+1)+'/'+batches.length;
+      var up=await sb2.from('ad_daily_post').upsert(batches[i],{onConflict:'ad_account_id,ad_id,report_date'});
+      if(up.error){errors+=batches[i].length;console.warn('[Backfill upsert]',up.error.message);}
+      else saved+=batches[i].length;
+    }
+    var msg='Backfill xong: '+saved+' dòng';
+    if(errors){
+      msg+=' · '+errors+' lỗi';
+      if(failedAccs.length)console.warn('[Backfill] TK fail:',failedAccs);
+      if(errorSamples.length)console.warn('[Backfill] Mẫu lỗi:',errorSamples);
+    }
+    toast(msg,!errors);
+    if(saved){
+      var r=await sb2.from('ad_daily_post').select('*').gte('report_date','2026-04-01').order('report_date',{ascending:false}).limit(20000);
+      if(r&&!r.error){adPostData=r.data||[];render();}
+    }
+  }catch(e){toast('Lỗi backfill: '+e.message,false);}
+  finally{if(btn){btn.disabled=false;btn.textContent=oldText;}}
+}
+
 // ═══ P6: CẢNH BÁO GIÁ CHIẾN DỊCH ═══
 var p6Tab=0;
 function setP6Tab(i){p6Tab=i;syncSidebarNav();render();}
@@ -3782,6 +3871,7 @@ var d1Label=fd(vnDateStr(-86400000)),d3Label=fd(vnDateStr(-259200000));
 var h='<div class="page-title">Cảnh báo</div><div class="page-sub">Giá trung bình 3 ngày ('+d3Label+' – '+d1Label+') · Số dư Tài khoản dưới '+ff(BALANCE_ALERT_THRESHOLD)+'đ</div>';
 h+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">';
 h+='<button class="btn btn-primary" onclick="syncCampaignMess(this)">Quét giá Messenger & form</button>';
+h+='<button class="btn btn-ghost" onclick="backfillAdPostsOnce(this)" title="Force re-sync bài chạy T4-T5 cho tất cả TK. Idempotent — chạy lại nhiều lần không trùng." style="border:1px dashed var(--bd2);">Backfill bài chạy T4-T5</button>';
 h+='<span style="font-size:11px;color:var(--tx3);">Bài chạy đã quét: '+adPostData.length+' dòng (cron mỗi 15p)</span>';
 h+='</div>';
 // KPI
