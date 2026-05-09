@@ -889,7 +889,7 @@ function renderSidebarV2(){
       var ic=PAGE_ICONS[pNum]||'';
       html+='<button type="button" class="sb-item sb-item-iconly'+(isActive?' active':'')+'" data-sb-action="pg('+pNum+')" title="'+esc(cfg.title)+'">'+ic+'</button>';
     });
-    html+='<button type="button" class="sb-item sb-item-iconly" data-sb-action="window.open(\'/nghiep.html\',\'_blank\')" title="CEO Hưng Coaching">'+PAGE_ICONS.ceo+'</button>';
+    if(isAdmin())html+='<button type="button" class="sb-item sb-item-iconly" data-sb-action="window.open(\'/nghiep.html\',\'_blank\')" title="CEO Hưng Coaching">'+PAGE_ICONS.ceo+'</button>';
   }else{
     pageOrder.forEach(function(pNum){
       if(authUser&&!canAccessPage(pNum))return;
@@ -925,8 +925,8 @@ function renderSidebarV2(){
         html+='</div>';
       }
     });
-    // CEO HC link external (luôn hiện ở cuối)
-    html+='<div class="sb-section"><button type="button" class="sb-item" data-sb-action="window.open(\'/nghiep.html\',\'_blank\')"><span class="sb-item-dot"></span><span class="sb-item-label">CEO Hưng Coaching ↗</span></button></div>';
+    // CEO HC link external (chỉ admin mới thấy)
+    if(isAdmin())html+='<div class="sb-section"><button type="button" class="sb-item" data-sb-action="window.open(\'/nghiep.html\',\'_blank\')"><span class="sb-item-dot"></span><span class="sb-item-label">CEO Hưng Coaching ↗</span></button></div>';
   }
   nav.innerHTML=html;
   // Render footer
