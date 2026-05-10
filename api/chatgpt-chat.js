@@ -18,6 +18,22 @@ const CODEX_API_BASE = 'https://chatgpt.com/backend-api';
 const PROVIDER_KEY = 'openai-codex';
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // refresh nếu còn dưới 5 phút
 
+// Header khớp Codex CLI để pass Cloudflare WAF của chatgpt.com.
+// Nếu thiếu, request từ datacenter IP (Vercel Edge) bị trả challenge HTML.
+const CODEX_CLI_VERSION = '0.76.0';
+const CODEX_USER_AGENT = 'codex_cli_rs/' + CODEX_CLI_VERSION + ' (Linux 6.0.0; x86_64) Terminal';
+
+// UUID v4 đơn giản — Edge runtime có crypto.randomUUID()
+function newSessionID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  // Fallback nếu runtime cũ
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -75,13 +91,13 @@ async function refreshAccessToken(refreshToken) {
   return JSON.parse(text);
 }
 
-async function getValidToken() {
+async function getValidTokenAndAccount() {
   const row = await sbSelect();
   if (!row) throw new Error('Chưa kết nối ChatGPT — vào Admin → Cài đặt API Key để kết nối.');
 
   const expiresAt = row.expires_at ? new Date(row.expires_at).getTime() : 0;
   if (expiresAt - Date.now() > REFRESH_MARGIN_MS) {
-    return row.access_token;
+    return { token: row.access_token, accountID: row.account_id };
   }
 
   // Refresh
@@ -93,7 +109,7 @@ async function getValidToken() {
   };
   if (newToken.refresh_token) patch.refresh_token = newToken.refresh_token;
   await sbUpdateTokens(patch);
-  return newToken.access_token;
+  return { token: newToken.access_token, accountID: row.account_id };
 }
 
 // ── Build /codex/responses request body từ messages OpenAI-style ──
@@ -183,29 +199,52 @@ export default async function handler(req) {
   const messages = Array.isArray(body.messages) ? body.messages : null;
   if (!messages || !messages.length) return jsonResp(400, { error: 'Thiếu messages' });
 
-  let token;
-  try { token = await getValidToken(); }
+  let token, accountID;
+  try {
+    const tk = await getValidTokenAndAccount();
+    token = tk.token; accountID = tk.accountID;
+  }
   catch (e) { return jsonResp(401, { error: e.message || String(e) }); }
 
   const codexBody = buildCodexBody(messages, body.model, true);
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer ' + token,
+    'OpenAI-Beta': 'responses=v1',
+    Accept: 'text/event-stream',
+    'User-Agent': CODEX_USER_AGENT,
+    originator: 'codex_cli_rs',
+    version: CODEX_CLI_VERSION,
+    session_id: newSessionID()
+  };
+  if (accountID) headers['chatgpt-account-id'] = accountID;
 
   let upstream;
   try {
     upstream = await fetch(CODEX_API_BASE + '/codex/responses', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token,
-        'OpenAI-Beta': 'responses=v1'
-      },
+      headers,
       body: JSON.stringify(codexBody)
     });
   } catch (e) {
     return jsonResp(502, { error: 'Lỗi kết nối ChatGPT: ' + (e.message || e) });
   }
 
+  // Detect Cloudflare WAF challenge — body là HTML thay vì SSE.
+  const ct = (upstream.headers.get('content-type') || '').toLowerCase();
+  const isHTML = ct.includes('text/html') || ct.includes('application/xhtml');
+  if (isHTML) {
+    const snippet = (await upstream.text()).slice(0, 200);
+    const isCF = snippet.includes('cdn-cgi') || snippet.includes('Cloudflare') || snippet.includes('challenge-platform');
+    return jsonResp(403, {
+      error: isCF
+        ? 'Cloudflare WAF của ChatGPT chặn request từ Vercel datacenter. Có thể do IP Edge bị flag. Thử: (1) đổi region Edge, (2) chạy local Codex CLI rồi để HC Agency gọi qua REST.'
+        : 'ChatGPT trả HTML không mong đợi (' + upstream.status + ').'
+    });
+  }
+
   if (!upstream.ok) {
-    const errText = await upstream.text();
+    const errText = (await upstream.text()).slice(0, 800);
     return jsonResp(upstream.status, { error: 'ChatGPT HTTP ' + upstream.status + ': ' + errText });
   }
 
