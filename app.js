@@ -8312,8 +8312,9 @@ aiMessages.push({role:'user',content:userMsg});
 var model=getAIModel();
 try{
 if(isChatGPTOAuth(model)){
-// ChatGPT Plus qua OAuth — proxy qua serverless function
-var resp=await fetch('/api/chatgpt-chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:aiMessages,model:'gpt-5.4'})});
+// ChatGPT Plus qua OAuth — proxy qua serverless function. Không gửi model name,
+// để server tự pick model tương thích Codex (gpt-5-codex hoặc model mới hơn).
+var resp=await fetch('/api/chatgpt-chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:aiMessages})});
 var data=await resp.json();
 if(!resp.ok||data.error){return'⚠ Lỗi ChatGPT OAuth: '+(data.error||('HTTP '+resp.status));}
 var reply=data.content||'(trống)';

@@ -140,7 +140,7 @@ function buildCodexBody(messages, model, stream) {
     }
   }
   return {
-    model: model || 'gpt-5.4',
+    model: model || 'gpt-5-codex',
     instructions: instructions || 'You are a helpful assistant.',
     input,
     stream: !!stream,
