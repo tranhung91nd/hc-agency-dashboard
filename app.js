@@ -8033,6 +8033,22 @@ render();}
 // User mở auth_url ở tab mới, login ChatGPT, browser sẽ redirect về localhost:1455 (báo lỗi
 // "không kết nối được" — không sao). User copy URL paste vào textarea, bấm Hoàn tất →
 // gọi /api/chatgpt-auth?action=callback để đổi code lấy token.
+function renderChatGPTOAuthPasteForm(){
+var actionsEl=document.getElementById('chatgpt-oauth-actions');
+if(!actionsEl)return;
+actionsEl.innerHTML=''
++'<div style="padding:10px 14px;background:var(--amber-bg);color:var(--amber-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:12px;">'
++'<b>Đang chờ paste URL callback</b><br>'
++'1. Tab ChatGPT đã mở → đăng nhập, bấm "Authorize".<br>'
++'2. Trình duyệt redirect về <code>http://localhost:1455/auth/callback?code=…</code> báo <i>"không kết nối được"</i> — bình thường.<br>'
++'3. <b>Click vào thanh địa chỉ → Cmd+A → Cmd+C</b> để copy nguyên URL (đừng kéo chuột bôi đen, sẽ thiếu phần đuôi).<br>'
++'4. Paste vào ô bên dưới → bấm Hoàn tất.'
++'</div>'
++'<label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;">URL callback đã copy</label>'
++'<textarea id="chatgpt-oauth-redirect" rows="3" placeholder="http://localhost:1455/auth/callback?code=...&state=..." style="width:100%;padding:8px;font-family:monospace;font-size:11px;border:1px solid var(--bd1);border-radius:var(--radius);"></textarea>'
++'<div class="btn-row" style="margin-top:10px;"><button class="btn btn-primary" onclick="submitChatGPTOAuthCallback(this)">Hoàn tất kết nối</button><button class="btn btn-ghost" onclick="cancelChatGPTOAuth()">Huỷ phiên</button></div>';
+}
+
 async function loadChatGPTOAuthStatus(){
 var statusEl=document.getElementById('chatgpt-oauth-status');
 var actionsEl=document.getElementById('chatgpt-oauth-actions');
@@ -8047,8 +8063,16 @@ var acct=data.account_id?(' · acct '+data.account_id.slice(0,12)+'…'):'';
 statusEl.innerHTML='<b style="color:var(--green);">✓ Đã kết nối</b> — Plan: '+esc(plan)+acct+'<br><span style="color:var(--tx3);">Access token hết hạn: '+esc(exp)+' (tự refresh)</span>';
 actionsEl.innerHTML='<div class="btn-row"><button class="btn btn-ghost" onclick="disconnectChatGPTOAuth(this)">Ngắt kết nối</button></div>';
 }else{
+// Nếu có pending state (đã bấm Kết nối trước đó) → render lại form paste để user paste tiếp
+var pendingState=localStorage.getItem('hc_chatgpt_oauth_state');
+var pendingVerifier=localStorage.getItem('hc_chatgpt_oauth_verifier');
+if(pendingState&&pendingVerifier){
+statusEl.innerHTML='<b style="color:var(--amber);">◐ Đang trong phiên kết nối</b> — paste URL callback để hoàn tất.';
+renderChatGPTOAuthPasteForm();
+}else{
 statusEl.innerHTML='<b style="color:var(--tx3);">○ Chưa kết nối</b> — chưa thể dùng option <i>"GPT-5.4 qua subscription"</i> trong AI panel.';
 actionsEl.innerHTML='<div class="btn-row"><button class="btn btn-primary" onclick="startChatGPTOAuth(this)">Kết nối ChatGPT Plus</button></div>';
+}
 }
 }catch(e){statusEl.innerHTML='<span style="color:var(--red);">Lỗi load trạng thái: '+esc(e.message||String(e))+'</span>';}
 }
@@ -8060,21 +8084,11 @@ try{
 var resp=await fetch('/api/chatgpt-auth?action=start');
 var data=await resp.json();
 if(!resp.ok||!data.auth_url)throw new Error(data.error||'HTTP '+resp.status);
-// Lưu state + verifier vào localStorage để dùng ở bước callback
+// Lưu state + verifier vào localStorage để dùng ở bước callback (sống qua refresh)
 localStorage.setItem('hc_chatgpt_oauth_state',data.state);
 localStorage.setItem('hc_chatgpt_oauth_verifier',data.code_verifier);
 window.open(data.auth_url,'_blank','noopener');
-var actionsEl=document.getElementById('chatgpt-oauth-actions');
-actionsEl.innerHTML=''
-+'<div style="padding:10px 14px;background:var(--amber-bg);color:var(--amber-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:12px;">'
-+'<b>Bước tiếp theo</b><br>'
-+'1. Tab vừa mở → đăng nhập ChatGPT Plus, bấm "Authorize".<br>'
-+'2. Trình duyệt sẽ redirect về <code>http://localhost:1455/auth/callback?code=…</code> và báo <i>"không kết nối được"</i> — bình thường.<br>'
-+'3. <b>Copy nguyên URL ở thanh địa chỉ</b> (bắt đầu bằng <code>http://localhost:1455/</code>) → dán vào ô bên dưới → bấm Hoàn tất.'
-+'</div>'
-+'<label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;">URL callback đã copy</label>'
-+'<textarea id="chatgpt-oauth-redirect" rows="3" placeholder="http://localhost:1455/auth/callback?code=...&state=..." style="width:100%;padding:8px;font-family:monospace;font-size:11px;border:1px solid var(--bd1);border-radius:var(--radius);"></textarea>'
-+'<div class="btn-row" style="margin-top:10px;"><button class="btn btn-primary" onclick="submitChatGPTOAuthCallback(this)">Hoàn tất kết nối</button><button class="btn btn-ghost" onclick="cancelChatGPTOAuth()">Huỷ</button></div>';
+renderChatGPTOAuthPasteForm();
 }catch(e){toast('Lỗi: '+(e.message||e),false);btn.disabled=false;btn.textContent='Kết nối ChatGPT Plus';}
 }
 
