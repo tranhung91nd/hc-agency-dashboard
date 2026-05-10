@@ -20,6 +20,12 @@ const CODEX_API_BASE = 'https://chatgpt.com/backend-api';
 const PROVIDER_KEY = 'openai-codex';
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // refresh nếu còn dưới 5 phút
 
+// Nếu set CHATGPT_PROXY_URL (e.g. https://abc.ngrok.io), forward qua proxy local
+// thay vì gọi chatgpt.com trực tiếp — bypass Cloudflare WAF chặn IP datacenter Vercel.
+// Xem scripts/chatgpt-proxy.js.
+const PROXY_URL = (process.env.CHATGPT_PROXY_URL || '').replace(/\/+$/, '');
+const PROXY_SECRET = process.env.HC_PROXY_SECRET || '';
+
 // Header khớp Codex CLI để pass Cloudflare WAF của chatgpt.com.
 // Nếu thiếu, request từ datacenter IP (Vercel Edge) bị trả challenge HTML.
 const CODEX_CLI_VERSION = '0.76.0';
@@ -221,9 +227,17 @@ export default async function handler(req) {
   };
   if (accountID) headers['chatgpt-account-id'] = accountID;
 
+  // Endpoint: proxy local nếu có set (bypass CF), ngược lại gọi chatgpt.com trực tiếp
+  const endpoint = PROXY_URL
+    ? PROXY_URL + '/codex/responses'
+    : CODEX_API_BASE + '/codex/responses';
+  if (PROXY_URL && PROXY_SECRET) {
+    headers['X-HC-Proxy-Secret'] = PROXY_SECRET;
+  }
+
   let upstream;
   try {
-    upstream = await fetch(CODEX_API_BASE + '/codex/responses', {
+    upstream = await fetch(endpoint, {
       method: 'POST',
       headers,
       body: JSON.stringify(codexBody)
