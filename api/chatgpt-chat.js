@@ -230,16 +230,24 @@ export default async function handler(req) {
     return jsonResp(502, { error: 'Lỗi kết nối ChatGPT: ' + (e.message || e) });
   }
 
-  // Detect Cloudflare WAF challenge — body là HTML thay vì SSE.
+  // Detect HTML response (Cloudflare challenge / abuse page / login redirect / etc).
   const ct = (upstream.headers.get('content-type') || '').toLowerCase();
+  const cfRay = upstream.headers.get('cf-ray') || '';
   const isHTML = ct.includes('text/html') || ct.includes('application/xhtml');
   if (isHTML) {
-    const snippet = (await upstream.text()).slice(0, 200);
-    const isCF = snippet.includes('cdn-cgi') || snippet.includes('Cloudflare') || snippet.includes('challenge-platform');
-    return jsonResp(403, {
+    const fullText = await upstream.text();
+    const lower = fullText.toLowerCase();
+    const isCF = lower.includes('cdn-cgi') || lower.includes('cloudflare') ||
+                 lower.includes('challenge-platform') || lower.includes('cf-error') ||
+                 lower.includes('error 1020') || lower.includes('attention required') ||
+                 !!cfRay;
+    const snippet = fullText.slice(0, 400).replace(/\s+/g, ' ').trim();
+    return jsonResp(upstream.status || 403, {
       error: isCF
-        ? 'Cloudflare WAF của ChatGPT chặn request từ Vercel datacenter. Có thể do IP Edge bị flag. Thử: (1) đổi region Edge, (2) chạy local Codex CLI rồi để HC Agency gọi qua REST.'
-        : 'ChatGPT trả HTML không mong đợi (' + upstream.status + ').'
+        ? ('Cloudflare WAF chặn request từ Vercel (status ' + upstream.status + ', cf-ray ' + (cfRay || 'n/a') +
+           '). IP datacenter bị flag — thử đổi Vercel region (sin1/hkg1), hoặc chạy proxy local.')
+        : ('ChatGPT trả HTML status ' + upstream.status + ' (cf-ray ' + (cfRay || 'n/a') + '). Snippet: ' + snippet),
+      debug: { status: upstream.status, content_type: ct, cf_ray: cfRay, snippet }
     });
   }
 
