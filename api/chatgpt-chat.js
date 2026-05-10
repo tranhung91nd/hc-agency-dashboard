@@ -10,7 +10,9 @@
 //
 // Endpoint Codex chỉ chấp nhận stream=true. Default model: gpt-5.4 (theo Codex CLI).
 
-export const config = { runtime: 'edge' };
+// Pin về Singapore — IP Asia datacenter ít bị Cloudflare WAF của ChatGPT flag hơn
+// IAD/SFO mặc định. Nếu vẫn lỗi, fallback proxy local qua ngrok.
+export const config = { runtime: 'edge', regions: ['sin1'] };
 
 const OPENAI_TOKEN_URL = 'https://auth.openai.com/oauth/token';
 const OPENAI_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
