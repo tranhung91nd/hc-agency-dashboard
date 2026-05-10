@@ -26,9 +26,9 @@ const REFRESH_MARGIN_MS = 5 * 60 * 1000; // refresh nếu còn dưới 5 phút
 const PROXY_URL = (process.env.CHATGPT_PROXY_URL || '').replace(/\/+$/, '');
 const PROXY_SECRET = process.env.HC_PROXY_SECRET || '';
 
-// Header khớp Codex CLI để pass Cloudflare WAF của chatgpt.com.
-// Nếu thiếu, request từ datacenter IP (Vercel Edge) bị trả challenge HTML.
-const CODEX_CLI_VERSION = '0.76.0';
+// Header khớp Codex CLI để pass Cloudflare WAF + cho phép dùng các model mới.
+// Bump version để ChatGPT không reject model gpt-5.4 vì "outdated CLI".
+const CODEX_CLI_VERSION = '0.91.0';
 const CODEX_USER_AGENT = 'codex_cli_rs/' + CODEX_CLI_VERSION + ' (Linux 6.0.0; x86_64) Terminal';
 
 // UUID v4 đơn giản — Edge runtime có crypto.randomUUID()
