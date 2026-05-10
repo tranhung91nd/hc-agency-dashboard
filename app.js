@@ -3093,7 +3093,7 @@ var{error}=await sb2.from('app_settings').upsert({key:key,value:value,updated_at
 if(error){toast('Lỗi lưu: '+error.message,false);return false;}
 return true;}
 function sat(i){adminTab=i;expandedAd=null;syncSidebarNav();render();}
-function rat(){if(adminTab===0)return a0();if(adminTab===1)return a2();if(adminTab===2)return a3();if(adminTab===3)return a5();if(adminTab===4)return a6Settings();return'';}
+function rat(){if(adminTab===0)return a0();if(adminTab===1)return a2();if(adminTab===2)return a3();if(adminTab===3)return a5();if(adminTab===4){setTimeout(function(){if(typeof loadChatGPTOAuthStatus==='function')loadChatGPTOAuthStatus();},0);return a6Settings();}return'';}
 
 // ═══ A0: TỔNG QUAN ADMIN ═══
 function a0(){
@@ -7878,6 +7878,12 @@ h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><lab
 h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Anthropic Claude API Key (dùng cho Claude Haiku/Sonnet)</label><div style="display:flex;gap:8px;align-items:center;"><input type="password" id="set-claude-key" value="'+esc(CLAUDE_KEY)+'" placeholder="sk-ant-..." style="flex:1;font-family:monospace;font-size:12px;"><button class="btn btn-ghost btn-sm" onclick="var el=document.getElementById(\'set-claude-key\');el.type=el.type===\'password\'?\'text\':\'password\';">Hiện/Ẩn</button></div><div style="font-size:11px;color:var(--tx3);margin-top:4px;">Hiện tại: '+claudePreview+' · <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--blue);">Lấy key tại đây ↗</a></div></div></div>';
 h+='<div class="btn-row"><button class="btn btn-primary" onclick="saveAIKeys(this)">Lưu API Key</button><button class="btn btn-ghost" onclick="clearAIKeys(this)">Xóa tất cả</button></div>';
 h+='</div>';
+// Kết nối ChatGPT Plus qua OAuth (PKCE) — dùng subscription thay vì trả tiền API
+h+='<div class="form-card"><h3>Kết nối ChatGPT Plus (OAuth — miễn phí)</h3>';
+h+='<div style="padding:10px 14px;background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;">Dùng subscription ChatGPT Plus của anh để gọi GPT-5.4 mà không tốn token API. Token lưu server-side (Supabase), tự động refresh. <b>Lưu ý:</b> đây là endpoint nội bộ của ChatGPT, không chính thức — có rủi ro nhỏ về ToS. Cần đã login ChatGPT Plus trên trình duyệt máy local.</div>';
+h+='<div id="chatgpt-oauth-status" style="margin-bottom:14px;padding:10px 14px;background:var(--bg3);border-radius:var(--radius);font-size:12px;color:var(--tx2);">Đang kiểm tra trạng thái…</div>';
+h+='<div id="chatgpt-oauth-actions"></div>';
+h+='</div>';
 h+='<div class="form-card"><h3>Thông tin ngân hàng (phiếu thanh toán)</h3>';
 h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
 h+='<div><div style="font-size:12px;font-weight:500;color:var(--green);margin-bottom:8px;">STK doanh nghiệp (có VAT)</div>';
@@ -8022,6 +8028,95 @@ var msgsEl=document.getElementById('ai-msgs');if(msgsEl)msgsEl.innerHTML='';
 toast('Đã xóa API key AI',true);
 render();}
 
+// ═══ ChatGPT Plus OAuth (PKCE) ═══
+// Luồng: client gọi /api/chatgpt-auth?action=start để lấy auth_url + verifier + state.
+// User mở auth_url ở tab mới, login ChatGPT, browser sẽ redirect về localhost:1455 (báo lỗi
+// "không kết nối được" — không sao). User copy URL paste vào textarea, bấm Hoàn tất →
+// gọi /api/chatgpt-auth?action=callback để đổi code lấy token.
+async function loadChatGPTOAuthStatus(){
+var statusEl=document.getElementById('chatgpt-oauth-status');
+var actionsEl=document.getElementById('chatgpt-oauth-actions');
+if(!statusEl||!actionsEl)return;
+try{
+var resp=await fetch('/api/chatgpt-auth?action=status');
+var data=await resp.json();
+if(data.connected){
+var exp=data.expires_at?new Date(data.expires_at).toLocaleString('vi-VN'):'?';
+var plan=data.plan_type||'(không xác định)';
+var acct=data.account_id?(' · acct '+data.account_id.slice(0,12)+'…'):'';
+statusEl.innerHTML='<b style="color:var(--green);">✓ Đã kết nối</b> — Plan: '+esc(plan)+acct+'<br><span style="color:var(--tx3);">Access token hết hạn: '+esc(exp)+' (tự refresh)</span>';
+actionsEl.innerHTML='<div class="btn-row"><button class="btn btn-ghost" onclick="disconnectChatGPTOAuth(this)">Ngắt kết nối</button></div>';
+}else{
+statusEl.innerHTML='<b style="color:var(--tx3);">○ Chưa kết nối</b> — chưa thể dùng option <i>"GPT-5.4 qua subscription"</i> trong AI panel.';
+actionsEl.innerHTML='<div class="btn-row"><button class="btn btn-primary" onclick="startChatGPTOAuth(this)">Kết nối ChatGPT Plus</button></div>';
+}
+}catch(e){statusEl.innerHTML='<span style="color:var(--red);">Lỗi load trạng thái: '+esc(e.message||String(e))+'</span>';}
+}
+
+async function startChatGPTOAuth(btn){
+if(!isAdmin())return;
+btn.disabled=true;btn.textContent='Đang sinh URL...';
+try{
+var resp=await fetch('/api/chatgpt-auth?action=start');
+var data=await resp.json();
+if(!resp.ok||!data.auth_url)throw new Error(data.error||'HTTP '+resp.status);
+// Lưu state + verifier vào localStorage để dùng ở bước callback
+localStorage.setItem('hc_chatgpt_oauth_state',data.state);
+localStorage.setItem('hc_chatgpt_oauth_verifier',data.code_verifier);
+window.open(data.auth_url,'_blank','noopener');
+var actionsEl=document.getElementById('chatgpt-oauth-actions');
+actionsEl.innerHTML=''
++'<div style="padding:10px 14px;background:var(--amber-bg);color:var(--amber-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:12px;">'
++'<b>Bước tiếp theo</b><br>'
++'1. Tab vừa mở → đăng nhập ChatGPT Plus, bấm "Authorize".<br>'
++'2. Trình duyệt sẽ redirect về <code>http://localhost:1455/auth/callback?code=…</code> và báo <i>"không kết nối được"</i> — bình thường.<br>'
++'3. <b>Copy nguyên URL ở thanh địa chỉ</b> (bắt đầu bằng <code>http://localhost:1455/</code>) → dán vào ô bên dưới → bấm Hoàn tất.'
++'</div>'
++'<label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;">URL callback đã copy</label>'
++'<textarea id="chatgpt-oauth-redirect" rows="3" placeholder="http://localhost:1455/auth/callback?code=...&state=..." style="width:100%;padding:8px;font-family:monospace;font-size:11px;border:1px solid var(--bd1);border-radius:var(--radius);"></textarea>'
++'<div class="btn-row" style="margin-top:10px;"><button class="btn btn-primary" onclick="submitChatGPTOAuthCallback(this)">Hoàn tất kết nối</button><button class="btn btn-ghost" onclick="cancelChatGPTOAuth()">Huỷ</button></div>';
+}catch(e){toast('Lỗi: '+(e.message||e),false);btn.disabled=false;btn.textContent='Kết nối ChatGPT Plus';}
+}
+
+function cancelChatGPTOAuth(){
+localStorage.removeItem('hc_chatgpt_oauth_state');
+localStorage.removeItem('hc_chatgpt_oauth_verifier');
+loadChatGPTOAuthStatus();
+}
+
+async function submitChatGPTOAuthCallback(btn){
+if(!isAdmin())return;
+var ta=document.getElementById('chatgpt-oauth-redirect');
+var url=(ta&&ta.value||'').trim();
+if(!url){toast('Chưa paste URL callback',false);return;}
+var state=localStorage.getItem('hc_chatgpt_oauth_state');
+var verifier=localStorage.getItem('hc_chatgpt_oauth_verifier');
+if(!state||!verifier){toast('Phiên kết nối hết hạn — bấm "Kết nối ChatGPT Plus" lại từ đầu',false);return;}
+btn.disabled=true;btn.textContent='Đang đổi code...';
+try{
+var resp=await fetch('/api/chatgpt-auth?action=callback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({redirect_url:url,state:state,code_verifier:verifier})});
+var data=await resp.json();
+if(!resp.ok||data.error)throw new Error(data.error||'HTTP '+resp.status);
+localStorage.removeItem('hc_chatgpt_oauth_state');
+localStorage.removeItem('hc_chatgpt_oauth_verifier');
+toast('✓ Đã kết nối ChatGPT Plus',true);
+loadChatGPTOAuthStatus();
+}catch(e){toast('Lỗi callback: '+(e.message||e),false);btn.disabled=false;btn.textContent='Hoàn tất kết nối';}
+}
+
+async function disconnectChatGPTOAuth(btn){
+if(!isAdmin())return;
+if(!confirm('Ngắt kết nối ChatGPT Plus? Token sẽ bị xoá khỏi server.'))return;
+btn.disabled=true;btn.textContent='Đang xoá...';
+try{
+var resp=await fetch('/api/chatgpt-auth?action=logout',{method:'POST'});
+var data=await resp.json();
+if(!resp.ok)throw new Error(data.error||'HTTP '+resp.status);
+toast('Đã ngắt kết nối',true);
+loadChatGPTOAuthStatus();
+}catch(e){toast('Lỗi: '+(e.message||e),false);btn.disabled=false;btn.textContent='Ngắt kết nối';}
+}
+
 async function addUserRole(btn){
 if(!isAdmin())return;
 var isEdit=!!editingUserRoleId;
@@ -8074,8 +8169,10 @@ var aiMessages=[];var aiOpen=false;var aiInitDone=false;
 function getAIModel(){return document.getElementById('ai-model').value;}
 function isClaude(m){return m.indexOf('claude')===0;}
 
+function isChatGPTOAuth(m){return m==='chatgpt-codex';}
 function ensureKey(){
 var m=getAIModel();
+if(isChatGPTOAuth(m))return true; // OAuth dùng token server-side, không cần API key
 if(isClaude(m)&&!CLAUDE_KEY){CLAUDE_KEY=prompt('Nhập Anthropic API key (sk-ant-...):')||'';if(CLAUDE_KEY)localStorage.setItem('hc_claude_key',CLAUDE_KEY);else return false;}
 if(!isClaude(m)&&!OPENAI_KEY){OPENAI_KEY=prompt('Nhập OpenAI API key (sk-proj-...):')||'';if(OPENAI_KEY)localStorage.setItem('hc_openai_key',OPENAI_KEY);else return false;}
 return true;}
@@ -8172,7 +8269,15 @@ else{aiMessages[0].content=systemPrompt;}
 aiMessages.push({role:'user',content:userMsg});
 var model=getAIModel();
 try{
-if(isClaude(model)){
+if(isChatGPTOAuth(model)){
+// ChatGPT Plus qua OAuth — proxy qua serverless function
+var resp=await fetch('/api/chatgpt-chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:aiMessages,model:'gpt-5.4'})});
+var data=await resp.json();
+if(!resp.ok||data.error){return'⚠ Lỗi ChatGPT OAuth: '+(data.error||('HTTP '+resp.status));}
+var reply=data.content||'(trống)';
+aiMessages.push({role:'assistant',content:reply});
+return reply;
+}else if(isClaude(model)){
 // Anthropic Claude API
 var claudeMsgs=aiMessages.filter(function(m){return m.role!=='system';});
 var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':CLAUDE_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:model,system:systemPrompt,messages:claudeMsgs,max_tokens:1500})});
