@@ -8200,6 +8200,8 @@ function apply(){
 var saved=localStorage.getItem('hc_ai_model');
 var sel=document.getElementById('ai-model');
 if(!saved||!sel)return;
+// Bỏ qua chatgpt-codex cho đến khi proxy local được setup — fallback default
+if(saved==='chatgpt-codex'){localStorage.removeItem('hc_ai_model');return;}
 // Chỉ apply nếu option đó còn tồn tại trong dropdown
 for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===saved){sel.value=saved;return;}}
 }
