@@ -52,14 +52,13 @@ const server = http.createServer((req, res) => {
     return sendErr(401, 'Unauthorized');
   }
 
-  // Build forward headers — giữ Authorization + OpenAI-Beta + Codex CLI fingerprint
+  // Forward chỉ các header tối thiểu giống Goclaw. Không inject Codex CLI fingerprint
+  // vì sẽ trigger ChatGPT version-gating khiến model mới bị reject.
   const forwardHeaders = {
     'Content-Type': 'application/json',
-    Accept: 'text/event-stream',
-    'User-Agent': req.headers['user-agent'] || 'codex_cli_rs/0.76.0 (Linux 6.0.0; x86_64) Terminal',
     Host: TARGET_HOST
   };
-  ['authorization', 'openai-beta', 'originator', 'version', 'session_id', 'chatgpt-account-id'].forEach(h => {
+  ['authorization', 'openai-beta'].forEach(h => {
     if (req.headers[h]) forwardHeaders[h] = req.headers[h];
   });
 

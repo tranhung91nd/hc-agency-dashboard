@@ -26,21 +26,6 @@ const REFRESH_MARGIN_MS = 5 * 60 * 1000; // refresh nếu còn dưới 5 phút
 const PROXY_URL = (process.env.CHATGPT_PROXY_URL || '').replace(/\/+$/, '');
 const PROXY_SECRET = process.env.HC_PROXY_SECRET || '';
 
-// Header khớp Codex CLI để pass Cloudflare WAF + cho phép dùng các model mới.
-// Bump version để ChatGPT không reject model gpt-5.4 vì "outdated CLI".
-const CODEX_CLI_VERSION = '0.91.0';
-const CODEX_USER_AGENT = 'codex_cli_rs/' + CODEX_CLI_VERSION + ' (Linux 6.0.0; x86_64) Terminal';
-
-// UUID v4 đơn giản — Edge runtime có crypto.randomUUID()
-function newSessionID() {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-  // Fallback nếu runtime cũ
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -99,25 +84,19 @@ async function refreshAccessToken(refreshToken) {
   return JSON.parse(text);
 }
 
-async function getValidTokenAndAccount() {
+async function getValidToken() {
   const row = await sbSelect();
   if (!row) throw new Error('Chưa kết nối ChatGPT — vào Admin → Cài đặt API Key để kết nối.');
 
   const expiresAt = row.expires_at ? new Date(row.expires_at).getTime() : 0;
-  if (expiresAt - Date.now() > REFRESH_MARGIN_MS) {
-    return { token: row.access_token, accountID: row.account_id };
-  }
+  if (expiresAt - Date.now() > REFRESH_MARGIN_MS) return row.access_token;
 
-  // Refresh
   const newToken = await refreshAccessToken(row.refresh_token);
   const newExpiresAt = new Date(Date.now() + (Number(newToken.expires_in) || 0) * 1000).toISOString();
-  const patch = {
-    access_token: newToken.access_token,
-    expires_at: newExpiresAt
-  };
+  const patch = { access_token: newToken.access_token, expires_at: newExpiresAt };
   if (newToken.refresh_token) patch.refresh_token = newToken.refresh_token;
   await sbUpdateTokens(patch);
-  return { token: newToken.access_token, accountID: row.account_id };
+  return newToken.access_token;
 }
 
 // ── Build /codex/responses request body từ messages OpenAI-style ──
@@ -140,7 +119,7 @@ function buildCodexBody(messages, model, stream) {
     }
   }
   return {
-    model: model || 'gpt-5',
+    model: model || 'gpt-5.4',
     instructions: instructions || 'You are a helpful assistant.',
     input,
     stream: !!stream,
@@ -207,33 +186,21 @@ export default async function handler(req) {
   const messages = Array.isArray(body.messages) ? body.messages : null;
   if (!messages || !messages.length) return jsonResp(400, { error: 'Thiếu messages' });
 
-  let token, accountID;
-  try {
-    const tk = await getValidTokenAndAccount();
-    token = tk.token; accountID = tk.accountID;
-  }
+  let token;
+  try { token = await getValidToken(); }
   catch (e) { return jsonResp(401, { error: e.message || String(e) }); }
 
   const codexBody = buildCodexBody(messages, body.model, true);
+  // Headers tối thiểu — giống Goclaw. Không thêm Codex CLI fingerprint vì sẽ
+  // trigger version-gating phía ChatGPT khiến model mới bị reject.
   const headers = {
     'Content-Type': 'application/json',
     Authorization: 'Bearer ' + token,
-    'OpenAI-Beta': 'responses=v1',
-    Accept: 'text/event-stream',
-    'User-Agent': CODEX_USER_AGENT,
-    originator: 'codex_cli_rs',
-    version: CODEX_CLI_VERSION,
-    session_id: newSessionID()
+    'OpenAI-Beta': 'responses=v1'
   };
-  if (accountID) headers['chatgpt-account-id'] = accountID;
 
-  // Endpoint: proxy local nếu có set (bypass CF), ngược lại gọi chatgpt.com trực tiếp
-  const endpoint = PROXY_URL
-    ? PROXY_URL + '/codex/responses'
-    : CODEX_API_BASE + '/codex/responses';
-  if (PROXY_URL && PROXY_SECRET) {
-    headers['X-HC-Proxy-Secret'] = PROXY_SECRET;
-  }
+  const endpoint = PROXY_URL ? PROXY_URL + '/codex/responses' : CODEX_API_BASE + '/codex/responses';
+  if (PROXY_URL && PROXY_SECRET) headers['X-HC-Proxy-Secret'] = PROXY_SECRET;
 
   let upstream;
   try {
