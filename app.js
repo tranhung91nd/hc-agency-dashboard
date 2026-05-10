@@ -8113,7 +8113,11 @@ var data=await resp.json();
 if(!resp.ok||data.error)throw new Error(data.error||'HTTP '+resp.status);
 localStorage.removeItem('hc_chatgpt_oauth_state');
 localStorage.removeItem('hc_chatgpt_oauth_verifier');
-toast('✓ Đã kết nối ChatGPT Plus',true);
+// Auto-switch dropdown AI sang OAuth model + reset hội thoại để dùng ngay
+setAIModel('chatgpt-codex');
+aiMessages=[];aiInitDone=false;
+var msgsEl=document.getElementById('ai-msgs');if(msgsEl)msgsEl.innerHTML='';
+toast('✓ Đã kết nối ChatGPT Plus — AI panel đã chuyển sang dùng subscription',true);
 loadChatGPTOAuthStatus();
 }catch(e){toast('Lỗi callback: '+(e.message||e),false);btn.disabled=false;btn.textContent='Hoàn tất kết nối';}
 }
@@ -8126,6 +8130,8 @@ try{
 var resp=await fetch('/api/chatgpt-auth?action=logout',{method:'POST'});
 var data=await resp.json();
 if(!resp.ok)throw new Error(data.error||'HTTP '+resp.status);
+// Nếu AI panel đang chọn OAuth, fallback về gpt-5.4-mini để không bị stuck
+if(getAIModel&&getAIModel()==='chatgpt-codex'){setAIModel('gpt-5.4-mini');aiMessages=[];aiInitDone=false;var msgsEl=document.getElementById('ai-msgs');if(msgsEl)msgsEl.innerHTML='';}
 toast('Đã ngắt kết nối',true);
 loadChatGPTOAuthStatus();
 }catch(e){toast('Lỗi: '+(e.message||e),false);btn.disabled=false;btn.textContent='Ngắt kết nối';}
@@ -8182,6 +8188,24 @@ var aiMessages=[];var aiOpen=false;var aiInitDone=false;
 
 function getAIModel(){return document.getElementById('ai-model').value;}
 function isClaude(m){return m.indexOf('claude')===0;}
+function setAIModel(m){
+var sel=document.getElementById('ai-model');
+if(!sel)return;
+sel.value=m;
+localStorage.setItem('hc_ai_model',m);
+}
+// Khôi phục lựa chọn model từ phiên trước (nếu có) — chạy lần đầu khi DOM ready
+(function restoreAIModel(){
+function apply(){
+var saved=localStorage.getItem('hc_ai_model');
+var sel=document.getElementById('ai-model');
+if(!saved||!sel)return;
+// Chỉ apply nếu option đó còn tồn tại trong dropdown
+for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===saved){sel.value=saved;return;}}
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply);
+else apply();
+})();
 
 function isChatGPTOAuth(m){return m==='chatgpt-codex';}
 function ensureKey(){
@@ -8193,7 +8217,9 @@ return true;}
 
 function toggleAI(){aiOpen=!aiOpen;document.getElementById('ai-panel').classList.toggle('open',aiOpen);if(aiOpen&&!aiInitDone){if(!ensureKey())return;aiInitDone=true;autoAnalyze();}}
 
-function onModelChange(){aiMessages=[];aiInitDone=false;document.getElementById('ai-msgs').innerHTML='';
+function onModelChange(){
+localStorage.setItem('hc_ai_model',getAIModel());
+aiMessages=[];aiInitDone=false;document.getElementById('ai-msgs').innerHTML='';
 if(!ensureKey())return;
 aiInitDone=true;autoAnalyze();}
 
