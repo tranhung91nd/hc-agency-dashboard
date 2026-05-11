@@ -4961,22 +4961,34 @@ return{ok:true,imported:imp,capOnlyCount:capOnlyCount};}
 
 // ═══ A2: NHÂN SỰ ═══
 function a2(){
-var h='<div class="form-card"><h3>Thêm nhân sự</h3><div class="form-row"><div class="form-group"><label>Họ tên</label><input type="text" id="sf" placeholder="VD: Nguyễn Văn A"></div><div class="form-group"><label>Tên ngắn</label><input type="text" id="ss" placeholder="VD: Văn A"></div><div class="form-group"><label>Mã</label><input type="text" id="sc2" placeholder="VD: vana"></div></div>';
-h+='<div class="form-row"><div class="form-group"><label>Viết tắt</label><input type="text" id="si" placeholder="VA" maxlength="3"></div><div class="form-group"><label>Màu</label><select id="scl"><option value="purple">Tím</option><option value="teal">Xanh lá</option><option value="coral">Cam</option><option value="pink">Hồng</option><option value="blue">Xanh dương</option><option value="amber">Vàng</option></select></div><div class="form-group"><label>Ngân sách/tháng</label><input type="number" id="sb2" placeholder="250000000"></div></div>';
-h+='<div class="form-row"><div class="form-group"><label>Từ khóa chiến dịch</label><input type="text" id="skw" placeholder="VD: Thư, KL (dùng cho Tài khoản dùng chung)"></div></div>';
+// Gợi ý mã NS kế tiếp (lớn nhất hiện tại + 1, zero-pad 3 chữ số)
+var maxNo=0;allStaff.forEach(function(s){var n=parseInt(s.display_code||'0');if(!isNaN(n)&&n>maxNo)maxNo=n;});
+var suggestedNo=String(maxNo+1).padStart(3,'0');
+var h='<div class="form-card"><h3>Thêm nhân sự</h3><div class="form-row"><div class="form-group"><label>Mã NS</label><input type="text" id="sno" placeholder="'+suggestedNo+'" maxlength="6" style="font-family:monospace;"></div><div class="form-group"><label>Họ tên</label><input type="text" id="sf" placeholder="VD: Nguyễn Văn A"></div><div class="form-group"><label>Tên ngắn</label><input type="text" id="ss" placeholder="VD: Văn A"></div></div>';
+h+='<div class="form-row"><div class="form-group"><label>Mã code (định danh)</label><input type="text" id="sc2" placeholder="VD: vana"></div><div class="form-group"><label>Viết tắt</label><input type="text" id="si" placeholder="VA" maxlength="3"></div><div class="form-group"><label>Màu</label><select id="scl"><option value="purple">Tím</option><option value="teal">Xanh lá</option><option value="coral">Cam</option><option value="pink">Hồng</option><option value="blue">Xanh dương</option><option value="amber">Vàng</option></select></div></div>';
+h+='<div class="form-row"><div class="form-group"><label>Ngân sách/tháng</label><input type="number" id="sb2" placeholder="250000000"></div><div class="form-group"><label>Từ khóa chiến dịch</label><input type="text" id="skw" placeholder="VD: Thư, KL (dùng cho Tài khoản dùng chung)"></div></div>';
 h+='<div class="btn-row"><button class="btn btn-primary" onclick="svs(this)">Thêm</button></div></div>';
-h+='<div class="section-title">Nhân sự ('+allStaff.length+')</div><div class="table-wrap"><table><tr><th></th><th>Họ tên</th><th>Mã</th><th>ID (UUID)</th><th>Từ khóa chiến dịch</th><th>Ngân sách</th><th>Trạng thái</th><th></th></tr>';
-allStaff.forEach(function(s){var c=sc(s.color_code);
-var shortId=s.id?s.id.substring(0,8):'';
-h+='<tr style="'+(s.is_active?'':'opacity:.5;')+'"><td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div></td><td style="font-weight:500;">'+esc(s.full_name)+'</td><td class="mono">'+esc(s.code)+'</td><td><span class="mono" style="font-size:11px;color:var(--tx3);cursor:pointer;" title="Click để sao chép UUID đầy đủ: '+esc(s.id)+'" onclick="copyStaffId(\''+esc(s.id)+'\',this)">'+esc(shortId)+'…</span></td><td style="font-size:11px;color:var(--purple);">'+esc(s.campaign_keyword||'—')+'</td><td class="mono">'+fm(s.monthly_budget)+'</td><td><span class="badge '+(s.is_active?'b-green':'b-red')+'">'+(s.is_active?'Đang hoạt động':'Ngừng hoạt động')+'</span></td><td><button class="btn btn-ghost btn-sm" onclick="esp(\''+s.id+'\')">Sửa</button> <button class="btn btn-ghost btn-sm" onclick="tgs(this,\''+s.id+'\','+!s.is_active+')">'+(s.is_active?'Tắt':'Bật')+'</button></td></tr>';});
+// Bảng — sort theo display_code (tăng dần), staff chưa có code đặt cuối
+var sorted=allStaff.slice().sort(function(a,b){var an=parseInt(a.display_code||'9999'),bn=parseInt(b.display_code||'9999');return an-bn;});
+h+='<div class="section-title">Nhân sự ('+allStaff.length+')</div><div class="table-wrap"><table><tr><th>Mã NS</th><th></th><th>Họ tên</th><th>Code</th><th>Từ khóa chiến dịch</th><th>Ngân sách</th><th>Trạng thái</th><th></th></tr>';
+sorted.forEach(function(s){var c=sc(s.color_code);
+h+='<tr style="'+(s.is_active?'':'opacity:.5;')+'"><td><span class="mono" style="font-weight:600;font-size:13px;color:var(--blue);">'+esc(s.display_code||'—')+'</span></td><td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div></td><td style="font-weight:500;">'+esc(s.full_name)+'</td><td class="mono" style="font-size:12px;color:var(--tx3);">'+esc(s.code)+'</td><td style="font-size:11px;color:var(--purple);">'+esc(s.campaign_keyword||'—')+'</td><td class="mono">'+fm(s.monthly_budget)+'</td><td><span class="badge '+(s.is_active?'b-green':'b-red')+'">'+(s.is_active?'Đang hoạt động':'Ngừng hoạt động')+'</span></td><td><button class="btn btn-ghost btn-sm" onclick="esp(\''+s.id+'\')">Sửa</button> <button class="btn btn-ghost btn-sm" onclick="tgs(this,\''+s.id+'\','+!s.is_active+')">'+(s.is_active?'Tắt':'Bật')+'</button></td></tr>';});
 h+='</table></div>';return h;}
-async function copyStaffId(uuid,el){
-  try{await navigator.clipboard.writeText(uuid);toast('Đã sao chép Staff ID: '+uuid,true);if(el){var orig=el.textContent;el.textContent='✓ Đã copy';setTimeout(function(){el.textContent=orig;},1500);}}
-  catch(e){toast('Không sao chép được: '+(e.message||e),false);}
-}
-async function svs(btn){if(!needAuth())return;btn.disabled=true;var d={full_name:document.getElementById('sf').value,short_name:document.getElementById('ss').value,code:document.getElementById('sc2').value,avatar_initials:document.getElementById('si').value,color_code:document.getElementById('scl').value,monthly_budget:parseInt(document.getElementById('sb2').value)||0,campaign_keyword:document.getElementById('skw').value||null};if(!d.full_name||!d.code){toast('Nhập tên và mã',false);btn.disabled=false;return;}var r=await sb2.from('staff').insert(d);btn.disabled=false;if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã thêm',true);['sf','ss','sc2','si','sb2','skw'].forEach(function(x){document.getElementById(x).value='';});await loadLight();}}
+async function svs(btn){if(!needAuth())return;btn.disabled=true;
+var noInput=document.getElementById('sno').value.trim();
+var displayCode=noInput||document.getElementById('sno').placeholder; // fallback dùng suggested nếu để trống
+var d={full_name:document.getElementById('sf').value,short_name:document.getElementById('ss').value,code:document.getElementById('sc2').value,avatar_initials:document.getElementById('si').value,color_code:document.getElementById('scl').value,monthly_budget:parseInt(document.getElementById('sb2').value)||0,campaign_keyword:document.getElementById('skw').value||null,display_code:displayCode||null};
+if(!d.full_name||!d.code){toast('Nhập tên và code',false);btn.disabled=false;return;}
+var r=await sb2.from('staff').insert(d);btn.disabled=false;
+if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã thêm — Mã NS: '+(displayCode||'?'),true);['sno','sf','ss','sc2','si','sb2','skw'].forEach(function(x){var el=document.getElementById(x);if(el)el.value='';});await loadLight();}}
 async function tgs(btn,id,v){if(!needAuth())return;btn.disabled=true;var r=await sb2.from('staff').update({is_active:v}).eq('id',id);btn.disabled=false;if(r.error)toast('Lỗi',false);else{toast('Đã lưu ngưỡng giá',true);await loadLight();}}
-async function esp(id){if(!needAuth())return;var s=allStaff.find(function(x){return x.id===id;});if(!s)return;var n=prompt('Họ tên:',s.full_name);if(n===null)return;var b=prompt('Ngân sách/tháng:',s.monthly_budget);if(b===null)return;var kw=prompt('Từ khóa chiến dịch:',s.campaign_keyword||'');if(kw===null)return;var r=await sb2.from('staff').update({full_name:n,monthly_budget:parseInt(b)||0,campaign_keyword:kw||null}).eq('id',id);if(r.error)toast('Lỗi',false);else{toast('Đã lưu ngưỡng giá',true);await loadLight();}}
+async function esp(id){if(!needAuth())return;var s=allStaff.find(function(x){return x.id===id;});if(!s)return;
+var no=prompt('Mã NS (VD 001):',s.display_code||'');if(no===null)return;
+var n=prompt('Họ tên:',s.full_name);if(n===null)return;
+var b=prompt('Ngân sách/tháng:',s.monthly_budget);if(b===null)return;
+var kw=prompt('Từ khóa chiến dịch:',s.campaign_keyword||'');if(kw===null)return;
+var r=await sb2.from('staff').update({display_code:no.trim()||null,full_name:n,monthly_budget:parseInt(b)||0,campaign_keyword:kw||null}).eq('id',id);
+if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã lưu',true);await loadLight();}}
 
 // ═══ A3: KHÁCH HÀNG ═══
 function a3(){
@@ -8260,7 +8272,7 @@ var staffIdVal=editingUR?(editingUR.staff_id||''):'';
 h+='<div class="form-row"><div class="form-group"><label>Email</label><input type="email" id="ur-email" value="'+emailVal+'" placeholder="VD: linh.kt@hcagency.vn"'+(editingUR?' readonly style="background:var(--bg2);color:var(--tx3);"':'')+'></div><div class="form-group"><label>Tên hiển thị</label><input type="text" id="ur-name" value="'+nameVal+'" placeholder="VD: Ngọc Linh"></div></div>';
 h+='<div class="form-row"><div class="form-group"><label>Mật khẩu '+(editingUR?'(chỉ áp dụng nếu user chưa có Auth account)':'đăng nhập')+'</label><input type="text" id="ur-pass" placeholder="'+(editingUR?'Để trống nếu không đổi':'Tạo mật khẩu cho tài khoản này')+'" style="font-family:monospace;"></div><div class="form-group"><label>Vai trò</label><select id="ur-role">'+userRoleOptionsHtml(roleVal)+'</select></div></div>';
 h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Gán với nhân sự (nếu có)</label><select id="ur-staff"><option value="">— Không gán (full view trang Nhân sự) —</option>';
-(allStaff.length?allStaff:staffList).forEach(function(s){h+='<option value="'+esc(s.id)+'"'+(staffIdVal===s.id?' selected':'')+'>'+esc(s.full_name||s.short_name)+(s.short_name&&s.full_name!==s.short_name?' ('+esc(s.short_name)+')':'')+'</option>';});
+(allStaff.length?allStaff:staffList).slice().sort(function(a,b){var an=parseInt(a.display_code||'9999'),bn=parseInt(b.display_code||'9999');return an-bn;}).forEach(function(s){var codePrefix=s.display_code?'['+s.display_code+'] ':'';h+='<option value="'+esc(s.id)+'"'+(staffIdVal===s.id?' selected':'')+'>'+codePrefix+esc(s.full_name||s.short_name)+(s.short_name&&s.full_name!==s.short_name?' — '+esc(s.short_name):'')+'</option>';});
 h+='</select><div style="font-size:11px;color:var(--tx3);margin-top:4px;">Nếu gán, user này chỉ xem được Lương / Sổ phạt / Công việc của chính nhân sự được gán. Admin/Kế toán giữ full view → để trống.</div></div></div>';
 if(editingUR){
   h+='<div style="font-size:11px;color:var(--tx3);margin:4px 0 10px;background:var(--bg2);padding:8px 12px;border-radius:6px;border-left:3px solid var(--blue);">⚠ Supabase không cho admin đổi mật khẩu user khác từ trình duyệt. Để user quên/đổi mật khẩu, bấm nút bên dưới — Supabase sẽ gửi email link đặt lại password cho user đó.</div>';
@@ -8303,7 +8315,7 @@ h+='<tr'+(isEditing?' style="background:var(--amber-bg);"':'')+'>';
 h+='<td style="font-weight:500;">'+esc(ur.display_name||'—')+'</td>';
 h+='<td style="font-size:12px;color:var(--tx2);">'+esc(ur.email)+'</td>';
 h+='<td><span class="badge b-blue">'+esc(roleLabel)+'</span></td>';
-h+='<td style="font-size:11px;">'+(linkedStaff?esc(linkedStaff.short_name||linkedStaff.full_name):'<span style="color:var(--tx3);">—</span>')+'</td>';
+h+='<td style="font-size:11px;">'+(linkedStaff?((linkedStaff.display_code?'<span class="mono" style="color:var(--blue);font-weight:600;">['+esc(linkedStaff.display_code)+']</span> ':'')+esc(linkedStaff.short_name||linkedStaff.full_name)):'<span style="color:var(--tx3);">—</span>')+'</td>';
 h+='<td style="font-size:11px;">'+esc(pages||'—')+'</td>';
 h+='<td style="text-align:right;white-space:nowrap;">';
 h+='<button class="btn btn-ghost btn-sm" onclick="editUserRole(\''+ur.id+'\')" style="margin-right:6px;">✏ Sửa</button>';
