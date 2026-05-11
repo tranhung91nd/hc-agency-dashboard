@@ -1,0 +1,33 @@
+name: HC Agency - Auto Scan Penalty (10h30 VN, T2-T7)
+
+on:
+  schedule:
+    # 10h30 VN = 03h30 UTC. day-of-week 1-6 = T2..T7 (0=CN, bỏ).
+    # GitHub Actions cron có thể delay vài phút lúc tải cao — chấp nhận được vì
+    # nhân sự đã có deadline tối ưu trước 10h15.
+    - cron: '30 3 * * 1-6'
+  workflow_dispatch:
+    inputs:
+      scan_date:
+        description: 'Ngày quét (YYYY-MM-DD). Để trống = hôm nay VN.'
+        required: false
+        default: ''
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: hc-scan-penalty
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - run: npm install
+      - name: Run scan
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SCAN_DATE: ${{ github.event.inputs.scan_date }}
+        run: node scripts/scan-penalty.js
