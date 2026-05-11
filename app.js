@@ -4967,56 +4967,77 @@ var h='<div class="form-card"><h3>Thêm nhân sự</h3><div class="form-row"><di
 h+='<div class="form-row"><div class="form-group"><label>Mã code (định danh)</label><input type="text" id="sc2" placeholder="VD: vana"></div><div class="form-group"><label>Viết tắt</label><input type="text" id="si" placeholder="VA" maxlength="3"></div><div class="form-group"><label>Màu</label><select id="scl"><option value="purple">Tím</option><option value="teal">Xanh lá</option><option value="coral">Cam</option><option value="pink">Hồng</option><option value="blue">Xanh dương</option><option value="amber">Vàng</option></select></div></div>';
 h+='<div class="form-row"><div class="form-group"><label>Ngân sách/tháng</label><input type="number" id="sb2" placeholder="250000000"></div><div class="form-group"><label>Từ khóa chiến dịch</label><input type="text" id="skw" placeholder="VD: Thư, KL (dùng cho Tài khoản dùng chung)"></div></div>';
 h+='<div class="btn-row"><button class="btn btn-primary" onclick="svs(this)">Thêm</button></div></div>';
-// Bảng chính — GỐC là user_roles (tài khoản đăng nhập). Mỗi dòng = 1 tài khoản + info nhân sự gắn (nếu có).
-var staffById={};allStaff.forEach(function(s){staffById[s.id]=s;});
-// Sort: ưu tiên dòng có gắn staff (theo display_code), rồi đến orphan (không gắn) ở cuối
-var sortedURs=allUserRoles.slice().sort(function(a,b){
-  var sa=a.staff_id?staffById[a.staff_id]:null,sb=b.staff_id?staffById[b.staff_id]:null;
-  var na=sa?parseInt(sa.display_code||'9998'):9999,nb=sb?parseInt(sb.display_code||'9998'):9999;
-  return na-nb;
+// ═══ Bảng GỘP — 1 dòng = 1 PERSON (nhân sự + tài khoản đăng nhập nếu có) ═══
+// Match logic: explicit staff_id link → fuzzy name match → orphan
+var usedURIds={};
+function _matchURForStaff(s){
+  // 1. Explicit
+  var ex=allUserRoles.find(function(u){return u.staff_id===s.id;});
+  if(ex)return{ur:ex,fuzzy:false};
+  // 2. Fuzzy: chỉ match khi ur chưa gán staff_id, so theo display_name / email-prefix
+  var sKeys=[s.short_name,s.full_name,s.code,s.campaign_keyword].map(normalizePersonAlias).filter(Boolean);
+  for(var i=0;i<allUserRoles.length;i++){
+    var ur=allUserRoles[i];
+    if(ur.staff_id||usedURIds[ur.id])continue;
+    var urKeys=[ur.display_name,ur.email?ur.email.split('@')[0]:''].map(normalizePersonAlias).filter(Boolean);
+    for(var j=0;j<urKeys.length;j++){
+      for(var k=0;k<sKeys.length;k++){
+        var a=urKeys[j],b=sKeys[k];
+        if(!a||!b||a.length<3||b.length<3)continue;
+        if(a===b||a.indexOf(b)>=0||b.indexOf(a)>=0)return{ur:ur,fuzzy:true};
+      }
+    }
+  }
+  return null;
+}
+// Tạo danh sách person: 1 dòng/staff (kèm UR match), rồi UR orphan ở cuối
+var people=[];
+allStaff.slice().sort(function(a,b){return parseInt(a.display_code||'9999')-parseInt(b.display_code||'9999');}).forEach(function(s){
+  var m=_matchURForStaff(s);
+  if(m){usedURIds[m.ur.id]=1;people.push({staff:s,ur:m.ur,fuzzy:m.fuzzy});}
+  else people.push({staff:s,ur:null,fuzzy:false});
 });
-h+='<div class="section-title">Tài khoản đăng nhập ('+allUserRoles.length+')</div>';
-h+='<div class="table-wrap"><table><tr><th>Mã NS</th><th></th><th>Tên</th><th>Email</th><th>Vai trò</th><th>Quyền truy cập</th><th style="text-align:right;">Thao tác</th></tr>';
-sortedURs.forEach(function(ur){
-  var s=ur.staff_id?staffById[ur.staff_id]:null;
+allUserRoles.forEach(function(ur){if(!usedURIds[ur.id])people.push({staff:null,ur:ur,fuzzy:false});});
+
+h+='<div class="section-title">Người dùng ('+people.length+')</div>';
+h+='<div style="padding:10px 14px;background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:10px;">Bảng gộp: mỗi dòng = 1 người (nhân sự + tài khoản đăng nhập). Dòng có biểu tượng 🔗 = đang fuzzy-match tự động theo tên (chưa lưu DB) — bấm "🔗 Lưu liên kết" để chốt.</div>';
+h+='<div class="table-wrap"><table><tr><th>Mã NS</th><th></th><th>Họ tên</th><th>Email đăng nhập</th><th>Vai trò</th><th>Quyền truy cập</th><th style="text-align:right;">Thao tác</th></tr>';
+people.forEach(function(p){
+  var s=p.staff,ur=p.ur;
   var c=s?sc(s.color_code):{bg:'var(--bg2)',tx:'var(--tx3)'};
-  var pagesHtml=esc((ur.allowed_pages||[]).map(function(p){return permissionLabel(normalizePermKey(p));}).join(', ')||'—');
+  var pagesHtml=ur?esc((ur.allowed_pages||[]).map(function(x){return permissionLabel(normalizePermKey(x));}).join(', ')||'—'):'<span style="color:var(--tx3);">—</span>';
   var nameDisplay=s?s.full_name:(ur.display_name||'(chưa đặt tên)');
-  h+='<tr'+(s&&!s.is_active?' style="opacity:.5;"':'')+'>';
+  var rowStyle=(s&&!s.is_active)?' style="opacity:.5;"':(p.fuzzy?' style="background:#fffbeb;"':'');
+  h+='<tr'+rowStyle+'>';
   h+='<td><span class="mono" style="font-weight:600;font-size:13px;color:'+(s&&s.display_code?'var(--blue)':'var(--tx3)')+';">'+esc(s&&s.display_code?s.display_code:'—')+'</span></td>';
   h+='<td>'+(s?'<div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div>':'<div class="avatar" style="background:var(--bg2);color:var(--tx3);font-size:14px;">?</div>')+'</td>';
-  h+='<td style="font-weight:500;">'+esc(nameDisplay)+(s?'<div style="font-size:11px;color:var(--tx3);font-weight:400;">'+esc(s.code||'')+(s.campaign_keyword?' · KW: <span style="color:var(--purple);">'+esc(s.campaign_keyword)+'</span>':'')+'</div>':'<div style="font-size:11px;color:var(--tx3);font-weight:400;">Không gắn nhân sự</div>')+'</td>';
-  h+='<td style="font-size:12px;color:var(--tx2);">'+esc(ur.email)+'</td>';
-  h+='<td><span class="badge b-blue">'+esc(userRoleLabel(ur.role))+'</span></td>';
+  h+='<td style="font-weight:500;">'+esc(nameDisplay)+(p.fuzzy?' <span title="Khớp tự động theo tên — chưa lưu vào DB" style="font-size:11px;color:var(--amber-tx);">🔗 tự khớp</span>':'')+(s?'<div style="font-size:11px;color:var(--tx3);font-weight:400;">'+esc(s.code||'')+(s.campaign_keyword?' · KW: <span style="color:var(--purple);">'+esc(s.campaign_keyword)+'</span>':'')+'</div>':(ur?'<div style="font-size:11px;color:var(--tx3);font-weight:400;">Không gắn nhân sự</div>':''))+'</td>';
+  h+='<td style="font-size:12px;color:var(--tx2);">'+(ur?esc(ur.email):'<span style="color:var(--tx3);font-size:11px;">Chưa có TK</span>')+'</td>';
+  h+='<td>'+(ur?'<span class="badge b-blue">'+esc(userRoleLabel(ur.role))+'</span>':'<span style="color:var(--tx3);font-size:11px;">—</span>')+'</td>';
   h+='<td style="font-size:11px;">'+pagesHtml+'</td>';
   h+='<td style="text-align:right;white-space:nowrap;">';
-  h+='<button class="btn btn-ghost btn-sm" onclick="editUserRole(\''+ur.id+'\')" title="Sửa email/mật khẩu/quyền">🔑 Quyền</button> ';
-  if(s)h+='<button class="btn btn-ghost btn-sm" onclick="esp(\''+s.id+'\')" title="Sửa thông tin nhân sự">✏ NS</button> ';
-  h+='<button class="btn btn-red btn-sm" onclick="deleteUserRole(this,\''+ur.id+'\')">Xóa</button>';
+  if(p.fuzzy&&s&&ur)h+='<button class="btn btn-primary btn-sm" onclick="confirmFuzzyLink(this,\''+ur.id+'\',\''+s.id+'\')" title="Lưu liên kết vào DB">🔗 Lưu</button> ';
+  if(ur)h+='<button class="btn btn-ghost btn-sm" onclick="editUserRole(\''+ur.id+'\')" title="Sửa email/mật khẩu/quyền">🔑 Quyền</button> ';
+  if(s)h+='<button class="btn btn-ghost btn-sm" onclick="esp(\''+s.id+'\')" title="Sửa nhân sự">✏ NS</button> ';
+  if(s&&!ur)h+='<button class="btn btn-primary btn-sm" onclick="createUserRoleForStaff(\''+s.id+'\')">+ TK</button> ';
+  if(s)h+='<button class="btn btn-ghost btn-sm" onclick="tgs(this,\''+s.id+'\','+!s.is_active+')">'+(s.is_active?'Tắt':'Bật')+'</button> ';
+  if(ur)h+='<button class="btn btn-red btn-sm" onclick="deleteUserRole(this,\''+ur.id+'\')" title="Xóa tài khoản đăng nhập">Xóa TK</button>';
   h+='</td></tr>';
 });
-if(!sortedURs.length)h+='<tr><td colspan="7" style="text-align:center;color:var(--tx3);font-size:12px;padding:20px;">Chưa có tài khoản nào.</td></tr>';
+if(!people.length)h+='<tr><td colspan="7" style="text-align:center;color:var(--tx3);font-size:12px;padding:20px;">Chưa có người dùng nào.</td></tr>';
 h+='</table></div>';
-// ═══ Section phụ — Nhân sự chưa có tài khoản đăng nhập ═══
-var usedStaffIds={};allUserRoles.forEach(function(ur){if(ur.staff_id)usedStaffIds[ur.staff_id]=1;});
-var staffNoLogin=allStaff.filter(function(s){return!usedStaffIds[s.id];}).sort(function(a,b){return parseInt(a.display_code||'9999')-parseInt(b.display_code||'9999');});
-if(staffNoLogin.length){
-  h+='<div class="section-title">Nhân sự chưa có tài khoản đăng nhập ('+staffNoLogin.length+')</div>';
-  h+='<div class="table-wrap"><table><tr><th>Mã NS</th><th></th><th>Họ tên</th><th>Code</th><th>Trạng thái</th><th style="text-align:right;">Thao tác</th></tr>';
-  staffNoLogin.forEach(function(s){var c=sc(s.color_code);
-    h+='<tr'+(s.is_active?'':' style="opacity:.5;"')+'>';
-    h+='<td><span class="mono" style="font-weight:600;font-size:13px;color:var(--blue);">'+esc(s.display_code||'—')+'</span></td>';
-    h+='<td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div></td>';
-    h+='<td style="font-weight:500;">'+esc(s.full_name)+(s.campaign_keyword?'<div style="font-size:11px;color:var(--tx3);font-weight:400;">KW: <span style="color:var(--purple);">'+esc(s.campaign_keyword)+'</span></div>':'')+'</td>';
-    h+='<td class="mono" style="font-size:12px;color:var(--tx3);">'+esc(s.code)+'</td>';
-    h+='<td><span class="badge '+(s.is_active?'b-green':'b-red')+'">'+(s.is_active?'Hoạt động':'Ngừng')+'</span></td>';
-    h+='<td style="text-align:right;white-space:nowrap;"><button class="btn btn-primary btn-sm" onclick="createUserRoleForStaff(\''+s.id+'\')">+ Tạo TK</button> <button class="btn btn-ghost btn-sm" onclick="esp(\''+s.id+'\')">✏ Sửa</button> <button class="btn btn-ghost btn-sm" onclick="tgs(this,\''+s.id+'\','+!s.is_active+')">'+(s.is_active?'Tắt':'Bật')+'</button></td></tr>';
-  });
-  h+='</table></div>';
-}
 // ═══ Form Phân quyền tài khoản đăng nhập (chỉ form, không lặp lại bảng) ═══
 h+=renderUserRolesSection();
 return h;}
+// Lưu liên kết fuzzy-match (user_roles.staff_id) vào DB
+async function confirmFuzzyLink(btn,urId,staffId){
+  if(!isAdmin())return;
+  btn.disabled=true;var orig=btn.textContent;btn.textContent='Đang lưu...';
+  var r=await sb2.from('user_roles').update({staff_id:staffId}).eq('id',urId);
+  btn.disabled=false;btn.textContent=orig;
+  if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+  toast('Đã lưu liên kết',true);await loadAllUserRoles();render();
+}
 // Click "+ TK" cạnh 1 nhân sự → mở form Phân quyền với staff pre-selected
 function createUserRoleForStaff(staffId){
   editingUserRoleId=null;
