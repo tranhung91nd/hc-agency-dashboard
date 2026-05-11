@@ -2032,14 +2032,9 @@ function p2Task(){
   monthSet[postScheduleMonth]=1;
   var monthArr=Object.keys(monthSet).sort();
   h+='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">';
-  h+='<div style="display:flex;align-items:center;gap:8px;">';
-  h+='<button class="btn btn-ghost btn-sm" onclick="setPostScheduleMonth(\''+_postPrevMonth(postScheduleMonth)+'\')">←</button>';
-  h+='<select class="fi" style="width:140px;" onchange="setPostScheduleMonth(this.value)">';
+  h+='<div class="month-filter"><label style="font-size:13px;color:var(--tx2);">Tháng:</label><select onchange="setPostScheduleMonth(this.value)">';
   monthArr.forEach(function(m){h+='<option value="'+m+'"'+(m===postScheduleMonth?' selected':'')+'>'+_postMonthLabel(m)+'</option>';});
-  h+='</select>';
-  h+='<button class="btn btn-ghost btn-sm" onclick="setPostScheduleMonth(\''+_postNextMonth(postScheduleMonth)+'\')">→</button>';
-  if(postScheduleMonth!==lm())h+='<button class="btn btn-ghost btn-sm" onclick="setPostScheduleMonth(\''+lm()+'\')" style="font-size:11px;">Về tháng này</button>';
-  h+='</div>';
+  h+='</select></div>';
   if(canEdit)h+='<button class="btn btn-primary btn-sm" onclick="openPostScheduleModal(null,\''+staff.id+'\')">+ Thêm bài đăng</button>';
   h+='</div>';
   // KPI card tháng
