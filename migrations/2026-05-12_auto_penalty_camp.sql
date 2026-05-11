@@ -169,7 +169,7 @@ BEGIN
     'auto-scan-10h30'
   FROM preview_camp_penalty(p_scan_date) p
   WHERE p.has_staff = true
-  ON CONFLICT (auto_key) DO NOTHING;
+  ON CONFLICT (auto_key) WHERE auto_key IS NOT NULL DO NOTHING;
 
   GET DIAGNOSTICS v_inserted = ROW_COUNT;
   RETURN v_inserted;
