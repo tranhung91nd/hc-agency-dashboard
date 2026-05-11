@@ -832,10 +832,9 @@ var SUBNAV_CONFIG={
   ]}]},
   5:{title:'Admin',sections:[{label:'QUẢN LÝ',items:[
     {key:'adm0',label:'Tổng quan',action:"sat(0)",match:function(){return curPage===5&&adminTab===0;}},
-    {key:'adm1',label:'Nhân sự',action:"sat(1)",match:function(){return curPage===5&&adminTab===1;}},
+    {key:'adm1',label:'Người dùng',action:"sat(1)",match:function(){return curPage===5&&adminTab===1;}},
     {key:'adm2',label:'Khách hàng',action:"sat(2)",match:function(){return curPage===5&&adminTab===2;}},
-    {key:'adm3',label:'Lương',action:"sat(3)",match:function(){return curPage===5&&adminTab===3;}},
-    {key:'adm4',label:'Cài đặt',action:"sat(4)",match:function(){return curPage===5&&adminTab===4;}}
+    {key:'adm3',label:'Cài đặt',action:"sat(3)",match:function(){return curPage===5&&adminTab===3;}}
   ]}]},
   6:{title:'Cảnh báo',sections:[{label:'LOẠI CẢNH BÁO',items:[
     {key:'p6-mess',label:'Cảnh báo Messenger',action:"setP6Tab(0)",permKey:'p6.mess',match:function(){return curPage===6&&p6Tab===0;},badgeFn:function(){try{return getMessAlerts().length;}catch(e){return 0;}}},
@@ -3239,7 +3238,7 @@ finally{if(btn){btn.disabled=false;btn.textContent='Kiểm tra quyền Meta Toke
 function p5(){
 if(!authUser)return'<div style="padding:40px;text-align:center;color:var(--tx2);">Cần đăng nhập.</div>';
 if(!isAdmin())return'<div class="logout-bar"><span>Đăng nhập: '+esc(authUser.email)+' <span class="badge b-blue" style="margin-left:6px;">'+esc(userRole)+'</span></span><button class="btn btn-ghost btn-sm" onclick="doLogout()">Đăng xuất</button></div><div style="padding:40px;text-align:center;color:var(--tx2);"><div style="font-size:15px;font-weight:500;margin-bottom:8px;">Không có quyền truy cập</div><div style="font-size:13px;">Trang Admin chỉ dành cho tài khoản Admin.</div></div>';
-if(adminTab>4)adminTab=0;
+if(adminTab>3)adminTab=0;
 var h='<div class="logout-bar"><span>Đăng nhập: '+esc(authUser.email)+' <span class="badge b-red" style="margin-left:6px;">Admin</span></span><button class="btn btn-ghost btn-sm" onclick="doLogout()">Đăng xuất</button></div>';
 h+='<div class="page-title">Admin</div><div class="page-sub">Quản lý dữ liệu hệ thống.</div>';
 h+='<div id="ac">'+rat()+'</div>';return h;}
@@ -3440,7 +3439,7 @@ var{error}=await sb2.from('app_settings').upsert({key:key,value:value,updated_at
 if(error){toast('Lỗi lưu: '+error.message,false);return false;}
 return true;}
 function sat(i){adminTab=i;expandedAd=null;syncSidebarNav();render();}
-function rat(){if(adminTab===0)return a0();if(adminTab===1)return a2();if(adminTab===2)return a3();if(adminTab===3)return a5();if(adminTab===4){setTimeout(function(){if(typeof loadChatGPTOAuthStatus==='function')loadChatGPTOAuthStatus();},0);return a6Settings();}return'';}
+function rat(){if(adminTab===0)return a0();if(adminTab===1)return a2();if(adminTab===2)return a3();if(adminTab===3){setTimeout(function(){if(typeof loadChatGPTOAuthStatus==='function')loadChatGPTOAuthStatus();},0);return a6Settings();}return'';}
 
 // ═══ A0: TỔNG QUAN ADMIN ═══
 function a0(){
@@ -4973,7 +4972,10 @@ var sorted=allStaff.slice().sort(function(a,b){var an=parseInt(a.display_code||'
 h+='<div class="section-title">Nhân sự ('+allStaff.length+')</div><div class="table-wrap"><table><tr><th>Mã NS</th><th></th><th>Họ tên</th><th>Code</th><th>Từ khóa chiến dịch</th><th>Ngân sách</th><th>Trạng thái</th><th></th></tr>';
 sorted.forEach(function(s){var c=sc(s.color_code);
 h+='<tr style="'+(s.is_active?'':'opacity:.5;')+'"><td><span class="mono" style="font-weight:600;font-size:13px;color:var(--blue);">'+esc(s.display_code||'—')+'</span></td><td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div></td><td style="font-weight:500;">'+esc(s.full_name)+'</td><td class="mono" style="font-size:12px;color:var(--tx3);">'+esc(s.code)+'</td><td style="font-size:11px;color:var(--purple);">'+esc(s.campaign_keyword||'—')+'</td><td class="mono">'+fm(s.monthly_budget)+'</td><td><span class="badge '+(s.is_active?'b-green':'b-red')+'">'+(s.is_active?'Đang hoạt động':'Ngừng hoạt động')+'</span></td><td><button class="btn btn-ghost btn-sm" onclick="esp(\''+s.id+'\')">Sửa</button> <button class="btn btn-ghost btn-sm" onclick="tgs(this,\''+s.id+'\','+!s.is_active+')">'+(s.is_active?'Tắt':'Bật')+'</button></td></tr>';});
-h+='</table></div>';return h;}
+h+='</table></div>';
+// ═══ Phân quyền tài khoản đăng nhập (gộp từ tab Cài đặt sang đây) ═══
+h+=renderUserRolesSection();
+return h;}
 async function svs(btn){if(!needAuth())return;btn.disabled=true;
 var noInput=document.getElementById('sno').value.trim();
 var displayCode=noInput||document.getElementById('sno').placeholder; // fallback dùng suggested nếu để trống
@@ -8122,18 +8124,6 @@ async function dlt(btn,id){
 }
 
 // ═══ A5: LƯƠNG ═══
-function a5(){
-var h='<div class="form-card"><h3>Nhập lương</h3><div class="form-row"><div class="form-group"><label>Tháng</label><input type="month" id="slm" value="'+gm()+'"></div><div class="form-group"><label>Nhân sự</label><select id="sls">';staffList.forEach(function(s){h+='<option value="'+s.id+'">'+esc(s.short_name)+'</option>';});h+='</select></div><div class="form-group"><label>Lương cơ bản</label><input type="number" id="slb" placeholder="0"></div></div>';
-h+='<div class="form-row"><div class="form-group"><label>Thưởng</label><input type="number" id="slx" placeholder="0" value="0"></div><div class="form-group"><label>Ghi chú</label><input type="text" id="sln" placeholder=""></div></div><div class="btn-row"><button class="btn btn-primary" onclick="svsl(this)">Lưu</button></div></div>';
-h+='<div class="section-title">Lịch sử lương</div>';
-if(!salaryData.length){
-h+='<div class="empty-state" role="status"><div class="empty-state-icon" aria-hidden="true">💰</div><div class="empty-state-title">Chưa có bản ghi lương nào</div><div class="empty-state-desc">Nhập lương cơ bản và thưởng cho nhân sự bằng form ở trên. Lịch sử 20 tháng gần nhất sẽ hiển thị tại đây.</div></div>';
-return h;
-}
-h+='<div class="table-wrap"><table><tr><th>Tháng</th><th>Nhân viên</th><th style="text-align:right;">Lương cơ bản</th><th style="text-align:right;">Thưởng</th><th style="text-align:right;">Tổng</th><th></th></tr>';
-salaryData.slice(0,20).forEach(function(s){h+='<tr><td>T'+parseInt(s.month.split('-')[1])+'/'+s.month.split('-')[0]+'</td><td>'+(s.staff?esc(s.staff.short_name):'—')+'</td><td class="mono" style="text-align:right;">'+ff(s.base_salary)+'</td><td class="mono" style="text-align:right;">'+ff(s.bonus)+'</td><td class="mono" style="text-align:right;font-weight:500;">'+ff(s.total)+'</td><td><button class="btn btn-red btn-sm" onclick="dlsl(this,\''+s.id+'\')">Xóa</button></td></tr>';});
-h+='</table></div>';return h;}
-async function svsl(btn){if(!needAuth())return;btn.disabled=true;var m=document.getElementById('slm').value,si=document.getElementById('sls').value,b=parseInt(document.getElementById('slb').value)||0,x=parseInt(document.getElementById('slx').value)||0,n=document.getElementById('sln').value;if(!b){toast('Vui lòng nhập lương cơ bản.',false);btn.disabled=false;return;}var r=await sb2.from('salary').upsert({staff_id:si,month:m,base_salary:b,bonus:x,total:b+x,note:n},{onConflict:'staff_id,month'});btn.disabled=false;if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã lưu',true);document.getElementById('slb').value='';document.getElementById('slx').value='0';document.getElementById('sln').value='';await loadLight();}}
 
 // ═══ HANDLERS BẢNG LƯƠNG TỰ ĐỘNG ═══
 function toggleSalaryExpand(staffId){
@@ -8214,17 +8204,6 @@ if(!r.error)count++;
 btn.disabled=false;btn.textContent='🔄 Tính lại hoa hồng';
 toast('Đã tính lại hoa hồng cho '+count+' Nhân sự',true);
 await loadLight();}
-async function dlsl(btn,id){
-  if(!needAuth())return;
-  var s=salaryData.find(function(x){return x.id===id;});
-  var label=s?(s.staff?s.staff.short_name:'nhân sự')+' tháng '+parseInt(s.month.split('-')[1])+'/'+s.month.split('-')[0]+' ('+ff(s.total)+'đ)':'bản ghi lương';
-  if(!(await hcConfirm({title:'Xóa bản ghi lương',message:'Xóa lương '+label+'? Thao tác này không thể hoàn tác.',confirmLabel:'Xóa bản ghi lương',danger:true})))return;
-  btn.disabled=true;btn.classList.add('is-loading');
-  var r=await sb2.from('salary').delete().eq('id',id);
-  if(r.error){errToast('xóa bản ghi lương',r.error);btn.disabled=false;btn.classList.remove('is-loading');}
-  else{toast('Đã xóa lương '+label,true);await loadLight();}
-}
-
 // ═══ A6: CÀI ĐẶT ═══
 function a6Settings(){
 var h='<div class="form-card"><h3>Cấu hình Meta API</h3>';
@@ -8255,7 +8234,11 @@ h+='<div style="font-size:12px;color:var(--tx2);line-height:1.8;">Ngân hàng: '
 h+='<div><div style="font-size:12px;font-weight:500;color:var(--blue);margin-bottom:8px;">STK cá nhân (không VAT)</div>';
 h+='<div style="font-size:12px;color:var(--tx2);line-height:1.8;">Ngân hàng: '+esc(BANK_PROFILES.personal.bank)+'<br>STK: '+esc(BANK_PROFILES.personal.accountNo)+'<br>Chủ Tài khoản: '+esc(BANK_PROFILES.personal.accountName)+'</div></div>';
 h+='</div><div style="font-size:11px;color:var(--tx3);margin-top:10px;">Thông tin ngân hàng đang hardcode trong code. Liên hệ dev để thay đổi.</div></div>';
-// User roles management
+return h;}
+
+// ═══ USER ROLES section — dùng trong tab Người dùng (a2) ═══
+function renderUserRolesSection(){
+var h='<div class="section-title">Tài khoản đăng nhập + Phân quyền</div>';
 var editingUR=editingUserRoleId?allUserRoles.find(function(u){return u.id===editingUserRoleId;}):null;
 var formTitle=editingUR?'Cập nhật quyền — '+esc(editingUR.email):'Phân quyền tài khoản';
 var btnLabel=editingUR?'Lưu cập nhật':'Thêm tài khoản';
@@ -8280,7 +8263,6 @@ if(editingUR){
 }
 h+='<div style="font-size:12px;font-weight:500;color:var(--tx2);margin:8px 0 6px;">Quyền truy cập</div>';
 h+='<div style="font-size:11px;color:var(--tx3);margin-bottom:10px;">Chọn quyền cho từng mục lớn (toàn quyền page) hoặc mục nhỏ (chỉ sub-tab cụ thể). Tick mục lớn = toàn quyền, tự bỏ tick các mục nhỏ.</div>';
-// Pre-checked set từ data đang edit
 var preChecked=new Set();
 if(editingUR&&editingUR.allowed_pages){editingUR.allowed_pages.forEach(function(p){preChecked.add(normalizePermKey(p));});}
 h+='<div style="display:flex;flex-direction:column;gap:8px;border:1px solid var(--bd1);border-radius:var(--radius);padding:12px;background:var(--bg2);">';
@@ -8302,7 +8284,6 @@ h+='</div>';
 h+='<div class="btn-row" style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="addUserRole(this)">'+btnLabel+'</button>';
 if(editingUR)h+='<button class="btn btn-ghost btn-sm" onclick="cancelEditUserRole()">Hủy</button>';
 h+='</div></div>';
-// List existing roles
 h+='<div class="form-card"><h3>Danh sách tài khoản đã phân quyền ('+allUserRoles.length+')</h3>';
 if(allUserRoles.length){
 h+='<div class="table-wrap"><table><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Gán nhân sự</th><th>Quyền truy cập</th><th style="text-align:right;">Thao tác</th></tr>';
@@ -8736,10 +8717,10 @@ document.getElementById('ai-send-btn').disabled=false;}
 function askAI(q){document.getElementById('ai-input').value=q;sendAI();}
 
 function resetAIKey(){
-// Ưu tiên mở Admin > Cài đặt (tab 4) cho Admin. Nếu không phải Admin → fallback prompt như cũ.
+// Ưu tiên mở Admin > Cài đặt (tab 3) cho Admin. Nếu không phải Admin → fallback prompt như cũ.
 if(isAdmin()){
 if(aiOpen)toggleAI();
-curPage=5;adminTab=4;render();
+curPage=5;adminTab=3;render();
 toast('Cập nhật API key ở mục "Cấu hình API Key AI"',true);
 return;}
 var m=getAIModel();
