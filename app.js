@@ -4976,7 +4976,7 @@ var sortedURs=allUserRoles.slice().sort(function(a,b){
   return na-nb;
 });
 h+='<div class="section-title">Tài khoản đăng nhập ('+allUserRoles.length+')</div>';
-h+='<div class="table-wrap"><table><tr><th>Mã NS</th><th></th><th>Tên</th><th>Email</th><th>Vai trò</th><th>Ngân sách</th><th>Quyền truy cập</th><th style="text-align:right;">Thao tác</th></tr>';
+h+='<div class="table-wrap"><table><tr><th>Mã NS</th><th></th><th>Tên</th><th>Email</th><th>Vai trò</th><th>Quyền truy cập</th><th style="text-align:right;">Thao tác</th></tr>';
 sortedURs.forEach(function(ur){
   var s=ur.staff_id?staffById[ur.staff_id]:null;
   var c=s?sc(s.color_code):{bg:'var(--bg2)',tx:'var(--tx3)'};
@@ -4988,7 +4988,6 @@ sortedURs.forEach(function(ur){
   h+='<td style="font-weight:500;">'+esc(nameDisplay)+(s?'<div style="font-size:11px;color:var(--tx3);font-weight:400;">'+esc(s.code||'')+(s.campaign_keyword?' · KW: <span style="color:var(--purple);">'+esc(s.campaign_keyword)+'</span>':'')+'</div>':'<div style="font-size:11px;color:var(--tx3);font-weight:400;">Không gắn nhân sự</div>')+'</td>';
   h+='<td style="font-size:12px;color:var(--tx2);">'+esc(ur.email)+'</td>';
   h+='<td><span class="badge b-blue">'+esc(userRoleLabel(ur.role))+'</span></td>';
-  h+='<td class="mono">'+(s?fm(s.monthly_budget):'<span style="color:var(--tx3);">—</span>')+'</td>';
   h+='<td style="font-size:11px;">'+pagesHtml+'</td>';
   h+='<td style="text-align:right;white-space:nowrap;">';
   h+='<button class="btn btn-ghost btn-sm" onclick="editUserRole(\''+ur.id+'\')" title="Sửa email/mật khẩu/quyền">🔑 Quyền</button> ';
@@ -4996,21 +4995,20 @@ sortedURs.forEach(function(ur){
   h+='<button class="btn btn-red btn-sm" onclick="deleteUserRole(this,\''+ur.id+'\')">Xóa</button>';
   h+='</td></tr>';
 });
-if(!sortedURs.length)h+='<tr><td colspan="8" style="text-align:center;color:var(--tx3);font-size:12px;padding:20px;">Chưa có tài khoản nào.</td></tr>';
+if(!sortedURs.length)h+='<tr><td colspan="7" style="text-align:center;color:var(--tx3);font-size:12px;padding:20px;">Chưa có tài khoản nào.</td></tr>';
 h+='</table></div>';
 // ═══ Section phụ — Nhân sự chưa có tài khoản đăng nhập ═══
 var usedStaffIds={};allUserRoles.forEach(function(ur){if(ur.staff_id)usedStaffIds[ur.staff_id]=1;});
 var staffNoLogin=allStaff.filter(function(s){return!usedStaffIds[s.id];}).sort(function(a,b){return parseInt(a.display_code||'9999')-parseInt(b.display_code||'9999');});
 if(staffNoLogin.length){
   h+='<div class="section-title">Nhân sự chưa có tài khoản đăng nhập ('+staffNoLogin.length+')</div>';
-  h+='<div class="table-wrap"><table><tr><th>Mã NS</th><th></th><th>Họ tên</th><th>Code</th><th>Ngân sách</th><th>Trạng thái</th><th style="text-align:right;">Thao tác</th></tr>';
+  h+='<div class="table-wrap"><table><tr><th>Mã NS</th><th></th><th>Họ tên</th><th>Code</th><th>Trạng thái</th><th style="text-align:right;">Thao tác</th></tr>';
   staffNoLogin.forEach(function(s){var c=sc(s.color_code);
     h+='<tr'+(s.is_active?'':' style="opacity:.5;"')+'>';
     h+='<td><span class="mono" style="font-weight:600;font-size:13px;color:var(--blue);">'+esc(s.display_code||'—')+'</span></td>';
     h+='<td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div></td>';
     h+='<td style="font-weight:500;">'+esc(s.full_name)+(s.campaign_keyword?'<div style="font-size:11px;color:var(--tx3);font-weight:400;">KW: <span style="color:var(--purple);">'+esc(s.campaign_keyword)+'</span></div>':'')+'</td>';
     h+='<td class="mono" style="font-size:12px;color:var(--tx3);">'+esc(s.code)+'</td>';
-    h+='<td class="mono">'+fm(s.monthly_budget)+'</td>';
     h+='<td><span class="badge '+(s.is_active?'b-green':'b-red')+'">'+(s.is_active?'Hoạt động':'Ngừng')+'</span></td>';
     h+='<td style="text-align:right;white-space:nowrap;"><button class="btn btn-primary btn-sm" onclick="createUserRoleForStaff(\''+s.id+'\')">+ Tạo TK</button> <button class="btn btn-ghost btn-sm" onclick="esp(\''+s.id+'\')">✏ Sửa</button> <button class="btn btn-ghost btn-sm" onclick="tgs(this,\''+s.id+'\','+!s.is_active+')">'+(s.is_active?'Tắt':'Bật')+'</button></td></tr>';
   });
