@@ -817,9 +817,9 @@ var SUBNAV_CONFIG={
     {key:'spend2',label:'Chi tiêu theo khách hàng',action:"setSpendTab(2)",permKey:'p1.client',match:function(){return curPage===1&&spendTab===2;}}
   ]}]},
   2:{title:'Nhân sự',sections:[{label:'',items:[
+    {key:'p2-task',label:'Công việc',action:"setP2Tab(2)",permKey:'p2.task',match:function(){return curPage===2&&p2Tab===2;}},
     {key:'p2-salary',label:'Lương + Hoa hồng',action:"setP2Tab(0)",permKey:'p2.salary',match:function(){return curPage===2&&p2Tab===0;}},
-    {key:'p2-penalty',label:'Sổ phạt',action:"setP2Tab(1)",permKey:'p2.penalty',match:function(){return curPage===2&&p2Tab===1;}},
-    {key:'p2-task',label:'Công việc',action:"setP2Tab(2)",permKey:'p2.task',match:function(){return curPage===2&&p2Tab===2;}}
+    {key:'p2-penalty',label:'Sổ phạt',action:"setP2Tab(1)",permKey:'p2.penalty',match:function(){return curPage===2&&p2Tab===1;}}
   ]}]},
   3:{title:'Khách hàng',sections:[{label:'PHÂN LOẠI',items:[
     {key:'cli-active',label:'Khách chính thức',action:"setClientTab('active')",match:function(){return curPage===3&&clientTab==='active';},badgeFn:function(){return clientList.filter(function(c){return c.status!=='prospect';}).length;}},
@@ -1366,8 +1366,8 @@ breakdown.sort(function(a,b){return b.amount-a.amount;});
 var total=breakdown.reduce(function(t,x){return t+x.amount;},0);
 return{total:total,detail:breakdown};}
 
-// p2Tab: 0 = Lương + Hoa hồng (default), 1 = Sổ phạt
-var p2Tab=0;
+// p2Tab: 2 = Công việc (default, đầu sidebar), 0 = Lương + Hoa hồng, 1 = Sổ phạt
+var p2Tab=2;
 function setP2Tab(i){p2Tab=i;syncSidebarNav();render();}
 function p2(){
 // Auto-redirect nếu user không có quyền tab hiện tại
