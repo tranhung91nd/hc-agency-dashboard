@@ -833,7 +833,6 @@ var SUBNAV_CONFIG={
   5:{title:'Admin',sections:[{label:'QUẢN LÝ',items:[
     {key:'adm0',label:'Tổng quan',action:"sat(0)",match:function(){return curPage===5&&adminTab===0;}},
     {key:'adm1',label:'Người dùng',action:"sat(1)",match:function(){return curPage===5&&adminTab===1;}},
-    {key:'adm2',label:'Khách hàng',action:"sat(2)",match:function(){return curPage===5&&adminTab===2;}},
     {key:'adm3',label:'Cài đặt',action:"sat(3)",match:function(){return curPage===5&&adminTab===3;}}
   ]}]},
   6:{title:'Cảnh báo',sections:[{label:'LOẠI CẢNH BÁO',items:[
@@ -3438,7 +3437,7 @@ var{error}=await sb2.from('app_settings').upsert({key:key,value:value,updated_at
 if(error){toast('Lỗi lưu: '+error.message,false);return false;}
 return true;}
 function sat(i){adminTab=i;expandedAd=null;syncSidebarNav();render();}
-function rat(){if(adminTab===0)return a0();if(adminTab===1)return a2();if(adminTab===2)return a3();if(adminTab===3){setTimeout(function(){if(typeof loadChatGPTOAuthStatus==='function')loadChatGPTOAuthStatus();},0);return a6Settings();}return'';}
+function rat(){if(adminTab===0)return a0();if(adminTab===1)return a2();if(adminTab===3){setTimeout(function(){if(typeof loadChatGPTOAuthStatus==='function')loadChatGPTOAuthStatus();},0);return a6Settings();}return'';}
 
 // ═══ A0: TỔNG QUAN ADMIN ═══
 function a0(){
@@ -5061,20 +5060,6 @@ var kw=prompt('Từ khóa chiến dịch:',s.campaign_keyword||'');if(kw===null)
 var r=await sb2.from('staff').update({display_code:no.trim()||null,full_name:n,monthly_budget:parseInt(b)||0,campaign_keyword:kw||null}).eq('id',id);
 if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã lưu',true);await loadLight();}}
 
-// ═══ A3: KHÁCH HÀNG ═══
-function a3(){
-var h='<div class="form-card"><h3>Thêm khách hàng</h3><div class="form-row"><div class="form-group"><label>Tên khách hàng</label><input type="text" id="cn" placeholder="Tên"></div><div class="form-group"><label>Liên hệ</label><input type="text" id="cc" placeholder=""></div><div class="form-group"><label>Phí dịch vụ/tháng</label><input type="number" id="cf" placeholder="0"></div></div>';
-h+='<div class="form-row"><div class="form-group"><label>Từ khóa chiến dịch</label><input type="text" id="ckw" placeholder="VD: Minh Quân, DAC"></div><div class="form-group"><label>Xuất hóa đơn VAT</label><select id="cv"><option value="true">Có VAT 8%</option><option value="false" selected>Không VAT</option></select></div></div>';
-h+='<div class="btn-row"><button class="btn btn-primary" onclick="svc(this)">Thêm Khách hàng</button></div></div>';
-h+='<div class="section-title">Khách hàng ('+clientList.length+')</div><div class="table-wrap"><table><tr><th>Tên khách hàng</th><th>Liên hệ</th><th>Từ khóa chiến dịch</th><th>VAT</th><th>Phí mặc định</th><th>Thanh toán</th><th></th></tr>';
-clientList.forEach(function(c2){
-h+='<tr><td style="font-weight:500;">'+esc(c2.name)+'</td><td style="font-size:12px;color:var(--tx2);">'+esc(c2.contact_person||'—')+'</td><td style="font-size:11px;color:var(--purple);">'+esc(c2.campaign_keyword||'—')+'</td>';
-h+='<td>'+(getClientVatFlag(c2)?'<span class="badge b-blue" style="cursor:pointer;" onclick="toggleClientVat(\''+c2.id+'\',false)" title="Bấm để chuyển sang Không VAT">Có VAT 8%</span>':'<span class="badge b-gray" style="cursor:pointer;" onclick="toggleClientVat(\''+c2.id+'\',true)" title="Bấm để chuyển sang Có VAT">Không VAT</span>')+'</td><td class="mono">'+(c2.service_fee?fm(c2.service_fee):'—')+'</td>';
-h+='<td>'+paymentBadgeHtml(getClientPaymentStatus(c2))+'</td>';
-h+='<td><button class="btn btn-ghost btn-sm" onclick="ecp(\''+c2.id+'\')">Sửa</button> <button class="btn btn-ghost btn-sm" onclick="tgp(this,\''+c2.id+'\',\''+(c2.payment_status==='paid'?'unpaid':'paid')+'\')">'+(c2.payment_status==='paid'?'Hủy thanh toán':'Đã thanh toán')+'</button></td></tr>';});
-h+='</table></div>';return h;}
-async function svc(btn){if(!needAuth())return;btn.disabled=true;var d={name:document.getElementById('cn').value,contact_person:document.getElementById('cc').value||null,service_fee:parseInt(document.getElementById('cf').value)||0,campaign_keyword:document.getElementById('ckw').value||null,has_vat:document.getElementById('cv').value==='true'};if(!d.name){toast('Nhập tên',false);btn.disabled=false;return;}var r=await sb2.from('client').insert(d);btn.disabled=false;if(r.error)toast('Lỗi: '+r.error.message,false);else{toast('Đã thêm',true);['cn','cc','cf','ckw'].forEach(function(x){document.getElementById(x).value='';});document.getElementById('cv').value='false';await loadLight();}}
-async function tgp(btn,id,v){if(!needAuth())return;btn.disabled=true;var r=await sb2.from('client').update({payment_status:v}).eq('id',id);btn.disabled=false;if(r.error)toast('Lỗi',false);else{toast('Đã lưu ngưỡng giá',true);await loadLight();}}
 async function toggleClientVat(id,newVal){
 if(!needAuth())return;
 var r=await sb2.from('client').update({has_vat:newVal}).eq('id',id);
@@ -5102,7 +5087,6 @@ toast('Đã lưu ngày bắt đầu',true);
 // Re-render sau 600ms để cập nhật % hoa hồng trong bảng lương
 setTimeout(function(){render();},600);
 }
-async function ecp(id){if(!needAuth())return;var c2=clientList.find(function(x){return x.id===id;});if(!c2)return;var n=prompt('Tên khách hàng:',c2.name);if(n===null)return;var f=prompt('Phí dịch vụ mặc định/tháng:',c2.service_fee||0);if(f===null)return;var kw=prompt('Từ khóa chiến dịch:',c2.campaign_keyword||'');if(kw===null)return;var hv=prompt('Có VAT 8% không? (y/n):',getClientVatFlag(c2)?'y':'n');if(hv===null)return;var r=await sb2.from('client').update({name:n,service_fee:parseInt(f)||0,campaign_keyword:kw||null,has_vat:/^y(es)?$/i.test(hv)}).eq('id',id);if(r.error)toast('Lỗi',false);else{toast('Đã lưu ngưỡng giá',true);await loadLight();}}
 
 // ═══════════════════════════════════════════════════════════
 // TÍNH NĂNG: HỢP ĐỒNG + KHÁCH TIỀM NĂNG
@@ -6865,6 +6849,7 @@ function renderClientEditModal(){
   h+='<div style="grid-column:1/-1;"><label>Địa chỉ</label><input id="ce-address" class="fi" value="'+esc(c.address||'')+'"></div>';
   h+='<div><label>Mã số thuế</label><input id="ce-tax" class="fi" value="'+esc(c.tax_code||'')+'"></div>';
   h+='<div><label>Ngành nghề</label><input id="ce-industry" class="fi" value="'+esc(c.industry||'')+'" placeholder="VD: chế biến sữa"></div>';
+  h+='<div style="grid-column:1/-1;"><label>Từ khóa chiến dịch <span style="color:var(--tx3);font-weight:400;text-transform:none;">(tự khớp spend Meta Ads → khách theo tên chiến dịch)</span></label><input id="ce-kw" class="fi" value="'+esc(c.campaign_keyword||'')+'" placeholder="VD: Minh Quân, DAC"></div>';
   h+='</div>';
   h+='<div class="ce-section-label">Liên hệ</div>';
   h+='<div class="hc-form-grid">';
@@ -6943,7 +6928,8 @@ async function saveClientEditModal(btn){
     representative_title:get('ce-rep-title')||null,
     services:services,
     rental_fee_pct:rentalPct,
-    care_status:get('ce-care')||'new'
+    care_status:get('ce-care')||'new',
+    campaign_keyword:get('ce-kw')||null
   };
   if(c.status==='prospect'){payload.prospect_note=get('ce-note')||null;}
   btn.disabled=true;btn.classList.add('is-loading');
