@@ -4967,53 +4967,55 @@ var h='<div class="form-card"><h3>Thêm nhân sự</h3><div class="form-row"><di
 h+='<div class="form-row"><div class="form-group"><label>Mã code (định danh)</label><input type="text" id="sc2" placeholder="VD: vana"></div><div class="form-group"><label>Viết tắt</label><input type="text" id="si" placeholder="VA" maxlength="3"></div><div class="form-group"><label>Màu</label><select id="scl"><option value="purple">Tím</option><option value="teal">Xanh lá</option><option value="coral">Cam</option><option value="pink">Hồng</option><option value="blue">Xanh dương</option><option value="amber">Vàng</option></select></div></div>';
 h+='<div class="form-row"><div class="form-group"><label>Ngân sách/tháng</label><input type="number" id="sb2" placeholder="250000000"></div><div class="form-group"><label>Từ khóa chiến dịch</label><input type="text" id="skw" placeholder="VD: Thư, KL (dùng cho Tài khoản dùng chung)"></div></div>';
 h+='<div class="btn-row"><button class="btn btn-primary" onclick="svs(this)">Thêm</button></div></div>';
-// Bảng GỘP — nhân sự + tài khoản đăng nhập + quyền truy cập trong 1 view duy nhất
-var sorted=allStaff.slice().sort(function(a,b){var an=parseInt(a.display_code||'9999'),bn=parseInt(b.display_code||'9999');return an-bn;});
-// Map: staff_id → user_role
-var urByStaff={};allUserRoles.forEach(function(ur){if(ur.staff_id)urByStaff[ur.staff_id]=ur;});
-// Orphan: user_roles không gắn staff (admin, kế toán ngoài, hoặc gán nhầm)
-var orphanURs=allUserRoles.filter(function(ur){return!ur.staff_id||!allStaff.find(function(s){return s.id===ur.staff_id;});});
-h+='<div class="section-title">Người dùng ('+allStaff.length+' nhân sự · '+allUserRoles.length+' tài khoản đăng nhập)</div>';
-h+='<div class="table-wrap"><table><tr><th>Mã NS</th><th></th><th>Họ tên</th><th>Email đăng nhập</th><th>Vai trò</th><th>Ngân sách</th><th>Trạng thái</th><th>Quyền truy cập</th><th style="text-align:right;">Thao tác</th></tr>';
-sorted.forEach(function(s){var c=sc(s.color_code);var ur=urByStaff[s.id];
-var roleHtml=ur?'<span class="badge b-blue">'+esc(userRoleLabel(ur.role))+'</span>':'<span style="color:var(--tx3);font-size:11px;">Chưa có TK</span>';
-var emailHtml=ur?'<span style="font-size:12px;color:var(--tx2);">'+esc(ur.email)+'</span>':'<span style="color:var(--tx3);font-size:11px;">—</span>';
-var pagesHtml=ur?esc((ur.allowed_pages||[]).map(function(p){return permissionLabel(normalizePermKey(p));}).join(', ')||'—'):'<span style="color:var(--tx3);">—</span>';
-h+='<tr style="'+(s.is_active?'':'opacity:.5;')+'">';
-h+='<td><span class="mono" style="font-weight:600;font-size:13px;color:var(--blue);">'+esc(s.display_code||'—')+'</span></td>';
-h+='<td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div></td>';
-h+='<td style="font-weight:500;">'+esc(s.full_name)+'<div style="font-size:11px;color:var(--tx3);font-weight:400;">'+esc(s.code)+(s.campaign_keyword?' · KW: <span style="color:var(--purple);">'+esc(s.campaign_keyword)+'</span>':'')+'</div></td>';
-h+='<td>'+emailHtml+'</td>';
-h+='<td>'+roleHtml+'</td>';
-h+='<td class="mono">'+fm(s.monthly_budget)+'</td>';
-h+='<td><span class="badge '+(s.is_active?'b-green':'b-red')+'">'+(s.is_active?'Hoạt động':'Ngừng')+'</span></td>';
-h+='<td style="font-size:11px;">'+pagesHtml+'</td>';
-h+='<td style="text-align:right;white-space:nowrap;">';
-h+='<button class="btn btn-ghost btn-sm" onclick="esp(\''+s.id+'\')" title="Sửa thông tin nhân sự">✏ NS</button> ';
-if(ur){
-  h+='<button class="btn btn-ghost btn-sm" onclick="editUserRole(\''+ur.id+'\')" title="Sửa email/mật khẩu/quyền">🔑 Quyền</button> ';
-}else{
-  h+='<button class="btn btn-ghost btn-sm" onclick="createUserRoleForStaff(\''+s.id+'\')" title="Tạo tài khoản đăng nhập cho NS này">+ TK</button> ';
-}
-h+='<button class="btn btn-ghost btn-sm" onclick="tgs(this,\''+s.id+'\','+!s.is_active+')">'+(s.is_active?'Tắt':'Bật')+'</button>';
-h+='</td></tr>';
+// Bảng chính — GỐC là user_roles (tài khoản đăng nhập). Mỗi dòng = 1 tài khoản + info nhân sự gắn (nếu có).
+var staffById={};allStaff.forEach(function(s){staffById[s.id]=s;});
+// Sort: ưu tiên dòng có gắn staff (theo display_code), rồi đến orphan (không gắn) ở cuối
+var sortedURs=allUserRoles.slice().sort(function(a,b){
+  var sa=a.staff_id?staffById[a.staff_id]:null,sb=b.staff_id?staffById[b.staff_id]:null;
+  var na=sa?parseInt(sa.display_code||'9998'):9999,nb=sb?parseInt(sb.display_code||'9998'):9999;
+  return na-nb;
 });
-// Orphan user_roles (không gắn staff) — admin, kế toán ngoài...
-if(orphanURs.length){
-  h+='<tr style="border-top:2px solid var(--bd1);background:var(--bg2);"><td colspan="9" style="padding:8px 12px;font-size:11px;color:var(--tx3);font-weight:500;">Tài khoản không gắn nhân sự ('+orphanURs.length+') — admin / kế toán ngoài</td></tr>';
-  orphanURs.forEach(function(ur){
-    var pagesHtml=esc((ur.allowed_pages||[]).map(function(p){return permissionLabel(normalizePermKey(p));}).join(', ')||'—');
-    h+='<tr>';
-    h+='<td colspan="3" style="font-style:italic;color:var(--tx2);">'+esc(ur.display_name||'(chưa đặt tên)')+'</td>';
-    h+='<td><span style="font-size:12px;color:var(--tx2);">'+esc(ur.email)+'</span></td>';
-    h+='<td><span class="badge b-blue">'+esc(userRoleLabel(ur.role))+'</span></td>';
-    h+='<td colspan="2"></td>';
-    h+='<td style="font-size:11px;">'+pagesHtml+'</td>';
-    h+='<td style="text-align:right;white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="editUserRole(\''+ur.id+'\')">🔑 Quyền</button> <button class="btn btn-red btn-sm" onclick="deleteUserRole(this,\''+ur.id+'\')">Xóa</button></td>';
-    h+='</tr>';
-  });
-}
+h+='<div class="section-title">Tài khoản đăng nhập ('+allUserRoles.length+')</div>';
+h+='<div class="table-wrap"><table><tr><th>Mã NS</th><th></th><th>Tên</th><th>Email</th><th>Vai trò</th><th>Ngân sách</th><th>Quyền truy cập</th><th style="text-align:right;">Thao tác</th></tr>';
+sortedURs.forEach(function(ur){
+  var s=ur.staff_id?staffById[ur.staff_id]:null;
+  var c=s?sc(s.color_code):{bg:'var(--bg2)',tx:'var(--tx3)'};
+  var pagesHtml=esc((ur.allowed_pages||[]).map(function(p){return permissionLabel(normalizePermKey(p));}).join(', ')||'—');
+  var nameDisplay=s?s.full_name:(ur.display_name||'(chưa đặt tên)');
+  h+='<tr'+(s&&!s.is_active?' style="opacity:.5;"':'')+'>';
+  h+='<td><span class="mono" style="font-weight:600;font-size:13px;color:'+(s&&s.display_code?'var(--blue)':'var(--tx3)')+';">'+esc(s&&s.display_code?s.display_code:'—')+'</span></td>';
+  h+='<td>'+(s?'<div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div>':'<div class="avatar" style="background:var(--bg2);color:var(--tx3);font-size:14px;">?</div>')+'</td>';
+  h+='<td style="font-weight:500;">'+esc(nameDisplay)+(s?'<div style="font-size:11px;color:var(--tx3);font-weight:400;">'+esc(s.code||'')+(s.campaign_keyword?' · KW: <span style="color:var(--purple);">'+esc(s.campaign_keyword)+'</span>':'')+'</div>':'<div style="font-size:11px;color:var(--tx3);font-weight:400;">Không gắn nhân sự</div>')+'</td>';
+  h+='<td style="font-size:12px;color:var(--tx2);">'+esc(ur.email)+'</td>';
+  h+='<td><span class="badge b-blue">'+esc(userRoleLabel(ur.role))+'</span></td>';
+  h+='<td class="mono">'+(s?fm(s.monthly_budget):'<span style="color:var(--tx3);">—</span>')+'</td>';
+  h+='<td style="font-size:11px;">'+pagesHtml+'</td>';
+  h+='<td style="text-align:right;white-space:nowrap;">';
+  h+='<button class="btn btn-ghost btn-sm" onclick="editUserRole(\''+ur.id+'\')" title="Sửa email/mật khẩu/quyền">🔑 Quyền</button> ';
+  if(s)h+='<button class="btn btn-ghost btn-sm" onclick="esp(\''+s.id+'\')" title="Sửa thông tin nhân sự">✏ NS</button> ';
+  h+='<button class="btn btn-red btn-sm" onclick="deleteUserRole(this,\''+ur.id+'\')">Xóa</button>';
+  h+='</td></tr>';
+});
+if(!sortedURs.length)h+='<tr><td colspan="8" style="text-align:center;color:var(--tx3);font-size:12px;padding:20px;">Chưa có tài khoản nào.</td></tr>';
 h+='</table></div>';
+// ═══ Section phụ — Nhân sự chưa có tài khoản đăng nhập ═══
+var usedStaffIds={};allUserRoles.forEach(function(ur){if(ur.staff_id)usedStaffIds[ur.staff_id]=1;});
+var staffNoLogin=allStaff.filter(function(s){return!usedStaffIds[s.id];}).sort(function(a,b){return parseInt(a.display_code||'9999')-parseInt(b.display_code||'9999');});
+if(staffNoLogin.length){
+  h+='<div class="section-title">Nhân sự chưa có tài khoản đăng nhập ('+staffNoLogin.length+')</div>';
+  h+='<div class="table-wrap"><table><tr><th>Mã NS</th><th></th><th>Họ tên</th><th>Code</th><th>Ngân sách</th><th>Trạng thái</th><th style="text-align:right;">Thao tác</th></tr>';
+  staffNoLogin.forEach(function(s){var c=sc(s.color_code);
+    h+='<tr'+(s.is_active?'':' style="opacity:.5;"')+'>';
+    h+='<td><span class="mono" style="font-weight:600;font-size:13px;color:var(--blue);">'+esc(s.display_code||'—')+'</span></td>';
+    h+='<td><div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div></td>';
+    h+='<td style="font-weight:500;">'+esc(s.full_name)+(s.campaign_keyword?'<div style="font-size:11px;color:var(--tx3);font-weight:400;">KW: <span style="color:var(--purple);">'+esc(s.campaign_keyword)+'</span></div>':'')+'</td>';
+    h+='<td class="mono" style="font-size:12px;color:var(--tx3);">'+esc(s.code)+'</td>';
+    h+='<td class="mono">'+fm(s.monthly_budget)+'</td>';
+    h+='<td><span class="badge '+(s.is_active?'b-green':'b-red')+'">'+(s.is_active?'Hoạt động':'Ngừng')+'</span></td>';
+    h+='<td style="text-align:right;white-space:nowrap;"><button class="btn btn-primary btn-sm" onclick="createUserRoleForStaff(\''+s.id+'\')">+ Tạo TK</button> <button class="btn btn-ghost btn-sm" onclick="esp(\''+s.id+'\')">✏ Sửa</button> <button class="btn btn-ghost btn-sm" onclick="tgs(this,\''+s.id+'\','+!s.is_active+')">'+(s.is_active?'Tắt':'Bật')+'</button></td></tr>';
+  });
+  h+='</table></div>';
+}
 // ═══ Form Phân quyền tài khoản đăng nhập (chỉ form, không lặp lại bảng) ═══
 h+=renderUserRolesSection();
 return h;}
