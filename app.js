@@ -1969,6 +1969,26 @@ function _isPostLate(p){
   var nowMin=now.getHours()*60+now.getMinutes();
   return nowMin>slotMin;
 }
+// KPI Khánh Linh: mỗi ngày phải có 1 video HOẶC 2 bài viết (status='da_post').
+// Tính theo từng ngày, không cho dồn — thứ 2 đăng nhiều không bù được thứ 3 trống.
+function _postKpiForDay(staffId,dateStr){
+  var posts=postScheduleData.filter(function(p){return p.staff_id===staffId&&p.post_date===dateStr&&p.status==='da_post';});
+  var videoCnt=posts.filter(function(p){return p.category==='video';}).length;
+  var textCnt=posts.filter(function(p){return p.category&&p.category!=='video';}).length;
+  var pass=videoCnt>=1||textCnt>=2;
+  var todayStr=_postFmtDate(new Date());
+  var status=pass?'pass':(dateStr<todayStr?'fail':'pending');
+  return {pass:pass,status:status,videoCnt:videoCnt,textCnt:textCnt};
+}
+function _postKpiForWeek(staffId,weekStart){
+  var p=0,f=0,pd=0;
+  for(var i=0;i<7;i++){
+    var d=new Date(weekStart);d.setDate(d.getDate()+i);
+    var k=_postKpiForDay(staffId,_postFmtDate(d));
+    if(k.status==='pass')p++;else if(k.status==='fail')f++;else pd++;
+  }
+  return {pass:p,fail:f,pending:pd};
+}
 function p2Task(){
   var canEdit=isAdmin();
   if(!postScheduleStaffId){
@@ -2002,6 +2022,22 @@ function p2Task(){
   h+='</div>';
   if(canEdit)h+='<button class="btn btn-primary btn-sm" onclick="openPostScheduleModal(null,\''+staff.id+'\')">+ Thêm bài đăng</button>';
   h+='</div>';
+  // KPI card
+  var kpi=_postKpiForWeek(staff.id,weekStart);
+  var kpiPct=Math.round(kpi.pass/7*100);
+  var kpiColor=kpi.pass===7?'var(--green)':(kpi.fail>0?'#dc2626':'var(--tx2)');
+  h+='<div class="form-card" style="padding:14px 18px;margin-bottom:14px;">';
+  h+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap;">';
+  h+='<div><div style="font-weight:600;font-size:14px;">KPI tuần này</div><div style="font-size:11px;color:var(--tx3);margin-top:2px;">Mỗi ngày cần: <b>1 video</b> HOẶC <b>2 bài viết</b> (chỉ tính bài đã đăng)</div></div>';
+  h+='<div style="font-size:22px;font-weight:700;color:'+kpiColor+';">'+kpi.pass+'/7 <span style="font-size:12px;font-weight:500;color:var(--tx3);">ngày đạt</span></div>';
+  h+='</div>';
+  h+='<div style="height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;"><div style="height:100%;background:'+(kpi.pass===7?'var(--green)':'#3b82f6')+';width:'+kpiPct+'%;transition:width .3s;"></div></div>';
+  h+='<div style="display:flex;gap:14px;font-size:11px;margin-top:8px;flex-wrap:wrap;">';
+  h+='<span style="color:#059669;">✓ Đạt: <b>'+kpi.pass+'</b></span>';
+  h+='<span style="color:#dc2626;">✗ Thiếu: <b>'+kpi.fail+'</b></span>';
+  h+='<span style="color:var(--tx3);">— Chưa tới: <b>'+kpi.pending+'</b></span>';
+  h+='</div>';
+  h+='</div>';
   // Bảng tuần
   h+='<div class="table-wrap"><table>';
   h+='<thead><tr><th style="width:110px;">Ngày</th><th style="width:70px;">Giờ</th><th style="width:110px;">Thể loại</th><th>Tiêu đề</th><th style="width:80px;">Link</th><th style="width:110px;">Trạng thái</th>'+(canEdit?'<th style="width:70px;"></th>':'')+'</tr></thead><tbody>';
@@ -2014,12 +2050,18 @@ function p2Task(){
     var renderSlots=POST_DEFAULT_SLOTS.slice();
     slotsForDay.forEach(function(p){if(renderSlots.indexOf(p.time_slot)<0)renderSlots.push(p.time_slot);});
     var isToday=dateStr===_postFmtDate(new Date());
+    var dayKpi=_postKpiForDay(staff.id,dateStr);
+    var dayBadge=dayKpi.status==='pass'
+      ?'<div style="display:inline-block;margin-top:4px;padding:1px 7px;background:#d1fae5;color:#065f46;border-radius:8px;font-size:10px;font-weight:600;" title="Đủ KPI ('+dayKpi.videoCnt+' video, '+dayKpi.textCnt+' bài)">✓ Đạt KPI</div>'
+      :dayKpi.status==='fail'
+        ?'<div style="display:inline-block;margin-top:4px;padding:1px 7px;background:#fecaca;color:#991b1b;border-radius:8px;font-size:10px;font-weight:600;" title="Mới có '+dayKpi.videoCnt+' video, '+dayKpi.textCnt+' bài. Cần: 1 video HOẶC 2 bài.">✗ Thiếu KPI</div>'
+        :'';
     renderSlots.forEach(function(slot,si){
       var p=slotsMap[slot];
       var late=_isPostLate(p);
       var rowBg=late?'background:rgba(239,68,68,0.06);':(isToday?'background:rgba(59,130,246,0.04);':'');
       h+='<tr style="'+rowBg+'">';
-      if(si===0)h+='<td rowspan="'+renderSlots.length+'" style="vertical-align:middle;font-weight:500;">'+esc(dayLabel)+'</td>';
+      if(si===0)h+='<td rowspan="'+renderSlots.length+'" style="vertical-align:middle;font-weight:500;">'+esc(dayLabel)+(dayBadge?'<br>'+dayBadge:'')+'</td>';
       h+='<td class="mono" style="color:var(--tx3);">'+esc(slot)+'</td>';
       if(p){
         var cat=_postCatMeta(p.category);
