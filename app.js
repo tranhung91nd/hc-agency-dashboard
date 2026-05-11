@@ -5002,24 +5002,29 @@ allUserRoles.forEach(function(ur){if(!usedURIds[ur.id])people.push({staff:null,u
 h+='<div class="section-title">Người dùng ('+people.length+')</div>';
 h+='<div style="padding:10px 14px;background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:10px;">Bảng gộp: mỗi dòng = 1 người (nhân sự + tài khoản đăng nhập). Dòng có biểu tượng 🔗 = đang fuzzy-match tự động theo tên (chưa lưu DB) — bấm "🔗 Lưu liên kết" để chốt.</div>';
 h+='<div class="table-wrap"><table><tr><th>Mã NS</th><th></th><th>Họ tên</th><th>Email đăng nhập</th><th>Vai trò</th><th>Quyền truy cập</th><th style="text-align:right;">Thao tác</th></tr>';
+// Detect: staff này có phải là CEO (Hưng Coaching) → nếu chưa có user_role + đang đăng nhập admin
+// thì hiển thị inline thông tin admin (admin mặc định không có entry trong user_roles).
+function _isCEOStaff(s){return s&&((Number(s.default_base_salary)===0)||/h(ư|u)ng coaching|ceo/i.test((s.full_name||'')+' '+(s.short_name||'')));}
 people.forEach(function(p){
   var s=p.staff,ur=p.ur;
   var c=s?sc(s.color_code):{bg:'var(--bg2)',tx:'var(--tx3)'};
-  var pagesHtml=ur?esc((ur.allowed_pages||[]).map(function(x){return permissionLabel(normalizePermKey(x));}).join(', ')||'—'):'<span style="color:var(--tx3);">—</span>';
+  // Implicit admin row: staff là CEO, chưa match user_role, đang đăng nhập với quyền admin
+  var implicitAdmin=!ur&&s&&_isCEOStaff(s)&&authUser&&isAdmin()&&!currentUserRoleRecord;
+  var pagesHtml=ur?esc((ur.allowed_pages||[]).map(function(x){return permissionLabel(normalizePermKey(x));}).join(', ')||'—'):(implicitAdmin?'<span style="color:var(--green);font-weight:500;">Toàn quyền</span>':'<span style="color:var(--tx3);">—</span>');
   var nameDisplay=s?s.full_name:(ur.display_name||'(chưa đặt tên)');
   var rowStyle=(s&&!s.is_active)?' style="opacity:.5;"':(p.fuzzy?' style="background:#fffbeb;"':'');
   h+='<tr'+rowStyle+'>';
   h+='<td><span class="mono" style="font-weight:600;font-size:13px;color:'+(s&&s.display_code?'var(--blue)':'var(--tx3)')+';">'+esc(s&&s.display_code?s.display_code:'—')+'</span></td>';
   h+='<td>'+(s?'<div class="avatar" style="background:'+c.bg+';color:'+c.tx+';">'+esc(s.avatar_initials)+'</div>':'<div class="avatar" style="background:var(--bg2);color:var(--tx3);font-size:14px;">?</div>')+'</td>';
-  h+='<td style="font-weight:500;">'+esc(nameDisplay)+(p.fuzzy?' <span title="Khớp tự động theo tên — chưa lưu vào DB" style="font-size:11px;color:var(--amber-tx);">🔗 tự khớp</span>':'')+(s?'<div style="font-size:11px;color:var(--tx3);font-weight:400;">'+esc(s.code||'')+(s.campaign_keyword?' · KW: <span style="color:var(--purple);">'+esc(s.campaign_keyword)+'</span>':'')+'</div>':(ur?'<div style="font-size:11px;color:var(--tx3);font-weight:400;">Không gắn nhân sự</div>':''))+'</td>';
-  h+='<td style="font-size:12px;color:var(--tx2);">'+(ur?esc(ur.email):'<span style="color:var(--tx3);font-size:11px;">Chưa có TK</span>')+'</td>';
-  h+='<td>'+(ur?'<span class="badge b-blue">'+esc(userRoleLabel(ur.role))+'</span>':'<span style="color:var(--tx3);font-size:11px;">—</span>')+'</td>';
+  h+='<td style="font-weight:500;">'+esc(nameDisplay)+(implicitAdmin?' <span title="Tài khoản đang đăng nhập" style="font-size:11px;color:var(--green);font-weight:600;">🟢 Bạn</span>':'')+(p.fuzzy?' <span title="Khớp tự động theo tên — chưa lưu vào DB" style="font-size:11px;color:var(--amber-tx);">🔗 tự khớp</span>':'')+(s?'<div style="font-size:11px;color:var(--tx3);font-weight:400;">'+esc(s.code||'')+(s.campaign_keyword?' · KW: <span style="color:var(--purple);">'+esc(s.campaign_keyword)+'</span>':'')+'</div>':(ur?'<div style="font-size:11px;color:var(--tx3);font-weight:400;">Không gắn nhân sự</div>':''))+'</td>';
+  h+='<td style="font-size:12px;color:var(--tx2);">'+(ur?esc(ur.email):(implicitAdmin?esc(authUser.email):'<span style="color:var(--tx3);font-size:11px;">Chưa có TK</span>'))+'</td>';
+  h+='<td>'+(ur?'<span class="badge b-blue">'+esc(userRoleLabel(ur.role))+'</span>':(implicitAdmin?'<span class="badge b-red">Admin</span>':'<span style="color:var(--tx3);font-size:11px;">—</span>'))+'</td>';
   h+='<td style="font-size:11px;">'+pagesHtml+'</td>';
   h+='<td style="text-align:right;white-space:nowrap;">';
   if(p.fuzzy&&s&&ur)h+='<button class="btn btn-primary btn-sm" onclick="confirmFuzzyLink(this,\''+ur.id+'\',\''+s.id+'\')" title="Lưu liên kết vào DB">🔗 Lưu</button> ';
   if(ur)h+='<button class="btn btn-ghost btn-sm" onclick="editUserRole(\''+ur.id+'\')" title="Sửa email/mật khẩu/quyền">🔑 Quyền</button> ';
   if(s)h+='<button class="btn btn-ghost btn-sm" onclick="esp(\''+s.id+'\')" title="Sửa nhân sự">✏ NS</button> ';
-  if(s&&!ur)h+='<button class="btn btn-primary btn-sm" onclick="createUserRoleForStaff(\''+s.id+'\')">+ TK</button> ';
+  if(s&&!ur&&!implicitAdmin)h+='<button class="btn btn-primary btn-sm" onclick="createUserRoleForStaff(\''+s.id+'\')">+ TK</button> ';
   if(s)h+='<button class="btn btn-ghost btn-sm" onclick="tgs(this,\''+s.id+'\','+!s.is_active+')">'+(s.is_active?'Tắt':'Bật')+'</button> ';
   if(ur)h+='<button class="btn btn-red btn-sm" onclick="deleteUserRole(this,\''+ur.id+'\')" title="Xóa tài khoản đăng nhập">Xóa TK</button>';
   h+='</td></tr>';
