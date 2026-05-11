@@ -113,7 +113,7 @@ function renderZaloBtn(c){
 // Khi balance (spend_cap - amount_spent) < giá trị này → hiện cảnh báo ở P6.
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
-var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],adPostData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],teamFundData=[],teamTaskData=[],clientDepositData=[],bankReconcileData=[],bankImportLog=[];
+var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],adPostData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],teamFundData=[],teamTaskData=[],postScheduleData=[],clientDepositData=[],bankReconcileData=[],bankImportLog=[];
 var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,currentUserRoleRecord=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc',finTab='thuchi',reconcileMonth='',reconcileSearch='',editingUserRoleId=null;
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
@@ -684,7 +684,7 @@ var errs=[];
  monthlyFeeData=mf.error?[]:(mf.data||[]);
  // Defer empty defaults — wave 2 sẽ ghi đè
  salaryData=salaryData||[];monthlyRevData=monthlyRevData||[];campaignMessData=campaignMessData||[];adPostData=adPostData||[];
- contractList=contractList||[];quotationList=quotationList||[];penaltyData=penaltyData||[];teamFundData=teamFundData||[];teamTaskData=teamTaskData||[];clientDepositData=clientDepositData||[];
+ contractList=contractList||[];quotationList=quotationList||[];penaltyData=penaltyData||[];teamFundData=teamFundData||[];teamTaskData=teamTaskData||[];postScheduleData=postScheduleData||[];clientDepositData=clientDepositData||[];
  var ds2=new Set();dailyData.forEach(function(d){ds2.add(d.report_date);});
 dates=Array.from(ds2).sort();if(dates.length)cDay=dates.length-1;
 if(!finMonth)finMonth=lm();if(!adViewDate)adViewDate=td();if(!rptMonth)rptMonth=lm();if(!clientMonth)clientMonth=lm();
@@ -695,7 +695,7 @@ loadDeferred();
 async function loadDeferred(){try{
  var minDate60=new Date(Date.now()-60*86400000).toISOString().substring(0,10);
  var minDate180=new Date(Date.now()-180*86400000).toISOString().substring(0,10);
- var[sal,mr,cmess,adp,ctr,qt,pnl,tfw,tt,dep,dsExt,brec,blog]=await Promise.all([
+ var[sal,mr,cmess,adp,ctr,qt,pnl,tfw,tt,pss,dep,dsExt,brec,blog]=await Promise.all([
 sb2.from('salary').select('*,staff(short_name)').order('month',{ascending:false}),
 sb2.from('monthly_revenue').select('*,staff(short_name,code)').order('month'),
 fetchPaged(sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,max_lead_cost,client(name))').order('report_date',{ascending:false})),
@@ -705,6 +705,7 @@ sb2.from('quotation').select('*,client(name,company_full_name)').order('created_
 sb2.from('penalty').select('*').order('penalty_date',{ascending:false}),
 sb2.from('team_fund_withdrawal').select('*').order('withdrawal_date',{ascending:false}),
 sb2.from('team_task').select('*').gte('task_date',new Date(Date.now()-30*86400000).toISOString().substring(0,10)).order('task_date',{ascending:false}),
+sb2.from('staff_post_schedule').select('*').gte('post_date',new Date(Date.now()-30*86400000).toISOString().substring(0,10)).order('post_date',{ascending:true}),
 sb2.from('client_deposit').select('*').order('deposit_date',{ascending:false}),
 fetchPaged(sb2.from('daily_spend').select('id,report_date,ad_account_id,spend_amount,staff_id,matched_client_id').gte('report_date',minDate180).lt('report_date',minDate60).order('report_date')),
 sb2.from('bank_reconcile').select('*').order('bank_date',{ascending:false}),
@@ -719,6 +720,7 @@ sb2.from('bank_import_log').select('*').order('uploaded_at',{ascending:false}).l
  if(pnl&&!pnl.error)penaltyData=pnl.data||[];
  if(tfw&&!tfw.error)teamFundData=tfw.data||[];
  if(tt&&!tt.error)teamTaskData=tt.data||[];
+ if(pss&&!pss.error)postScheduleData=pss.data||[];
  if(dep&&!dep.error)clientDepositData=dep.data||[];
  if(brec&&!brec.error)bankReconcileData=brec.data||[];
  if(blog&&!blog.error)bankImportLog=blog.data||[];
@@ -816,7 +818,8 @@ var SUBNAV_CONFIG={
   ]}]},
   2:{title:'Nhân sự',sections:[{label:'',items:[
     {key:'p2-salary',label:'Lương + Hoa hồng',action:"setP2Tab(0)",permKey:'p2.salary',match:function(){return curPage===2&&p2Tab===0;}},
-    {key:'p2-penalty',label:'Sổ phạt',action:"setP2Tab(1)",permKey:'p2.penalty',match:function(){return curPage===2&&p2Tab===1;}}
+    {key:'p2-penalty',label:'Sổ phạt',action:"setP2Tab(1)",permKey:'p2.penalty',match:function(){return curPage===2&&p2Tab===1;}},
+    {key:'p2-task',label:'Công việc',action:"setP2Tab(2)",permKey:'p2.task',match:function(){return curPage===2&&p2Tab===2;}}
   ]}]},
   3:{title:'Khách hàng',sections:[{label:'PHÂN LOẠI',items:[
     {key:'cli-active',label:'Khách chính thức',action:"setClientTab('active')",match:function(){return curPage===3&&clientTab==='active';},badgeFn:function(){return clientList.filter(function(c){return c.status!=='prospect';}).length;}},
@@ -1368,9 +1371,11 @@ var p2Tab=0;
 function setP2Tab(i){p2Tab=i;syncSidebarNav();render();}
 function p2(){
 // Auto-redirect nếu user không có quyền tab hiện tại
-var canSalary=canAccessKey('p2.salary')||canAccessKey('p2'),canPenalty=canAccessKey('p2.penalty')||canAccessKey('p2');
-if(p2Tab===0&&!canSalary){if(canPenalty)p2Tab=1;}
-if(p2Tab===1&&!canPenalty){if(canSalary)p2Tab=0;}
+var canSalary=canAccessKey('p2.salary')||canAccessKey('p2'),canPenalty=canAccessKey('p2.penalty')||canAccessKey('p2'),canTask=canAccessKey('p2.task')||canAccessKey('p2');
+if(p2Tab===0&&!canSalary){if(canPenalty)p2Tab=1;else if(canTask)p2Tab=2;}
+if(p2Tab===1&&!canPenalty){if(canSalary)p2Tab=0;else if(canTask)p2Tab=2;}
+if(p2Tab===2&&!canTask){if(canSalary)p2Tab=0;else if(canPenalty)p2Tab=1;}
+if(p2Tab===2)return p2Task();
 if(p2Tab===1)return p2Penalty();
 return p2Salary();
 }
@@ -1924,6 +1929,229 @@ async function deleteTeamFundWithdrawal(id){
   var r=await sb2.from('team_fund_withdrawal').delete().eq('id',id);
   if(r.error){toast('Lỗi: '+r.error.message,false);return;}
   toast('Đã xóa',true);await loadAll();render();
+}
+
+// ═══ P2 TAB 2: CÔNG VIỆC — Lịch bài đăng theo nhân sự ═══
+// Thay thế Google Sheet "TIMELINE CHECK LIST". Mỗi ngày 2 slot mặc định (11h30 + 20h).
+var POST_CATEGORIES=[
+  {key:'video',      label:'Video',      bg:'#7c2d12', tx:'#ffffff'},
+  {key:'anh_ai',     label:'Ảnh AI',     bg:'#dbeafe', tx:'#1e40af'},
+  {key:'anh_thuong', label:'Ảnh thường', bg:'#ede9fe', tx:'#6b21a8'},
+  {key:'cap_nhat',   label:'Cập nhật',   bg:'#fef3c7', tx:'#92400e'},
+  {key:'story',      label:'Story',      bg:'#fecaca', tx:'#991b1b'},
+  {key:'ban_hang',   label:'Bán hàng',   bg:'#1e40af', tx:'#ffffff'}
+];
+var POST_STATUSES=[
+  {key:'cho_duyet', label:'Chờ duyệt', bg:'#f3f4f6', tx:'#374151'},
+  {key:'da_duyet',  label:'Đã duyệt',  bg:'#dbeafe', tx:'#1e40af'},
+  {key:'da_post',   label:'Đã post',   bg:'#d1fae5', tx:'#065f46'}
+];
+var POST_DEFAULT_SLOTS=['11h30','20h'];
+var postScheduleStaffId=null;
+var postScheduleWeekOffset=0;
+function setPostScheduleStaff(id){postScheduleStaffId=id;render();}
+function setPostScheduleWeek(off){postScheduleWeekOffset=parseInt(off)||0;render();}
+function _postCatMeta(k){for(var i=0;i<POST_CATEGORIES.length;i++)if(POST_CATEGORIES[i].key===k)return POST_CATEGORIES[i];return null;}
+function _postStatusMeta(k){for(var i=0;i<POST_STATUSES.length;i++)if(POST_STATUSES[i].key===k)return POST_STATUSES[i];return POST_STATUSES[0];}
+function _postWeekStart(offset){var d=new Date();d.setHours(0,0,0,0);var day=d.getDay();var diff=(day===0?-6:1-day);d.setDate(d.getDate()+diff+offset*7);return d;}
+function _postFmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function _postDayLabel(d){return ['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'][d.getDay()]+' '+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');}
+function _isPostLate(p){
+  if(!p||p.status==='da_post')return false;
+  if(!p.post_date)return false;
+  var now=new Date();
+  var todayStr=_postFmtDate(now);
+  if(p.post_date<todayStr)return true;
+  if(p.post_date>todayStr)return false;
+  var m=String(p.time_slot||'').match(/^(\d{1,2})h(\d{0,2})/);
+  if(!m)return false;
+  var slotMin=parseInt(m[1])*60+(parseInt(m[2])||0);
+  var nowMin=now.getHours()*60+now.getMinutes();
+  return nowMin>slotMin;
+}
+function p2Task(){
+  var canEdit=isAdmin();
+  if(!postScheduleStaffId){
+    var kl=staffList.find(function(s){return /linh/i.test(s.full_name||'')||/linh/i.test(s.short_name||'');});
+    postScheduleStaffId=kl?kl.id:(staffList[0]?staffList[0].id:null);
+  }
+  var staff=staffList.find(function(s){return s.id===postScheduleStaffId;});
+  var h='<div class="page-title">Công việc</div><div class="page-sub">Lịch bài đăng theo nhân sự · 2 slot/ngày mặc định (11h30 + 20h)</div>';
+  // Chip chọn nhân sự
+  h+='<div class="form-card" style="padding:14px 18px;margin-bottom:14px;">';
+  h+='<div style="font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:8px;">Chọn nhân sự</div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+  staffList.forEach(function(s){
+    var active=s.id===postScheduleStaffId;
+    var cnt=postScheduleData.filter(function(p){return p.staff_id===s.id;}).length;
+    h+='<button type="button" class="btn '+(active?'btn-primary':'btn-ghost')+' btn-sm" onclick="setPostScheduleStaff(\''+s.id+'\')" style="padding:6px 12px;font-size:12px;">'+esc(s.short_name||s.full_name)+(cnt?' <span style="opacity:.7;">('+cnt+')</span>':'')+'</button>';
+  });
+  h+='</div></div>';
+  if(!staff){h+='<div class="empty-state">Chưa có nhân sự nào.</div>';return h;}
+  // Week navigator
+  var weekStart=_postWeekStart(postScheduleWeekOffset);
+  var weekEnd=new Date(weekStart);weekEnd.setDate(weekEnd.getDate()+6);
+  var wsLabel=String(weekStart.getDate()).padStart(2,'0')+'/'+String(weekStart.getMonth()+1).padStart(2,'0');
+  var weLabel=String(weekEnd.getDate()).padStart(2,'0')+'/'+String(weekEnd.getMonth()+1).padStart(2,'0');
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">';
+  h+='<div style="display:flex;align-items:center;gap:8px;">';
+  h+='<button class="btn btn-ghost btn-sm" onclick="setPostScheduleWeek('+(postScheduleWeekOffset-1)+')">←</button>';
+  h+='<div style="font-weight:600;font-size:14px;">Tuần '+wsLabel+' – '+weLabel+'</div>';
+  h+='<button class="btn btn-ghost btn-sm" onclick="setPostScheduleWeek('+(postScheduleWeekOffset+1)+')">→</button>';
+  if(postScheduleWeekOffset!==0)h+='<button class="btn btn-ghost btn-sm" onclick="setPostScheduleWeek(0)" style="font-size:11px;">Về tuần này</button>';
+  h+='</div>';
+  if(canEdit)h+='<button class="btn btn-primary btn-sm" onclick="openPostScheduleModal(null,\''+staff.id+'\')">+ Thêm bài đăng</button>';
+  h+='</div>';
+  // Bảng tuần
+  h+='<div class="table-wrap"><table>';
+  h+='<thead><tr><th style="width:110px;">Ngày</th><th style="width:70px;">Giờ</th><th style="width:110px;">Thể loại</th><th>Tiêu đề</th><th style="width:80px;">Link</th><th style="width:110px;">Trạng thái</th>'+(canEdit?'<th style="width:70px;"></th>':'')+'</tr></thead><tbody>';
+  for(var i=0;i<7;i++){
+    var d=new Date(weekStart);d.setDate(d.getDate()+i);
+    var dateStr=_postFmtDate(d);
+    var dayLabel=_postDayLabel(d);
+    var slotsForDay=postScheduleData.filter(function(p){return p.staff_id===staff.id&&p.post_date===dateStr;});
+    var slotsMap={};slotsForDay.forEach(function(p){slotsMap[p.time_slot]=p;});
+    var renderSlots=POST_DEFAULT_SLOTS.slice();
+    slotsForDay.forEach(function(p){if(renderSlots.indexOf(p.time_slot)<0)renderSlots.push(p.time_slot);});
+    var isToday=dateStr===_postFmtDate(new Date());
+    renderSlots.forEach(function(slot,si){
+      var p=slotsMap[slot];
+      var late=_isPostLate(p);
+      var rowBg=late?'background:rgba(239,68,68,0.06);':(isToday?'background:rgba(59,130,246,0.04);':'');
+      h+='<tr style="'+rowBg+'">';
+      if(si===0)h+='<td rowspan="'+renderSlots.length+'" style="vertical-align:middle;font-weight:500;">'+esc(dayLabel)+'</td>';
+      h+='<td class="mono" style="color:var(--tx3);">'+esc(slot)+'</td>';
+      if(p){
+        var cat=_postCatMeta(p.category);
+        h+='<td>'+(cat?'<span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500;background:'+cat.bg+';color:'+cat.tx+';">'+esc(cat.label)+'</span>':'<span style="color:var(--tx3);font-size:11px;">—</span>')+'</td>';
+        h+='<td>'+esc(p.title||'')+(p.notes?'<div style="font-size:11px;color:var(--tx3);margin-top:2px;">'+esc(p.notes)+'</div>':'')+'</td>';
+        h+='<td>'+(p.link?'<a href="'+esc(p.link)+'" target="_blank" rel="noopener" style="font-size:11px;">Mở ↗</a>':'<span style="color:var(--tx3);font-size:11px;">—</span>')+'</td>';
+        var st=late?{key:'tre',label:'Trễ',bg:'#fecaca',tx:'#991b1b'}:_postStatusMeta(p.status);
+        if(canEdit&&!late)h+='<td><button onclick="cyclePostStatus(\''+p.id+'\')" style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500;background:'+st.bg+';color:'+st.tx+';border:0;cursor:pointer;" title="Click để đổi trạng thái">'+esc(st.label)+'</button></td>';
+        else h+='<td><span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500;background:'+st.bg+';color:'+st.tx+';">'+esc(st.label)+'</span></td>';
+        if(canEdit)h+='<td style="text-align:right;white-space:nowrap;"><button onclick="openPostScheduleModal(\''+p.id+'\',\''+staff.id+'\')" style="font-size:13px;border:0;background:none;color:var(--tx3);cursor:pointer;padding:2px 4px;" title="Sửa">✏️</button><button onclick="deletePostSchedule(\''+p.id+'\')" style="font-size:14px;border:0;background:none;color:var(--tx3);cursor:pointer;padding:2px 4px;" title="Xóa">×</button></td>';
+      }else{
+        h+='<td colspan="4" style="color:var(--tx3);font-size:11px;font-style:italic;">— Trống —</td>';
+        if(canEdit)h+='<td style="text-align:right;"><button onclick="openPostScheduleModal(null,\''+staff.id+'\',\''+dateStr+'\',\''+slot+'\')" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 8px;">+ Thêm</button></td>';
+      }
+      h+='</tr>';
+    });
+  }
+  h+='</tbody></table></div>';
+  return h;
+}
+function openPostScheduleModal(id,staffId,defaultDate,defaultSlot){
+  if(!needAuth())return;
+  if(!isAdmin()){toast('Chỉ admin mới sửa được lịch bài',false);return;}
+  var existing=id?postScheduleData.find(function(x){return x.id===id;}):null;
+  var staff=staffList.find(function(s){return s.id===staffId;});
+  if(!staff){toast('Không tìm thấy nhân sự',false);return;}
+  var root=document.getElementById('hc-modal-root')||(function(){var d=document.createElement('div');d.id='hc-modal-root';document.body.appendChild(d);return d;})();
+  var ex=document.getElementById('post-schedule-modal');if(ex)ex.remove();
+  var todayStr=_postFmtDate(new Date());
+  var dt=existing?existing.post_date:(defaultDate||todayStr);
+  var slot=existing?existing.time_slot:(defaultSlot||'11h30');
+  var cat=existing?(existing.category||''):'';
+  var title=existing?(existing.title||''):'';
+  var link=existing?(existing.link||''):'';
+  var notes=existing?(existing.notes||''):'';
+  var status=existing?(existing.status||'cho_duyet'):'cho_duyet';
+  var catChips=POST_CATEGORIES.map(function(c){
+    var active=c.key===cat;
+    return '<button type="button" data-cat="'+c.key+'" onclick="pickPostCat(\''+c.key+'\')" style="padding:5px 12px;border-radius:14px;border:1.5px solid '+(active?c.bg:'var(--bd1)')+';background:'+(active?c.bg:'transparent')+';color:'+(active?c.tx:'var(--tx2)')+';font-size:12px;cursor:pointer;font-weight:'+(active?'600':'400')+';">'+esc(c.label)+'</button>';
+  }).join('');
+  var statusChips=POST_STATUSES.map(function(s){
+    var active=s.key===status;
+    return '<button type="button" data-st="'+s.key+'" onclick="pickPostStatus(\''+s.key+'\')" style="padding:5px 12px;border-radius:14px;border:1.5px solid var(--bd1);background:'+(active?s.bg:'transparent')+';color:'+(active?s.tx:'var(--tx2)')+';font-size:12px;cursor:pointer;font-weight:'+(active?'600':'400')+';">'+esc(s.label)+'</button>';
+  }).join('');
+  var slotChips=POST_DEFAULT_SLOTS.map(function(s){
+    return '<button type="button" onclick="document.getElementById(\'ps-slot\').value=\''+s+'\'" class="btn btn-ghost btn-sm" style="padding:4px 10px;font-size:11px;">'+s+'</button>';
+  }).join('');
+  var modal=document.createElement('div');modal.id='post-schedule-modal';modal.className='hc-modal-backdrop';
+  modal.setAttribute('onclick','if(event.target===this)closePostScheduleModal()');
+  modal.innerHTML=
+    '<div class="hc-modal" role="dialog" aria-modal="true" style="max-width:520px;">'
+    +'<div class="hc-modal-head"><h3>'+(existing?'Sửa':'Thêm')+' bài đăng — '+esc(staff.short_name||staff.full_name)+'</h3><button class="hc-modal-close" onclick="closePostScheduleModal()" aria-label="Đóng">×</button></div>'
+    +'<div class="hc-modal-body">'
+    +'<input type="hidden" id="ps-id" value="'+(id||'')+'">'
+    +'<input type="hidden" id="ps-staff-id" value="'+staff.id+'">'
+    +'<input type="hidden" id="ps-category" value="'+esc(cat)+'">'
+    +'<input type="hidden" id="ps-status" value="'+status+'">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">'
+    +'<div><label style="font-size:12px;color:var(--tx2);font-weight:500;">Ngày đăng</label><input type="date" id="ps-date" class="fi" value="'+dt+'" style="width:100%;margin-top:4px;"></div>'
+    +'<div><label style="font-size:12px;color:var(--tx2);font-weight:500;">Giờ đăng</label><input type="text" id="ps-slot" class="fi" value="'+esc(slot)+'" placeholder="11h30" style="width:100%;margin-top:4px;"><div style="display:flex;gap:4px;margin-top:4px;">'+slotChips+'</div></div>'
+    +'</div>'
+    +'<div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--tx2);font-weight:500;">Thể loại</label>'
+    +'<div id="ps-cat-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">'+catChips+'</div></div>'
+    +'<div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--tx2);font-weight:500;">Tiêu đề bài đăng</label>'
+    +'<input type="text" id="ps-title" class="fi" value="'+esc(title)+'" placeholder="VD: Cách viết content bán hàng khiến khách tự inbox" style="width:100%;margin-top:4px;"></div>'
+    +'<div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--tx2);font-weight:500;">Link content (nếu có)</label>'
+    +'<input type="text" id="ps-link" class="fi" value="'+esc(link)+'" placeholder="https://..." style="width:100%;margin-top:4px;"></div>'
+    +'<div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--tx2);font-weight:500;">Ghi chú</label>'
+    +'<input type="text" id="ps-notes" class="fi" value="'+esc(notes)+'" placeholder="Tuỳ chọn" style="width:100%;margin-top:4px;"></div>'
+    +'<div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--tx2);font-weight:500;">Trạng thái</label>'
+    +'<div id="ps-status-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">'+statusChips+'</div></div>'
+    +'<div class="btn-row" style="margin-top:18px;"><button class="btn btn-ghost" onclick="closePostScheduleModal()">Hủy</button><button class="btn btn-primary" onclick="savePostSchedule(this)">'+(existing?'Lưu':'Thêm')+'</button></div>'
+    +'</div></div>';
+  root.appendChild(modal);
+  setTimeout(function(){var t=document.getElementById('ps-title');if(t)t.focus();},20);
+}
+function closePostScheduleModal(){var m=document.getElementById('post-schedule-modal');if(m)m.remove();}
+function pickPostCat(key){
+  var el=document.getElementById('ps-category');if(!el)return;el.value=key;
+  document.querySelectorAll('#ps-cat-chips [data-cat]').forEach(function(c){
+    var k=c.getAttribute('data-cat'),meta=_postCatMeta(k);if(!meta)return;
+    if(k===key){c.style.background=meta.bg;c.style.color=meta.tx;c.style.borderColor=meta.bg;c.style.fontWeight='600';}
+    else{c.style.background='transparent';c.style.color='var(--tx2)';c.style.borderColor='var(--bd1)';c.style.fontWeight='400';}
+  });
+}
+function pickPostStatus(key){
+  var el=document.getElementById('ps-status');if(!el)return;el.value=key;
+  document.querySelectorAll('#ps-status-chips [data-st]').forEach(function(c){
+    var k=c.getAttribute('data-st'),meta=_postStatusMeta(k);
+    if(k===key){c.style.background=meta.bg;c.style.color=meta.tx;c.style.fontWeight='600';}
+    else{c.style.background='transparent';c.style.color='var(--tx2)';c.style.fontWeight='400';}
+  });
+}
+async function savePostSchedule(btn){
+  if(!needAuth())return;
+  var id=document.getElementById('ps-id').value;
+  var staffId=document.getElementById('ps-staff-id').value;
+  var d=document.getElementById('ps-date').value;
+  var slot=document.getElementById('ps-slot').value.trim();
+  var cat=document.getElementById('ps-category').value||null;
+  var title=document.getElementById('ps-title').value.trim();
+  var link=document.getElementById('ps-link').value.trim();
+  var notes=document.getElementById('ps-notes').value.trim();
+  var status=document.getElementById('ps-status').value||'cho_duyet';
+  if(!staffId||!d||!slot){toast('Thiếu: Nhân sự / Ngày / Giờ',false);return;}
+  if(btn){btn.disabled=true;btn.textContent='Đang lưu...';}
+  var payload={staff_id:staffId,post_date:d,time_slot:slot,category:cat,title:title||null,link:link||null,notes:notes||null,status:status};
+  var r;
+  if(id){r=await sb2.from('staff_post_schedule').update(payload).eq('id',id);}
+  else{payload.created_by=authUser?authUser.email:null;r=await sb2.from('staff_post_schedule').insert(payload);}
+  if(btn){btn.disabled=false;btn.textContent=id?'Lưu':'Thêm';}
+  if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+  toast(id?'Đã lưu':'Đã thêm bài đăng',true);
+  closePostScheduleModal();
+  await loadDeferred();render();
+}
+async function deletePostSchedule(id){
+  if(!isAdmin()){toast('Chỉ admin mới xóa được',false);return;}
+  if(!(await hcConfirm({title:'Xóa bài đăng',message:'Xóa lịch bài đăng này?',confirmLabel:'Xóa',danger:true})))return;
+  var r=await sb2.from('staff_post_schedule').delete().eq('id',id);
+  if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+  toast('Đã xóa',true);await loadDeferred();render();
+}
+async function cyclePostStatus(id){
+  if(!isAdmin()){toast('Chỉ admin mới đổi trạng thái',false);return;}
+  var p=postScheduleData.find(function(x){return x.id===id;});if(!p)return;
+  var order=['cho_duyet','da_duyet','da_post'];
+  var idx=order.indexOf(p.status||'cho_duyet');
+  var next=order[(idx+1)%order.length];
+  var r=await sb2.from('staff_post_schedule').update({status:next}).eq('id',id);
+  if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+  p.status=next;render();
 }
 
 // ═══ P3: KHÁCH HÀNG ═══
@@ -3005,7 +3233,8 @@ var PERMISSION_TREE=[
   ]},
   {key:'p2',label:'Nhân sự',sub:[
     {key:'p2.salary',label:'Lương + Hoa hồng'},
-    {key:'p2.penalty',label:'Sổ phạt'}
+    {key:'p2.penalty',label:'Sổ phạt'},
+    {key:'p2.task',label:'Công việc'}
   ]},
   {key:'p3',label:'Khách hàng',sub:[
     {key:'p3.overview',label:'Tổng quan khách'},
