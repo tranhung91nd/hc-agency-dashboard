@@ -705,7 +705,7 @@ sb2.from('quotation').select('*,client(name,company_full_name)').order('created_
 sb2.from('penalty').select('*').order('penalty_date',{ascending:false}),
 sb2.from('team_fund_withdrawal').select('*').order('withdrawal_date',{ascending:false}),
 sb2.from('team_task').select('*').gte('task_date',new Date(Date.now()-30*86400000).toISOString().substring(0,10)).order('task_date',{ascending:false}),
-sb2.from('staff_post_schedule').select('*').gte('post_date',new Date(Date.now()-30*86400000).toISOString().substring(0,10)).order('post_date',{ascending:true}),
+sb2.from('staff_post_schedule').select('*').gte('post_date',new Date(Date.now()-180*86400000).toISOString().substring(0,10)).order('post_date',{ascending:true}),
 sb2.from('client_deposit').select('*').order('deposit_date',{ascending:false}),
 fetchPaged(sb2.from('daily_spend').select('id,report_date,ad_account_id,spend_amount,staff_id,matched_client_id').gte('report_date',minDate180).lt('report_date',minDate60).order('report_date')),
 sb2.from('bank_reconcile').select('*').order('bank_date',{ascending:false}),
@@ -1948,12 +1948,36 @@ var POST_STATUSES=[
 ];
 var POST_DEFAULT_SLOTS=['11h30','20h'];
 var postScheduleStaffId=null;
-var postScheduleWeekOffset=0;
+var postScheduleMonth=''; // YYYY-MM, init = lm() trong p2Task()
 function setPostScheduleStaff(id){postScheduleStaffId=id;render();}
-function setPostScheduleWeek(off){postScheduleWeekOffset=parseInt(off)||0;render();}
+function setPostScheduleMonth(m){postScheduleMonth=m;render();}
+function _postPadMonth(y,m){return y+'-'+String(m).padStart(2,'0');}
+function _postPrevMonth(m){var p=m.split('-');var y=parseInt(p[0]),mo=parseInt(p[1])-1;if(mo<1){mo=12;y--;}return _postPadMonth(y,mo);}
+function _postNextMonth(m){var p=m.split('-');var y=parseInt(p[0]),mo=parseInt(p[1])+1;if(mo>12){mo=1;y++;}return _postPadMonth(y,mo);}
+function _postMonthLabel(m){var p=m.split('-');return 'T'+parseInt(p[1])+'/'+p[0];}
+function _postWeekStartFromDate(date){var x=new Date(date);x.setHours(0,0,0,0);var day=x.getDay();var diff=(day===0?-6:1-day);x.setDate(x.getDate()+diff);return x;}
+function _postWeeksInMonth(monthStr){
+  var p=monthStr.split('-'),y=parseInt(p[0]),mo=parseInt(p[1]);
+  var firstDay=new Date(y,mo-1,1);
+  var lastDay=new Date(y,mo,0);
+  var weeks=[];
+  var ws=_postWeekStartFromDate(firstDay);
+  while(ws<=lastDay){weeks.push(new Date(ws));var next=new Date(ws);next.setDate(next.getDate()+7);ws=next;}
+  return weeks;
+}
+function _postKpiForMonth(staffId,monthStr){
+  var p=monthStr.split('-'),y=parseInt(p[0]),mo=parseInt(p[1]);
+  var lastDay=new Date(y,mo,0).getDate();
+  var pass=0,fail=0,pending=0;
+  for(var d=1;d<=lastDay;d++){
+    var ds=_postPadMonth(y,mo)+'-'+String(d).padStart(2,'0');
+    var k=_postKpiForDay(staffId,ds);
+    if(k.status==='pass')pass++;else if(k.status==='fail')fail++;else pending++;
+  }
+  return {pass:pass,fail:fail,pending:pending,total:lastDay};
+}
 function _postCatMeta(k){for(var i=0;i<POST_CATEGORIES.length;i++)if(POST_CATEGORIES[i].key===k)return POST_CATEGORIES[i];return null;}
 function _postStatusMeta(k){for(var i=0;i<POST_STATUSES.length;i++)if(POST_STATUSES[i].key===k)return POST_STATUSES[i];return POST_STATUSES[0];}
-function _postWeekStart(offset){var d=new Date();d.setHours(0,0,0,0);var day=d.getDay();var diff=(day===0?-6:1-day);d.setDate(d.getDate()+diff+offset*7);return d;}
 function _postFmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function _postDayLabel(d){return ['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'][d.getDay()]+' '+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');}
 function _isPostLate(p){
@@ -1980,15 +2004,6 @@ function _postKpiForDay(staffId,dateStr){
   var status=pass?'pass':(dateStr<todayStr?'fail':'pending');
   return {pass:pass,status:status,videoCnt:videoCnt,textCnt:textCnt};
 }
-function _postKpiForWeek(staffId,weekStart){
-  var p=0,f=0,pd=0;
-  for(var i=0;i<7;i++){
-    var d=new Date(weekStart);d.setDate(d.getDate()+i);
-    var k=_postKpiForDay(staffId,_postFmtDate(d));
-    if(k.status==='pass')p++;else if(k.status==='fail')f++;else pd++;
-  }
-  return {pass:p,fail:f,pending:pd};
-}
 function p2Task(){
   var canEdit=isAdmin();
   if(!postScheduleStaffId){
@@ -2008,78 +2023,106 @@ function p2Task(){
   });
   h+='</div></div>';
   if(!staff){h+='<div class="empty-state">Chưa có nhân sự nào.</div>';return h;}
-  // Week navigator
-  var weekStart=_postWeekStart(postScheduleWeekOffset);
-  var weekEnd=new Date(weekStart);weekEnd.setDate(weekEnd.getDate()+6);
-  var wsLabel=String(weekStart.getDate()).padStart(2,'0')+'/'+String(weekStart.getMonth()+1).padStart(2,'0');
-  var weLabel=String(weekEnd.getDate()).padStart(2,'0')+'/'+String(weekEnd.getMonth()+1).padStart(2,'0');
-  h+='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">';
+  // Month navigator — đồng bộ pattern với p2 Lương + p4 Tài chính (select tháng)
+  if(!postScheduleMonth)postScheduleMonth=lm();
+  var monthSet={};
+  var nowD=new Date();
+  for(var mi=-6;mi<=6;mi++){var md=new Date(nowD.getFullYear(),nowD.getMonth()+mi,1);monthSet[_postPadMonth(md.getFullYear(),md.getMonth()+1)]=1;}
+  postScheduleData.filter(function(p){return p.staff_id===staff.id&&p.post_date;}).forEach(function(p){monthSet[p.post_date.substring(0,7)]=1;});
+  monthSet[postScheduleMonth]=1;
+  var monthArr=Object.keys(monthSet).sort();
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">';
   h+='<div style="display:flex;align-items:center;gap:8px;">';
-  h+='<button class="btn btn-ghost btn-sm" onclick="setPostScheduleWeek('+(postScheduleWeekOffset-1)+')">←</button>';
-  h+='<div style="font-weight:600;font-size:14px;">Tuần '+wsLabel+' – '+weLabel+'</div>';
-  h+='<button class="btn btn-ghost btn-sm" onclick="setPostScheduleWeek('+(postScheduleWeekOffset+1)+')">→</button>';
-  if(postScheduleWeekOffset!==0)h+='<button class="btn btn-ghost btn-sm" onclick="setPostScheduleWeek(0)" style="font-size:11px;">Về tuần này</button>';
+  h+='<button class="btn btn-ghost btn-sm" onclick="setPostScheduleMonth(\''+_postPrevMonth(postScheduleMonth)+'\')">←</button>';
+  h+='<select class="fi" style="width:140px;" onchange="setPostScheduleMonth(this.value)">';
+  monthArr.forEach(function(m){h+='<option value="'+m+'"'+(m===postScheduleMonth?' selected':'')+'>'+_postMonthLabel(m)+'</option>';});
+  h+='</select>';
+  h+='<button class="btn btn-ghost btn-sm" onclick="setPostScheduleMonth(\''+_postNextMonth(postScheduleMonth)+'\')">→</button>';
+  if(postScheduleMonth!==lm())h+='<button class="btn btn-ghost btn-sm" onclick="setPostScheduleMonth(\''+lm()+'\')" style="font-size:11px;">Về tháng này</button>';
   h+='</div>';
   if(canEdit)h+='<button class="btn btn-primary btn-sm" onclick="openPostScheduleModal(null,\''+staff.id+'\')">+ Thêm bài đăng</button>';
   h+='</div>';
-  // KPI card
-  var kpi=_postKpiForWeek(staff.id,weekStart);
-  var kpiPct=Math.round(kpi.pass/7*100);
-  var kpiColor=kpi.pass===7?'var(--green)':(kpi.fail>0?'#dc2626':'var(--tx2)');
+  // KPI card tháng
+  var mKpi=_postKpiForMonth(staff.id,postScheduleMonth);
+  var kpiPct=mKpi.total?Math.round(mKpi.pass/mKpi.total*100):0;
+  var kpiColor=mKpi.pass===mKpi.total?'var(--green)':(mKpi.fail>0?'#dc2626':'var(--tx2)');
   h+='<div class="form-card" style="padding:14px 18px;margin-bottom:14px;">';
   h+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap;">';
-  h+='<div><div style="font-weight:600;font-size:14px;">KPI tuần này</div><div style="font-size:11px;color:var(--tx3);margin-top:2px;">Mỗi ngày cần: <b>1 video</b> HOẶC <b>2 bài viết</b> (chỉ tính bài đã đăng)</div></div>';
-  h+='<div style="font-size:22px;font-weight:700;color:'+kpiColor+';">'+kpi.pass+'/7 <span style="font-size:12px;font-weight:500;color:var(--tx3);">ngày đạt</span></div>';
+  h+='<div><div style="font-weight:600;font-size:14px;">KPI '+_postMonthLabel(postScheduleMonth)+'</div><div style="font-size:11px;color:var(--tx3);margin-top:2px;">Mỗi ngày cần: <b>1 video</b> HOẶC <b>2 bài viết</b> (chỉ tính bài đã đăng)</div></div>';
+  h+='<div style="font-size:22px;font-weight:700;color:'+kpiColor+';">'+mKpi.pass+'/'+mKpi.total+' <span style="font-size:12px;font-weight:500;color:var(--tx3);">ngày đạt</span></div>';
   h+='</div>';
-  h+='<div style="height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;"><div style="height:100%;background:'+(kpi.pass===7?'var(--green)':'#3b82f6')+';width:'+kpiPct+'%;transition:width .3s;"></div></div>';
+  h+='<div style="height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;"><div style="height:100%;background:'+(mKpi.pass===mKpi.total?'var(--green)':'#3b82f6')+';width:'+kpiPct+'%;transition:width .3s;"></div></div>';
   h+='<div style="display:flex;gap:14px;font-size:11px;margin-top:8px;flex-wrap:wrap;">';
-  h+='<span style="color:#059669;">✓ Đạt: <b>'+kpi.pass+'</b></span>';
-  h+='<span style="color:#dc2626;">✗ Thiếu: <b>'+kpi.fail+'</b></span>';
-  h+='<span style="color:var(--tx3);">— Chưa tới: <b>'+kpi.pending+'</b></span>';
+  h+='<span style="color:#059669;">✓ Đạt: <b>'+mKpi.pass+'</b></span>';
+  h+='<span style="color:#dc2626;">✗ Thiếu: <b>'+mKpi.fail+'</b></span>';
+  h+='<span style="color:var(--tx3);">— Chưa tới: <b>'+mKpi.pending+'</b></span>';
   h+='</div>';
   h+='</div>';
-  // Bảng tuần
-  h+='<div class="table-wrap"><table>';
-  h+='<thead><tr><th style="width:110px;">Ngày</th><th style="width:70px;">Giờ</th><th style="width:110px;">Thể loại</th><th>Tiêu đề</th><th style="width:80px;">Link</th><th style="width:110px;">Trạng thái</th>'+(canEdit?'<th style="width:70px;"></th>':'')+'</tr></thead><tbody>';
-  for(var i=0;i<7;i++){
-    var d=new Date(weekStart);d.setDate(d.getDate()+i);
-    var dateStr=_postFmtDate(d);
-    var dayLabel=_postDayLabel(d);
-    var slotsForDay=postScheduleData.filter(function(p){return p.staff_id===staff.id&&p.post_date===dateStr;});
-    var slotsMap={};slotsForDay.forEach(function(p){slotsMap[p.time_slot]=p;});
-    var renderSlots=POST_DEFAULT_SLOTS.slice();
-    slotsForDay.forEach(function(p){if(renderSlots.indexOf(p.time_slot)<0)renderSlots.push(p.time_slot);});
-    var isToday=dateStr===_postFmtDate(new Date());
-    var dayKpi=_postKpiForDay(staff.id,dateStr);
-    var dayBadge=dayKpi.status==='pass'
-      ?'<div style="display:inline-block;margin-top:4px;padding:1px 7px;background:#d1fae5;color:#065f46;border-radius:8px;font-size:10px;font-weight:600;" title="Đủ KPI ('+dayKpi.videoCnt+' video, '+dayKpi.textCnt+' bài)">✓ Đạt KPI</div>'
-      :dayKpi.status==='fail'
-        ?'<div style="display:inline-block;margin-top:4px;padding:1px 7px;background:#fecaca;color:#991b1b;border-radius:8px;font-size:10px;font-weight:600;" title="Mới có '+dayKpi.videoCnt+' video, '+dayKpi.textCnt+' bài. Cần: 1 video HOẶC 2 bài.">✗ Thiếu KPI</div>'
-        :'';
-    renderSlots.forEach(function(slot,si){
-      var p=slotsMap[slot];
-      var late=_isPostLate(p);
-      var rowBg=late?'background:rgba(239,68,68,0.06);':(isToday?'background:rgba(59,130,246,0.04);':'');
-      h+='<tr style="'+rowBg+'">';
-      if(si===0)h+='<td rowspan="'+renderSlots.length+'" style="vertical-align:middle;font-weight:500;">'+esc(dayLabel)+(dayBadge?'<br>'+dayBadge:'')+'</td>';
-      h+='<td class="mono" style="color:var(--tx3);">'+esc(slot)+'</td>';
-      if(p){
-        var cat=_postCatMeta(p.category);
-        h+='<td>'+(cat?'<span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500;background:'+cat.bg+';color:'+cat.tx+';">'+esc(cat.label)+'</span>':'<span style="color:var(--tx3);font-size:11px;">—</span>')+'</td>';
-        h+='<td>'+esc(p.title||'')+(p.notes?'<div style="font-size:11px;color:var(--tx3);margin-top:2px;">'+esc(p.notes)+'</div>':'')+'</td>';
-        h+='<td>'+(p.link?'<a href="'+esc(p.link)+'" target="_blank" rel="noopener" style="font-size:11px;">Mở ↗</a>':'<span style="color:var(--tx3);font-size:11px;">—</span>')+'</td>';
-        var st=late?{key:'tre',label:'Trễ',bg:'#fecaca',tx:'#991b1b'}:_postStatusMeta(p.status);
-        if(canEdit&&!late)h+='<td><button onclick="cyclePostStatus(\''+p.id+'\')" style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500;background:'+st.bg+';color:'+st.tx+';border:0;cursor:pointer;" title="Click để đổi trạng thái">'+esc(st.label)+'</button></td>';
-        else h+='<td><span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500;background:'+st.bg+';color:'+st.tx+';">'+esc(st.label)+'</span></td>';
-        if(canEdit)h+='<td style="text-align:right;white-space:nowrap;"><button onclick="openPostScheduleModal(\''+p.id+'\',\''+staff.id+'\')" style="font-size:13px;border:0;background:none;color:var(--tx3);cursor:pointer;padding:2px 4px;" title="Sửa">✏️</button><button onclick="deletePostSchedule(\''+p.id+'\')" style="font-size:14px;border:0;background:none;color:var(--tx3);cursor:pointer;padding:2px 4px;" title="Xóa">×</button></td>';
-      }else{
-        h+='<td colspan="4" style="color:var(--tx3);font-size:11px;font-style:italic;">— Trống —</td>';
-        if(canEdit)h+='<td style="text-align:right;"><button onclick="openPostScheduleModal(null,\''+staff.id+'\',\''+dateStr+'\',\''+slot+'\')" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 8px;">+ Thêm</button></td>';
+  // Loop các tuần trong tháng — section style đồng bộ với p2 Lương (section-title)
+  var weeks=_postWeeksInMonth(postScheduleMonth);
+  var monthFirstDay=postScheduleMonth+'-01';
+  var monthP=postScheduleMonth.split('-');var monthLastDate=new Date(parseInt(monthP[0]),parseInt(monthP[1]),0).getDate();
+  var monthLastDay=postScheduleMonth+'-'+String(monthLastDate).padStart(2,'0');
+  var todayStr=_postFmtDate(new Date());
+  weeks.forEach(function(weekStart,wi){
+    var weekEnd=new Date(weekStart);weekEnd.setDate(weekEnd.getDate()+6);
+    var wsLabel=String(weekStart.getDate()).padStart(2,'0')+'/'+String(weekStart.getMonth()+1).padStart(2,'0');
+    var weLabel=String(weekEnd.getDate()).padStart(2,'0')+'/'+String(weekEnd.getMonth()+1).padStart(2,'0');
+    var wkPass=0,wkFail=0,wkPending=0,wkTotal=0;
+    for(var di=0;di<7;di++){
+      var dx=new Date(weekStart);dx.setDate(dx.getDate()+di);
+      var dxs=_postFmtDate(dx);
+      if(dxs<monthFirstDay||dxs>monthLastDay)continue;
+      var kk=_postKpiForDay(staff.id,dxs);wkTotal++;
+      if(kk.status==='pass')wkPass++;else if(kk.status==='fail')wkFail++;else wkPending++;
+    }
+    h+='<div class="section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:'+(wi===0?'8px':'18px')+';">';
+    h+='<div>Tuần '+(wi+1)+' ('+wsLabel+' – '+weLabel+')</div>';
+    if(wkTotal)h+='<div style="font-size:12px;color:var(--tx3);font-weight:400;">'+wkPass+'/'+wkTotal+' ngày đạt KPI</div>';
+    h+='</div>';
+    h+='<div class="table-wrap"><table>';
+    h+='<thead><tr><th style="width:110px;">Ngày</th><th style="width:70px;">Giờ</th><th style="width:110px;">Thể loại</th><th>Tiêu đề</th><th style="width:80px;">Link</th><th style="width:110px;">Trạng thái</th>'+(canEdit?'<th style="width:70px;"></th>':'')+'</tr></thead><tbody>';
+    for(var i=0;i<7;i++){
+      var d=new Date(weekStart);d.setDate(d.getDate()+i);
+      var dateStr=_postFmtDate(d);
+      var inMonth=dateStr>=monthFirstDay&&dateStr<=monthLastDay;
+      var dayLabel=_postDayLabel(d);
+      var slotsForDay=postScheduleData.filter(function(p){return p.staff_id===staff.id&&p.post_date===dateStr;});
+      var slotsMap={};slotsForDay.forEach(function(p){slotsMap[p.time_slot]=p;});
+      var renderSlots=POST_DEFAULT_SLOTS.slice();
+      slotsForDay.forEach(function(p){if(renderSlots.indexOf(p.time_slot)<0)renderSlots.push(p.time_slot);});
+      var isToday=dateStr===todayStr;
+      var dayKpi=inMonth?_postKpiForDay(staff.id,dateStr):null;
+      var dayBadge='';
+      if(dayKpi){
+        if(dayKpi.status==='pass')dayBadge='<div style="display:inline-block;margin-top:4px;padding:1px 7px;background:#d1fae5;color:#065f46;border-radius:8px;font-size:10px;font-weight:600;" title="Đủ KPI ('+dayKpi.videoCnt+' video, '+dayKpi.textCnt+' bài)">✓ Đạt KPI</div>';
+        else if(dayKpi.status==='fail')dayBadge='<div style="display:inline-block;margin-top:4px;padding:1px 7px;background:#fecaca;color:#991b1b;border-radius:8px;font-size:10px;font-weight:600;" title="Mới có '+dayKpi.videoCnt+' video, '+dayKpi.textCnt+' bài. Cần: 1 video HOẶC 2 bài.">✗ Thiếu KPI</div>';
       }
-      h+='</tr>';
-    });
-  }
-  h+='</tbody></table></div>';
+      renderSlots.forEach(function(slot,si){
+        var p=slotsMap[slot];
+        var late=_isPostLate(p);
+        var rowBg=!inMonth?'background:rgba(0,0,0,0.02);opacity:.45;':(late?'background:rgba(239,68,68,0.06);':(isToday?'background:rgba(59,130,246,0.04);':''));
+        h+='<tr style="'+rowBg+'">';
+        if(si===0)h+='<td rowspan="'+renderSlots.length+'" style="vertical-align:middle;font-weight:500;">'+esc(dayLabel)+(dayBadge?'<br>'+dayBadge:'')+'</td>';
+        h+='<td class="mono" style="color:var(--tx3);">'+esc(slot)+'</td>';
+        if(p){
+          var cat=_postCatMeta(p.category);
+          h+='<td>'+(cat?'<span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500;background:'+cat.bg+';color:'+cat.tx+';">'+esc(cat.label)+'</span>':'<span style="color:var(--tx3);font-size:11px;">—</span>')+'</td>';
+          h+='<td>'+esc(p.title||'')+(p.notes?'<div style="font-size:11px;color:var(--tx3);margin-top:2px;">'+esc(p.notes)+'</div>':'')+'</td>';
+          h+='<td>'+(p.link?'<a href="'+esc(p.link)+'" target="_blank" rel="noopener" style="font-size:11px;">Mở ↗</a>':'<span style="color:var(--tx3);font-size:11px;">—</span>')+'</td>';
+          var st=late?{key:'tre',label:'Trễ',bg:'#fecaca',tx:'#991b1b'}:_postStatusMeta(p.status);
+          if(canEdit&&!late)h+='<td><button onclick="cyclePostStatus(\''+p.id+'\')" style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500;background:'+st.bg+';color:'+st.tx+';border:0;cursor:pointer;" title="Click để đổi trạng thái">'+esc(st.label)+'</button></td>';
+          else h+='<td><span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500;background:'+st.bg+';color:'+st.tx+';">'+esc(st.label)+'</span></td>';
+          if(canEdit)h+='<td style="text-align:right;white-space:nowrap;"><button onclick="openPostScheduleModal(\''+p.id+'\',\''+staff.id+'\')" style="font-size:13px;border:0;background:none;color:var(--tx3);cursor:pointer;padding:2px 4px;" title="Sửa">✏️</button><button onclick="deletePostSchedule(\''+p.id+'\')" style="font-size:14px;border:0;background:none;color:var(--tx3);cursor:pointer;padding:2px 4px;" title="Xóa">×</button></td>';
+        }else{
+          h+='<td colspan="4" style="color:var(--tx3);font-size:11px;font-style:italic;">— Trống —</td>';
+          if(canEdit)h+='<td style="text-align:right;"><button onclick="openPostScheduleModal(null,\''+staff.id+'\',\''+dateStr+'\',\''+slot+'\')" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 8px;">+ Thêm</button></td>';
+        }
+        h+='</tr>';
+      });
+    }
+    h+='</tbody></table></div>';
+  });
   return h;
 }
 function openPostScheduleModal(id,staffId,defaultDate,defaultSlot){
