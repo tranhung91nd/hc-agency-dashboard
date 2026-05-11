@@ -3411,14 +3411,13 @@ function isStrictAdmin(){return authUser&&userRole==='admin';}
 function isAdmin(){return authUser&&(userRole==='admin'||!userAllowedPages);}
 // Trả về staff_id nếu user hiện tại bị khoá vào 1 nhân sự cụ thể (xem được mỗi data của staff đó trong p2.*).
 // Admin (hoặc không có entry user_roles) → null = full view.
-// Ưu tiên: explicit link (user_roles.staff_id) → fallback fuzzy name match cho role 'marketing' (backward compat).
+// Ưu tiên: explicit link (user_roles.staff_id) → fallback fuzzy name match cho mọi non-admin (display_name vs staff name/code).
 function getRestrictedStaffId(){
   if(!authUser||isAdmin())return null;
   if(currentUserRoleRecord&&currentUserRoleRecord.staff_id)return currentUserRoleRecord.staff_id;
-  if(typeof isStaffScopedRole==='function'&&isStaffScopedRole()){
-    var s=getCurrentUserStaff();
-    if(s)return s.id;
-  }
+  // Fuzzy fallback: nếu non-admin user (có entry user_roles) có display_name khớp với 1 staff → restrict
+  var s=getCurrentUserStaff();
+  if(s)return s.id;
   return null;
 }
 async function loadAllUserRoles(){
