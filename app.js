@@ -5922,7 +5922,7 @@ function renderClientPostWeekly(clientId,month){
   var h='<div style="margin-top:18px;padding:0 2px;">';
   h+='<div style="font-weight:600;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
   h+='<span>Hiệu quả theo bài chạy × tuần</span>';
-  h+='<span style="font-size:11px;color:var(--tx3);font-weight:400;">(gom theo post Facebook, sort theo chi phí giảm dần)</span>';
+  h+='<span style="font-size:11px;color:var(--tx3);font-weight:400;">(gom theo post Facebook, sort theo chi phí/kết quả tăng dần)</span>';
   h+='</div>';
   if(!rows.length){
     h+='<div style="padding:14px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--tx3);">';
@@ -5970,7 +5970,13 @@ function renderClientPostWeekly(clientId,month){
     if(r.ad_name&&p.name==='(không tên)')p.name=r.ad_name;
   });
   var weeks=Object.keys(weekSet).sort();
-  var posts=Object.keys(byPost).map(function(k){return byPost[k];}).sort(function(a,b){return b.total.spend-a.total.spend;});
+  // Sort theo chi phí/kết quả tăng dần (rẻ nhất lên đầu); bài chưa có kết quả (mess+cmt=0) xuống cuối, tie-break theo spend giảm dần
+  var posts=Object.keys(byPost).map(function(k){return byPost[k];}).sort(function(a,b){
+    var ar=a.total.mess+a.total.cmt, br=b.total.mess+b.total.cmt;
+    var ac=ar?a.total.spend/ar:Infinity, bc=br?b.total.spend/br:Infinity;
+    if(ac!==bc)return ac-bc;
+    return b.total.spend-a.total.spend;
+  });
   // Header tuần
   h+='<div class="table-wrap" style="background:var(--bg1);border-radius:var(--radius);">';
   h+='<table style="font-size:12px;min-width:900px;"><thead><tr>';
