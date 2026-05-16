@@ -6921,6 +6921,10 @@ function renderClientEditModal(){
   h+='<div><label>Trạng thái chăm sóc</label><select id="ce-care" class="fi">';
   CARE_ORDER.forEach(function(k){h+='<option value="'+k+'"'+(k===curCare?' selected':'')+'>'+esc(CARE_STATUS[k].name)+'</option>';});
   h+='</select></div>';
+  if(!isProspect){
+    var curStatus=c.status||'active';
+    h+='<div><label>Trạng thái hoạt động <span style="color:var(--tx3);font-weight:400;text-transform:none;">(chỉ "Đang hoạt động" mới vào báo cáo chi tiêu)</span></label><select id="ce-status" class="fi"><option value="active"'+(curStatus==='active'?' selected':'')+'>Đang hoạt động</option><option value="paused"'+(curStatus==='paused'?' selected':'')+'>Tạm dừng</option><option value="stopped"'+(curStatus==='stopped'?' selected':'')+'>Dừng</option></select></div>';
+  }
   if(isProspect){
     h+='<div><label>Ghi chú (nguồn lead, follow-up…)</label><input id="ce-note" class="fi" value="'+esc(c.prospect_note||'')+'"></div>';
   }
@@ -6980,6 +6984,7 @@ async function saveClientEditModal(btn){
     campaign_keyword:get('ce-kw')||null
   };
   if(c.status==='prospect'){payload.prospect_note=get('ce-note')||null;}
+  else{var newStatus=get('ce-status');if(newStatus&&['active','paused','stopped'].indexOf(newStatus)>=0)payload.status=newStatus;}
   btn.disabled=true;btn.classList.add('is-loading');
   var r=await sb2.from('client').update(payload).eq('id',clientEditModalId);
   // Nếu DB chưa có cột rental_fee_pct → retry không kèm cột đó
