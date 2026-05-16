@@ -114,7 +114,7 @@ function renderZaloBtn(c){
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],adPostData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],teamFundData=[],teamTaskData=[],postScheduleData=[],clientDepositData=[],bankReconcileData=[],bankImportLog=[];
-var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,currentUserRoleRecord=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc',finTab='thuchi',reconcileMonth='',reconcileSearch='',editingUserRoleId=null,pendingNewUserRoleStaffId=null;
+var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,currentUserRoleRecord=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,newActiveClientModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc',finTab='thuchi',reconcileMonth='',reconcileSearch='',editingUserRoleId=null,pendingNewUserRoleStaffId=null;
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -1004,7 +1004,7 @@ if(curPage===0)el.innerHTML=p0();else if(curPage===1)el.innerHTML=p1();else if(c
 // Inject contract/prospect modals (ngoài page content để không bị cắt)
 var modalRoot=document.getElementById('hc-modal-root');
 if(!modalRoot){modalRoot=document.createElement('div');modalRoot.id='hc-modal-root';document.body.appendChild(modalRoot);}
-modalRoot.innerHTML=renderNewProspectModal()+renderContractModal()+renderContractHistoryModal()+renderQuotationModal()+renderClientEditModal()+renderDepositModal();
+modalRoot.innerHTML=renderNewProspectModal()+renderNewActiveClientModal()+renderContractModal()+renderContractHistoryModal()+renderQuotationModal()+renderClientEditModal()+renderDepositModal();
 enhanceUI();
 ensureModalFocusTrap();
 if(curPage===1&&spendTab===0)restoreAdFilters();
@@ -2288,7 +2288,7 @@ var totalSpend=rows.reduce(function(t,r){return t+r.spend;},0);
 var totalFee=rows.reduce(function(t,r){return t+getEffectiveServiceFee(r.c.id,ms,r.c.service_fee)+getRentalFeeAmount(r.c,ms,r.spend);},0);
 // Rental KPI — tóm tắt khách thuê TKQC
 if(expandedClientId&&!rows.some(function(r){return r.c.id===expandedClientId;}))expandedClientId=null;
-var h='<div class="page-title">Khách hàng</div><div class="page-sub">Tổng '+activeClients.length+' chính thức · '+prospectCount+' tiềm năng</div>';
+var h='<div class="pr-header"><div><div class="page-title">Khách hàng</div><div class="page-sub">Tổng '+activeClients.length+' chính thức · '+prospectCount+' tiềm năng</div></div><button class="btn btn-primary pr-add-btn" onclick="openNewActiveClientModal()">+ Thêm khách</button></div>';
 h+=tabH;
 // Sub-tab bar (Tổng quan / Báo cáo Ads) — chỉ hiện trong Khách chính thức
 var canKhOverview=canAccessKey('p3.overview'),canKhReport=canAccessKey('p3.report');
@@ -5252,6 +5252,47 @@ async function saveNewProspect(btn){
   await loadLight();
 }
 
+// ═══ MỞ MODAL TẠO KHÁCH CHÍNH THỨC ═══
+function openNewActiveClientModal(){
+  if(!needAuth())return;
+  newActiveClientModalOpen=true;render();
+}
+function closeNewActiveClientModal(){newActiveClientModalOpen=false;render();}
+async function saveNewActiveClient(btn){
+  if(!needAuth())return;
+  var v=function(id){var el=document.getElementById(id);return el?el.value.trim():'';};
+  var name=v('nac-name'),companyFull=v('nac-company-full'),contact=v('nac-contact'),phone=v('nac-phone'),addr=v('nac-address'),tax=v('nac-tax'),email=v('nac-email'),repName=v('nac-rep-name'),repTitle=v('nac-rep-title')||'Giám đốc',repSal=v('nac-rep-sal')||'Ông',industry=v('nac-industry'),prefix=v('nac-prefix'),zalo=v('nac-zalo'),startDate=v('nac-start-date'),fee=parseInt(v('nac-fee'))||0,hasVat=document.getElementById('nac-vat')&&document.getElementById('nac-vat').checked;
+  var services=[];
+  Array.prototype.forEach.call(document.querySelectorAll('.nac-service:checked'),function(el){services.push(el.value);});
+  if(!services.length)services=['fb_ads'];
+  if(!name){toast('Nhập tên khách',false);return;}
+  if(!startDate)startDate=new Date().toISOString().substring(0,10);
+  var rentalEl=document.getElementById('nac-rental-pct');
+  var rentalPctNum=rentalEl?parseFloat(rentalEl.value):NaN;
+  var rentalPct=null;
+  if(services.indexOf('tkqc_rental')>=0&&rentalPctNum>0&&rentalPctNum<=20){
+    rentalPct=Math.round(rentalPctNum*100)/10000;
+  }
+  btn.disabled=true;
+  var payload={name:name,company_full_name:companyFull||null,contact_person:contact||null,phone:phone||null,address:addr||null,tax_code:tax||null,email_invoice:email||null,representative_name:repName||null,representative_title:repTitle,representative_salutation:repSal,industry:industry||null,contract_prefix:(prefix||'').toUpperCase()||null,status:'active',start_date:startDate,payment_status:'unpaid',has_vat:!!hasVat,service_fee:fee,services:services,zalo:zalo||null,care_status:'won',rental_fee_pct:rentalPct};
+  var r=await sb2.from('client').insert(payload);
+  if(r.error&&isMissingColumnError(r.error)){
+    var fb=Object.assign({},payload);delete fb.rental_fee_pct;
+    r=await sb2.from('client').insert(fb);
+    if(!r.error&&rentalPct!==null)toast('⚠ Đã thêm khách nhưng chưa có cột rental_fee_pct. Hãy chạy migration để bật phí thuê TKQC.',false);
+  }
+  btn.disabled=false;
+  if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+  toast('Đã thêm khách chính thức ✓',true);
+  newActiveClientModalOpen=false;
+  await loadLight();
+}
+function toggleNacRentalRow(){
+  var checked=document.querySelector('.nac-service[value="tkqc_rental"]:checked');
+  var row=document.getElementById('nac-rental-row');
+  if(row)row.style.display=checked?'':'none';
+}
+
 // ═══ CHỐT KÝ: CHUYỂN PROSPECT → ACTIVE ═══
 async function convertProspectToActive(clientId){
   if(!needAuth())return;
@@ -6130,6 +6171,7 @@ document.addEventListener('keydown',function(e){
   if(contractModalClientId){closeContractModal();return;}
   if(contractHistoryClientId){closeContractHistory();return;}
   if(newProspectModalOpen){closeNewProspectModal();return;}
+  if(newActiveClientModalOpen){closeNewActiveClientModal();return;}
   closeQuotationMenus();
 });
 
@@ -8084,6 +8126,43 @@ function renderNewProspectModal(){
   h+='</div>';
   h+='</div>';
   h+='<div class="hc-modal-foot"><button class="btn" onclick="closeNewProspectModal()">Hủy</button><button class="btn btn-primary" onclick="saveNewProspect(this)">Lưu khách tiềm năng</button></div>';
+  h+='</div></div>';
+  return h;
+}
+
+// ═══ RENDER MODAL: TẠO KHÁCH CHÍNH THỨC ═══
+function renderNewActiveClientModal(){
+  if(!newActiveClientModalOpen)return '';
+  var today=new Date().toISOString().substring(0,10);
+  var h='<div class="hc-modal-backdrop" onclick="if(event.target===this)closeNewActiveClientModal()">';
+  h+='<div class="hc-modal" role="dialog" aria-modal="true" aria-labelledby="nac-modal-title" style="max-width:720px;">';
+  h+='<div class="hc-modal-head"><h3 id="nac-modal-title">Thêm khách chính thức</h3><button class="hc-modal-close" aria-label="Đóng" onclick="closeNewActiveClientModal()">×</button></div>';
+  h+='<div class="hc-modal-body">';
+  h+='<p style="font-size:12px;color:var(--tx3);margin-bottom:14px;">Khách chính thức xuất hiện ngay trong báo cáo chi tiêu, bảng lương và phiếu thanh toán. Ngày bắt đầu dùng để tính 90 ngày hoa hồng cho nhân sự.</p>';
+  h+='<div class="hc-form-grid">';
+  h+='<div><label>Tên viết tắt <span style="color:var(--red);">*</span></label><input id="nac-name" placeholder="VD: HOHA" class="fi"></div>';
+  h+='<div><label>Mã viết tắt (dùng cho số Hợp đồng)</label><input id="nac-prefix" placeholder="VD: HOHA" class="fi" style="text-transform:uppercase;"></div>';
+  h+='<div><label>Ngày bắt đầu <span style="color:var(--tx3);font-weight:400;text-transform:none;">(tính 90 ngày hoa hồng)</span></label><input id="nac-start-date" type="date" value="'+today+'" class="fi"></div>';
+  h+='<div><label>Phí dịch vụ/tháng (VNĐ)</label><input id="nac-fee" type="number" min="0" placeholder="VD: 4000000" class="fi"></div>';
+  h+='<div style="grid-column:1/-1;"><label>Tên công ty đầy đủ</label><input id="nac-company-full" placeholder="VD: CÔNG TY CỔ PHẦN ABC" class="fi"></div>';
+  h+='<div style="grid-column:1/-1;"><label>Địa chỉ</label><input id="nac-address" class="fi"></div>';
+  h+='<div><label>Mã số thuế</label><input id="nac-tax" class="fi"></div>';
+  h+='<div><label>Điện thoại</label><input id="nac-phone" class="fi"></div>';
+  h+='<div><label>Email nhận hóa đơn</label><input id="nac-email" class="fi"></div>';
+  h+='<div><label>Người liên hệ</label><input id="nac-contact" class="fi"></div>';
+  h+='<div><label>Đại diện (Ông/Bà)</label><select id="nac-rep-sal" class="fi"><option>Ông</option><option>Bà</option></select></div>';
+  h+='<div><label>Tên người đại diện</label><input id="nac-rep-name" class="fi"></div>';
+  h+='<div><label>Chức vụ</label><input id="nac-rep-title" value="Giám đốc" class="fi"></div>';
+  h+='<div><label>Ngành nghề (đưa vào Hợp đồng)</label><input id="nac-industry" placeholder="VD: chế biến sữa" class="fi"></div>';
+  h+='<div><label>Zalo (số phone / username / link)</label><input id="nac-zalo" placeholder="0912345678 hoặc quanglx" class="fi"></div>';
+  h+='<div><label>VAT</label><div style="padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--radius);background:var(--bg2);"><label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;color:var(--tx1);"><input type="checkbox" id="nac-vat" style="accent-color:var(--blue);">Có VAT 8%</label></div></div>';
+  h+='<div style="grid-column:1/-1;"><label>Dịch vụ <span style="color:var(--tx3);font-weight:400;">(tick nhiều mục)</span></label><div style="display:flex;flex-wrap:wrap;gap:10px;padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--radius);background:var(--bg2);">';
+  Object.keys(SERVICES).forEach(function(code){var s=SERVICES[code];var dotC=SERVICE_DOT_COLORS[s.color]||'#888780';h+='<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;color:var(--tx1);"><input type="checkbox" class="nac-service" value="'+code+'"'+(code==='fb_ads'?' checked':'')+' onchange="toggleNacRentalRow()" style="accent-color:var(--blue);"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dotC+';"></span>'+esc(s.name)+'</label>';});
+  h+='</div></div>';
+  h+='<div id="nac-rental-row" style="grid-column:1/-1;display:none;"><label>% Phí thuê TKQC <span style="color:var(--tx3);font-weight:400;text-transform:none;">(VD: 3 = 3% spend, thường 3-4%)</span></label><div style="display:flex;align-items:center;gap:8px;"><input id="nac-rental-pct" class="fi" type="number" step="0.1" min="0" max="20" placeholder="VD: 3 hoặc 4" style="max-width:160px;"><span style="font-size:13px;color:var(--tx2);">%</span><span style="font-size:11px;color:var(--tx3);margin-left:8px;">Phí dịch vụ tháng = % × Spend</span></div></div>';
+  h+='</div>';
+  h+='</div>';
+  h+='<div class="hc-modal-foot"><button class="btn" onclick="closeNewActiveClientModal()">Hủy</button><button class="btn btn-primary" onclick="saveNewActiveClient(this)">Lưu khách chính thức</button></div>';
   h+='</div></div>';
   return h;
 }
