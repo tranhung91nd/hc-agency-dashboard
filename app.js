@@ -2355,7 +2355,7 @@ h+='<td>'+paymentBadgeHtml(getClientPaymentStatus(c))+'</td>';
 h+='<td style="text-align:right;">'+(sp?'<div style="font-weight:500;font-variant-numeric:tabular-nums;color:var(--teal);">'+fm(sp)+'</div><div class="bar-track" style="width:80px;margin-left:auto;margin-top:3px;"><div class="bar-fill" style="width:'+pct+'%;background:var(--teal);"></div></div>':'<span style="color:var(--tx3);">—</span>')+'</td>';
 h+='<td class="mono" style="text-align:right;">'+feeCellHtml+'</td>';
 h+='<td><span class="badge '+sb3+'">'+st2+'</span></td>';
-h+='<td style="text-align:center;">'+(sp?'<button class="kh-open-btn'+(isExp?' is-active':'')+'" onclick="toggleClientInv(\''+c.id+'\')">'+(isExp?'Thu gọn':'Mở phiếu')+'</button>':'<span style="color:var(--tx3);font-size:12px;">—</span>')+'</td></tr>';
+h+='<td style="text-align:center;">'+(sp||invoice.fee>0?'<button class="kh-open-btn'+(isExp?' is-active':'')+'" onclick="toggleClientInv(\''+c.id+'\')">'+(isExp?'Thu gọn':'Mở phiếu')+'</button>':'<span style="color:var(--tx3);font-size:12px;">—</span>')+'</td></tr>';
 if(isExp){
 var dim=new Date(parseInt(ms.split('-')[0]),parseInt(ms.split('-')[1]),0).getDate();
 var tkSpend={};
