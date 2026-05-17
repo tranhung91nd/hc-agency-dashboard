@@ -26,6 +26,7 @@ function sc(c){return CL[c]||CL.blue;}
 // Thêm dịch vụ mới: thêm 1 entry vào đây + chạy lại migration nếu cần default
 var SERVICES={
   fb_ads:{name:'Quảng cáo Facebook',short:'FB Ads',icon:'📣',color:'blue'},
+  tiktok_ads:{name:'Quảng cáo TikTok',short:'TikTok Ads',icon:'🎵',color:'gray'},
   tkqc_rental:{name:'Cho thuê TKQC',short:'Thuê TKQC',icon:'🔑',color:'teal'},
   web_dev:{name:'Lập trình Web App',short:'Web App',icon:'💻',color:'purple'}
 };
