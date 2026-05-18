@@ -811,38 +811,38 @@ if(sid&&r[sid]){
 // === SIDEBAR 2 LỚP: rail (icon) + subnav (panel) ===
 // Cấu hình sub-items cho từng page
 var SUBNAV_CONFIG={
-  0:{title:'Tổng quan',sections:[{label:'',items:[{key:'main',label:'Tổng quan',action:"pg(0)",match:function(){return curPage===0;}}]}]},
+  0:{title:'Tổng quan',sections:[{label:'',items:[{key:'main',label:'Tổng quan',route:'',action:"pg(0)",match:function(){return curPage===0;}}]}]},
   1:{title:'Tài khoản quảng cáo',sections:[{label:'TÀI KHOẢN',items:[
-    {key:'spend0',label:'Tài khoản quảng cáo',action:"setSpendTab(0)",permKey:'p1.tkqc',match:function(){return curPage===1&&spendTab===0;}},
-    {key:'spend1',label:'Chi tiêu theo nhân sự',action:"setSpendTab(1)",permKey:'p1.staff',match:function(){return curPage===1&&spendTab===1;}},
-    {key:'spend2',label:'Chi tiêu theo khách hàng',action:"setSpendTab(2)",permKey:'p1.client',match:function(){return curPage===1&&spendTab===2;}}
+    {key:'spend0',label:'Tài khoản quảng cáo',route:'ads/tkqc',action:"setSpendTab(0)",permKey:'p1.tkqc',match:function(){return curPage===1&&spendTab===0;}},
+    {key:'spend1',label:'Chi tiêu theo nhân sự',route:'ads/staff',action:"setSpendTab(1)",permKey:'p1.staff',match:function(){return curPage===1&&spendTab===1;}},
+    {key:'spend2',label:'Chi tiêu theo khách hàng',route:'ads/client',action:"setSpendTab(2)",permKey:'p1.client',match:function(){return curPage===1&&spendTab===2;}}
   ]}]},
   2:{title:'Nhân sự',sections:[{label:'',items:[
-    {key:'p2-task',label:'Công việc',action:"setP2Tab(2)",permKey:'p2.task',match:function(){return curPage===2&&p2Tab===2;}},
-    {key:'p2-salary',label:'Lương + Hoa hồng',action:"setP2Tab(0)",permKey:'p2.salary',match:function(){return curPage===2&&p2Tab===0;}},
-    {key:'p2-penalty',label:'Sổ phạt',action:"setP2Tab(1)",permKey:'p2.penalty',match:function(){return curPage===2&&p2Tab===1;}}
+    {key:'p2-task',label:'Công việc',route:'staff/task',action:"setP2Tab(2)",permKey:'p2.task',match:function(){return curPage===2&&p2Tab===2;}},
+    {key:'p2-salary',label:'Lương + Hoa hồng',route:'staff/salary',action:"setP2Tab(0)",permKey:'p2.salary',match:function(){return curPage===2&&p2Tab===0;}},
+    {key:'p2-penalty',label:'Sổ phạt',route:'staff/penalty',action:"setP2Tab(1)",permKey:'p2.penalty',match:function(){return curPage===2&&p2Tab===1;}}
   ]}]},
   3:{title:'Khách hàng',sections:[{label:'PHÂN LOẠI',items:[
-    {key:'cli-active',label:'Khách chính thức',action:"setClientTab('active')",match:function(){return curPage===3&&clientTab==='active';},badgeFn:function(){return clientList.filter(function(c){return c.status!=='prospect';}).length;}},
-    {key:'cli-prospect',label:'Tiềm năng',action:"setClientTab('prospect')",match:function(){return curPage===3&&clientTab==='prospect';},badgeFn:function(){return clientList.filter(function(c){return c.status==='prospect';}).length;}},
-    {key:'cli-quote',label:'Báo giá',action:"setClientTab('quotation')",match:function(){return curPage===3&&clientTab==='quotation';},badgeFn:function(){return quotationList.length;}}
+    {key:'cli-active',label:'Khách chính thức',route:'clients/active',action:"setClientTab('active')",match:function(){return curPage===3&&clientTab==='active';},badgeFn:function(){return clientList.filter(function(c){return c.status!=='prospect';}).length;}},
+    {key:'cli-prospect',label:'Tiềm năng',route:'clients/prospect',action:"setClientTab('prospect')",match:function(){return curPage===3&&clientTab==='prospect';},badgeFn:function(){return clientList.filter(function(c){return c.status==='prospect';}).length;}},
+    {key:'cli-quote',label:'Báo giá',route:'clients/quote',action:"setClientTab('quotation')",match:function(){return curPage===3&&clientTab==='quotation';},badgeFn:function(){return quotationList.length;}}
   ]}]},
   4:{title:'Tài chính',sections:[{label:'',items:[
-    {key:'fin-thuchi',label:'Thu chi',action:"pg(4);setFinTab('thuchi')",permKey:'p4.thuchi',match:function(){return curPage===4&&finTab==='thuchi';}},
-    {key:'fin-reconcile',label:'Đối soát VCB',action:"pg(4);setFinTab('reconcile')",permKey:'p4.reconcile',match:function(){return curPage===4&&finTab==='reconcile';}}
+    {key:'fin-thuchi',label:'Thu chi',route:'finance/thuchi',action:"pg(4);setFinTab('thuchi')",permKey:'p4.thuchi',match:function(){return curPage===4&&finTab==='thuchi';}},
+    {key:'fin-reconcile',label:'Đối soát VCB',route:'finance/reconcile',action:"pg(4);setFinTab('reconcile')",permKey:'p4.reconcile',match:function(){return curPage===4&&finTab==='reconcile';}}
   ]}]},
   5:{title:'Admin',sections:[{label:'QUẢN LÝ',items:[
-    {key:'adm0',label:'Tổng quan',action:"sat(0)",match:function(){return curPage===5&&adminTab===0;}},
-    {key:'adm1',label:'Người dùng',action:"sat(1)",match:function(){return curPage===5&&adminTab===1;}},
-    {key:'adm3',label:'Cài đặt',action:"sat(3)",match:function(){return curPage===5&&adminTab===3;}}
+    {key:'adm0',label:'Tổng quan',route:'admin/overview',action:"sat(0)",match:function(){return curPage===5&&adminTab===0;}},
+    {key:'adm1',label:'Người dùng',route:'admin/users',action:"sat(1)",match:function(){return curPage===5&&adminTab===1;}},
+    {key:'adm3',label:'Cài đặt',route:'admin/settings',action:"sat(3)",match:function(){return curPage===5&&adminTab===3;}}
   ]}]},
   6:{title:'Cảnh báo',sections:[{label:'LOẠI CẢNH BÁO',items:[
-    {key:'p6-mess',label:'Cảnh báo Messenger',action:"setP6Tab(0)",permKey:'p6.mess',match:function(){return curPage===6&&p6Tab===0;},badgeFn:function(){try{return getMessAlerts().length;}catch(e){return 0;}}},
-    {key:'p6-form',label:'Cảnh báo Form',action:"setP6Tab(1)",permKey:'p6.form',match:function(){return curPage===6&&p6Tab===1;},badgeFn:function(){try{return getLeadAlerts().length;}catch(e){return 0;}}},
-    {key:'p6-bal',label:'Số dư thấp',action:"setP6Tab(2)",permKey:'p6.balance',match:function(){return curPage===6&&p6Tab===2;},badgeFn:function(){try{return getBalanceAlerts().length;}catch(e){return 0;}}}
+    {key:'p6-mess',label:'Cảnh báo Messenger',route:'alert/mess',action:"setP6Tab(0)",permKey:'p6.mess',match:function(){return curPage===6&&p6Tab===0;},badgeFn:function(){try{return getMessAlerts().length;}catch(e){return 0;}}},
+    {key:'p6-form',label:'Cảnh báo Form',route:'alert/form',action:"setP6Tab(1)",permKey:'p6.form',match:function(){return curPage===6&&p6Tab===1;},badgeFn:function(){try{return getLeadAlerts().length;}catch(e){return 0;}}},
+    {key:'p6-bal',label:'Số dư thấp',route:'alert/balance',action:"setP6Tab(2)",permKey:'p6.balance',match:function(){return curPage===6&&p6Tab===2;},badgeFn:function(){try{return getBalanceAlerts().length;}catch(e){return 0;}}}
   ]}]},
   7:{title:'Quản trị công việc',sections:[{label:'',items:[
-    {key:'p7-main',label:'Bảng điều hành đội ngũ',action:"pg(7)",match:function(){return curPage===7;},badgeFn:function(){try{return getOpenTaskCount();}catch(e){return 0;}},badgeAlert:true}
+    {key:'p7-main',label:'Bảng điều hành đội ngũ',route:'team',action:"pg(7)",match:function(){return curPage===7;},badgeFn:function(){try{return getOpenTaskCount();}catch(e){return 0;}},badgeAlert:true}
   ]}]}
 };
 function renderSubnav(){
@@ -946,7 +946,71 @@ function renderSidebarV2(){
 function syncSidebarNav(){
   // Sidebar v2: chỉ cần re-render là đủ (active state nằm trong HTML render)
   renderSidebarV2();
+  syncRouteUrl();
 }
+// ═══ ROUTER — path-based subnav routing (#/<page>/<subtab> → /<page>/<subtab>) ═══
+// Tìm item trong SUBNAV_CONFIG khớp với route slug (vd 'staff/penalty').
+function _findRouteItem(slug){
+  if(slug==null)return null;
+  for(var pNum in SUBNAV_CONFIG){
+    if(!SUBNAV_CONFIG.hasOwnProperty(pNum))continue;
+    var cfg=SUBNAV_CONFIG[pNum];
+    for(var s=0;s<cfg.sections.length;s++){
+      var items=cfg.sections[s].items;
+      for(var i=0;i<items.length;i++){
+        if(items[i].route!==undefined&&items[i].route===slug)return{pNum:parseInt(pNum,10),item:items[i]};
+      }
+    }
+  }
+  return null;
+}
+// Tìm route slug khớp với state hiện tại (theo match() của từng item).
+function _currentRouteSlug(){
+  for(var pNum in SUBNAV_CONFIG){
+    if(!SUBNAV_CONFIG.hasOwnProperty(pNum))continue;
+    var cfg=SUBNAV_CONFIG[pNum];
+    for(var s=0;s<cfg.sections.length;s++){
+      var items=cfg.sections[s].items;
+      for(var i=0;i<items.length;i++){
+        var it=items[i];
+        if(it.route===undefined||!it.match)continue;
+        try{if(it.match())return it.route;}catch(e){}
+      }
+    }
+  }
+  return null;
+}
+// Cập nhật URL theo state hiện tại — dùng replaceState (không tạo entry history mỗi click tab).
+// Bỏ qua nếu đang ở public mode (form lead, sổ rental khách, báo cáo public, sổ phạt cá nhân).
+function syncRouteUrl(){
+  try{
+    if(publicLedgerMode||publicLeadFormMode)return;
+    if(typeof publicReportMode!=='undefined'&&publicReportMode)return;
+    if(typeof publicPenaltyMode!=='undefined'&&publicPenaltyMode)return;
+    if(location.search)return; // có ?query → không động URL (chế độ public cũ)
+    var slug=_currentRouteSlug();if(slug===null)return;
+    var newPath=slug?'/'+slug:'/';
+    if(location.pathname!==newPath)history.replaceState({},'',newPath);
+  }catch(e){}
+}
+// Áp dụng route từ URL → set state. Gọi 1 lần khi init + mỗi khi popstate.
+function applyRouteFromUrl(){
+  try{
+    if(publicLedgerMode||publicLeadFormMode)return false;
+    if(location.search)return false;
+    var path=(location.pathname||'/').replace(/^\/+/,'').replace(/\/+$/,'');
+    if(!path)return false; // root → giữ nguyên curPage mặc định
+    var match=_findRouteItem(path);
+    if(!match)return false;
+    var action=match.item.action||'';
+    if(!/(^|[^\w])pg\s*\(/.test(action)&&!/^pg\s*\(\s*\d+\s*\)\s*;?\s*$/.test(action))action='pg('+match.pNum+');'+action;
+    (0,eval)(action);
+    return true;
+  }catch(e){console.warn('[router] applyRouteFromUrl failed',e);return false;}
+}
+window.addEventListener('popstate',function(){
+  if(applyRouteFromUrl())render();
+});
 // Toggle thu hẹp sidebar (chỉ icon ↔ full)
 function toggleSidebarV2(){
   var app=document.getElementById('app');if(!app)return;
@@ -2800,7 +2864,7 @@ if(canReconcile)h+='<button role="tab" aria-selected="'+(finTab==='reconcile')+'
 h+='</div>';
 return h+(finTab==='reconcile'?p4DoiSoat():p4ThuChi());
 }
-function setFinTab(t){finTab=t;render();}
+function setFinTab(t){finTab=t;syncSidebarNav();render();}
 function p4ThuChi(){
 var am=new Set();txnData.forEach(function(t){am.add(t.month);});var sm=Array.from(am).sort().reverse();
 if(!sm.includes(finMonth)&&sm.length)finMonth=sm[0];var mt=txnData.filter(function(t){return t.month===finMonth;}),inc=0,exp=0;
@@ -3282,7 +3346,7 @@ return'<div style="display:flex;align-items:center;justify-content:center;min-he
 +'</div>'
 +'<div style="text-align:center;margin-top:16px;font-size:11px;color:var(--tx3);">HC Agency &copy; 2026</div>'
 +'</div></div>';}
-async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){curPage=permKeyToPage(userAllowedPages[0]);}else{curPage=0;}toast('Đăng nhập thành công! ('+userRole+')',true);autoSync();render();}}
+async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){curPage=permKeyToPage(userAllowedPages[0]);}else{curPage=0;}applyRouteFromUrl();toast('Đăng nhập thành công! ('+userRole+')',true);autoSync();render();}}
 async function doLogout(){await sb2.auth.signOut();authUser=null;userRole='guest';userAllowedPages=null;currentUserRoleRecord=null;curPage=0;toast('Đã đăng xuất',true);render();}
 async function checkAuth(){var{data}=await sb2.auth.getSession();if(data.session){authUser=data.session.user;await loadUserRole();}}
 async function loadUserRole(){
@@ -9152,6 +9216,7 @@ async function init(){try{
   if(isAdmin())await loadAllUserRoles();
   await loadAll();
   if(authUser&&userAllowedPages&&userAllowedPages.length){var fp=permKeyToPage(userAllowedPages[0]);if(!canAccessPage(curPage))curPage=fp;}
+  if(authUser)applyRouteFromUrl();
   autoSync();
   render();
 }catch(e){document.getElementById('page').innerHTML='<div style="padding:40px;text-align:center;color:var(--tx2);"><div style="font-size:16px;font-weight:500;margin-bottom:8px;">Không thể kết nối</div><div style="font-size:13px;margin-bottom:16px;">'+esc(e.message)+'</div><button class="btn btn-primary" onclick="location.reload()">Thử lại</button></div>';}}
