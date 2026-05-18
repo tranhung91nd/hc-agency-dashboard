@@ -1601,9 +1601,14 @@ var color=allEx?'var(--amber-tx)':'var(--red)';
 var prefix=someEx?'🏥 ':'';
 var title=arr.map(function(r){return (r.excluded_from_fund?'🏥 ':'')+(r.reason||'(không ghi lý do)');}).join(' · ');
 h+='<td style="text-align:right;" class="mono"><span style="color:'+color+';font-weight:500;" title="'+esc(title)+'">'+prefix+ff(sum)+'</span>';
-if(authUser&&isAdmin()&&arr.length===1){
-  h+=' <button onclick="togglePenaltyExcluded(\''+arr[0].id+'\')" style="font-size:11px;border:0;background:none;color:var(--tx3);cursor:pointer;padding:0 2px;" title="'+(arr[0].excluded_from_fund?'Đưa lại vào quỹ':'Đánh dấu bồi thường khách (không vào quỹ)')+'">'+(arr[0].excluded_from_fund?'↩':'🏥')+'</button>';
-  h+=' <button onclick="deletePenalty(\''+arr[0].id+'\')" style="font-size:10px;border:0;background:none;color:var(--tx3);cursor:pointer;" title="Xóa">×</button>';
+if(authUser&&isAdmin()){
+  if(arr.length===1){
+    h+=' <button onclick="togglePenaltyExcluded(\''+arr[0].id+'\')" style="font-size:11px;border:0;background:none;color:var(--tx3);cursor:pointer;padding:0 2px;" title="'+(arr[0].excluded_from_fund?'Đưa lại vào quỹ':'Đánh dấu bồi thường khách (không vào quỹ)')+'">'+(arr[0].excluded_from_fund?'↩':'🏥')+'</button>';
+    h+=' <button onclick="deletePenalty(\''+arr[0].id+'\')" style="font-size:10px;border:0;background:none;color:var(--tx3);cursor:pointer;" title="Xóa">×</button>';
+  } else {
+    var _ids=arr.map(function(p){return p.id;}).join(',');
+    h+=' <button onclick="deletePenaltyBulk(\''+_ids+'\','+arr.length+','+sum+')" style="font-size:10px;border:0;background:none;color:var(--tx3);cursor:pointer;" title="Xóa '+arr.length+' khoản phạt ngày này">×</button>';
+  }
 }
 h+='</td>';
 });
@@ -1664,6 +1669,14 @@ if(!confirm('Xóa khoản phạt này?'))return;
 var r=await sb2.from('penalty').delete().eq('id',id);
 if(r.error){toast('Lỗi: '+r.error.message,false);return;}
 toast('Đã xóa',true);await loadAll();render();}
+async function deletePenaltyBulk(idsStr,count,totalAmt){
+if(!needAuth())return;
+if(!isAdmin()){toast('Chỉ admin mới xoá được',false);return;}
+if(!confirm('Xoá '+count+' khoản phạt (tổng '+ff(totalAmt)+'đ) trong cell này?'))return;
+var ids=idsStr.split(',');
+var r=await sb2.from('penalty').delete().in('id',ids);
+if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+toast('Đã xoá '+count+' khoản',true);await loadAll();render();}
 // ═══ AI GHI PHẠT — parse câu tự nhiên thành JSON, xác nhận trước khi lưu ═══
 async function askAIPenalty(){
 if(!isAdmin()){toast('Chỉ admin mới ghi phạt được',false);return;}
