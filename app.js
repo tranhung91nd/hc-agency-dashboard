@@ -4699,7 +4699,7 @@ function p7(){
 // Cấu trúc: 1 campaign → 1 adset → 1 ad, ACTIVE ngay.
 // Yêu cầu Meta token có scope ads_management + pages_read_engagement.
 var setAdsState={acc_id:'',page_id:'',post_input:'',campaign_name:'',daily_budget:'100000',destination:'MESSENGER',age_min:18,age_max:65,gender:'all',locations:[{key:'VN',name:'Việt Nam',type:'country'}],interests:[],saved_audiences:[],custom_audiences:[],client_id:''};
-var setAdsPages=null,setAdsAudiencesByAcc={},setAdsSearchResults={location:null,interest:null},setAdsBusy=false,setAdsLog=[],setAdsResult=null;
+var setAdsPages=null,setAdsAudiencesByAcc={},setAdsSearchResults={location:null,interest:null},setAdsBusy=false,setAdsLog=[],setAdsResult=null,setAdsCloning=false,setAdsCloneNote='';
 function setAdsField(field,value){setAdsState[field]=value;render();}
 function onSetAdsAccChange(value){
   setAdsState.acc_id=value;
@@ -4783,6 +4783,93 @@ function parseSetAdsPostInput(raw){
   if(/^\d+$/.test(s))return s;
   return null;
 }
+// Parse campaign ID từ URL Ads Manager (selected_campaign_ids=) hoặc ID thuần.
+function parseCampaignInput(raw){
+  if(!raw)return null;
+  var s=String(raw).trim();
+  if(/^\d+$/.test(s))return s;
+  var m=s.match(/[?&]selected_campaign_ids=(\d+)/);if(m)return m[1];
+  m=s.match(/\bcampaign[_-]?id[s]?[=:\/](\d+)/i);if(m)return m[1];
+  // Là URL Ads Manager nhưng không có selected_campaign_ids — báo lỗi rõ thay vì đoán
+  return null;
+}
+async function cloneFromCampaign(){
+  var inp=document.getElementById('sa-clone-id');
+  var raw=inp?inp.value.trim():'';
+  var campId=parseCampaignInput(raw);
+  if(!campId){toast('Campaign ID/URL không hợp lệ. Dán ID số hoặc link Ads Manager',false);return;}
+  setAdsCloning=true;setAdsCloneNote='Đang tải campaign...';render();
+  try{
+    // 1) Campaign info — lấy account_id để map về adList
+    var camp=await metaGet(campId+'?fields=name,account_id,objective,buying_type,status');
+    if(camp&&camp.error)throw new Error('Campaign: '+(camp.error.message||''));
+    if(!camp.id)throw new Error('Không tìm thấy campaign '+campId);
+    setAdsCloneNote='Đang tải adset + targeting...';render();
+    // 2) Map account_id → TKQC trong adList
+    var fbActId=camp.account_id?('act_'+camp.account_id):null;
+    var matchAcc=fbActId?adList.find(function(a){return a.fb_account_id===fbActId;}):null;
+    // 3) Adsets — lấy adset đầu tiên (MVP: 1-adset campaign)
+    var adsets=await metaGet(campId+'/adsets?fields=name,daily_budget,destination_type,optimization_goal,promoted_object,targeting,bid_strategy&limit=5');
+    if(adsets&&adsets.error)throw new Error('Adset: '+(adsets.error.message||''));
+    var firstAdset=(adsets&&adsets.data&&adsets.data[0])||null;
+    if(!firstAdset)throw new Error('Campaign chưa có adset');
+    var hasMultiAdset=adsets.data.length>1;
+    // 4) Ad đầu tiên trong adset → creative → object_story_id
+    setAdsCloneNote='Đang tải ad + creative...';render();
+    var ads=await metaGet(firstAdset.id+'/ads?fields=creative{object_story_id,name}&limit=5');
+    if(ads&&ads.error)throw new Error('Ad: '+(ads.error.message||''));
+    var firstAd=(ads&&ads.data&&ads.data[0])||null;
+    var storyId=firstAd&&firstAd.creative&&firstAd.creative.object_story_id?firstAd.creative.object_story_id:'';
+    // 5) Populate state
+    if(matchAcc){
+      setAdsState.acc_id=matchAcc.id;
+      setAdsLoadAudiences(matchAcc); // background
+    }
+    var pid=firstAdset.promoted_object&&firstAdset.promoted_object.page_id?firstAdset.promoted_object.page_id:'';
+    if(pid)setAdsState.page_id=pid;
+    if(storyId)setAdsState.post_input=storyId;
+    setAdsState.campaign_name=(camp.name||'')+' (clone)';
+    if(firstAdset.daily_budget)setAdsState.daily_budget=String(firstAdset.daily_budget);
+    if(firstAdset.destination_type)setAdsState.destination=firstAdset.destination_type;
+    var t=firstAdset.targeting||{};
+    if(typeof t.age_min==='number')setAdsState.age_min=t.age_min;
+    if(typeof t.age_max==='number')setAdsState.age_max=t.age_max;
+    if(Array.isArray(t.genders)&&t.genders.length===1){
+      setAdsState.gender=t.genders[0]===1?'male':'female';
+    }else setAdsState.gender='all';
+    // Locations
+    var locs=[];
+    var geo=t.geo_locations||{};
+    (geo.countries||[]).forEach(function(c){locs.push({key:c,name:c==='VN'?'Việt Nam':c,type:'country'});});
+    (geo.cities||[]).forEach(function(c){locs.push({key:c.key||c,name:c.name||(c.key||c),type:'city'});});
+    (geo.regions||[]).forEach(function(r){locs.push({key:r.key||r,name:r.name||(r.key||r),type:'region'});});
+    if(locs.length)setAdsState.locations=locs;
+    // Interests (flexible_spec[0].interests OR interests legacy)
+    var ints=[];
+    if(Array.isArray(t.flexible_spec)){
+      t.flexible_spec.forEach(function(fs){(fs.interests||[]).forEach(function(i){ints.push({id:i.id,name:i.name});});});
+    }
+    if(Array.isArray(t.interests))t.interests.forEach(function(i){ints.push({id:i.id,name:i.name});});
+    setAdsState.interests=ints;
+    // Custom audiences
+    setAdsState.custom_audiences=Array.isArray(t.custom_audiences)?t.custom_audiences.map(function(c){return{id:c.id,name:c.name||c.id};}):[];
+    // Saved audience (chỉ 1)
+    setAdsState.saved_audiences=t.saved_audience_id?[{id:t.saved_audience_id,name:'Saved #'+t.saved_audience_id}]:[];
+    setAdsCloning=false;
+    setAdsCloneNote='';
+    var notes=[];
+    if(!matchAcc)notes.push('⚠ TKQC '+fbActId+' chưa có trong dashboard — chọn thủ công');
+    if(hasMultiAdset)notes.push('⚠ Campaign gốc có '+adsets.data.length+' adset, chỉ clone adset đầu tiên');
+    if(!storyId)notes.push('⚠ Không lấy được post từ ad gốc — dán URL/ID post thủ công');
+    if(setAdsState.saved_audiences.length)notes.push('ℹ Saved Audience chỉ giữ ID, không có tên (chọn lại nếu cần)');
+    toast('Đã clone từ campaign "'+(camp.name||campId)+'". '+notes.join(' · '),true);
+    render();
+  }catch(e){
+    setAdsCloning=false;setAdsCloneNote='';
+    toast('Lỗi clone: '+(e.message||e),false);
+    render();
+  }
+}
 function p8(){
   var acc=adList.find(function(a){return a.id===setAdsState.acc_id;});
   var validAccs=adList.filter(function(a){return a.fb_account_id;});
@@ -4817,6 +4904,16 @@ function p8(){
   }
   // FORM
   h+='<div class="form-card" style="padding:20px;max-width:780px;">';
+  // Clone box (optional shortcut)
+  h+='<div style="background:var(--blue-bg);border:1px solid var(--bd2);border-radius:8px;padding:12px;margin-bottom:18px;">';
+  h+='<div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:6px;">⚡ CLONE TỪ CAMPAIGN CÓ SẴN (tuỳ chọn)</div>';
+  h+='<div style="font-size:11px;color:var(--tx3);margin-bottom:8px;">Paste Campaign ID hoặc link Ads Manager — tự động điền targeting + post từ campaign cũ. Bạn vẫn có thể sửa trước khi chạy.</div>';
+  h+='<div style="display:flex;gap:6px;">';
+  h+='<input id="sa-clone-id" type="text" class="fi" placeholder="VD: 120249131122740404 hoặc link Ads Manager" style="flex:1;" '+(setAdsCloning?'disabled':'')+'>';
+  h+='<button type="button" class="btn btn-primary" onclick="cloneFromCampaign()" '+(setAdsCloning?'disabled':'')+'>'+(setAdsCloning?'Đang tải...':'⬇ Tải dữ liệu')+'</button>';
+  h+='</div>';
+  if(setAdsCloneNote)h+='<div style="font-size:11px;color:var(--tx3);margin-top:6px;">'+esc(setAdsCloneNote)+'</div>';
+  h+='</div>';
   // Section 1: TKQC + Page + Post
   h+='<div style="font-size:13px;font-weight:600;color:var(--tx2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">1. Tài khoản & Nguồn post</div>';
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">';

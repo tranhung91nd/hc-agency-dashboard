@@ -27,6 +27,8 @@ const PATH_WHITELIST = [
   /^search$/,                                               // adinterest / adgeolocation search
   /^act_\d+$/,                                              // single account info / update (rename, spend_cap)
   /^act_\d+\/(transactions|insights|adsets|campaigns|ads|adcreatives|customaudiences|saved_audiences|reachestimate)$/,
+  /^\d+$/,                                                  // GET single object (campaign / adset / ad / creative) — clone flow
+  /^\d+\/(adsets|ads|insights)$/,                           // GET sub-resources by object ID
 ];
 
 function isPathAllowed(rawPath) {
