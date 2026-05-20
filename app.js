@@ -815,7 +815,8 @@ var SUBNAV_CONFIG={
   1:{title:'Tài khoản quảng cáo',sections:[{label:'TÀI KHOẢN',items:[
     {key:'spend0',label:'Tài khoản quảng cáo',route:'ads/tkqc',action:"setSpendTab(0)",permKey:'p1.tkqc',match:function(){return curPage===1&&spendTab===0;}},
     {key:'spend1',label:'Chi tiêu theo nhân sự',route:'ads/staff',action:"setSpendTab(1)",permKey:'p1.staff',match:function(){return curPage===1&&spendTab===1;}},
-    {key:'spend2',label:'Chi tiêu theo khách hàng',route:'ads/client',action:"setSpendTab(2)",permKey:'p1.client',match:function(){return curPage===1&&spendTab===2;}}
+    {key:'spend2',label:'Chi tiêu theo khách hàng',route:'ads/client',action:"setSpendTab(2)",permKey:'p1.client',match:function(){return curPage===1&&spendTab===2;}},
+    {key:'auto',label:'Quảng cáo tự động',route:'ads/auto',action:"pg(8)",permKey:'p8',match:function(){return curPage===8;}}
   ]}]},
   2:{title:'Nhân sự',sections:[{label:'',items:[
     {key:'p2-task',label:'Công việc',route:'staff/task',action:"setP2Tab(2)",permKey:'p2.task',match:function(){return curPage===2&&p2Tab===2;}},
@@ -844,9 +845,6 @@ var SUBNAV_CONFIG={
   7:{title:'Quản trị công việc',sections:[{label:'',items:[
     {key:'p7-main',label:'Bảng điều hành đội ngũ',route:'team',action:"pg(7)",match:function(){return curPage===7;},badgeFn:function(){try{return getOpenTaskCount();}catch(e){return 0;}},badgeAlert:true}
   ]}]},
-  8:{title:'Set Ads',sections:[{label:'',items:[
-    {key:'p8-main',label:'Tạo chiến dịch từ post',route:'set-ads',action:"pg(8)",permKey:'p8',match:function(){return curPage===8;}}
-  ]}]}
 };
 function renderSubnav(){
   // Legacy stub — kept for backwards compat. Sidebar v2 thay thế hoàn toàn.
@@ -885,7 +883,7 @@ function renderSidebarV2(){
   var isCollapsed=app&&app.classList.contains('sidebar-collapsed');
   var html='';
   // Iterate qua các page có config (theo thứ tự PERMISSION_TREE)
-  var pageOrder=[0,7,1,8,2,3,4,6,5]; // Quản trị công việc ngay sau Tổng quan, Admin cuối
+  var pageOrder=[0,7,1,2,3,4,6,5]; // Quản trị công việc ngay sau Tổng quan, Admin cuối (page 8 nằm trong P1)
   if(isCollapsed){
     // Mode thu gọn: chỉ icon đại diện cho mỗi page (giống rail cũ)
     pageOrder.forEach(function(pNum){
@@ -4789,7 +4787,7 @@ function p8(){
   var acc=adList.find(function(a){return a.id===setAdsState.acc_id;});
   var validAccs=adList.filter(function(a){return a.fb_account_id;});
   var auds=setAdsState.acc_id?setAdsAudiencesByAcc[setAdsState.acc_id]:null;
-  var h='<div class="page-title">Set Ads</div><div class="page-sub">Tạo chiến dịch Messenger từ post có sẵn — 1 click set Campaign + Adset + Ad, chạy ACTIVE ngay</div>';
+  var h='<div class="page-title">Quảng cáo tự động</div><div class="page-sub">Tạo chiến dịch Messenger từ post có sẵn — 1 click set Campaign + Adset + Ad, chạy ACTIVE ngay</div>';
   if(setAdsResult){
     if(setAdsResult.success){
       h+='<div class="form-card" style="padding:24px;border-color:var(--green);background:var(--green-bg);">';
