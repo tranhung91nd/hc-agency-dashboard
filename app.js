@@ -18,7 +18,7 @@ async function metaApiCall(payload){
   }catch(e){return{error:{message:'Lỗi mạng: '+(e.message||e)}};}
 }
 async function metaGet(path){return await metaApiCall({op:'get',path:path});}
-async function metaPost(path){return await metaApiCall({op:'post',path:path});}
+async function metaPost(path,payload){return await metaApiCall({op:'post',path:path,payload:payload||null});}
 async function metaBatch(batchReqs){return await metaApiCall({op:'batch',batch:batchReqs});}
 var CL={purple:{c:'var(--purple)',bg:'var(--purple-bg)',tx:'var(--purple-tx)'},teal:{c:'var(--teal)',bg:'var(--teal-bg)',tx:'var(--teal-tx)'},coral:{c:'var(--coral)',bg:'var(--coral-bg)',tx:'var(--coral-tx)'},pink:{c:'var(--pink)',bg:'var(--pink-bg)',tx:'var(--pink-tx)'},blue:{c:'var(--blue)',bg:'var(--blue-bg)',tx:'var(--blue-tx)'},green:{c:'var(--green)',bg:'var(--green-bg)',tx:'var(--green-tx)'},amber:{c:'var(--amber)',bg:'var(--amber-bg)',tx:'var(--amber-tx)'}};
 function sc(c){return CL[c]||CL.blue;}
@@ -843,6 +843,9 @@ var SUBNAV_CONFIG={
   ]}]},
   7:{title:'Quản trị công việc',sections:[{label:'',items:[
     {key:'p7-main',label:'Bảng điều hành đội ngũ',route:'team',action:"pg(7)",match:function(){return curPage===7;},badgeFn:function(){try{return getOpenTaskCount();}catch(e){return 0;}},badgeAlert:true}
+  ]}]},
+  8:{title:'Set Ads',sections:[{label:'',items:[
+    {key:'p8-main',label:'Tạo chiến dịch từ post',route:'set-ads',action:"pg(8)",permKey:'p8',match:function(){return curPage===8;}}
   ]}]}
 };
 function renderSubnav(){
@@ -871,6 +874,7 @@ var PAGE_ICONS={
   5:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
   6:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>',
   7:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/><path d="M9 18l1.5 1.5L13 17"/></svg>',
+  8:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><circle cx="12" cy="12" r="4"/></svg>',
   ceo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="12" cy="10" r="3"/><path d="M6.5 19.5c0-2.8 2.5-5 5.5-5s5.5 2.2 5.5 5"/></svg>'
 };
 function renderSidebarV2(){
@@ -881,7 +885,7 @@ function renderSidebarV2(){
   var isCollapsed=app&&app.classList.contains('sidebar-collapsed');
   var html='';
   // Iterate qua các page có config (theo thứ tự PERMISSION_TREE)
-  var pageOrder=[0,7,1,2,3,4,6,5]; // Quản trị công việc ngay sau Tổng quan, Admin cuối
+  var pageOrder=[0,7,1,8,2,3,4,6,5]; // Quản trị công việc ngay sau Tổng quan, Admin cuối
   if(isCollapsed){
     // Mode thu gọn: chỉ icon đại diện cho mỗi page (giống rail cũ)
     pageOrder.forEach(function(pNum){
@@ -1065,7 +1069,7 @@ return;}
 if(sb)sb.style.display='';
 if(appEl)appEl.style.gridTemplateColumns='';
 syncSidebarNav();
-if(curPage===0)el.innerHTML=p0();else if(curPage===1)el.innerHTML=p1();else if(curPage===2)el.innerHTML=p2();else if(curPage===3)el.innerHTML=p3();else if(curPage===4)el.innerHTML=p4();else if(curPage===5)el.innerHTML=p5();else if(curPage===6)el.innerHTML=p6();else if(curPage===7)el.innerHTML=p7();
+if(curPage===0)el.innerHTML=p0();else if(curPage===1)el.innerHTML=p1();else if(curPage===2)el.innerHTML=p2();else if(curPage===3)el.innerHTML=p3();else if(curPage===4)el.innerHTML=p4();else if(curPage===5)el.innerHTML=p5();else if(curPage===6)el.innerHTML=p6();else if(curPage===7)el.innerHTML=p7();else if(curPage===8)el.innerHTML=p8();
 // Inject contract/prospect modals (ngoài page content để không bị cắt)
 var modalRoot=document.getElementById('hc-modal-root');
 if(!modalRoot){modalRoot=document.createElement('div');modalRoot.id='hc-modal-root';document.body.appendChild(modalRoot);}
@@ -3439,7 +3443,8 @@ var PERMISSION_TREE=[
     {key:'p6.form',label:'Form'},
     {key:'p6.balance',label:'Số dư'}
   ]},
-  {key:'p7',label:'Quản trị công việc'}
+  {key:'p7',label:'Quản trị công việc'},
+  {key:'p8',label:'Set Ads'}
 ];
 function permissionLabel(k){
   for(var i=0;i<PERMISSION_TREE.length;i++){
@@ -4691,6 +4696,403 @@ function p7(){
     h+='</div>';
   }
   return h;
+}
+// ═══ P8: SET ADS — Tạo chiến dịch Messenger từ post có sẵn ═══
+// Cấu trúc: 1 campaign → 1 adset → 1 ad, ACTIVE ngay.
+// Yêu cầu Meta token có scope ads_management + pages_read_engagement.
+var setAdsState={acc_id:'',page_id:'',post_input:'',campaign_name:'',daily_budget:'100000',destination:'MESSENGER',age_min:18,age_max:65,gender:'all',locations:[{key:'VN',name:'Việt Nam',type:'country'}],interests:[],saved_audiences:[],custom_audiences:[],client_id:''};
+var setAdsPages=null,setAdsAudiencesByAcc={},setAdsSearchResults={location:null,interest:null},setAdsBusy=false,setAdsLog=[],setAdsResult=null;
+function setAdsField(field,value){setAdsState[field]=value;render();}
+function onSetAdsAccChange(value){
+  setAdsState.acc_id=value;
+  if(value){var acc=adList.find(function(x){return x.id===value;});if(acc)setAdsLoadAudiences(acc);}
+  render();
+}
+function setAdsClearResult(){setAdsResult=null;setAdsLog=[];render();}
+async function setAdsLoadPages(){
+  if(setAdsPages!==null)return;
+  setAdsPages=[];render();
+  var r=await metaGet('me/accounts?fields=id,name,access_token,tasks&limit=200');
+  if(r&&r.error){toast('Không tải được danh sách Page: '+(r.error.message||''),false);setAdsPages=[];render();return;}
+  setAdsPages=(r&&r.data)||[];
+  render();
+}
+async function setAdsLoadAudiences(acc){
+  if(!acc||!acc.fb_account_id)return;
+  if(setAdsAudiencesByAcc[acc.id])return;
+  setAdsAudiencesByAcc[acc.id]={saved:[],custom:[],loading:true};render();
+  var saved=await metaGet(acc.fb_account_id+'/saved_audiences?fields=id,name&limit=100');
+  var custom=await metaGet(acc.fb_account_id+'/customaudiences?fields=id,name,subtype&limit=100');
+  setAdsAudiencesByAcc[acc.id]={
+    saved:(saved&&saved.data)||[],
+    custom:(custom&&custom.data)||[],
+    loading:false
+  };
+  render();
+}
+async function setAdsSearchLocation(){
+  var inp=document.getElementById('sa-loc-q');var q=inp?inp.value.trim():'';
+  if(!q){setAdsSearchResults.location=null;render();return;}
+  var r=await metaGet('search?type=adgeolocation&q='+encodeURIComponent(q)+'&country_code=VN&limit=15&location_types=["country","region","city"]');
+  if(r&&r.error){toast('Lỗi tìm địa điểm: '+(r.error.message||''),false);return;}
+  setAdsSearchResults.location=(r&&r.data)||[];
+  render();
+}
+async function setAdsSearchInterest(){
+  var inp=document.getElementById('sa-int-q');var q=inp?inp.value.trim():'';
+  if(!q){setAdsSearchResults.interest=null;render();return;}
+  var r=await metaGet('search?type=adinterest&q='+encodeURIComponent(q)+'&limit=20');
+  if(r&&r.error){toast('Lỗi tìm sở thích: '+(r.error.message||''),false);return;}
+  setAdsSearchResults.interest=(r&&r.data)||[];
+  render();
+}
+function setAdsAddLoc(key,name,type){
+  if(setAdsState.locations.find(function(x){return x.key===key;}))return;
+  setAdsState.locations.push({key:key,name:name,type:type});render();
+}
+function setAdsRemoveLoc(key){setAdsState.locations=setAdsState.locations.filter(function(x){return x.key!==key;});render();}
+function setAdsAddInt(id,name){
+  if(setAdsState.interests.find(function(x){return x.id===id;}))return;
+  setAdsState.interests.push({id:id,name:name});render();
+}
+function setAdsRemoveInt(id){setAdsState.interests=setAdsState.interests.filter(function(x){return x.id!==id;});render();}
+function setAdsToggleSaved(id,name){
+  // Meta API chỉ accept 1 saved_audience_id mỗi adset → single-select
+  var cur=setAdsState.saved_audiences[0];
+  setAdsState.saved_audiences=(cur&&cur.id===id)?[]:[{id:id,name:name}];
+  render();
+}
+function setAdsToggleCustom(id,name){
+  var i=setAdsState.custom_audiences.findIndex(function(x){return x.id===id;});
+  if(i>=0)setAdsState.custom_audiences.splice(i,1);
+  else setAdsState.custom_audiences.push({id:id,name:name});
+  render();
+}
+// Trích post_id từ URL FB hoặc nhập trực tiếp.
+// Trả về: chỉ phần post_id (không kèm page_id). Object_story_id sẽ ghép = page_id + '_' + post_id.
+// Cũng chấp nhận format "{page_id}_{post_id}" — trả về nguyên format đó.
+function parseSetAdsPostInput(raw){
+  if(!raw)return null;
+  var s=String(raw).trim();
+  // Format "page_post" trực tiếp (vd 123456_789012)
+  if(/^\d+_\d+$/.test(s))return s;
+  // URL: /posts/{id}, /videos/{id}, story_fbid=, fbid=, /pfbid... (không xử lý pfbid — Meta API không nhận)
+  var m=s.match(/[?&](?:story_fbid|fbid)=(\d+)/);if(m)return m[1];
+  // Photos với album wrapper: /photos/pcb.{album}/{photo_id}
+  m=s.match(/\/photos\/pcb\.\d+\/(\d+)/);if(m)return m[1];
+  m=s.match(/\/(?:posts|videos|photos)\/(\d+)/);if(m)return m[1];
+  // Pure numeric
+  if(/^\d+$/.test(s))return s;
+  return null;
+}
+function p8(){
+  var acc=adList.find(function(a){return a.id===setAdsState.acc_id;});
+  var validAccs=adList.filter(function(a){return a.fb_account_id;});
+  var auds=setAdsState.acc_id?setAdsAudiencesByAcc[setAdsState.acc_id]:null;
+  var h='<div class="page-title">Set Ads</div><div class="page-sub">Tạo chiến dịch Messenger từ post có sẵn — 1 click set Campaign + Adset + Ad, chạy ACTIVE ngay</div>';
+  if(setAdsResult){
+    if(setAdsResult.success){
+      h+='<div class="form-card" style="padding:24px;border-color:var(--green);background:var(--green-bg);">';
+      h+='<div style="font-size:18px;font-weight:600;color:var(--green);margin-bottom:12px;">✓ Đã tạo & chạy chiến dịch</div>';
+      h+='<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13px;margin-bottom:14px;">';
+      h+='<div style="color:var(--tx3);">Campaign ID:</div><div class="mono">'+esc(setAdsResult.campaign_id)+'</div>';
+      h+='<div style="color:var(--tx3);">Adset ID:</div><div class="mono">'+esc(setAdsResult.adset_id)+'</div>';
+      h+='<div style="color:var(--tx3);">Creative ID:</div><div class="mono">'+esc(setAdsResult.creative_id)+'</div>';
+      h+='<div style="color:var(--tx3);">Ad ID:</div><div class="mono">'+esc(setAdsResult.ad_id)+'</div>';
+      h+='</div>';
+      if(setAdsResult.manager_link)h+='<a href="'+esc(setAdsResult.manager_link)+'" target="_blank" rel="noopener" class="btn btn-primary" style="margin-right:8px;">Mở trên Ads Manager ↗</a>';
+      h+='<button class="btn" onclick="setAdsClearResult()">Tạo chiến dịch khác</button>';
+      h+='</div>';
+    }else{
+      h+='<div class="form-card" style="padding:20px;border-color:var(--red);background:var(--red-bg);">';
+      h+='<div style="font-size:16px;font-weight:600;color:var(--red);margin-bottom:8px;">✗ Tạo chiến dịch thất bại</div>';
+      h+='<div style="font-size:13px;margin-bottom:10px;white-space:pre-wrap;">'+esc(setAdsResult.error||'Lỗi không rõ')+'</div>';
+      if(setAdsResult.step)h+='<div style="font-size:12px;color:var(--tx3);margin-bottom:10px;">Lỗi ở bước: '+esc(setAdsResult.step)+'</div>';
+      if(setAdsLog.length){
+        h+='<details><summary style="cursor:pointer;font-size:12px;color:var(--tx3);">Chi tiết log ('+setAdsLog.length+' bước)</summary>';
+        h+='<pre style="font-size:11px;background:#fff;padding:10px;border-radius:6px;margin-top:8px;max-height:300px;overflow:auto;">'+esc(setAdsLog.join('\n'))+'</pre></details>';
+      }
+      h+='<div style="margin-top:12px;"><button class="btn" onclick="setAdsClearResult()">Thử lại</button></div>';
+      h+='</div>';
+    }
+    return h;
+  }
+  // FORM
+  h+='<div class="form-card" style="padding:20px;max-width:780px;">';
+  // Section 1: TKQC + Page + Post
+  h+='<div style="font-size:13px;font-weight:600;color:var(--tx2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">1. Tài khoản & Nguồn post</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">';
+  // TKQC select
+  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Tài khoản quảng cáo *</label>';
+  h+='<select class="fi" onchange="onSetAdsAccChange(this.value)">';
+  h+='<option value="">— Chọn TKQC —</option>';
+  validAccs.forEach(function(a){
+    h+='<option value="'+esc(a.id)+'"'+(setAdsState.acc_id===a.id?' selected':'')+'>'+esc(a.account_name||a.fb_account_id)+'</option>';
+  });
+  h+='</select></div>';
+  // Page select
+  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Page chạy ads *</label>';
+  if(setAdsPages===null){
+    h+='<button type="button" class="btn" style="width:100%;" onclick="setAdsLoadPages()">Tải danh sách Page</button>';
+  }else if(!setAdsPages.length){
+    h+='<select class="fi" disabled><option>Đang tải...</option></select>';
+  }else{
+    h+='<select class="fi" onchange="setAdsField(\'page_id\',this.value)">';
+    h+='<option value="">— Chọn Page —</option>';
+    setAdsPages.forEach(function(p){
+      h+='<option value="'+esc(p.id)+'"'+(setAdsState.page_id===p.id?' selected':'')+'>'+esc(p.name)+'</option>';
+    });
+    h+='</select>';
+  }
+  h+='</div></div>';
+  // Post input
+  h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Post ID hoặc URL post *</label>';
+  h+='<input id="sa-post" type="text" class="fi" value="'+esc(setAdsState.post_input)+'" placeholder="VD: 123456789 hoặc https://facebook.com/.../posts/123456" oninput="setAdsState.post_input=this.value;">';
+  h+='<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Chấp nhận: số ID, link /posts/, link ?story_fbid=, hoặc format page_post</div></div>';
+  // Client link (optional)
+  h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Khách hàng (tuỳ chọn — để link báo cáo)</label>';
+  h+='<select class="fi" onchange="setAdsField(\'client_id\',this.value)">';
+  h+='<option value="">— Không gán —</option>';
+  clientList.filter(function(c){return c.status!=='prospect';}).forEach(function(c){
+    h+='<option value="'+esc(c.id)+'"'+(setAdsState.client_id===c.id?' selected':'')+'>'+esc(c.name)+'</option>';
+  });
+  h+='</select></div>';
+  // Section 2: Campaign settings
+  h+='<div style="font-size:13px;font-weight:600;color:var(--tx2);margin:18px 0 10px;text-transform:uppercase;letter-spacing:.5px;">2. Chiến dịch</div>';
+  h+='<div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:14px;">';
+  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Tên chiến dịch *</label>';
+  h+='<input id="sa-name" type="text" class="fi" value="'+esc(setAdsState.campaign_name)+'" placeholder="VD: Khách ABC | Mess | '+vnDateStr(0)+'" oninput="setAdsState.campaign_name=this.value;"></div>';
+  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Ngân sách/ngày (VNĐ) *</label>';
+  h+='<input id="sa-bud" type="number" class="fi" min="50000" step="10000" value="'+esc(setAdsState.daily_budget)+'" oninput="setAdsState.daily_budget=this.value;"></div>';
+  h+='</div>';
+  h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Đích đến tin nhắn</label>';
+  h+='<div style="display:flex;gap:8px;">';
+  ['MESSENGER','WHATSAPP','INSTAGRAM_DIRECT'].forEach(function(d){
+    var lbl=d==='MESSENGER'?'Messenger':(d==='WHATSAPP'?'WhatsApp':'Instagram DM');
+    var sel=setAdsState.destination===d;
+    h+='<button type="button" class="btn'+(sel?' btn-primary':'')+'" onclick="setAdsField(\'destination\',\''+d+'\')" style="flex:1;">'+lbl+'</button>';
+  });
+  h+='</div></div>';
+  // Section 3: Targeting
+  h+='<div style="font-size:13px;font-weight:600;color:var(--tx2);margin:18px 0 10px;text-transform:uppercase;letter-spacing:.5px;">3. Đối tượng (Targeting)</div>';
+  // Age + Gender
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;">';
+  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Tuổi tối thiểu</label>';
+  h+='<input type="number" class="fi" min="13" max="65" value="'+setAdsState.age_min+'" onchange="setAdsField(\'age_min\',parseInt(this.value)||18)"></div>';
+  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Tuổi tối đa</label>';
+  h+='<input type="number" class="fi" min="13" max="65" value="'+setAdsState.age_max+'" onchange="setAdsField(\'age_max\',parseInt(this.value)||65)"></div>';
+  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Giới tính</label>';
+  h+='<select class="fi" onchange="setAdsField(\'gender\',this.value)">';
+  ['all','male','female'].forEach(function(g){
+    var lbl=g==='all'?'Tất cả':(g==='male'?'Nam':'Nữ');
+    h+='<option value="'+g+'"'+(setAdsState.gender===g?' selected':'')+'>'+lbl+'</option>';
+  });
+  h+='</select></div></div>';
+  // Locations
+  h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Vị trí (đã chọn '+setAdsState.locations.length+')</label>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">';
+  setAdsState.locations.forEach(function(l){
+    h+='<span class="chip" style="background:var(--blue-bg);color:var(--blue);padding:4px 10px;border-radius:14px;font-size:12px;display:inline-flex;align-items:center;gap:6px;">'+esc(l.name)+' <button type="button" onclick="setAdsRemoveLoc(\''+esc(l.key)+'\')" style="background:none;border:0;color:inherit;cursor:pointer;font-size:14px;line-height:1;">×</button></span>';
+  });
+  if(!setAdsState.locations.length)h+='<span style="font-size:12px;color:var(--tx3);">Chưa chọn — mặc định toàn quốc VN</span>';
+  h+='</div>';
+  h+='<div style="display:flex;gap:6px;">';
+  h+='<input id="sa-loc-q" type="text" class="fi" placeholder="Tìm tỉnh/thành (vd Hà Nội, TP.HCM)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();setAdsSearchLocation();}" style="flex:1;">';
+  h+='<button type="button" class="btn" onclick="setAdsSearchLocation()">Tìm</button>';
+  h+='</div>';
+  if(setAdsSearchResults.location){
+    h+='<div style="margin-top:6px;border:1px solid var(--bd);border-radius:6px;max-height:160px;overflow:auto;background:#fff;">';
+    if(!setAdsSearchResults.location.length)h+='<div style="padding:8px;font-size:12px;color:var(--tx3);">Không có kết quả</div>';
+    setAdsSearchResults.location.forEach(function(r){
+      var label=r.name+(r.region?' · '+r.region:'')+(r.type?' ['+r.type+']':'');
+      h+='<div style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--bg-soft);" onclick="setAdsAddLoc(\''+esc(r.key)+'\',\''+esc(r.name)+'\',\''+esc(r.type)+'\')">'+esc(label)+'</div>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+  // Interests
+  h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Sở thích (đã chọn '+setAdsState.interests.length+')</label>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">';
+  setAdsState.interests.forEach(function(it){
+    h+='<span class="chip" style="background:var(--purple-bg);color:var(--purple);padding:4px 10px;border-radius:14px;font-size:12px;display:inline-flex;align-items:center;gap:6px;">'+esc(it.name)+' <button type="button" onclick="setAdsRemoveInt(\''+esc(it.id)+'\')" style="background:none;border:0;color:inherit;cursor:pointer;font-size:14px;line-height:1;">×</button></span>';
+  });
+  if(!setAdsState.interests.length)h+='<span style="font-size:12px;color:var(--tx3);">Chưa chọn</span>';
+  h+='</div>';
+  h+='<div style="display:flex;gap:6px;">';
+  h+='<input id="sa-int-q" type="text" class="fi" placeholder="Tìm sở thích (vd kinh doanh online, mỹ phẩm)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();setAdsSearchInterest();}" style="flex:1;">';
+  h+='<button type="button" class="btn" onclick="setAdsSearchInterest()">Tìm</button>';
+  h+='</div>';
+  if(setAdsSearchResults.interest){
+    h+='<div style="margin-top:6px;border:1px solid var(--bd);border-radius:6px;max-height:200px;overflow:auto;background:#fff;">';
+    if(!setAdsSearchResults.interest.length)h+='<div style="padding:8px;font-size:12px;color:var(--tx3);">Không có kết quả</div>';
+    setAdsSearchResults.interest.forEach(function(r){
+      var aud=r.audience_size_lower_bound?' (~'+fm(r.audience_size_lower_bound)+'-'+fm(r.audience_size_upper_bound||0)+')':'';
+      h+='<div style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--bg-soft);" onclick="setAdsAddInt(\''+esc(r.id)+'\',\''+esc((r.name||'').replace(/\x27/g,'\\\x27'))+'\')">'+esc(r.name)+'<span style="color:var(--tx3);">'+esc(aud)+'</span></div>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+  // Saved + Custom audiences (depend on TKQC)
+  if(setAdsState.acc_id){
+    if(!auds||auds.loading){
+      h+='<div style="margin-bottom:14px;font-size:12px;color:var(--tx3);">Đang tải Saved/Custom Audience...</div>';
+    }else{
+      // Saved
+      if(auds.saved&&auds.saved.length){
+        h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Saved Audience (chọn tối đa 1 — Meta giới hạn) <span style="color:var(--tx3);font-weight:400;">'+(setAdsState.saved_audiences.length?'· đã chọn: '+esc(setAdsState.saved_audiences[0].name):'')+'</span></label>';
+        h+='<div style="display:flex;flex-wrap:wrap;gap:6px;max-height:120px;overflow:auto;border:1px solid var(--bd);border-radius:6px;padding:8px;">';
+        auds.saved.forEach(function(s){
+          var sel=setAdsState.saved_audiences.find(function(x){return x.id===s.id;});
+          h+='<button type="button" class="btn'+(sel?' btn-primary':'')+'" style="font-size:12px;padding:4px 10px;" onclick="setAdsToggleSaved(\''+esc(s.id)+'\',\''+esc((s.name||'').replace(/\x27/g,'\\\x27'))+'\')">'+esc(s.name)+'</button>';
+        });
+        h+='</div></div>';
+      }
+      // Custom + Lookalike
+      if(auds.custom&&auds.custom.length){
+        h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Custom / Lookalike Audience (đã chọn '+setAdsState.custom_audiences.length+'/'+auds.custom.length+')</label>';
+        h+='<div style="display:flex;flex-wrap:wrap;gap:6px;max-height:120px;overflow:auto;border:1px solid var(--bd);border-radius:6px;padding:8px;">';
+        auds.custom.forEach(function(c){
+          var sel=setAdsState.custom_audiences.find(function(x){return x.id===c.id;});
+          var prefix=c.subtype==='LOOKALIKE'?'⟲ ':'';
+          h+='<button type="button" class="btn'+(sel?' btn-primary':'')+'" style="font-size:12px;padding:4px 10px;" onclick="setAdsToggleCustom(\''+esc(c.id)+'\',\''+esc((c.name||'').replace(/\x27/g,'\\\x27'))+'\')">'+prefix+esc(c.name)+'</button>';
+        });
+        h+='</div></div>';
+      }
+    }
+  }
+  // Submit
+  h+='<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--bd);">';
+  if(setAdsBusy){
+    h+='<button class="btn btn-primary" disabled style="width:100%;padding:12px;">Đang tạo... ('+(setAdsLog.length||0)+'/4)</button>';
+    if(setAdsLog.length)h+='<pre style="font-size:11px;color:var(--tx3);margin-top:8px;max-height:120px;overflow:auto;">'+esc(setAdsLog.join('\n'))+'</pre>';
+  }else{
+    h+='<button class="btn btn-primary" onclick="submitSetAds()" style="width:100%;padding:12px;font-size:14px;">▶ Tạo & Chạy chiến dịch (ACTIVE)</button>';
+    h+='<div style="font-size:11px;color:var(--tx3);margin-top:6px;text-align:center;">Chiến dịch sẽ chạy ngay khi tạo. Đảm bảo TKQC có số dư đủ.</div>';
+  }
+  h+='</div>';
+  h+='</div>';
+  return h;
+}
+async function submitSetAds(){
+  if(setAdsBusy)return;
+  // Validate
+  var st=setAdsState;
+  var acc=adList.find(function(a){return a.id===st.acc_id;});
+  if(!acc||!acc.fb_account_id){toast('Chọn TKQC đã ghép Meta',false);return;}
+  if(!st.page_id){toast('Chọn Page',false);return;}
+  var postId=parseSetAdsPostInput(st.post_input);
+  if(!postId){toast('Post ID/URL không hợp lệ. Nhập ID số hoặc link /posts/...',false);return;}
+  if(!st.campaign_name||st.campaign_name.trim().length<3){toast('Đặt tên chiến dịch (≥3 ký tự)',false);return;}
+  var budget=parseInt(st.daily_budget);
+  if(!budget||budget<50000){toast('Ngân sách tối thiểu 50.000đ/ngày',false);return;}
+  if(st.age_min<13||st.age_max>65||st.age_min>st.age_max){toast('Tuổi không hợp lệ (13-65)',false);return;}
+  // object_story_id format: page_id_post_id (nếu post_input đã là format đó thì giữ nguyên)
+  var storyId=/^\d+_\d+$/.test(postId)?postId:(st.page_id+'_'+postId);
+  setAdsBusy=true;setAdsLog=[];setAdsResult=null;render();
+  var actPath=acc.fb_account_id; // act_xxx
+  var log=function(m){setAdsLog.push('['+new Date().toLocaleTimeString()+'] '+m);render();};
+  try{
+    // STEP 1: Create campaign
+    log('1/4 Tạo Campaign...');
+    var campRes=await metaPost(actPath+'/campaigns',{
+      name:st.campaign_name.trim(),
+      objective:'OUTCOME_ENGAGEMENT',
+      special_ad_categories:[],
+      status:'ACTIVE',
+      buying_type:'AUCTION'
+    });
+    if(campRes&&campRes.error)throw{step:'campaign',msg:campRes.error.message||JSON.stringify(campRes.error)};
+    if(!campRes.id)throw{step:'campaign',msg:'Không trả về campaign_id'};
+    var campaignId=campRes.id;
+    log('   ✓ Campaign ID: '+campaignId);
+    // STEP 2: Build targeting + create adset
+    log('2/4 Tạo Adset...');
+    var targeting={
+      geo_locations:{},
+      age_min:st.age_min,
+      age_max:st.age_max
+    };
+    var countries=[],cities=[],regions=[];
+    st.locations.forEach(function(l){
+      if(l.type==='country')countries.push(l.key);
+      else if(l.type==='city')cities.push({key:l.key});
+      else if(l.type==='region')regions.push({key:l.key});
+    });
+    if(countries.length)targeting.geo_locations.countries=countries;
+    if(cities.length)targeting.geo_locations.cities=cities;
+    if(regions.length)targeting.geo_locations.regions=regions;
+    if(!countries.length&&!cities.length&&!regions.length)targeting.geo_locations.countries=['VN'];
+    if(st.gender==='male')targeting.genders=[1];
+    else if(st.gender==='female')targeting.genders=[2];
+    if(st.interests.length){
+      targeting.flexible_spec=[{interests:st.interests.map(function(i){return{id:i.id,name:i.name};})}];
+    }
+    if(st.custom_audiences.length){
+      targeting.custom_audiences=st.custom_audiences.map(function(c){return{id:c.id};});
+    }
+    var adsetPayload={
+      name:st.campaign_name.trim()+' - Adset',
+      campaign_id:campaignId,
+      daily_budget:budget,
+      billing_event:'IMPRESSIONS',
+      optimization_goal:'CONVERSATIONS',
+      bid_strategy:'LOWEST_COST_WITHOUT_CAP',
+      destination_type:st.destination,
+      promoted_object:{page_id:st.page_id},
+      targeting:targeting,
+      status:'ACTIVE'
+    };
+    // Saved audiences: phải merge từng cái với targeting (Meta không có field saved_audiences trong adset payload — phải đọc target từng saved audience rồi merge, hoặc dùng targeting.saved_audience_id chỉ cho 1 cái)
+    if(st.saved_audiences.length===1){
+      adsetPayload.targeting.saved_audience_id=st.saved_audiences[0].id;
+    }
+    var adsetRes=await metaPost(actPath+'/adsets',adsetPayload);
+    if(adsetRes&&adsetRes.error)throw{step:'adset',msg:adsetRes.error.message||JSON.stringify(adsetRes.error)};
+    if(!adsetRes.id)throw{step:'adset',msg:'Không trả về adset_id'};
+    var adsetId=adsetRes.id;
+    log('   ✓ Adset ID: '+adsetId);
+    // STEP 3: Create creative from post
+    log('3/4 Tạo Creative từ post '+storyId+'...');
+    var crRes=await metaPost(actPath+'/adcreatives',{
+      name:st.campaign_name.trim()+' - Creative',
+      object_story_id:storyId
+    });
+    if(crRes&&crRes.error)throw{step:'creative',msg:crRes.error.message||JSON.stringify(crRes.error)};
+    if(!crRes.id)throw{step:'creative',msg:'Không trả về creative_id'};
+    var creativeId=crRes.id;
+    log('   ✓ Creative ID: '+creativeId);
+    // STEP 4: Create ad
+    log('4/4 Tạo Ad...');
+    var adRes=await metaPost(actPath+'/ads',{
+      name:st.campaign_name.trim()+' - Ad',
+      adset_id:adsetId,
+      creative:{creative_id:creativeId},
+      status:'ACTIVE'
+    });
+    if(adRes&&adRes.error)throw{step:'ad',msg:adRes.error.message||JSON.stringify(adRes.error)};
+    if(!adRes.id)throw{step:'ad',msg:'Không trả về ad_id'};
+    var adId=adRes.id;
+    log('   ✓ Ad ID: '+adId);
+    log('Hoàn tất ✓');
+    var actNum=acc.fb_account_id.replace('act_','');
+    setAdsResult={
+      success:true,
+      campaign_id:campaignId,
+      adset_id:adsetId,
+      creative_id:creativeId,
+      ad_id:adId,
+      manager_link:'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+actNum+'&selected_campaign_ids='+campaignId
+    };
+    setAdsBusy=false;
+    // Reset form fields (giữ TKQC + Page để tạo tiếp dễ hơn)
+    setAdsState.post_input='';setAdsState.campaign_name='';setAdsState.interests=[];
+    render();
+  }catch(err){
+    log('✗ Lỗi: '+(err.msg||err.message||err));
+    setAdsBusy=false;
+    setAdsResult={success:false,error:err.msg||err.message||String(err),step:err.step||null};
+    render();
+  }
 }
 function renderTaskRow(t,showAssignee,isOverdue){
   var s=t.assignee_staff_id?(staffList.find(function(x){return x.id===t.assignee_staff_id;})||allStaff.find(function(x){return x.id===t.assignee_staff_id;})):null;

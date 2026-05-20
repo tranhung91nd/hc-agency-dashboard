@@ -22,9 +22,11 @@ const GRAPH_BASE = 'https://graph.facebook.com/v25.0/';
 const PATH_WHITELIST = [
   /^me\/permissions$/,
   /^me\/adaccounts$/,
+  /^me\/accounts$/,                                         // list Pages user manages
   /^debug_token$/,
+  /^search$/,                                               // adinterest / adgeolocation search
   /^act_\d+$/,                                              // single account info / update (rename, spend_cap)
-  /^act_\d+\/(transactions|insights|adsets|campaigns|ads)$/, // GET sub-resources
+  /^act_\d+\/(transactions|insights|adsets|campaigns|ads|adcreatives|customaudiences|saved_audiences|reachestimate)$/,
 ];
 
 function isPathAllowed(rawPath) {
@@ -87,7 +89,23 @@ module.exports = async (req, res) => {
         return res.status(403).json({ error: { message: 'Path không được phép: ' + path } });
       }
       var url = buildUrl(path);
-      var r = await fetch(url, { method: op === 'get' ? 'GET' : 'POST' });
+      var fetchOpts = { method: op === 'get' ? 'GET' : 'POST' };
+      // POST with payload — send as application/x-www-form-urlencoded
+      // (Meta Marketing API yêu cầu form encoding cho campaigns/adsets/ads/adcreatives)
+      if (op === 'post' && body.payload && typeof body.payload === 'object') {
+        var parts = [];
+        Object.keys(body.payload).forEach(function(k){
+          var v = body.payload[k];
+          if (v === undefined || v === null) return;
+          var sv = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+          parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(sv));
+        });
+        if (parts.length) {
+          fetchOpts.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+          fetchOpts.body = parts.join('&');
+        }
+      }
+      var r = await fetch(url, fetchOpts);
       var data = await r.json();
       return res.status(200).json(data);
     }
