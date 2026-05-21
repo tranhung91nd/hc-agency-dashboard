@@ -466,7 +466,7 @@ footer b{color:#fff;}
       không server lạ, không lo lộ danh bạ.
     </p>
     <div class="cta-row">
-      <a href="#cta" class="btn btn-primary">🎁 Dùng thử 3 ngày — 0đ</a>
+      <a href="#trial" class="btn btn-primary js-open-trial">🎁 Dùng thử 3 ngày — 0đ</a>
       <a href="#mechanism" class="btn btn-ghost">▶ Xem AI chốt sale trực tiếp (5 phút)</a>
     </div>
     <div class="trust">
@@ -638,7 +638,7 @@ footer b{color:#fff;}
         <div class="big">3.000.000đ <span style="font-size:18px;font-weight:600;color:var(--tx-soft);">/năm</span></div>
         <div class="sub">~250k/tháng — rẻ hơn 1 bữa cơm văn phòng/ngày</div>
       </div>
-      <a href="#cta" class="btn btn-primary">🎁 Lấy ưu đãi ngay</a>
+      <a href="#trial" class="btn btn-primary js-open-trial">🎁 Lấy ưu đãi ngay</a>
     </div>
   </div>
 </section>
@@ -823,7 +823,7 @@ footer b{color:#fff;}
     <div class="roi-box">
       ✅ Gói 1 năm chỉ <b>3 triệu</b>. Tức là bạn chỉ cần chặn được <b>1 đơn rớt mỗi 5 ngày</b> là đã hoàn vốn.
     </div>
-    <a href="tel:0968915555" class="btn btn-primary" style="font-size:18px;padding:20px 36px;">
+    <a href="#trial" class="btn btn-primary js-open-trial" style="font-size:18px;padding:20px 36px;">
       🎁 Bắt đầu Dùng thử 3 ngày — 0đ
     </a>
     <div class="hotline">
@@ -854,8 +854,378 @@ footer b{color:#fff;}
 
 <!-- STICKY CTA mobile -->
 <div class="sticky-cta">
-  <a href="#cta" class="btn btn-primary">🎁 Dùng thử 3 ngày — 0đ</a>
+  <a href="#trial" class="btn btn-primary js-open-trial">🎁 Dùng thử 3 ngày — 0đ</a>
 </div>
+
+<!-- ===== TRIAL MODAL ===== -->
+<style>
+.modal-backdrop{
+  display:none;position:fixed;inset:0;z-index:1000;
+  background:rgba(11,13,18,.78);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;padding:20px;
+  animation:fadeIn .2s ease;
+}
+.modal-backdrop.open{display:flex;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.modal{
+  background:#fff;border-radius:20px;max-width:920px;width:100%;
+  max-height:92vh;overflow-y:auto;position:relative;
+  display:grid;grid-template-columns:340px 1fr;
+  box-shadow:0 30px 80px rgba(0,0,0,.5);
+  animation:slideUp .25s ease;
+}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.modal-close{
+  position:absolute;top:14px;right:14px;z-index:2;
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(255,255,255,.9);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;cursor:pointer;color:var(--tx-2);
+  transition:transform .15s,background .15s;
+}
+.modal-close:hover{transform:rotate(90deg);background:#fff;}
+
+/* LEFT — value anchor */
+.modal-left{
+  background:linear-gradient(160deg,#0b0d12 0%,#1a1f2b 100%);
+  color:#fff;padding:32px 28px;position:relative;overflow:hidden;
+}
+.modal-left::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(400px 200px at 100% 0%,rgba(232,74,31,.22),transparent 60%);
+}
+.modal-left > *{position:relative;z-index:1;}
+.modal-left .pill{
+  background:rgba(245,180,0,.16);color:var(--gold);
+  border:1px solid rgba(245,180,0,.35);
+  padding:5px 12px;border-radius:999px;font-size:12px;font-weight:700;
+  display:inline-block;margin-bottom:16px;
+}
+.modal-left h3{
+  font-size:22px;font-weight:800;line-height:1.25;
+  letter-spacing:-.01em;margin-bottom:14px;
+}
+.modal-left h3 .hl{color:var(--gold);}
+.modal-left .price-strike{
+  font-size:14px;color:var(--tx-3);text-decoration:line-through;
+  margin-bottom:2px;
+}
+.modal-left .price-now{
+  font-size:24px;font-weight:800;color:var(--gold);
+  margin-bottom:18px;
+}
+.modal-left ul{list-style:none;margin-bottom:18px;}
+.modal-left li{
+  padding:8px 0 8px 26px;font-size:13.5px;color:var(--tx-soft);
+  position:relative;line-height:1.5;
+}
+.modal-left li::before{
+  content:'✓';position:absolute;left:0;top:8px;
+  color:var(--green);font-weight:800;
+}
+.modal-guarantee{
+  margin-top:auto;padding:14px;background:rgba(14,159,110,.15);
+  border:1px solid rgba(14,159,110,.4);border-radius:10px;
+  font-size:13px;color:#fff;line-height:1.5;
+}
+.modal-guarantee b{color:var(--green);}
+
+/* RIGHT — form */
+.modal-right{padding:36px 36px 32px;}
+.modal-right h2{
+  font-size:24px;font-weight:800;letter-spacing:-.02em;
+  margin-bottom:6px;line-height:1.25;
+}
+.modal-right .sub{
+  font-size:14px;color:var(--tx-2);margin-bottom:22px;line-height:1.55;
+}
+.field{margin-bottom:14px;}
+.field label{
+  display:block;font-size:13px;font-weight:600;color:var(--tx);
+  margin-bottom:6px;
+}
+.field label .req{color:var(--brand);}
+.field input{
+  width:100%;padding:13px 14px;border:1.5px solid var(--line);
+  border-radius:10px;font-size:15px;font-family:inherit;
+  color:var(--tx);background:#fff;
+  transition:border-color .15s,box-shadow .15s;
+}
+.field input:focus{
+  outline:none;border-color:var(--brand);
+  box-shadow:0 0 0 3px rgba(232,74,31,.12);
+}
+.field input.err{border-color:var(--red);background:#FEF2F2;}
+.field .hint{font-size:12px;color:var(--tx-3);margin-top:4px;}
+.field .err-msg{font-size:12px;color:var(--red);margin-top:4px;display:none;}
+.field.has-err .err-msg{display:block;}
+
+.btn-submit{
+  width:100%;padding:16px;border:none;border-radius:12px;
+  background:var(--brand);color:#fff;font-weight:800;font-size:16px;
+  cursor:pointer;font-family:inherit;letter-spacing:.01em;
+  box-shadow:0 10px 24px rgba(232,74,31,.35);
+  transition:transform .12s,box-shadow .12s,background .12s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-submit:hover:not(:disabled){background:var(--brand-2);transform:translateY(-1px);box-shadow:0 14px 30px rgba(232,74,31,.5);}
+.btn-submit:disabled{opacity:.7;cursor:wait;}
+.btn-submit .spin{
+  width:16px;height:16px;border:2px solid rgba(255,255,255,.4);
+  border-top-color:#fff;border-radius:50%;display:none;
+  animation:spin .8s linear infinite;
+}
+.btn-submit.loading .spin{display:inline-block;}
+.btn-submit.loading .lbl{opacity:.7;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.trust-row{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px;
+  font-size:11.5px;color:var(--tx-3);margin-top:14px;
+}
+.trust-row span{display:inline-flex;align-items:center;gap:4px;}
+.trust-row .ck{color:var(--green);font-weight:800;}
+
+.next-steps{
+  margin-top:22px;padding-top:20px;border-top:1px dashed var(--line);
+}
+.next-steps h4{
+  font-size:13px;font-weight:700;color:var(--tx);margin-bottom:12px;
+  text-transform:uppercase;letter-spacing:.04em;
+}
+.next-steps ol{list-style:none;counter-reset:s;}
+.next-steps li{
+  counter-increment:s;padding:6px 0 6px 32px;position:relative;
+  font-size:13.5px;color:var(--tx-2);line-height:1.55;
+}
+.next-steps li::before{
+  content:counter(s);position:absolute;left:0;top:5px;
+  width:22px;height:22px;border-radius:50%;
+  background:var(--brand-soft);color:var(--brand);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:12px;
+}
+
+/* SUCCESS STATE */
+.success-state{display:none;text-align:center;padding:48px 36px;}
+.modal.success .modal-left{display:none;}
+.modal.success{grid-template-columns:1fr;}
+.modal.success .modal-right .form-state{display:none;}
+.modal.success .success-state{display:block;}
+.success-icon{
+  width:72px;height:72px;margin:0 auto 18px;border-radius:50%;
+  background:var(--green);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:36px;animation:pop .4s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes pop{0%{transform:scale(0);}100%{transform:scale(1);}}
+.success-state h3{font-size:24px;font-weight:800;margin-bottom:8px;letter-spacing:-.01em;}
+.success-state .lede{font-size:15px;color:var(--tx-2);margin-bottom:24px;line-height:1.6;}
+.success-state .lede b{color:var(--ink);}
+.success-next{
+  background:var(--bg-2);border-radius:14px;padding:20px 22px;
+  text-align:left;margin-bottom:20px;
+}
+.success-next h4{font-size:13px;font-weight:700;margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--tx);}
+.success-next ol{list-style:none;counter-reset:s;}
+.success-next li{counter-increment:s;padding:6px 0 6px 32px;position:relative;font-size:14px;color:var(--tx-2);line-height:1.55;}
+.success-next li::before{content:counter(s);position:absolute;left:0;top:5px;width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;}
+.success-hotline{
+  padding:16px;background:var(--gold-soft);border-radius:12px;
+  font-size:14px;color:var(--tx);
+}
+.success-hotline b{color:var(--brand);font-size:18px;}
+
+@media(max-width:740px){
+  .modal{grid-template-columns:1fr;max-height:96vh;}
+  .modal-left{padding:24px;}
+  .modal-left h3{font-size:18px;}
+  .modal-right{padding:24px;}
+  .modal-right h2{font-size:20px;}
+}
+</style>
+
+<div class="modal-backdrop" id="trialModal" role="dialog" aria-modal="true" aria-labelledby="trialTitle">
+  <div class="modal">
+    <button class="modal-close" aria-label="Đóng" data-close>✕</button>
+
+    <!-- LEFT: Value anchor -->
+    <aside class="modal-left">
+      <span class="pill">⚡ Bản dùng thử 3 ngày</span>
+      <h3>Bạn đang nhận: <span class="hl">Bộ Ba Chốt Đơn</span> bản đầy đủ — không giới hạn tính năng.</h3>
+      <div class="price-strike">Giá trị thực: 39.000.000đ</div>
+      <div class="price-now">Hôm nay: 0đ</div>
+      <ul>
+        <li>AI Tự động trả lời 24/7</li>
+        <li>AI Cố vấn chốt sale (Claude + GPT-4o)</li>
+        <li>Bắn tin 1000+ khách theo nhãn</li>
+        <li>Đa nick Zalo — 1 hộp thư</li>
+        <li>50 kịch bản chốt sale + lộ trình 30 ngày</li>
+        <li>Hướng dẫn cài 1-1 qua TeamViewer</li>
+      </ul>
+      <div class="modal-guarantee">
+        🛡️ <b>Cam kết:</b> 3 ngày 0đ — không cần thẻ tín dụng. Sau đó nếu không hiệu quả, bên mình hoàn 100%, bạn vẫn giữ lại 50 kịch bản + tài liệu.
+      </div>
+    </aside>
+
+    <!-- RIGHT: Form -->
+    <div class="modal-right">
+      <div class="form-state">
+        <h2 id="trialTitle">Nhận bản dùng thử 3 ngày — 0đ</h2>
+        <p class="sub">Điền 3 trường dưới đây. Bên mình gọi lại trong <b>30 phút</b> (giờ hành chính) để hướng dẫn cài 1-1.</p>
+
+        <form id="trialForm" novalidate>
+          <div class="field" id="f-name">
+            <label for="t-name">Họ và tên <span class="req">*</span></label>
+            <input type="text" id="t-name" name="name" placeholder="VD: Nguyễn Văn A" autocomplete="name" required>
+            <div class="err-msg">Bạn điền giúp họ tên nhé.</div>
+          </div>
+
+          <div class="field" id="f-phone">
+            <label for="t-phone">Số điện thoại Zalo <span class="req">*</span></label>
+            <input type="tel" id="t-phone" name="phone" placeholder="VD: 0912 345 678" autocomplete="tel" inputmode="numeric" required>
+            <div class="hint">Bên mình gọi/Zalo vào số này để hướng dẫn cài.</div>
+            <div class="err-msg">Số điện thoại 10 chữ số (bắt đầu bằng 0).</div>
+          </div>
+
+          <div class="field" id="f-email">
+            <label for="t-email">Email <span class="req">*</span></label>
+            <input type="email" id="t-email" name="email" placeholder="VD: ban@shopcuaban.com" autocomplete="email" required>
+            <div class="hint">Bên mình gửi link tải + tài liệu vào email này.</div>
+            <div class="err-msg">Email chưa đúng định dạng.</div>
+          </div>
+
+          <button type="submit" class="btn-submit" id="trialSubmit">
+            <span class="spin"></span>
+            <span class="lbl">🎁 NHẬN BẢN DÙNG THỬ 3 NGÀY</span>
+          </button>
+
+          <div class="trust-row">
+            <span><span class="ck">✓</span> Không cần thẻ tín dụng</span>
+            <span><span class="ck">✓</span> Bảo mật tuyệt đối</span>
+            <span><span class="ck">✓</span> Không spam</span>
+          </div>
+        </form>
+
+        <div class="next-steps">
+          <h4>📋 Sau khi gửi, bạn nhận được:</h4>
+          <ol>
+            <li><b>Trong 5 phút:</b> Email kèm link tải + hướng dẫn cài 10 phút.</li>
+            <li><b>Trong 30 phút:</b> Bên mình gọi/Zalo để hỗ trợ cài 1-1 (giờ hành chính).</li>
+            <li><b>Trong 3 ngày:</b> Bạn chạy thử thoải mái — chốt thực, đo thực, rồi quyết định.</li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- SUCCESS -->
+      <div class="success-state">
+        <div class="success-icon">✓</div>
+        <h3>Đã nhận thông tin của bạn!</h3>
+        <p class="lede">Bên mình sẽ gọi <b id="s-phone">…</b> trong <b>30 phút</b> tới (giờ hành chính). Email link tải đang gửi vào <b id="s-email">…</b>.</p>
+        <div class="success-next">
+          <h4>📋 Việc tiếp theo:</h4>
+          <ol>
+            <li>Mở email — tải file cài đặt + tài liệu 50 kịch bản.</li>
+            <li>Bật điện thoại để bên mình gọi hướng dẫn cài (10 phút là xong).</li>
+            <li>Chạy thử 3 ngày — đo kết quả thực trên đơn của bạn.</li>
+          </ol>
+        </div>
+        <div class="success-hotline">
+          📞 Cần gấp? Gọi hotline 1-1: <b>0968.91.5555</b>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var modal = document.getElementById('trialModal');
+  var form = document.getElementById('trialForm');
+  var btn = document.getElementById('trialSubmit');
+  var modalBox = modal.querySelector('.modal');
+
+  function open(){
+    modal.classList.add('open');
+    modalBox.classList.remove('success');
+    document.body.style.overflow='hidden';
+    setTimeout(function(){document.getElementById('t-name').focus();},150);
+  }
+  function close(){
+    modal.classList.remove('open');
+    document.body.style.overflow='';
+  }
+
+  document.querySelectorAll('.js-open-trial').forEach(function(el){
+    el.addEventListener('click', function(e){ e.preventDefault(); open(); });
+  });
+  modal.addEventListener('click', function(e){
+    if (e.target === modal || e.target.hasAttribute('data-close')) close();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && modal.classList.contains('open')) close();
+  });
+
+  function setErr(id, on){
+    var f = document.getElementById(id);
+    if (on) f.classList.add('has-err'); else f.classList.remove('has-err');
+    f.querySelector('input').classList.toggle('err', on);
+  }
+  function validPhone(v){ return /^0\d{9}$/.test(v.replace(/\s/g,'')); }
+  function validEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var name = document.getElementById('t-name').value.trim();
+    var phone = document.getElementById('t-phone').value.trim();
+    var email = document.getElementById('t-email').value.trim();
+    var ok = true;
+    if (!name || name.length < 2){ setErr('f-name', true); ok=false; } else setErr('f-name', false);
+    if (!validPhone(phone)){ setErr('f-phone', true); ok=false; } else setErr('f-phone', false);
+    if (!validEmail(email)){ setErr('f-email', true); ok=false; } else setErr('f-email', false);
+    if (!ok) return;
+
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    var payload = {
+      name: name,
+      phone: phone.replace(/\s/g,''),
+      email: email,
+      source: 'landing-zalo-ai',
+      ts: new Date().toISOString(),
+      ua: navigator.userAgent
+    };
+
+    // Lưu local làm backup (chưa mất lead nếu backend offline)
+    try {
+      var leads = JSON.parse(localStorage.getItem('hc_leads')||'[]');
+      leads.push(payload);
+      localStorage.setItem('hc_leads', JSON.stringify(leads));
+    } catch(e){}
+
+    // TODO: đổi URL này thành endpoint thật (Telegram bot, Google Apps Script, n8n webhook…)
+    // Ví dụ: fetch('/api/lead', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)})
+    fetch('/api/lead', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    }).catch(function(){/* bỏ qua lỗi mạng, đã có local backup */});
+
+    setTimeout(function(){
+      document.getElementById('s-phone').textContent = phone;
+      document.getElementById('s-email').textContent = email;
+      modalBox.classList.add('success');
+      btn.classList.remove('loading');
+      btn.disabled = false;
+      modal.scrollTop = 0;
+      // analytics hook (tuỳ bạn nối GA/FB Pixel)
+      if (window.gtag) window.gtag('event','generate_lead',{value:3000000,currency:'VND'});
+      if (window.fbq) window.fbq('track','Lead');
+    }, 700);
+  });
+})();
+</script>
 
 </body>
 </html>
