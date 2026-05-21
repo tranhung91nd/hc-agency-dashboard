@@ -1138,8 +1138,14 @@ footer b{color:#fff;}
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function(){
+  // Supabase client — cùng project với HC Agency Dashboard
+  var SB_URL='https://eqsnohwymgmdvbqwflas.supabase.co';
+  var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxc25vaHd5bWdtZHZicXdmbGFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzU1NzUsImV4cCI6MjA5MTIxMTU3NX0.0cv-j9zJUfVAj9LBG8VFHNO0Jke4JjehBKSzDVd1nA0';
+  var sb = window.supabase.createClient(SB_URL, SB_KEY);
+
   var modal = document.getElementById('trialModal');
   var form = document.getElementById('trialForm');
   var btn = document.getElementById('trialSubmit');
@@ -1187,42 +1193,47 @@ footer b{color:#fff;}
 
     btn.classList.add('loading');
     btn.disabled = true;
+    var cleanPhone = phone.replace(/\s/g,'');
 
-    var payload = {
-      name: name,
-      phone: phone.replace(/\s/g,''),
-      email: email,
-      source: 'landing-zalo-ai',
-      ts: new Date().toISOString(),
-      ua: navigator.userAgent
-    };
-
-    // Lưu local làm backup (chưa mất lead nếu backend offline)
+    // Backup local — không mất lead nếu mạng lỗi
     try {
       var leads = JSON.parse(localStorage.getItem('hc_leads')||'[]');
-      leads.push(payload);
+      leads.push({name:name, phone:cleanPhone, email:email, ts:new Date().toISOString()});
       localStorage.setItem('hc_leads', JSON.stringify(leads));
     } catch(e){}
 
-    // TODO: đổi URL này thành endpoint thật (Telegram bot, Google Apps Script, n8n webhook…)
-    // Ví dụ: fetch('/api/lead', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)})
-    fetch('/api/lead', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    }).catch(function(){/* bỏ qua lỗi mạng, đã có local backup */});
-
-    setTimeout(function(){
+    // Gọi RPC submit_public_lead — chảy thẳng vào bảng client.status='prospect'
+    sb.rpc('submit_public_lead', {
+      p_data: {
+        name: name,
+        phone: cleanPhone,
+        zalo: cleanPhone,
+        email: email,
+        services: ['zalo_ai'],
+        message: 'Đăng ký dùng thử 3 ngày từ landing Zalo AI',
+        source: 'landing_zalo_ai'
+      }
+    }).then(function(r){
+      btn.classList.remove('loading');
+      btn.disabled = false;
+      if (r.error) {
+        var msg = String(r.error.message || r.error);
+        document.getElementById('f-phone').classList.add('has-err');
+        document.querySelector('#f-phone .err-msg').textContent = msg.replace(/^[^:]*:\s*/,'');
+        return;
+      }
       document.getElementById('s-phone').textContent = phone;
       document.getElementById('s-email').textContent = email;
       modalBox.classList.add('success');
-      btn.classList.remove('loading');
-      btn.disabled = false;
       modal.scrollTop = 0;
-      // analytics hook (tuỳ bạn nối GA/FB Pixel)
       if (window.gtag) window.gtag('event','generate_lead',{value:3000000,currency:'VND'});
       if (window.fbq) window.fbq('track','Lead');
-    }, 700);
+    }).catch(function(err){
+      btn.classList.remove('loading');
+      btn.disabled = false;
+      document.getElementById('f-phone').classList.add('has-err');
+      document.querySelector('#f-phone .err-msg').textContent = 'Lỗi kết nối: '+err.message;
+    });
   });
 })();
 </script>

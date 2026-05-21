@@ -28,7 +28,8 @@ var SERVICES={
   fb_ads:{name:'Quảng cáo Facebook',short:'FB Ads',icon:'📣',color:'blue'},
   tiktok_ads:{name:'Quảng cáo TikTok',short:'TikTok Ads',icon:'🎵',color:'gray'},
   tkqc_rental:{name:'Cho thuê TKQC',short:'Thuê TKQC',icon:'🔑',color:'teal'},
-  web_dev:{name:'Lập trình Web App',short:'Web App',icon:'💻',color:'purple'}
+  web_dev:{name:'Lập trình Web App',short:'Web App',icon:'💻',color:'purple'},
+  zalo_ai:{name:'Zalo AI Marketing',short:'Zalo AI',icon:'💬',color:'coral'}
 };
 // ═══ CARE STATUS — TRẠNG THÁI CHĂM SÓC KHÁCH HÀNG (CRM funnel) ═══
 var CARE_STATUS={
@@ -8260,7 +8261,8 @@ var LEAD_COPY = {
   services:        [
     {code:'fb_ads',      icon:'📣', title:'Quảng cáo Facebook',          desc:'Tối ưu chiến dịch, tăng chuyển đổi'},
     {code:'tkqc_rental', icon:'🔑', title:'Thuê tài khoản quảng cáo',    desc:'TKQC ổn định, BM chất lượng'},
-    {code:'web_dev',     icon:'💻', title:'Thiết kế & Lập trình Web/App', desc:'Website chuẩn SEO, tối ưu UX/UI'}
+    {code:'web_dev',     icon:'💻', title:'Thiết kế & Lập trình Web/App', desc:'Website chuẩn SEO, tối ưu UX/UI'},
+    {code:'zalo_ai',     icon:'💬', title:'Zalo AI Marketing',           desc:'AI tự trả lời + bắn tin hàng loạt'}
   ],
   lblMessage:      'Nhu cầu hiện tại của bạn',
   lblMessageOpt:   '(không bắt buộc)',
