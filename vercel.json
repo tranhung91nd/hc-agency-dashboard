@@ -1,5 +1,10 @@
 {
   "rewrites": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "zalo.hc-agency.online" }],
+      "destination": "/demos/landing-zalo-ai.html"
+    },
     { "source": "/ads/:path*", "destination": "/index.html" },
     { "source": "/staff/:path*", "destination": "/index.html" },
     { "source": "/clients/:path*", "destination": "/index.html" },
