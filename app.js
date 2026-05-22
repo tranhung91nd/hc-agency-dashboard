@@ -693,7 +693,39 @@ if(!finMonth)finMonth=lm();if(!adViewDate)adViewDate=td();if(!rptMonth)rptMonth=
 render();
 // ─── Wave 2: background, không await ───
 loadDeferred();
+// ─── Realtime: lắng nghe thay đổi table client (lead mới từ form công khai) ───
+subscribeClientRealtime();
 }catch(e){document.getElementById('page').innerHTML='<div class="error-box">Lỗi: '+esc(e.message)+'</div>';}}
+
+// ═══ REALTIME: lắng nghe thay đổi table client ═══
+// Yêu cầu migration 2026-05-22_realtime_client.sql đã chạy (ALTER PUBLICATION supabase_realtime).
+// Khi insert/update/delete client từ ngoài (form công khai /api/trial, RPC, admin khác...) → đồng bộ
+// clientList global + toast cho lead mới + re-render nếu user đang ở trang Khách hàng (curPage===3).
+var _clientRtChannel=null;
+function subscribeClientRealtime(){
+  if(_clientRtChannel)return; // đã subscribe rồi
+  try{
+    _clientRtChannel=sb2.channel('hc-client-changes')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'client'},function(p){
+        var c=p.new;if(!c||!c.id)return;
+        if(clientList.some(function(x){return x.id===c.id;}))return;
+        clientList.push(c);
+        if(c.status==='prospect')toast('🆕 Lead mới: '+(c.name||'?')+(c.phone?' · '+c.phone:'')+(c.lead_source?' ('+c.lead_source+')':''),true);
+        if(curPage===3)render();
+      })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'client'},function(p){
+        var c=p.new;if(!c||!c.id)return;
+        var i=clientList.findIndex(function(x){return x.id===c.id;});
+        if(i>=0){clientList[i]=Object.assign({},clientList[i],c);if(curPage===3)render();}
+      })
+      .on('postgres_changes',{event:'DELETE',schema:'public',table:'client'},function(p){
+        var oldId=p.old&&p.old.id;if(!oldId)return;
+        clientList=clientList.filter(function(x){return x.id!==oldId;});
+        if(curPage===3)render();
+      })
+      .subscribe();
+  }catch(e){console.warn('[realtime] client subscribe lỗi:',e.message);}
+}
 async function loadDeferred(){try{
  var minDate60=new Date(Date.now()-60*86400000).toISOString().substring(0,10);
  var minDate180=new Date(Date.now()-180*86400000).toISOString().substring(0,10);
