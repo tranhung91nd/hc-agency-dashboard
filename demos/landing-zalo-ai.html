@@ -668,6 +668,10 @@ footer b{color:#fff;}
   box-shadow:0 0 0 3px rgba(232,74,31,.12);
 }
 .field input.err{border-color:var(--red);background:#FEF2F2;}
+.form-error{display:none;padding:10px 14px;margin-bottom:12px;background:#FEF2F2;border:1px solid var(--red);border-radius:8px;color:var(--red);font-size:13px;line-height:1.5;}
+.form-error.show{display:block;}
+.form-error b{font-weight:700;}
+.form-error a{color:var(--red);text-decoration:underline;}
 .field .hint{font-size:12px;color:var(--tx-3);margin-top:4px;}
 .field .err-msg{font-size:12px;color:var(--red);margin-top:4px;display:none;}
 .field.has-err .err-msg{display:block;}
@@ -796,6 +800,7 @@ footer b{color:#fff;}
             <div class="err-msg">Email chưa đúng định dạng.</div>
           </div>
 
+          <div id="formError" class="form-error" role="alert" aria-live="polite"></div>
           <button type="submit" class="btn-submit" id="trialSubmit">
             <span class="spin"></span>
             <span class="lbl">🎁 NHẬN BẢN DÙNG THỬ 3 NGÀY</span>
@@ -868,8 +873,16 @@ footer b{color:#fff;}
   function validatePhone(v){ return /^0\d{9}$/.test(v.replace(/\s/g,'')); }
   function validateEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
 
+  const errBox = document.getElementById('formError');
+  function showFormErr(msg){
+    errBox.innerHTML = msg + ' Vui lòng thử lại hoặc gọi trực tiếp <b>0968.91.5555</b>.';
+    errBox.classList.add('show');
+  }
+  function clearFormErr(){ errBox.classList.remove('show'); errBox.innerHTML = ''; }
+
   form.addEventListener('submit', async function(e){
     e.preventDefault();
+    clearFormErr();
     const name = document.getElementById('t-name').value.trim();
     const phone = document.getElementById('t-phone').value.trim();
     const email = document.getElementById('t-email').value.trim();
@@ -887,15 +900,19 @@ footer b{color:#fff;}
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({name, phone, email, source:'landing-zalo-ai'})
       });
-      // Always show success — backend handles dedupe
+      // Chỉ show success khi HTTP 2xx — tránh nuốt lỗi server/route lỗi
+      if(!res.ok){
+        let detail = '';
+        try { const j = await res.json(); detail = j && j.error ? ' (' + j.error + ')' : ''; } catch(_){}
+        showFormErr('<b>Gửi không thành công</b> — server trả về HTTP ' + res.status + detail + '.');
+        return;
+      }
       document.getElementById('successPhone').textContent = phone;
       document.getElementById('successEmail').textContent = email;
       modal.querySelector('.modal').classList.add('success');
     } catch(err){
-      // Even on network error, show success — user will be reached via hotline
-      document.getElementById('successPhone').textContent = phone;
-      document.getElementById('successEmail').textContent = email;
-      modal.querySelector('.modal').classList.add('success');
+      // Network error — show lỗi rõ ràng để user retry, không nuốt nữa
+      showFormErr('<b>Không kết nối được tới máy chủ</b> — kiểm tra mạng giúp bạn.');
     } finally {
       submitBtn.classList.remove('loading');
       submitBtn.disabled = false;
