@@ -7714,6 +7714,30 @@ async function syncMetaForClient(clientId,month,btn){
   }catch(e){toast('Lỗi sync: '+e.message,false);}
   finally{if(btn){btn.disabled=false;btn.textContent=oldText||'🔄 Sync Meta';}}
 }
+// ═══ BACKFILL SPEND THEO THÁNG (không có nút UI, gọi từ Console khi cần) ═══
+// Vd: backfillClientMonth('0c8ca3f5-1c98-486e-a53f-24e5adf92ef4', '2026-03')
+async function backfillClientMonth(clientId,monthStr){
+  if(!needAuth()){console.warn('[backfill] Cần đăng nhập admin');return;}
+  if(!/^\d{4}-\d{2}$/.test(monthStr)){console.warn('[backfill] monthStr phải dạng YYYY-MM, vd "2026-03"');return;}
+  var clientAccIds={};
+  adList.forEach(function(a){if(a.client_id===clientId&&a.fb_account_id)clientAccIds[a.id]=true;});
+  assignData.forEach(function(ag){if(ag.client_id===clientId){var aa=adList.find(function(x){return x.id===ag.ad_account_id;});if(aa&&aa.fb_account_id)clientAccIds[aa.id]=true;}});
+  var mapped=adList.filter(function(a){return clientAccIds[a.id];});
+  if(!mapped.length){console.warn('[backfill] Khách chưa có TKQC nào ghép Meta');return;}
+  var y=parseInt(monthStr.split('-')[0]),m=parseInt(monthStr.split('-')[1]);
+  var lastDay=new Date(y,m,0).getDate();
+  console.log('[backfill] start | client='+clientId+' | tháng='+monthStr+' | '+lastDay+' ngày × '+mapped.length+' TKQC');
+  var totalSaved=0,totalErr=0;
+  for(var d=1;d<=lastDay;d++){
+    var dateStr=monthStr+'-'+String(d).padStart(2,'0');
+    var r=await syncOneDate(dateStr,mapped);
+    totalSaved+=r.saved||0;totalErr+=r.errors||0;
+    console.log('[backfill] '+dateStr+' · saved='+r.saved+' · err='+r.errors);
+  }
+  console.log('[backfill] DONE: saved='+totalSaved+' · err='+totalErr);
+  toast('Backfill '+monthStr+' xong: '+totalSaved+' dòng'+(totalErr?' · '+totalErr+' lỗi':''),totalErr===0);
+  await loadAll();
+}
 // ═══ SHARE LINK CHO KHÁCH RENTAL ═══
 function genShareToken(){var b=new Uint8Array(12);crypto.getRandomValues(b);return Array.from(b).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}
 async function copyClientShareLink(clientId,btn){
