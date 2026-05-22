@@ -927,6 +927,8 @@ table.pr-table tr.pr-row-detail td{padding:0;background:var(--bg2);}
 .pr-zalo-btn:hover{background:#0052D4;transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,104,255,.35);}
 .pr-zalo-btn svg{display:block;}
 .pr-empty-cell{color:var(--tx3);opacity:.5;font-size:13px;}
+.pr-email-link{color:var(--blue-tx);text-decoration:none;font-size:13px;display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
+.pr-email-link:hover{text-decoration:underline;}
 /* Ngày */
 .pr-date{color:var(--tx2);font-size:12.5px;font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
 /* Action cell */

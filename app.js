@@ -2594,7 +2594,7 @@ if(!prospects.length){
   h+='</div>';
   return h;
 }
-h+='<div class="pr-table-wrap"><table class="pr-table"><thead><tr><th>Tên</th><th>Dịch vụ</th><th>Liên hệ</th><th>Trạng thái</th><th>Ngày tạo</th><th class="pr-th-action"></th></tr></thead><tbody>';
+h+='<div class="pr-table-wrap"><table class="pr-table"><thead><tr><th>Tên</th><th>Dịch vụ</th><th>Liên hệ</th><th>Email</th><th>Trạng thái</th><th>Ngày tạo</th><th class="pr-th-action"></th></tr></thead><tbody>';
 prospects.forEach(function(c){
   var createdDate=c.created_at?c.created_at.substring(0,10):'';
   var isExp=expandedClientId===c.id;
@@ -2616,6 +2616,12 @@ prospects.forEach(function(c){
   }else{
     h+='<td><span class="pr-empty-cell">—</span></td>';
   }
+  // Email — mailto link, truncate khi dài
+  if(c.email_invoice){
+    h+='<td><a href="mailto:'+esc(c.email_invoice)+'" class="pr-email-link" title="'+esc(c.email_invoice)+'" onclick="event.stopPropagation();">'+esc(c.email_invoice)+'</a></td>';
+  }else{
+    h+='<td><span class="pr-empty-cell">—</span></td>';
+  }
   // Trạng thái
   h+='<td>'+renderCareChip(c.care_status||'new')+'</td>';
   // Ngày tạo
@@ -2634,7 +2640,7 @@ prospects.forEach(function(c){
   h+='<button role="menuitem" class="danger" onclick="deleteProspect(\''+c.id+'\');closeQuotationMenus();">Xoá</button>';
   h+='</div></div></td></tr>';
   if(isExp){
-    h+='<tr class="pr-row-detail"><td colspan="6" style="padding:0;">';
+    h+='<tr class="pr-row-detail"><td colspan="7" style="padding:0;">';
     h+='<div class="kh-detail-wrap">';
     h+='<div class="kh-detail-grid">';
     h+='<div class="kh-detail-item"><span class="kh-detail-label">Địa chỉ</span><span class="kh-detail-value">'+esc(c.address||'—')+'</span></div>';
