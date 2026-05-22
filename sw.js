@@ -2,7 +2,7 @@
 // Code (HTML/JS/CSS): luôn fetch network → fallback cache nếu offline.
 //   → Deploy mới user thấy ngay lập tức, không cần reload 2 lần như SWR cũ.
 // Ảnh + assets tĩnh khác: stale-while-revalidate (load nhanh từ cache).
-var CACHE_NAME = 'hc-agency-v22';
+var CACHE_NAME = 'hc-agency-v23';
 
 self.addEventListener('install', function(e) {
   self.skipWaiting();
