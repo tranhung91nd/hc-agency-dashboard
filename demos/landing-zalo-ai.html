@@ -86,6 +86,23 @@ body{
   box-shadow:0 10px 30px rgba(232,74,31,.45);
 }
 .btn-primary:hover{background:var(--brand-2);box-shadow:0 14px 40px rgba(232,74,31,.55);}
+
+/* Pulse CTA — kêu gọi ấn vào */
+@keyframes pulse-cta{
+  0%,100%{
+    box-shadow:0 10px 30px rgba(232,74,31,.45), 0 0 0 0 rgba(232,74,31,.55);
+    transform:scale(1);
+  }
+  50%{
+    box-shadow:0 10px 30px rgba(232,74,31,.55), 0 0 0 16px rgba(232,74,31,0);
+    transform:scale(1.035);
+  }
+}
+.btn-pulse{animation:pulse-cta 1.6s ease-in-out infinite;}
+.btn-pulse:hover{animation:none;transform:translateY(-1px);}
+@media(prefers-reduced-motion:reduce){
+  .btn-pulse{animation:none;}
+}
 .btn-ghost{
   background:rgba(255,255,255,.08);color:#fff;
   border:1px solid rgba(255,255,255,.22);
@@ -325,7 +342,7 @@ footer b{color:#fff;}
       <b>Hiệu quả – Dễ dùng – Tiết kiệm.</b>
     </p>
     <div class="cta-row">
-      <a href="#trial" class="btn btn-primary js-open-trial">🎁 Dùng thử miễn phí 3 ngày</a>
+      <a href="#trial" class="btn btn-primary btn-pulse js-open-trial">🎁 Dùng thử miễn phí 3 ngày</a>
       <a href="tel:0968915555" class="btn btn-ghost">📞 Gọi ngay: 0968.91.5555</a>
     </div>
     <div class="quick-feats">
@@ -513,7 +530,7 @@ footer b{color:#fff;}
       <span><span class="ck">✓</span> Không cần thẻ tín dụng</span>
       <span><span class="ck">✓</span> Hỗ trợ 24/7</span>
     </div>
-    <a href="#trial" class="btn btn-primary js-open-trial" style="font-size:18px;padding:20px 36px;">
+    <a href="#trial" class="btn btn-primary btn-pulse js-open-trial" style="font-size:18px;padding:20px 36px;">
       🎁 NHẬN BẢN DÙNG THỬ 3 NGÀY — 0đ
     </a>
     <div class="hotline">
@@ -559,7 +576,7 @@ footer b{color:#fff;}
 
 <!-- STICKY CTA mobile -->
 <div class="sticky-cta">
-  <a href="#trial" class="btn btn-primary js-open-trial">🎁 Dùng thử miễn phí 3 ngày</a>
+  <a href="#trial" class="btn btn-primary btn-pulse js-open-trial">🎁 Dùng thử miễn phí 3 ngày</a>
 </div>
 
 <!-- ===== TRIAL MODAL ===== -->
