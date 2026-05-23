@@ -4749,6 +4749,126 @@ function p7(){
 // Yêu cầu Meta token có scope ads_management + pages_read_engagement.
 var setAdsState={acc_id:'',page_id:'',post_input:'',campaign_name:'',daily_budget:'100000',destination:'MESSENGER',age_min:18,age_max:65,gender:'all',locations:[{key:'VN',name:'Việt Nam',type:'country'}],interests:[],saved_audiences:[],custom_audiences:[],client_id:''};
 var setAdsPages=null,setAdsAudiencesByAcc={},setAdsSearchResults={location:null,interest:null},setAdsBusy=false,setAdsLog=[],setAdsResult=null,setAdsCloning=false,setAdsCloneNote='';
+// ═══ AUTO ADS PRESET (công thức A1/B2/...) ═══
+var autoAdsPresets=[],autoAdsPresetLoading=false;
+async function loadAutoAdsPresets(){
+  if(autoAdsPresetLoading)return;
+  autoAdsPresetLoading=true;
+  try{
+    var r=await sb2.from('auto_ads_preset').select('*').order('updated_at',{ascending:false});
+    if(r.error){console.warn('[preset load]',r.error.message);return;}
+    autoAdsPresets=r.data||[];
+    if(curPage===8)render();
+  }finally{autoAdsPresetLoading=false;}
+}
+function openSavePresetModal(presetName){
+  var existing=presetName?autoAdsPresets.find(function(p){return p.name===presetName;}):null;
+  var root=document.getElementById('hc-modal-root')||(function(){var d=document.createElement('div');d.id='hc-modal-root';document.body.appendChild(d);return d;})();
+  // Đóng modal cũ nếu có
+  var old=document.getElementById('preset-modal');if(old)old.remove();
+  var modal=document.createElement('div');modal.id='preset-modal';modal.className='hc-modal-backdrop';
+  modal.innerHTML=
+    '<div class="hc-modal" role="dialog" aria-modal="true" style="max-width:520px;">'
+    +'<div class="hc-modal-head"><h3>'+(existing?'Sửa công thức '+esc(existing.name):'Tạo công thức mới')+'</h3><button class="hc-modal-close" onclick="closePresetModal()" aria-label="Đóng">×</button></div>'
+    +'<div class="hc-modal-body">'
+    +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Tên công thức *</label>'
+    +'<input id="pm-name" type="text" class="fi" placeholder="VD: A1, B2, Mom_Mess_HCM" value="'+esc(existing?existing.name:'')+'"'+(existing?' disabled':'')+'>'
+    +(existing?'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tên không sửa được — xóa rồi tạo lại nếu cần đổi tên.</div>':'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Đặt ngắn, dễ nhớ. Dùng làm khoá khi gõ lệnh Telegram.</div>')
+    +'</div>'
+    +(existing?'':'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Campaign Meta gốc (để clone) *</label>'
+      +'<input id="pm-campid" type="text" class="fi" placeholder="120249131122740404 hoặc link Ads Manager">'
+      +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">💡 Bot sẽ tự copy Page + TKQC + Target từ campaign này.</div></div>')
+    +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ngân sách mặc định (VNĐ/ngày)</label>'
+    +'<input id="pm-budget" type="number" class="fi" min="50000" step="10000" value="'+(existing?existing.default_budget:'200000')+'">'
+    +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Có thể override khi gõ lệnh Telegram. Tối thiểu 50.000đ.</div></div>'
+    +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ghi chú (tuỳ chọn)</label>'
+    +'<textarea id="pm-note" class="fi" rows="2" placeholder="VD: Mẹ bỉm sữa HCM, post mess intent">'+esc((existing&&existing.note)||'')+'</textarea></div>'
+    +(existing?'<div style="background:var(--bg2);padding:10px;border-radius:8px;font-size:12px;color:var(--tx3);"><strong style="color:var(--tx1);">Cấu hình hiện tại:</strong><br>'
+      +'Page: '+esc(existing.source_page_name||existing.page_id)+'<br>'
+      +'TKQC: '+esc(existing.source_account_name||existing.ad_account_id)+'<br>'
+      +'Đích: '+esc(existing.destination_type||'MESSENGER')+'<br>'
+      +'Source campaign: <code>'+esc(existing.source_campaign_id||'—')+'</code></div>':'')
+    +'<div id="pm-error" style="display:none;color:var(--red);font-size:12px;margin-top:10px;padding:8px;background:var(--red-bg);border-radius:6px;"></div>'
+    +'</div>'
+    +'<div class="hc-modal-foot">'
+    +'<button type="button" class="btn btn-ghost" onclick="closePresetModal()">Hủy</button>'
+    +'<button id="pm-submit" type="button" class="btn btn-primary" onclick="submitPresetModal('+(existing?'true':'false')+')">'+(existing?'Lưu thay đổi':'Tạo công thức')+'</button>'
+    +'</div></div>';
+  root.appendChild(modal);
+  setTimeout(function(){var el=document.getElementById(existing?'pm-budget':'pm-name');if(el)el.focus();},50);
+}
+function closePresetModal(){var m=document.getElementById('preset-modal');if(m)m.remove();}
+async function submitPresetModal(isEdit){
+  var btn=document.getElementById('pm-submit');var errEl=document.getElementById('pm-error');
+  errEl.style.display='none';
+  var name=(document.getElementById('pm-name').value||'').trim();
+  var budget=parseInt(document.getElementById('pm-budget').value||'0',10);
+  var note=(document.getElementById('pm-note').value||'').trim()||null;
+  if(!name){errEl.textContent='Nhập tên công thức';errEl.style.display='block';return;}
+  if(!budget||budget<50000){errEl.textContent='Ngân sách tối thiểu 50.000đ';errEl.style.display='block';return;}
+  btn.disabled=true;btn.textContent='Đang xử lý...';
+  try{
+    if(isEdit){
+      var u=await sb2.from('auto_ads_preset').update({default_budget:budget,note:note}).eq('name',name);
+      if(u.error)throw new Error(u.error.message);
+      toast('Đã cập nhật công thức '+name,true);
+    }else{
+      var campIdInput=(document.getElementById('pm-campid').value||'').trim();
+      var campId=campIdInput;
+      var linkMatch=campIdInput.match(/selected_campaign_ids=(\d+)/);
+      if(linkMatch)campId=linkMatch[1];
+      if(!/^\d+$/.test(campId))throw new Error('Campaign ID phải là số (paste ID hoặc link AdsManager có selected_campaign_ids=...)');
+      // Check name unique
+      if(autoAdsPresets.find(function(p){return p.name===name;}))throw new Error('Tên công thức "'+name+'" đã tồn tại');
+      btn.textContent='Đang gọi Meta API...';
+      // Fetch campaign info
+      var camp=await metaGet(campId+'?fields=id,name,account_id');
+      if(camp.error)throw new Error('Meta: '+camp.error.message);
+      var adsets=await metaGet(campId+'/adsets?fields=id,name,daily_budget,destination_type,promoted_object,targeting&limit=1');
+      if(adsets.error)throw new Error('Meta adsets: '+adsets.error.message);
+      if(!adsets.data||!adsets.data.length)throw new Error('Campaign không có adset nào');
+      var adset=adsets.data[0];
+      var promoted=adset.promoted_object||{};
+      var pageId=promoted.page_id;
+      if(!pageId)throw new Error('Adset không có page_id (campaign này không phải Mess/Form?)');
+      var actId='act_'+camp.account_id;
+      var accInfo=await metaGet(actId+'?fields=name');
+      var pageInfo=await metaGet(pageId+'?fields=name');
+      var payload={
+        name:name,
+        page_id:pageId,
+        ad_account_id:actId,
+        destination_type:adset.destination_type||'MESSENGER',
+        default_budget:budget,
+        targeting:adset.targeting||{},
+        source_campaign_id:campId,
+        source_page_name:(pageInfo&&pageInfo.name)||null,
+        source_account_name:(accInfo&&accInfo.name)||null,
+        note:note
+      };
+      var ins=await sb2.from('auto_ads_preset').insert(payload);
+      if(ins.error)throw new Error(ins.error.message);
+      toast('Đã tạo công thức '+name,true);
+    }
+    closePresetModal();
+    await loadAutoAdsPresets();
+  }catch(e){
+    errEl.textContent='✗ '+(e.message||e);errEl.style.display='block';
+    btn.disabled=false;btn.textContent=isEdit?'Lưu thay đổi':'Tạo công thức';
+  }
+}
+async function deletePreset(name){
+  if(!await hcConfirm({title:'Xóa công thức',message:'Xóa công thức "'+name+'"? Lệnh Telegram dùng công thức này sẽ fail.',danger:true,confirmLabel:'Xóa'}))return;
+  var r=await sb2.from('auto_ads_preset').delete().eq('name',name);
+  if(r.error){toast('Lỗi xóa: '+r.error.message,false);return;}
+  toast('Đã xóa công thức '+name,true);
+  await loadAutoAdsPresets();
+}
+function copyPresetCmd(name){
+  var cmd='Sét Ads:\nhttps://www.facebook.com/.../posts/...\nCông thức: '+name+'\nNgân sách: 200K';
+  if(navigator.clipboard){navigator.clipboard.writeText(cmd).then(function(){toast('Đã copy lệnh mẫu — paste vào Telegram + thay link post',true);},function(){window.prompt('Copy lệnh:',cmd);});}
+  else window.prompt('Copy lệnh:',cmd);
+}
 function setAdsField(field,value){setAdsState[field]=value;render();}
 function onSetAdsAccChange(value){
   setAdsState.acc_id=value;
@@ -4920,10 +5040,45 @@ async function cloneFromCampaign(){
   }
 }
 function p8(){
+  // Lazy load preset list lần đầu vào trang (background, không block render)
+  if(!autoAdsPresets.length&&!autoAdsPresetLoading)loadAutoAdsPresets();
   var acc=adList.find(function(a){return a.id===setAdsState.acc_id;});
   var validAccs=adList.filter(function(a){return a.fb_account_id;});
   var auds=setAdsState.acc_id?setAdsAudiencesByAcc[setAdsState.acc_id]:null;
-  var h='<div class="page-title">Quảng cáo tự động</div><div class="page-sub">Tạo chiến dịch Messenger từ post có sẵn — 1 click set Campaign + Adset + Ad, chạy ACTIVE ngay</div>';
+  var h='<div class="page-title">Quảng cáo tự động</div><div class="page-sub">Tạo chiến dịch Messenger từ post có sẵn — 1 click set Campaign + Adset + Ad, chạy ACTIVE ngay. Hoặc lưu công thức để dùng qua Telegram bot.</div>';
+  // ═══ Section "Công thức Auto Ads" (preset cho Telegram bot) ═══
+  h+='<div style="background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;padding:16px;margin-bottom:18px;">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">';
+  h+='<div><div style="font-size:14px;font-weight:600;">📋 Công thức Auto Ads ('+autoAdsPresets.length+')</div><div style="font-size:12px;color:var(--tx3);margin-top:2px;">Lưu cấu hình target + page + TKQC → dùng qua Telegram bot: <code>Sét Ads:</code></div></div>';
+  if(authUser)h+='<button class="btn btn-primary btn-sm" onclick="openSavePresetModal()">+ Tạo công thức</button>';
+  h+='</div>';
+  if(!autoAdsPresets.length){
+    h+='<div style="padding:20px;text-align:center;color:var(--tx3);font-size:12px;background:var(--bg1);border-radius:8px;border:1px dashed var(--bd2);">'+(autoAdsPresetLoading?'⏳ Đang tải...':'Chưa có công thức nào. Bấm "+ Tạo công thức" để clone từ 1 campaign Meta cũ.')+'</div>';
+  }else{
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">';
+    autoAdsPresets.forEach(function(p){
+      var dest=p.destination_type||'MESSENGER';
+      var destIcon=dest==='MESSENGER'?'💬':(dest==='WHATSAPP'?'📱':(dest==='INSTAGRAM_DIRECT'?'📷':'📨'));
+      h+='<div style="background:var(--bg1);border:1px solid var(--bd1);border-radius:8px;padding:12px;">';
+      h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><div style="font-weight:600;font-size:14px;">'+esc(p.name)+'</div>';
+      h+='<div style="display:flex;gap:4px;">';
+      h+='<button class="kh-edit-btn" style="opacity:1;width:24px;height:24px;" onclick="copyPresetCmd(\''+esc(p.name)+'\')" title="Copy lệnh Telegram mẫu">📋</button>';
+      if(authUser){
+        h+='<button class="kh-edit-btn" style="opacity:1;width:24px;height:24px;" onclick="openSavePresetModal(\''+esc(p.name)+'\')" title="Sửa"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>';
+        h+='<button class="kh-edit-btn" style="opacity:1;width:24px;height:24px;color:var(--red);" onclick="deletePreset(\''+esc(p.name)+'\')" title="Xóa"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg></button>';
+      }
+      h+='</div></div>';
+      h+='<div style="font-size:11px;color:var(--tx3);line-height:1.6;">';
+      h+='<div>'+destIcon+' '+esc(dest)+' · <strong style="color:var(--tx1);">'+fm(p.default_budget)+'đ</strong>/ngày</div>';
+      h+='<div>📄 '+esc(p.source_page_name||p.page_id)+'</div>';
+      h+='<div>💳 '+esc(p.source_account_name||p.ad_account_id)+'</div>';
+      if(p.note)h+='<div style="margin-top:4px;color:var(--tx2);font-style:italic;">📝 '+esc(p.note)+'</div>';
+      h+='</div></div>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+  // ═══ Form set ads manual (cũ) ═══
   if(setAdsResult){
     if(setAdsResult.success){
       h+='<div class="form-card" style="padding:24px;border-color:var(--green);background:var(--green-bg);">';
