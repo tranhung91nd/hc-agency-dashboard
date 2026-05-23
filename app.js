@@ -696,6 +696,8 @@ render();
 loadDeferred();
 // ─── Realtime: lắng nghe thay đổi table client (lead mới từ form công khai) ───
 subscribeClientRealtime();
+// ─── Realtime: lắng nghe auto_ads_log (bot tạo ads → toast + refresh bảng Lịch sử) ───
+subscribeAutoAdsLogRealtime();
 }catch(e){document.getElementById('page').innerHTML='<div class="error-box">Lỗi: '+esc(e.message)+'</div>';}}
 
 // ═══ REALTIME: lắng nghe thay đổi table client ═══
@@ -4749,6 +4751,149 @@ function p7(){
 // Yêu cầu Meta token có scope ads_management + pages_read_engagement.
 var setAdsState={acc_id:'',page_id:'',post_input:'',campaign_name:'',daily_budget:'100000',destination:'MESSENGER',age_min:18,age_max:65,gender:'all',locations:[{key:'VN',name:'Việt Nam',type:'country'}],interests:[],saved_audiences:[],custom_audiences:[],client_id:''};
 var setAdsPages=null,setAdsAudiencesByAcc={},setAdsSearchResults={location:null,interest:null},setAdsBusy=false,setAdsLog=[],setAdsResult=null,setAdsCloning=false,setAdsCloneNote='';
+// ═══ AUTO ADS LOG (lịch sử bot tạo ads — tab "Lịch sử" trong p8) ═══
+var autoAdsLog=[],autoAdsLogTotal=0,autoAdsLogPage=1,autoAdsLogPageSize=20;
+var autoAdsLogFilter={status:'',preset:'',source:''};
+var autoAdsLogTab='create'; // 'create' | 'history'
+var autoAdsLogLoading=false;
+async function loadAutoAdsLog(){
+  if(autoAdsLogLoading)return;
+  autoAdsLogLoading=true;
+  try{
+    var q=sb2.from('auto_ads_log').select('*',{count:'exact'}).order('created_at',{ascending:false});
+    if(autoAdsLogFilter.status)q=q.eq('status',autoAdsLogFilter.status);
+    if(autoAdsLogFilter.preset)q=q.eq('preset_name',autoAdsLogFilter.preset);
+    if(autoAdsLogFilter.source)q=q.eq('source',autoAdsLogFilter.source);
+    var from=(autoAdsLogPage-1)*autoAdsLogPageSize;
+    q=q.range(from,from+autoAdsLogPageSize-1);
+    var r=await q;
+    if(r.error){console.warn('[auto_ads_log]',r.error.message);return;}
+    autoAdsLog=r.data||[];
+    autoAdsLogTotal=r.count||0;
+    if(curPage===8&&autoAdsLogTab==='history')render();
+  }finally{autoAdsLogLoading=false;}
+}
+function setAutoAdsTab(tab){
+  autoAdsLogTab=tab;
+  if(tab==='history')loadAutoAdsLog();
+  render();
+}
+function setAutoAdsLogFilter(key,val){
+  autoAdsLogFilter[key]=val;
+  autoAdsLogPage=1;
+  loadAutoAdsLog();
+}
+function setAutoAdsLogPage(p){
+  if(p<1)p=1;
+  var maxPage=Math.ceil(autoAdsLogTotal/autoAdsLogPageSize)||1;
+  if(p>maxPage)p=maxPage;
+  autoAdsLogPage=p;
+  loadAutoAdsLog();
+}
+async function pauseCampaignFromLog(campId,btn){
+  if(!await hcConfirm({title:'Tắt campaign',message:'Tắt campaign '+campId+' trên Meta? Có thể bật lại trên Ads Manager.',confirmLabel:'Tắt',danger:true}))return;
+  var old=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='⏳';}
+  try{
+    var r=await metaPost(campId+'?status=PAUSED');
+    if(r.error){toast('Lỗi: '+r.error.message,false);}
+    else{toast('Đã tắt campaign',true);}
+  }catch(e){toast('Lỗi mạng: '+e.message,false);}
+  finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+// Realtime: lắng nghe auto_ads_log để toast + refresh bảng khi bot tạo mới
+var _autoAdsLogRtChannel=null;
+function subscribeAutoAdsLogRealtime(){
+  if(_autoAdsLogRtChannel)return;
+  try{
+    _autoAdsLogRtChannel=sb2.channel('hc-auto-ads-log-changes')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'auto_ads_log'},function(p){
+        var row=p.new;if(!row)return;
+        var label=row.preset_name||'?';
+        var via=row.source==='telegram'?' (Telegram)':' (Web)';
+        if(row.status==='success'){toast('🆕 Bot tạo ads '+label+via+' — Campaign '+(row.campaign_id||'').substring(0,10)+'...',true);}
+        else if(row.status==='failed'){toast('❌ Bot tạo ads '+label+via+' lỗi: '+(row.error_step||'unknown'),false);}
+        if(curPage===8&&autoAdsLogTab==='history')loadAutoAdsLog();
+      })
+      .subscribe();
+  }catch(e){console.warn('[realtime] auto_ads_log:',e.message);}
+}
+// Render tab "Lịch sử" trong p8
+function p8History(){
+  var h='';
+  // Filters bar
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">';
+  h+='<select class="fi" style="width:160px;" onchange="setAutoAdsLogFilter(\'status\',this.value)"><option value="">Tất cả trạng thái</option><option value="success"'+(autoAdsLogFilter.status==='success'?' selected':'')+'>✅ Thành công</option><option value="failed"'+(autoAdsLogFilter.status==='failed'?' selected':'')+'>❌ Lỗi</option></select>';
+  h+='<select class="fi" style="width:180px;" onchange="setAutoAdsLogFilter(\'preset\',this.value)"><option value="">Tất cả công thức</option>';
+  autoAdsPresets.forEach(function(p){h+='<option value="'+esc(p.name)+'"'+(autoAdsLogFilter.preset===p.name?' selected':'')+'>'+esc(p.name)+'</option>';});
+  h+='</select>';
+  h+='<select class="fi" style="width:140px;" onchange="setAutoAdsLogFilter(\'source\',this.value)"><option value="">Tất cả nguồn</option><option value="telegram"'+(autoAdsLogFilter.source==='telegram'?' selected':'')+'>📱 Telegram</option><option value="web"'+(autoAdsLogFilter.source==='web'?' selected':'')+'>🌐 Web</option></select>';
+  h+='<button class="btn btn-sm" onclick="loadAutoAdsLog()" title="Tải lại">🔄</button>';
+  h+='<span style="font-size:12px;color:var(--tx3);margin-left:auto;">'+autoAdsLogTotal+' bản ghi</span>';
+  h+='</div>';
+  if(autoAdsLogLoading&&!autoAdsLog.length){
+    h+='<div style="padding:40px;text-align:center;color:var(--tx3);">⏳ Đang tải...</div>';
+    return h;
+  }
+  if(!autoAdsLog.length){
+    h+='<div style="padding:40px;text-align:center;color:var(--tx3);background:var(--bg2);border-radius:8px;">Chưa có lịch sử tạo ads nào. Vào Telegram gõ <code>Sét Ads:</code> để bắt đầu.</div>';
+    return h;
+  }
+  // Table
+  h+='<div class="table-wrap"><table>';
+  h+='<thead><tr>';
+  h+='<th style="white-space:nowrap;">Thời gian</th>';
+  h+='<th>Công thức</th>';
+  h+='<th>Post</th>';
+  h+='<th style="text-align:right;white-space:nowrap;">Ngân sách</th>';
+  h+='<th>Campaign</th>';
+  h+='<th>Nguồn</th>';
+  h+='<th>Trạng thái</th>';
+  h+='<th>Lỗi</th>';
+  h+='<th style="text-align:center;">Thao tác</th>';
+  h+='</tr></thead><tbody>';
+  autoAdsLog.forEach(function(row){
+    var dt=new Date(row.created_at);
+    var dtStr=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0')+' '+String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0');
+    var statusBadge=row.status==='success'?'<span class="badge b-green">Thành công</span>':(row.status==='failed'?'<span class="badge b-red">Lỗi</span>':'<span class="badge b-amber">'+esc(row.status||'—')+'</span>');
+    var postShort=row.post_id?(row.post_id.length>14?row.post_id.substring(0,14)+'…':row.post_id):'—';
+    var postCell=row.post_id?'<a href="https://www.facebook.com/'+esc(row.post_id)+'" target="_blank" rel="noopener" style="font-family:monospace;font-size:11px;color:var(--blue-tx);" title="'+esc(row.post_id)+'">'+esc(postShort)+'</a>':'<span style="color:var(--tx3);">—</span>';
+    var campShort=row.campaign_id?row.campaign_id.substring(0,10)+'…':'—';
+    var campCell=row.campaign_id?'<a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?selected_campaign_ids='+esc(row.campaign_id)+'" target="_blank" rel="noopener" style="font-family:monospace;font-size:11px;color:var(--blue-tx);" title="'+esc(row.campaign_id)+'">'+esc(campShort)+'</a>':'<span style="color:var(--tx3);">—</span>';
+    var sourceCell=row.source==='telegram'?'<span title="chat_id: '+esc(row.chat_id||'')+'">📱 Telegram</span>':'🌐 Web';
+    var errCell='—';
+    if(row.status==='failed'&&row.error_message){
+      var msg=row.error_message||'';var short=msg.length>50?msg.substring(0,50)+'…':msg;
+      errCell='<span title="'+esc(msg)+'" style="color:var(--red-tx);font-size:11px;">'+esc(row.error_step||'err')+': '+esc(short)+'</span>';
+    }
+    var actionCell='';
+    if(row.campaign_id&&row.status==='success'){
+      actionCell='<button class="btn btn-sm" style="padding:3px 9px;font-size:11px;" onclick="pauseCampaignFromLog(\''+esc(row.campaign_id)+'\',this)" title="Tắt campaign trên Meta">⏸ Tắt</button>';
+    }else actionCell='<span style="color:var(--tx3);">—</span>';
+    h+='<tr>';
+    h+='<td style="font-size:12px;color:var(--tx2);white-space:nowrap;">'+dtStr+'</td>';
+    h+='<td>'+(row.preset_name?'<span class="badge b-blue">'+esc(row.preset_name)+'</span>':'<span style="color:var(--tx3);">—</span>')+'</td>';
+    h+='<td>'+postCell+'</td>';
+    h+='<td style="text-align:right;font-family:monospace;font-size:12px;">'+(row.budget?fm(row.budget):'—')+'</td>';
+    h+='<td>'+campCell+'</td>';
+    h+='<td style="font-size:12px;white-space:nowrap;">'+sourceCell+'</td>';
+    h+='<td>'+statusBadge+'</td>';
+    h+='<td>'+errCell+'</td>';
+    h+='<td style="text-align:center;">'+actionCell+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  // Pagination
+  var maxPage=Math.ceil(autoAdsLogTotal/autoAdsLogPageSize)||1;
+  if(maxPage>1){
+    h+='<div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:14px;">';
+    h+='<button class="btn btn-sm" onclick="setAutoAdsLogPage('+(autoAdsLogPage-1)+')"'+(autoAdsLogPage<=1?' disabled':'')+'>‹ Trước</button>';
+    h+='<span style="font-size:12px;color:var(--tx3);">Trang '+autoAdsLogPage+' / '+maxPage+'</span>';
+    h+='<button class="btn btn-sm" onclick="setAutoAdsLogPage('+(autoAdsLogPage+1)+')"'+(autoAdsLogPage>=maxPage?' disabled':'')+'>Sau ›</button>';
+    h+='</div>';
+  }
+  return h;
+}
 // ═══ AUTO ADS PRESET (công thức A1/B2/...) ═══
 var autoAdsPresets=[],autoAdsPresetLoading=false;
 async function loadAutoAdsPresets(){
@@ -5124,10 +5269,19 @@ async function cloneFromCampaign(){
 function p8(){
   // Lazy load preset list lần đầu vào trang (background, không block render)
   if(!autoAdsPresets.length&&!autoAdsPresetLoading)loadAutoAdsPresets();
+  // Tab bar: Tạo mới | Lịch sử
+  var hTab='<div class="page-title">Quảng cáo tự động</div>';
+  hTab+='<div style="display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid var(--bd1);">';
+  hTab+='<button onclick="setAutoAdsTab(\'create\')" style="padding:10px 16px;background:none;border:none;border-bottom:2px solid '+(autoAdsLogTab==='create'?'var(--blue)':'transparent')+';color:'+(autoAdsLogTab==='create'?'var(--blue)':'var(--tx2)')+';font-weight:'+(autoAdsLogTab==='create'?'600':'400')+';font-size:14px;cursor:pointer;margin-bottom:-2px;">⚡ Tạo mới</button>';
+  hTab+='<button onclick="setAutoAdsTab(\'history\')" style="padding:10px 16px;background:none;border:none;border-bottom:2px solid '+(autoAdsLogTab==='history'?'var(--blue)':'transparent')+';color:'+(autoAdsLogTab==='history'?'var(--blue)':'var(--tx2)')+';font-weight:'+(autoAdsLogTab==='history'?'600':'400')+';font-size:14px;cursor:pointer;margin-bottom:-2px;">📊 Lịch sử ('+autoAdsLogTotal+')</button>';
+  hTab+='</div>';
+  // Render tab Lịch sử riêng — return early
+  if(autoAdsLogTab==='history')return hTab+p8History();
+  // Tab Tạo mới (logic cũ)
   var acc=adList.find(function(a){return a.id===setAdsState.acc_id;});
   var validAccs=adList.filter(function(a){return a.fb_account_id;});
   var auds=setAdsState.acc_id?setAdsAudiencesByAcc[setAdsState.acc_id]:null;
-  var h='<div class="page-title">Quảng cáo tự động</div><div class="page-sub">Tạo chiến dịch Messenger từ post có sẵn — 1 click set Campaign + Adset + Ad, chạy ACTIVE ngay. Hoặc lưu công thức để dùng qua Telegram bot.</div>';
+  var h=hTab+'<div class="page-sub">Tạo chiến dịch Messenger từ post có sẵn — 1 click set Campaign + Adset + Ad, chạy ACTIVE ngay. Hoặc lưu công thức để dùng qua Telegram bot.</div>';
   // ═══ Section "Công thức Auto Ads" (preset cho Telegram bot) ═══
   h+='<div style="background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;padding:16px;margin-bottom:18px;">';
   h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">';
