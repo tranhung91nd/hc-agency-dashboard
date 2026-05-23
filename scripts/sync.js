@@ -368,6 +368,17 @@ async function main() {
   const ar = await syncAdDailyPost(adAccounts);
   totalSaved += ar.saved; totalErrors += ar.errors;
 
+  // ═══ Refresh materialized view (sau khi daily_spend đã insert/upsert xong) ═══
+  // CONCURRENTLY không block read → user vẫn xem được data cũ trong lúc refresh
+  // Nếu view chưa được tạo (migration chưa chạy) → skip không throw
+  try {
+    const t0 = Date.now();
+    await sb.rpc('refresh_ad_account_month_spend');
+    console.log(`[HC Sync] Refreshed ad_account_month_spend in ${Date.now() - t0}ms`);
+  } catch (e) {
+    console.warn('[HC Sync] Skip refresh view (chưa có RPC refresh_ad_account_month_spend?):', e.message);
+  }
+
   console.log(`[HC Sync] Done! ${totalSaved} saved, ${totalErrors} errors`);
   if (totalErrors > 0 && totalSaved === 0) process.exit(1);
 }

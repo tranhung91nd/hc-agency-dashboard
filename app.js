@@ -728,11 +728,14 @@ function subscribeClientRealtime(){
 }
 async function loadDeferred(){try{
  var minDate60=new Date(Date.now()-60*86400000).toISOString().substring(0,10);
+ var minDate90=new Date(Date.now()-90*86400000).toISOString().substring(0,10);
  var minDate180=new Date(Date.now()-180*86400000).toISOString().substring(0,10);
  var[sal,mr,cmess,adp,ctr,qt,pnl,tfw,tt,pss,dep,dsExt,brec,blog]=await Promise.all([
 sb2.from('salary').select('*,staff(short_name)').order('month',{ascending:false}),
 sb2.from('monthly_revenue').select('*,staff(short_name,code)').order('month'),
-fetchPaged(sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,max_lead_cost,client(name))').order('report_date',{ascending:false})),
+// P1.2: giới hạn campaign_daily_mess 90 ngày (alerts dùng window 3 ngày, không cần lịch sử dài).
+// Trước: load FULL ~10700 rows → 11 round-trips. Sau: ~1000-2000 rows → 1-2 round-trips.
+fetchPaged(sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,max_lead_cost,client(name))').gte('report_date',minDate90).order('report_date',{ascending:false})),
 fetchPaged(sb2.from('ad_daily_post').select('*').gte('report_date','2026-04-01').order('report_date',{ascending:false})),
 sb2.from('contract').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
 sb2.from('quotation').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
@@ -7713,6 +7716,18 @@ async function syncMetaForClient(clientId,month,btn){
     await loadAll();
   }catch(e){toast('Lỗi sync: '+e.message,false);}
   finally{if(btn){btn.disabled=false;btn.textContent=oldText||'🔄 Sync Meta';}}
+}
+// ═══ FAST DASHBOARD OVERVIEW (Phase 2.2) ═══
+// Gọi RPC get_dashboard_overview trả KPI 1 round-trip thay vì 5-6 query.
+// Yêu cầu migration 2026-05-22_dashboard_rpc.sql + materialized view đã chạy.
+// Test ở Console: getDashboardOverview('2026-05').then(r => console.log(r))
+async function getDashboardOverview(monthStr){
+  if(!/^\d{4}-\d{2}$/.test(monthStr)){console.warn('[overview] monthStr phải YYYY-MM');return null;}
+  var t0=Date.now();
+  var r=await sb2.rpc('get_dashboard_overview',{p_month:monthStr});
+  if(r.error){console.warn('[overview] RPC error:',r.error.message);return null;}
+  console.log('[overview] '+monthStr+' loaded in '+(Date.now()-t0)+'ms',r.data);
+  return r.data;
 }
 // ═══ BACKFILL SPEND THEO THÁNG (không có nút UI, gọi từ Console khi cần) ═══
 // Vd: backfillClientMonth('0c8ca3f5-1c98-486e-a53f-24e5adf92ef4', '2026-03')
