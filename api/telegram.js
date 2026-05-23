@@ -645,6 +645,7 @@ async function handleListPresets() {
 async function route(text, chatId) {
   const tLower = text.trim().toLowerCase();
   const cmd = text.split(/\s+/)[0].toLowerCase();
+  if (cmd === '/myid' || cmd === '/me' || cmd === '/chatid') return '🆔 Chat ID của bạn: <code>' + chatId + '</code>\n\n<i>Copy số trên paste vào Vercel env <b>TELEGRAM_ALLOWED_CHAT_IDS</b> để giới hạn ai dùng được bot.</i>';
   if (cmd === '/start' || cmd === '/help') return helpText();
   if (cmd === '/chitieu' || cmd === '/spend') return await spendToday();
   if (cmd === '/canhbao' || cmd === '/alert') return await balanceAlerts();
