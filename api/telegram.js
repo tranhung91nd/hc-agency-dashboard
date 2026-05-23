@@ -361,6 +361,71 @@ async function getPageAccessToken(pageId) {
   return page ? page.access_token : null;
 }
 
+// ─── Resolve pfbid → numeric post ID bằng HTML scrape ───
+// Thử nhiều User-Agent + Mobile URL fallback để bypass Facebook anti-bot từ Vercel IP.
+async function resolvePfbidFromHtml(postUrl) {
+  const tryFetch = async (url, ua) => {
+    try {
+      const r = await fetch(url, {
+        headers: {
+          'User-Agent': ua,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none'
+        },
+        redirect: 'follow'
+      });
+      if (!r.ok) {
+        console.warn('[pfbid] HTTP', r.status, 'for', url.substring(0, 60));
+        return null;
+      }
+      const html = await r.text();
+      let m = html.match(/property="og:url"\s+content="[^"]*\/posts\/[^"\/]+\/(\d+)\/?"/);
+      if (m) return m[1];
+      m = html.match(/property="og:url"\s+content="[^"]*\/posts\/(\d+)/);
+      if (m) return m[1];
+      // Mobile fallback patterns
+      m = html.match(/[?&]story_fbid=(\d+)/);
+      if (m) return m[1];
+      m = html.match(/"top_level_post_id":"(\d+)"/);
+      if (m) return m[1];
+      return null;
+    } catch (e) {
+      console.warn('[pfbid] fetch error:', e.message);
+      return null;
+    }
+  };
+
+  const userAgents = [
+    // 1. Facebook crawler — thường được phép pass anti-bot
+    'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+    // 2. Real Chrome desktop
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    // 3. iPhone Safari (mobile site thân thiện hơn)
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+  ];
+
+  // Thử desktop URL với từng UA
+  for (const ua of userAgents) {
+    const id = await tryFetch(postUrl, ua);
+    if (id) return id;
+  }
+  // Fallback: thử mobile URL m.facebook.com
+  const mUrl = postUrl.replace(/^https?:\/\/(www\.)?facebook\.com/, 'https://m.facebook.com');
+  if (mUrl !== postUrl) {
+    for (const ua of userAgents) {
+      const id = await tryFetch(mUrl, ua);
+      if (id) return id;
+    }
+  }
+  return null;
+}
+
 // ─── Format Meta error đầy đủ (Meta trả nhiều field: code, subcode, user_msg) ───
 function formatMetaError(err) {
   if (!err) return 'unknown';
@@ -483,30 +548,12 @@ async function createAdsFromPreset(preset, postId, postUrl, budget, source, chat
     // → Cách duy nhất: list /<page_id>/feed, match pfbid trong permalink_url của từng post.
     let resolvedPostId = postId;
     if (/^pfbid/i.test(postId)) {
-      // Resolve pfbid → numeric ID bằng cách fetch HTML public của Facebook,
-      // parse meta tag og:url (chứa /posts/<slug>/<numeric_id>/).
-      // Không cần App Review, không cần page token — chỉ cần post là PUBLIC.
       if (!postUrl || !/^https?:\/\//i.test(postUrl)) {
-        throw { step: 'creative', msg: 'Cần URL Facebook đầy đủ (https://...) để resolve pfbid. Paste cả link, không chỉ token.' };
+        throw { step: 'creative', msg: 'Cần URL Facebook đầy đủ (https://...). Paste cả link, không chỉ pfbid token.' };
       }
-      try {
-        const r = await fetch(postUrl, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36' }
-        });
-        if (!r.ok) {
-          throw { step: 'creative', msg: 'Fetch URL fail HTTP ' + r.status + ' — post có public không?' };
-        }
-        const html = await r.text();
-        // og:url thường có format: /posts/<slug>/<numeric_id>/
-        let m = html.match(/property="og:url"\s+content="[^"]*\/posts\/[^"\/]+\/(\d+)\/?"/);
-        if (!m) m = html.match(/property="og:url"\s+content="[^"]*\/posts\/(\d+)/);
-        if (!m) {
-          throw { step: 'creative', msg: 'Không tìm thấy numeric ID trong HTML. Post có thể private hoặc Facebook đổi format. Workaround: copy URL từ Meta Business Suite (có /posts/<số>/) hoặc paste trực tiếp ID số.' };
-        }
-        resolvedPostId = m[1];
-      } catch (e) {
-        if (e.step) throw e;
-        throw { step: 'creative', msg: 'Resolve pfbid lỗi: ' + (e.message || e) };
+      resolvedPostId = await resolvePfbidFromHtml(postUrl);
+      if (!resolvedPostId) {
+        throw { step: 'creative', msg: 'Không resolve được pfbid → numeric ID. Workaround: copy URL từ Meta Business Suite (có dạng /posts/<số>/) hoặc paste trực tiếp ID số.' };
       }
     }
     // object_story_id format
