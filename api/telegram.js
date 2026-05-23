@@ -326,14 +326,16 @@ async function askAI(question) {
 // ═══════════════════════════════════════════════════════════════
 
 // ─── Meta Graph API helper (Node-side, dùng META_TOKEN env trực tiếp) ───
-async function metaApi(method, path, payload) {
-  if (!META_TOKEN) throw new Error('META_TOKEN chưa cấu hình ở Vercel env');
+// customToken: dùng page access token thay vì META_TOKEN (cần cho /<page_id>/feed)
+async function metaApi(method, path, payload, customToken) {
+  const token = customToken || META_TOKEN;
+  if (!token) throw new Error('META_TOKEN chưa cấu hình ở Vercel env');
   const url = GRAPH_BASE + path.replace(/^\/+/, '');
   const init = {
     method: method,
     headers: { 'Content-Type': 'application/json' }
   };
-  const body = Object.assign({}, payload || {}, { access_token: META_TOKEN });
+  const body = Object.assign({}, payload || {}, { access_token: token });
   if (method === 'GET') {
     const qs = new URLSearchParams();
     Object.keys(body).forEach(function(k){
@@ -348,6 +350,15 @@ async function metaApi(method, path, payload) {
     const r = await fetch(url, init);
     return await r.json();
   }
+}
+
+// ─── Lấy page access token (cần cho /<page_id>/feed read) ───
+// Yêu cầu META_TOKEN có pages_show_list + system user phải được gán làm admin/editor của Page.
+async function getPageAccessToken(pageId) {
+  const r = await metaApi('GET', 'me/accounts', { fields: 'id,name,access_token', limit: 100 });
+  if (r.error || !r.data) return null;
+  const page = r.data.find(function(p){ return p.id === pageId; });
+  return page ? page.access_token : null;
 }
 
 // ─── Format Meta error đầy đủ (Meta trả nhiều field: code, subcode, user_msg) ───
@@ -472,10 +483,15 @@ async function createAdsFromPreset(preset, postId, postUrl, budget, source, chat
     // → Cách duy nhất: list /<page_id>/feed, match pfbid trong permalink_url của từng post.
     let resolvedPostId = postId;
     if (/^pfbid/i.test(postId)) {
+      // Cần PAGE access token để GET feed — system user token (META_TOKEN) không đủ
+      const pageToken = await getPageAccessToken(pageId);
+      if (!pageToken) {
+        throw { step: 'creative', msg: 'Page "' + (preset.source_page_name || pageId) + '" không có trong /me/accounts của system user. Vào Meta Business Settings → Pages → cấp quyền Admin/Editor cho system user của META_TOKEN.' };
+      }
       const feedR = await metaApi('GET', pageId + '/feed', {
         fields: 'id,permalink_url',
         limit: 100
-      });
+      }, pageToken);
       if (feedR.error) {
         throw { step: 'creative', msg: 'Page feed fail: ' + formatMetaError(feedR.error) };
       }
