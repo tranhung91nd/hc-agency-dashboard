@@ -350,6 +350,20 @@ async function metaApi(method, path, payload) {
   }
 }
 
+// ─── Format Meta error đầy đủ (Meta trả nhiều field: code, subcode, user_msg) ───
+function formatMetaError(err) {
+  if (!err) return 'unknown';
+  if (typeof err === 'string') return err;
+  var parts = [];
+  parts.push(err.message || 'Invalid');
+  if (err.code) parts.push('code=' + err.code);
+  if (err.error_subcode) parts.push('sub=' + err.error_subcode);
+  if (err.error_user_title) parts.push('"' + err.error_user_title + '"');
+  if (err.error_user_msg) parts.push('→ ' + err.error_user_msg);
+  if (err.fbtrace_id) parts.push('trace=' + err.fbtrace_id);
+  return parts.join(' · ');
+}
+
 // ─── Parse budget linh hoạt: "200K", "200.000", "200000", "200tr", "1tr5" ───
 function parseBudget(str) {
   if (typeof str === 'number') return Math.round(str);
@@ -466,7 +480,7 @@ async function createAdsFromPreset(preset, postId, budget, source, chatId) {
       status: 'ACTIVE',
       buying_type: 'AUCTION'
     });
-    if (campRes.error) throw { step: 'campaign', msg: campRes.error.message || JSON.stringify(campRes.error) };
+    if (campRes.error) throw { step: 'campaign', msg: formatMetaError(campRes.error) };
     if (!campRes.id) throw { step: 'campaign', msg: 'Không trả về campaign_id' };
     log.campaign_id = campRes.id;
 
@@ -483,7 +497,7 @@ async function createAdsFromPreset(preset, postId, budget, source, chatId) {
       targeting: targeting,
       status: 'ACTIVE'
     });
-    if (adsetRes.error) throw { step: 'adset', msg: adsetRes.error.message || JSON.stringify(adsetRes.error) };
+    if (adsetRes.error) throw { step: 'adset', msg: formatMetaError(adsetRes.error) };
     if (!adsetRes.id) throw { step: 'adset', msg: 'Không trả về adset_id' };
     log.adset_id = adsetRes.id;
 
@@ -492,7 +506,7 @@ async function createAdsFromPreset(preset, postId, budget, source, chatId) {
       name: campName + ' - Creative',
       object_story_id: storyId
     });
-    if (crRes.error) throw { step: 'creative', msg: crRes.error.message || JSON.stringify(crRes.error) };
+    if (crRes.error) throw { step: 'creative', msg: formatMetaError(crRes.error) };
     if (!crRes.id) throw { step: 'creative', msg: 'Không trả về creative_id' };
     log.creative_id = crRes.id;
 
@@ -503,7 +517,7 @@ async function createAdsFromPreset(preset, postId, budget, source, chatId) {
       creative: { creative_id: crRes.id },
       status: 'ACTIVE'
     });
-    if (adRes.error) throw { step: 'ad', msg: adRes.error.message || JSON.stringify(adRes.error) };
+    if (adRes.error) throw { step: 'ad', msg: formatMetaError(adRes.error) };
     if (!adRes.id) throw { step: 'ad', msg: 'Không trả về ad_id' };
     log.ad_id = adRes.id;
 
