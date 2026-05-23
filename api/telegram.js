@@ -286,7 +286,18 @@ async function buildContextSummary() {
 }
 
 async function askAI(question) {
-  if (!OPENAI_API_KEY) return '❌ Bot chưa cấu hình OPENAI_API_KEY. Liên hệ admin.';
+  if (!OPENAI_API_KEY) {
+    return [
+      '🤖 <b>Tôi chưa hiểu lệnh này.</b>',
+      '',
+      'Các lệnh khả dụng:',
+      '• <b>📊 Báo cáo:</b> /chitieu · /canhbao · /canthu',
+      '• <b>🚀 Auto Ads:</b> /setads · /luupreset · /presets',
+      '• <b>🆔 Khác:</b> /myid · /help',
+      '',
+      '<i>AI Q&A chưa kích hoạt (admin cần set OPENAI_API_KEY).</i>'
+    ].join('\n');
+  }
   const context = await buildContextSummary();
   const systemPrompt = 'Bạn là trợ lý của HC Agency (agency Facebook Ads VN). Trả lời ngắn gọn, dùng tiếng Việt, bullet/số liệu cụ thể. Dữ liệu dashboard hiện tại:\n\n' + context;
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
