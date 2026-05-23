@@ -483,27 +483,31 @@ async function createAdsFromPreset(preset, postId, postUrl, budget, source, chat
     // → Cách duy nhất: list /<page_id>/feed, match pfbid trong permalink_url của từng post.
     let resolvedPostId = postId;
     if (/^pfbid/i.test(postId)) {
-      // Cần PAGE access token để GET feed — system user token (META_TOKEN) không đủ
-      const pageToken = await getPageAccessToken(pageId);
-      if (!pageToken) {
-        throw { step: 'creative', msg: 'Page "' + (preset.source_page_name || pageId) + '" không có trong /me/accounts của system user. Vào Meta Business Settings → Pages → cấp quyền Admin/Editor cho system user của META_TOKEN.' };
+      // Resolve pfbid → numeric ID bằng cách fetch HTML public của Facebook,
+      // parse meta tag og:url (chứa /posts/<slug>/<numeric_id>/).
+      // Không cần App Review, không cần page token — chỉ cần post là PUBLIC.
+      if (!postUrl || !/^https?:\/\//i.test(postUrl)) {
+        throw { step: 'creative', msg: 'Cần URL Facebook đầy đủ (https://...) để resolve pfbid. Paste cả link, không chỉ token.' };
       }
-      const feedR = await metaApi('GET', pageId + '/feed', {
-        fields: 'id,permalink_url',
-        limit: 100
-      }, pageToken);
-      if (feedR.error) {
-        if (feedR.error.code === 10 && /pages_read_engagement|Public Content Access/i.test(feedR.error.message || '')) {
-          throw { step: 'creative', msg: 'App Facebook chưa qua App Review pages_read_engagement nên không list được feed. Workaround: paste link có post ID dạng SỐ (không phải pfbid). Cách lấy: Meta Business Suite → Posts → click vào post → copy URL chứa /posts/<số>. Hoặc paste trực tiếp ID số.' };
+      try {
+        const r = await fetch(postUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36' }
+        });
+        if (!r.ok) {
+          throw { step: 'creative', msg: 'Fetch URL fail HTTP ' + r.status + ' — post có public không?' };
         }
-        throw { step: 'creative', msg: 'Page feed fail: ' + formatMetaError(feedR.error) };
+        const html = await r.text();
+        // og:url thường có format: /posts/<slug>/<numeric_id>/
+        let m = html.match(/property="og:url"\s+content="[^"]*\/posts\/[^"\/]+\/(\d+)\/?"/);
+        if (!m) m = html.match(/property="og:url"\s+content="[^"]*\/posts\/(\d+)/);
+        if (!m) {
+          throw { step: 'creative', msg: 'Không tìm thấy numeric ID trong HTML. Post có thể private hoặc Facebook đổi format. Workaround: copy URL từ Meta Business Suite (có /posts/<số>/) hoặc paste trực tiếp ID số.' };
+        }
+        resolvedPostId = m[1];
+      } catch (e) {
+        if (e.step) throw e;
+        throw { step: 'creative', msg: 'Resolve pfbid lỗi: ' + (e.message || e) };
       }
-      const posts = feedR.data || [];
-      const match = posts.find(function(p){ return p.permalink_url && p.permalink_url.indexOf(postId) >= 0; });
-      if (!match) {
-        throw { step: 'creative', msg: 'Không tìm thấy post pfbid=' + postId.substring(0, 24) + '... trong 100 post gần nhất của Page "' + (preset.source_page_name || pageId) + '". Post quá cũ, đã xóa, hoặc thuộc page khác?' };
-      }
-      resolvedPostId = match.id;
     }
     // object_story_id format
     let storyId;
