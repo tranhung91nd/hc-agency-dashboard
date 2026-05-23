@@ -466,10 +466,20 @@ async function createAdsFromPreset(preset, postId, budget, source, chatId) {
     if (!targeting.age_min) targeting.age_min = 18;
     if (!targeting.age_max) targeting.age_max = 65;
 
-    // object_story_id: nếu post là pfbid hoặc số → page_id + '_' + post_id
+    // ─── Resolve post_id: pfbid → numeric ID qua Meta API ───
+    // Meta object_story_id cần dạng <page_id>_<numeric_post_id>, KHÔNG nhận pfbid token.
+    let resolvedPostId = postId;
+    if (/^pfbid/i.test(postId)) {
+      const r = await metaApi('GET', postId, { fields: 'id' });
+      if (r.error || !r.id) {
+        throw { step: 'creative', msg: 'Không resolve được pfbid → numeric: ' + formatMetaError(r.error || {message: 'no id returned'}) };
+      }
+      resolvedPostId = r.id; // Thường dạng "<page_id>_<post_id>"
+    }
+    // object_story_id format
     let storyId;
-    if (/^\d+_\d+$/.test(postId)) storyId = postId;
-    else storyId = pageId + '_' + postId;
+    if (/^\d+_\d+$/.test(resolvedPostId)) storyId = resolvedPostId;
+    else storyId = pageId + '_' + resolvedPostId;
 
     // STEP 1: Campaign
     const campName = '[' + preset.name + '] ' + new Date().toISOString().substring(0, 10);
