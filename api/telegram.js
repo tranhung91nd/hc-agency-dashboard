@@ -453,8 +453,8 @@ async function insertAutoAdsLog(row) {
 }
 
 // ─── Core: tạo 4-step Meta campaign từ preset + post + budget ───
-async function createAdsFromPreset(preset, postId, budget, source, chatId) {
-  const log = { source: source, chat_id: chatId, preset_name: preset.name, post_id: postId, budget: budget, status: 'pending' };
+async function createAdsFromPreset(preset, postId, postUrl, budget, source, chatId) {
+  const log = { source: source, chat_id: chatId, preset_name: preset.name, post_id: postId, post_url: postUrl, budget: budget, status: 'pending' };
   try {
     const actPath = preset.ad_account_id; // act_xxx
     const pageId = preset.page_id;
@@ -466,15 +466,22 @@ async function createAdsFromPreset(preset, postId, budget, source, chatId) {
     if (!targeting.age_min) targeting.age_min = 18;
     if (!targeting.age_max) targeting.age_max = 65;
 
-    // ─── Resolve post_id: pfbid → numeric ID qua Meta API ───
-    // Meta object_story_id cần dạng <page_id>_<numeric_post_id>, KHÔNG nhận pfbid token.
+    // ─── Resolve post_id: pfbid → numeric ID qua Meta URL Sharing API ───
+    // Meta object_story_id cần dạng <page_id>_<numeric_post_id>, KHÔNG nhận pfbid.
+    // GET /pfbid trực tiếp bị deprecated v2.4+ → dùng URL Sharing: GET /?id=<full_url>&fields=og_object
     let resolvedPostId = postId;
     if (/^pfbid/i.test(postId)) {
-      const r = await metaApi('GET', postId, { fields: 'id' });
-      if (r.error || !r.id) {
-        throw { step: 'creative', msg: 'Không resolve được pfbid → numeric: ' + formatMetaError(r.error || {message: 'no id returned'}) };
+      if (!postUrl || !/^https?:\/\//i.test(postUrl)) {
+        throw { step: 'creative', msg: 'Cần paste URL Facebook đầy đủ (https://...) — pfbid token đơn lẻ Meta không resolve được' };
       }
-      resolvedPostId = r.id; // Thường dạng "<page_id>_<post_id>"
+      const r = await metaApi('GET', '', { id: postUrl, fields: 'og_object{id}' });
+      if (r.error) {
+        throw { step: 'creative', msg: 'URL Sharing API fail: ' + formatMetaError(r.error) };
+      }
+      if (!r.og_object || !r.og_object.id) {
+        throw { step: 'creative', msg: 'Không có og_object.id trong response Meta. Có thể post là private hoặc page không cho phép share. Response: ' + JSON.stringify(r).substring(0, 200) };
+      }
+      resolvedPostId = r.og_object.id;
     }
     // object_story_id format
     let storyId;
@@ -588,7 +595,7 @@ async function handleSetAds(text, chatId) {
     '⏳ Đang tạo Campaign + Adset + Creative + Ad...'
   ].join('\n'));
 
-  const result = await createAdsFromPreset(preset, postId, parsed.budget, 'telegram', chatId);
+  const result = await createAdsFromPreset(preset, postId, parsed.postInput, parsed.budget, 'telegram', chatId);
   if (result.success) {
     return [
       '✅ <b>Hoàn tất! Campaign đang ACTIVE</b>',
