@@ -535,7 +535,8 @@ function renderRentalLedger(c,ms,sp,invoice){
   h+='<div class="rental-title-block"><div class="rental-title">Sổ rental — '+esc(c.name)+'</div><div class="rental-meta"><span class="header-chip-rental">🔑 Cho thuê TKQC · Phí '+rentalPctLabel+'</span><span class="rental-period">Kỳ '+mLabel+'</span></div></div>';
   h+='<div class="rental-actions">';
   if(authUser){
-    h+='<button class="btn btn-sm" onclick="syncMetaForClient(\''+c.id+'\',\''+ms+'\',this)" title="Đồng bộ chi tiêu Meta cho khách này">🔄 Sync Meta</button>';
+    h+='<button class="btn btn-sm" onclick="syncMetaForClient(\''+c.id+'\',\''+ms+'\',this)" title="Đồng bộ 3 ngày gần nhất từ Meta">🔄 Sync Meta</button>';
+    h+='<button class="btn btn-sm" onclick="backfillClientMonthBtn(\''+c.id+'\',\''+ms+'\',this)" title="Kéo TẤT CẢ data tháng '+mLabel+' từ Meta về (dùng khi tháng cũ chưa có data)">📥 Backfill '+mLabel+'</button>';
     h+='<button class="btn btn-sm" onclick="copyClientShareLink(\''+c.id+'\',this)" title="Sao chép link cho khách xem qua điện thoại">🔗 Sao chép link</button>';
   }
   h+='</div>';
@@ -7729,7 +7730,24 @@ async function getDashboardOverview(monthStr){
   console.log('[overview] '+monthStr+' loaded in '+(Date.now()-t0)+'ms',r.data);
   return r.data;
 }
-// ═══ BACKFILL SPEND THEO THÁNG (không có nút UI, gọi từ Console khi cần) ═══
+// ═══ BACKFILL SPEND THEO THÁNG ═══
+// Wrapper cho nút trong sổ rental — disable nút + đổi label trong lúc chạy
+async function backfillClientMonthBtn(clientId,monthStr,btn){
+  if(!needAuth())return;
+  // monthStr format dashboard: '2026-03'. Cần parse từ ms (đã đúng format)
+  if(!/^\d{4}-\d{2}$/.test(monthStr)){toast('Tháng không hợp lệ: '+monthStr,false);return;}
+  var mLabel='T'+parseInt(monthStr.split('-')[1])+'/'+monthStr.split('-')[0];
+  if(!confirm('Kéo TẤT CẢ data Meta tháng '+mLabel+' về?\n→ ~30 ngày × N TKQC API call, có thể mất 30-60 giây.\n→ Data sẽ ghi đè daily_spend hiện có cho tháng đó.'))return;
+  var oldText=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='⏳ Đang backfill '+mLabel+'...';}
+  try{
+    await backfillClientMonth(clientId,monthStr);
+    // Refresh materialized view để view + RPC khớp ngay
+    try{await sb2.rpc('refresh_ad_account_month_spend');}catch(e){}
+  }catch(e){toast('Lỗi backfill: '+e.message,false);}
+  finally{if(btn){btn.disabled=false;btn.textContent=oldText||'📥 Backfill '+mLabel;}}
+}
+// Core function: gọi được từ Console không qua UI (cho debug)
 // Vd: backfillClientMonth('0c8ca3f5-1c98-486e-a53f-24e5adf92ef4', '2026-03')
 async function backfillClientMonth(clientId,monthStr){
   if(!needAuth()){console.warn('[backfill] Cần đăng nhập admin');return;}
