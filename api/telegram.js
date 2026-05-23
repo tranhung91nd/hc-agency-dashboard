@@ -478,7 +478,8 @@ async function createAdsFromPreset(preset, postId, budget, source, chatId) {
       objective: 'OUTCOME_ENGAGEMENT',
       special_ad_categories: [],
       status: 'ACTIVE',
-      buying_type: 'AUCTION'
+      buying_type: 'AUCTION',
+      is_adset_budget_sharing_enabled: false  // false = budget ở adset level (cần khai báo từ Meta API v22+)
     });
     if (campRes.error) throw { step: 'campaign', msg: formatMetaError(campRes.error) };
     if (!campRes.id) throw { step: 'campaign', msg: 'Không trả về campaign_id' };

@@ -5534,7 +5534,8 @@ async function submitSetAds(){
       objective:'OUTCOME_ENGAGEMENT',
       special_ad_categories:[],
       status:'ACTIVE',
-      buying_type:'AUCTION'
+      buying_type:'AUCTION',
+      is_adset_budget_sharing_enabled:false
     });
     if(campRes&&campRes.error)throw{step:'campaign',msg:campRes.error.message||JSON.stringify(campRes.error)};
     if(!campRes.id)throw{step:'campaign',msg:'Không trả về campaign_id'};
