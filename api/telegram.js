@@ -493,6 +493,9 @@ async function createAdsFromPreset(preset, postId, postUrl, budget, source, chat
         limit: 100
       }, pageToken);
       if (feedR.error) {
+        if (feedR.error.code === 10 && /pages_read_engagement|Public Content Access/i.test(feedR.error.message || '')) {
+          throw { step: 'creative', msg: 'App Facebook chưa qua App Review pages_read_engagement nên không list được feed. Workaround: paste link có post ID dạng SỐ (không phải pfbid). Cách lấy: Meta Business Suite → Posts → click vào post → copy URL chứa /posts/<số>. Hoặc paste trực tiếp ID số.' };
+        }
         throw { step: 'creative', msg: 'Page feed fail: ' + formatMetaError(feedR.error) };
       }
       const posts = feedR.data || [];
