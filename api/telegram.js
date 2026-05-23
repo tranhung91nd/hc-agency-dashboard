@@ -466,22 +466,25 @@ async function createAdsFromPreset(preset, postId, postUrl, budget, source, chat
     if (!targeting.age_min) targeting.age_min = 18;
     if (!targeting.age_max) targeting.age_max = 65;
 
-    // ─── Resolve post_id: pfbid → numeric ID qua Meta URL Sharing API ───
+    // ─── Resolve post_id: pfbid → numeric ID qua Page Feed search ───
     // Meta object_story_id cần dạng <page_id>_<numeric_post_id>, KHÔNG nhận pfbid.
-    // GET /pfbid trực tiếp bị deprecated v2.4+ → dùng URL Sharing: GET /?id=<full_url>&fields=og_object
+    // GET /pfbid bị deprecated v2.4+. URL Sharing API bị block bởi policy "FB URLs cannot be crawled".
+    // → Cách duy nhất: list /<page_id>/feed, match pfbid trong permalink_url của từng post.
     let resolvedPostId = postId;
     if (/^pfbid/i.test(postId)) {
-      if (!postUrl || !/^https?:\/\//i.test(postUrl)) {
-        throw { step: 'creative', msg: 'Cần paste URL Facebook đầy đủ (https://...) — pfbid token đơn lẻ Meta không resolve được' };
+      const feedR = await metaApi('GET', pageId + '/feed', {
+        fields: 'id,permalink_url',
+        limit: 100
+      });
+      if (feedR.error) {
+        throw { step: 'creative', msg: 'Page feed fail: ' + formatMetaError(feedR.error) };
       }
-      const r = await metaApi('GET', '', { id: postUrl, fields: 'og_object{id}' });
-      if (r.error) {
-        throw { step: 'creative', msg: 'URL Sharing API fail: ' + formatMetaError(r.error) };
+      const posts = feedR.data || [];
+      const match = posts.find(function(p){ return p.permalink_url && p.permalink_url.indexOf(postId) >= 0; });
+      if (!match) {
+        throw { step: 'creative', msg: 'Không tìm thấy post pfbid=' + postId.substring(0, 24) + '... trong 100 post gần nhất của Page "' + (preset.source_page_name || pageId) + '". Post quá cũ, đã xóa, hoặc thuộc page khác?' };
       }
-      if (!r.og_object || !r.og_object.id) {
-        throw { step: 'creative', msg: 'Không có og_object.id trong response Meta. Có thể post là private hoặc page không cho phép share. Response: ' + JSON.stringify(r).substring(0, 200) };
-      }
-      resolvedPostId = r.og_object.id;
+      resolvedPostId = match.id;
     }
     // object_story_id format
     let storyId;
