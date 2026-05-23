@@ -4761,26 +4761,120 @@ async function loadAutoAdsPresets(){
     if(curPage===8)render();
   }finally{autoAdsPresetLoading=false;}
 }
+// State động của modal preset (giữ giữa các lần update dropdown)
+var _presetMod={acc_id:'',acc_fbid:'',campaigns:null,camp_id:'',preview:null,loading_camps:false,loading_preview:false};
+function _renderPresetCampDropdown(){
+  var sel=document.getElementById('pm-camp-sel');if(!sel)return;
+  if(_presetMod.loading_camps){sel.innerHTML='<option>⏳ Đang tải chiến dịch từ Meta...</option>';sel.disabled=true;return;}
+  if(!_presetMod.campaigns){sel.innerHTML='<option value="">— Chọn TKQC trước —</option>';sel.disabled=true;return;}
+  sel.disabled=false;
+  if(!_presetMod.campaigns.length){sel.innerHTML='<option value="">(TKQC này chưa có campaign nào)</option>';return;}
+  var opts=['<option value="">— Chọn chiến dịch để clone —</option>'];
+  _presetMod.campaigns.forEach(function(c){
+    var status=c.status==='ACTIVE'?'🟢':(c.status==='PAUSED'?'⏸':'⚫');
+    opts.push('<option value="'+esc(c.id)+'"'+(_presetMod.camp_id===c.id?' selected':'')+'>'+status+' '+esc(c.name)+'</option>');
+  });
+  sel.innerHTML=opts.join('');
+}
+function _renderPresetPreview(){
+  var box=document.getElementById('pm-preview');if(!box)return;
+  if(_presetMod.loading_preview){box.innerHTML='<div style="padding:10px;font-size:12px;color:var(--tx3);background:var(--bg2);border-radius:8px;">⏳ Đang đọc target từ Meta...</div>';box.style.display='block';return;}
+  if(!_presetMod.preview){box.style.display='none';return;}
+  var pv=_presetMod.preview;
+  var tg=pv.targeting||{};var lines=[];
+  if(tg.age_min||tg.age_max)lines.push('Tuổi '+(tg.age_min||13)+'-'+(tg.age_max||65));
+  if(tg.genders&&tg.genders.length)lines.push(tg.genders.indexOf(1)>=0?(tg.genders.indexOf(2)>=0?'Nam+Nữ':'Nam'):'Nữ');
+  var geo=tg.geo_locations||{};
+  if(geo.countries)lines.push('Quốc gia: '+geo.countries.join(','));
+  if(geo.cities)lines.push(geo.cities.length+' thành phố');
+  if(geo.regions)lines.push(geo.regions.length+' vùng');
+  if(tg.flexible_spec){var ints=0;tg.flexible_spec.forEach(function(s){if(s.interests)ints+=s.interests.length;});if(ints)lines.push(ints+' sở thích');}
+  if(tg.custom_audiences&&tg.custom_audiences.length)lines.push(tg.custom_audiences.length+' custom audience');
+  var dest=pv.destination_type||'MESSENGER';var destIcon=dest==='MESSENGER'?'💬':(dest==='WHATSAPP'?'📱':(dest==='INSTAGRAM_DIRECT'?'📷':'📨'));
+  var h='<div style="background:var(--green-bg);padding:12px;border-radius:8px;border:1px solid var(--green);font-size:12px;color:var(--tx2);line-height:1.7;">';
+  h+='<div style="font-weight:600;color:var(--green-tx);margin-bottom:6px;">✓ Đọc được từ Meta — sẽ clone:</div>';
+  h+='<div>📄 Page: <strong style="color:var(--tx1);">'+esc(pv.page_name||pv.page_id)+'</strong></div>';
+  h+='<div>'+destIcon+' Đích: <strong style="color:var(--tx1);">'+esc(dest)+'</strong></div>';
+  h+='<div>💰 Ngân sách gốc: <strong style="color:var(--tx1);">'+fm(pv.daily_budget)+'đ</strong>/ngày</div>';
+  if(lines.length)h+='<div>🎯 Target: '+lines.join(' · ')+'</div>';
+  if(!pv.page_id)h+='<div style="color:var(--red);font-weight:500;margin-top:4px;">⚠ Adset không có page_id — không lưu được preset Mess/Form</div>';
+  h+='</div>';
+  box.innerHTML=h;box.style.display='block';
+}
+async function _onPresetAccChange(accId){
+  _presetMod.acc_id=accId;_presetMod.camp_id='';_presetMod.preview=null;_presetMod.campaigns=null;
+  _renderPresetCampDropdown();_renderPresetPreview();
+  if(!accId)return;
+  var acc=adList.find(function(a){return a.id===accId;});
+  if(!acc||!acc.fb_account_id){toast('TKQC chưa ghép Meta',false);return;}
+  _presetMod.acc_fbid=acc.fb_account_id;
+  _presetMod.loading_camps=true;_renderPresetCampDropdown();
+  try{
+    var r=await metaGet(acc.fb_account_id+'/campaigns?fields=id,name,status,objective&limit=100');
+    if(r.error){toast('Lỗi load campaigns: '+r.error.message,false);_presetMod.campaigns=[];}
+    else{
+      // Sort: ACTIVE lên đầu, PAUSED tiếp, rồi mới khác
+      var arr=r.data||[];
+      arr.sort(function(a,b){var pa=a.status==='ACTIVE'?0:(a.status==='PAUSED'?1:2);var pb=b.status==='ACTIVE'?0:(b.status==='PAUSED'?1:2);return pa-pb||(a.name||'').localeCompare(b.name||'');});
+      _presetMod.campaigns=arr;
+    }
+  }catch(e){toast('Lỗi mạng: '+e.message,false);_presetMod.campaigns=[];}
+  finally{_presetMod.loading_camps=false;_renderPresetCampDropdown();}
+}
+async function _onPresetCampChange(campId){
+  _presetMod.camp_id=campId;_presetMod.preview=null;_renderPresetPreview();
+  if(!campId)return;
+  _presetMod.loading_preview=true;_renderPresetPreview();
+  try{
+    var adsets=await metaGet(campId+'/adsets?fields=id,name,daily_budget,destination_type,promoted_object,targeting&limit=1');
+    if(adsets.error){toast('Lỗi: '+adsets.error.message,false);return;}
+    if(!adsets.data||!adsets.data.length){toast('Campaign không có adset nào',false);return;}
+    var ads=adsets.data[0];
+    var pageId=(ads.promoted_object||{}).page_id;
+    var pageName=null;
+    if(pageId){var pi=await metaGet(pageId+'?fields=name');if(!pi.error)pageName=pi.name;}
+    _presetMod.preview={
+      page_id:pageId,page_name:pageName,
+      destination_type:ads.destination_type||'MESSENGER',
+      daily_budget:parseInt(ads.daily_budget)||0,
+      targeting:ads.targeting||{}
+    };
+    // Auto-fill ngân sách mặc định = ngân sách gốc nếu user chưa sửa
+    var bud=document.getElementById('pm-budget');
+    if(bud&&(bud.value==='200000'||!bud.value)){bud.value=_presetMod.preview.daily_budget||200000;}
+  }catch(e){toast('Lỗi: '+e.message,false);}
+  finally{_presetMod.loading_preview=false;_renderPresetPreview();}
+}
 function openSavePresetModal(presetName){
+  _presetMod={acc_id:'',acc_fbid:'',campaigns:null,camp_id:'',preview:null,loading_camps:false,loading_preview:false};
   var existing=presetName?autoAdsPresets.find(function(p){return p.name===presetName;}):null;
   var root=document.getElementById('hc-modal-root')||(function(){var d=document.createElement('div');d.id='hc-modal-root';document.body.appendChild(d);return d;})();
-  // Đóng modal cũ nếu có
   var old=document.getElementById('preset-modal');if(old)old.remove();
   var modal=document.createElement('div');modal.id='preset-modal';modal.className='hc-modal-backdrop';
+  // Build dropdown TKQC options
+  var accOptions='<option value="">— Chọn TKQC —</option>';
+  adList.filter(function(a){return a.fb_account_id;}).sort(function(a,b){return(a.account_name||'').localeCompare(b.account_name||'');}).forEach(function(a){
+    accOptions+='<option value="'+esc(a.id)+'">'+esc(a.account_name||a.fb_account_id)+'</option>';
+  });
   modal.innerHTML=
-    '<div class="hc-modal" role="dialog" aria-modal="true" style="max-width:520px;">'
+    '<div class="hc-modal" role="dialog" aria-modal="true" style="max-width:560px;">'
     +'<div class="hc-modal-head"><h3>'+(existing?'Sửa công thức '+esc(existing.name):'Tạo công thức mới')+'</h3><button class="hc-modal-close" onclick="closePresetModal()" aria-label="Đóng">×</button></div>'
     +'<div class="hc-modal-body">'
     +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Tên công thức *</label>'
     +'<input id="pm-name" type="text" class="fi" placeholder="VD: A1, B2, Mom_Mess_HCM" value="'+esc(existing?existing.name:'')+'"'+(existing?' disabled':'')+'>'
-    +(existing?'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tên không sửa được — xóa rồi tạo lại nếu cần đổi tên.</div>':'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Đặt ngắn, dễ nhớ. Dùng làm khoá khi gõ lệnh Telegram.</div>')
+    +(existing?'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tên không sửa được — xóa rồi tạo lại nếu cần đổi.</div>':'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Đặt ngắn, dùng làm khoá khi gõ lệnh Telegram.</div>')
     +'</div>'
-    +(existing?'':'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Campaign Meta gốc (để clone) *</label>'
-      +'<input id="pm-campid" type="text" class="fi" placeholder="120249131122740404 hoặc link Ads Manager">'
-      +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">💡 Bot sẽ tự copy Page + TKQC + Target từ campaign này.</div></div>')
+    +(existing?'':
+      '<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">1. Tài khoản quảng cáo *</label>'
+      +'<select id="pm-acc-sel" class="fi" onchange="_onPresetAccChange(this.value)">'+accOptions+'</select></div>'
+      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">2. Chiến dịch để clone target *</label>'
+      +'<select id="pm-camp-sel" class="fi" disabled onchange="_onPresetCampChange(this.value)"><option value="">— Chọn TKQC trước —</option></select>'
+      +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Bot copy Page + Target + Đích từ adset đầu tiên của campaign này.</div></div>'
+      +'<div id="pm-preview" style="margin-bottom:12px;display:none;"></div>'
+    )
     +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ngân sách mặc định (VNĐ/ngày)</label>'
     +'<input id="pm-budget" type="number" class="fi" min="50000" step="10000" value="'+(existing?existing.default_budget:'200000')+'">'
-    +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Có thể override khi gõ lệnh Telegram. Tối thiểu 50.000đ.</div></div>'
+    +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tự fill = ngân sách campaign gốc khi chọn xong. Có thể override.</div></div>'
     +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ghi chú (tuỳ chọn)</label>'
     +'<textarea id="pm-note" class="fi" rows="2" placeholder="VD: Mẹ bỉm sữa HCM, post mess intent">'+esc((existing&&existing.note)||'')+'</textarea></div>'
     +(existing?'<div style="background:var(--bg2);padding:10px;border-radius:8px;font-size:12px;color:var(--tx3);"><strong style="color:var(--tx1);">Cấu hình hiện tại:</strong><br>'
@@ -4813,37 +4907,25 @@ async function submitPresetModal(isEdit){
       if(u.error)throw new Error(u.error.message);
       toast('Đã cập nhật công thức '+name,true);
     }else{
-      var campIdInput=(document.getElementById('pm-campid').value||'').trim();
-      var campId=campIdInput;
-      var linkMatch=campIdInput.match(/selected_campaign_ids=(\d+)/);
-      if(linkMatch)campId=linkMatch[1];
-      if(!/^\d+$/.test(campId))throw new Error('Campaign ID phải là số (paste ID hoặc link AdsManager có selected_campaign_ids=...)');
-      // Check name unique
-      if(autoAdsPresets.find(function(p){return p.name===name;}))throw new Error('Tên công thức "'+name+'" đã tồn tại');
-      btn.textContent='Đang gọi Meta API...';
-      // Fetch campaign info
-      var camp=await metaGet(campId+'?fields=id,name,account_id');
-      if(camp.error)throw new Error('Meta: '+camp.error.message);
-      var adsets=await metaGet(campId+'/adsets?fields=id,name,daily_budget,destination_type,promoted_object,targeting&limit=1');
-      if(adsets.error)throw new Error('Meta adsets: '+adsets.error.message);
-      if(!adsets.data||!adsets.data.length)throw new Error('Campaign không có adset nào');
-      var adset=adsets.data[0];
-      var promoted=adset.promoted_object||{};
-      var pageId=promoted.page_id;
-      if(!pageId)throw new Error('Adset không có page_id (campaign này không phải Mess/Form?)');
-      var actId='act_'+camp.account_id;
-      var accInfo=await metaGet(actId+'?fields=name');
-      var pageInfo=await metaGet(pageId+'?fields=name');
+      // Dùng state từ dropdown đã chọn (_presetMod.camp_id + _presetMod.preview)
+      if(!_presetMod.acc_id)throw new Error('Bước 1: Chọn TKQC');
+      if(!_presetMod.camp_id)throw new Error('Bước 2: Chọn chiến dịch để clone');
+      if(!_presetMod.preview)throw new Error('Đang tải preview — đợi 1-2 giây rồi thử lại');
+      var pv=_presetMod.preview;
+      if(!pv.page_id)throw new Error('Campaign này không có page_id (không phải Mess/Form)');
+      if(autoAdsPresets.find(function(p){return p.name===name;}))throw new Error('Tên "'+name+'" đã tồn tại');
+      var acc=adList.find(function(a){return a.id===_presetMod.acc_id;});
+      btn.textContent='Đang lưu...';
       var payload={
         name:name,
-        page_id:pageId,
-        ad_account_id:actId,
-        destination_type:adset.destination_type||'MESSENGER',
+        page_id:pv.page_id,
+        ad_account_id:acc.fb_account_id,
+        destination_type:pv.destination_type,
         default_budget:budget,
-        targeting:adset.targeting||{},
-        source_campaign_id:campId,
-        source_page_name:(pageInfo&&pageInfo.name)||null,
-        source_account_name:(accInfo&&accInfo.name)||null,
+        targeting:pv.targeting,
+        source_campaign_id:_presetMod.camp_id,
+        source_page_name:pv.page_name||null,
+        source_account_name:acc.account_name||null,
         note:note
       };
       var ins=await sb2.from('auto_ads_preset').insert(payload);
