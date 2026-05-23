@@ -2395,6 +2395,9 @@ if(clientTab==='prospect')return p3Prospect(tabH);
 if(clientTab==='quotation')return p3Quotation(tabH);
 var ms=clientMonth||lm();
 var allMonths=new Set();dates.forEach(function(d){allMonths.add(d.substring(0,7));});
+// Bổ sung 6 tháng gần đây (kể cả chưa có data) — để user backfill tháng cũ được
+var _now=new Date();for(var _mi=0;_mi<6;_mi++){var _md=new Date(_now.getFullYear(),_now.getMonth()-_mi,1);allMonths.add(_md.toISOString().substring(0,7));}
+allMonths.add(ms); // đảm bảo tháng đang chọn luôn có trong dropdown
 var monthList=Array.from(allMonths).sort().reverse();
 var nd=dates.filter(function(d){return d.substring(0,7)===ms;}).length||1;
 var mLabel='T'+parseInt(ms.split('-')[1]);var yLabel=ms.split('-')[0];
