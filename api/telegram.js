@@ -1625,11 +1625,10 @@ async function handleListCampaigns(text) {
   if (active.length) {
     lines.push('<b>🟢 ACTIVE (' + active.length + '):</b>');
     active.slice(0, 20).forEach(function(c){
-      let budget = '—';
-      if (c.daily_budget && parseInt(c.daily_budget) > 0) budget = fm(parseInt(c.daily_budget)) + 'đ/ngày';
-      else if (c.lifetime_budget && parseInt(c.lifetime_budget) > 0) budget = fm(parseInt(c.lifetime_budget)) + 'đ tổng';
-      lines.push('• ' + esc(c.name || '(no name)') + ' · ' + budget);
-      lines.push('  <code>' + c.id + '</code>');
+      let budget = '';
+      if (c.daily_budget && parseInt(c.daily_budget) > 0) budget = ' · ' + fm(parseInt(c.daily_budget)) + 'đ/ngày';
+      else if (c.lifetime_budget && parseInt(c.lifetime_budget) > 0) budget = ' · ' + fm(parseInt(c.lifetime_budget)) + 'đ tổng';
+      lines.push('• <b>' + esc(c.name || '(no name)') + '</b> — <code>' + c.id + '</code>' + budget);
     });
     if (active.length > 20) lines.push('  <i>... +' + (active.length - 20) + ' khác</i>');
   }
@@ -1637,7 +1636,7 @@ async function handleListCampaigns(text) {
     if (active.length) lines.push('');
     lines.push('<b>⏸ PAUSED (' + paused.length + '):</b>');
     paused.slice(0, 12).forEach(function(c){
-      lines.push('• ' + esc(c.name || '(no name)') + ' · <code>' + c.id + '</code>');
+      lines.push('• <b>' + esc(c.name || '(no name)') + '</b> — <code>' + c.id + '</code>');
     });
     if (paused.length > 12) lines.push('  <i>... +' + (paused.length - 12) + ' khác</i>');
   }
