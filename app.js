@@ -5155,7 +5155,7 @@ function openSavePresetModal(presetName){
     editFieldsHtml=
       // Section 1: Sửa được
       '<div style="background:var(--bg1);border:1px solid var(--bd1);border-radius:10px;padding:14px;margin-bottom:14px;">'
-      +'<div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--blue-tx);">✏ Sửa được</div>'
+      +'<div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--blue-tx);">✏ Có thể chỉnh sửa</div>'
       // Destination
       +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Đích đến tin nhắn</label>'
       +'<select id="pm-dest" class="fi">'
@@ -5180,50 +5180,50 @@ function openSavePresetModal(presetName){
       +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ngân sách mặc định (VNĐ/ngày) <span style="font-weight:400;color:var(--tx3);">— tùy chọn</span></label>'
       +'<input id="pm-budget" type="number" class="fi" min="0" step="10000" placeholder="Để trống = phải chỉ định khi sét" value="'+(existing.default_budget||'')+'"></div>'
       // Locations (editable via Meta Search API)
-      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;">📍 Vị trí địa lý</label>'
+      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;">📍 Vị trí địa lý (quốc gia / tỉnh / thành phố)</label>'
       +'<div id="pm-locations-section">'+renderEditLocationsBox()+'</div>'
       +'</div>'
       // Interests (editable via Meta Search API)
-      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;">🎯 Nhắm mục tiêu chi tiết (sở thích)</label>'
+      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;">🎯 Sở thích / Hành vi nhắm mục tiêu</label>'
       +'<div id="pm-interests-section">'+renderEditInterestsBox()+'</div>'
       +'</div>'
       // Note
       +'<div><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ghi chú</label>'
       +'<textarea id="pm-note" class="fi" rows="2" placeholder="VD: Mẹ bỉm sữa HCM">'+esc(existing.note||'')+'</textarea></div>'
       +'</div>'
-      // Section 2: Read-only (đọc-only — phức tạp, edit qua tạo preset mới)
+      // Section 2: Read-only — thông tin sao chép gốc
       +'<div style="background:var(--bg2);border:1px solid var(--bd1);border-radius:10px;padding:14px;">'
-      +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--tx2);">📋 Cấu hình clone (read-only)</div>'
+      +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--tx2);">📋 Thông tin gốc (không sửa được)</div>'
       +'<div style="font-size:12px;color:var(--tx2);line-height:1.8;">'
-      +'<div>📄 <b>Page:</b> '+esc(existing.source_page_name||existing.page_id)+'</div>'
-      +'<div>💳 <b>TKQC mặc định:</b> '+(existing.ad_account_id?esc(existing.source_account_name||existing.ad_account_id):'<i>Template thuần — không gắn TKQC</i>')+'</div>'
-      +(roLines.length?roLines.map(function(l){return '<div>'+l+'</div>';}).join(''):'<div style="color:var(--tx3);font-style:italic;">Không có thông tin targeting (broad).</div>')
-      +'<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--bd1);color:var(--tx3);font-size:11px;">Source campaign: <code>'+esc(existing.source_campaign_id||'—')+'</code></div>'
+      +'<div>📄 <b>Trang chạy quảng cáo:</b> '+esc(existing.source_page_name||existing.page_id)+'</div>'
+      +'<div>💳 <b>TKQC mặc định:</b> '+(existing.ad_account_id?esc(existing.source_account_name||existing.ad_account_id):'<i>Mẫu chung — không gắn TKQC, phải chỉ định khi tạo quảng cáo</i>')+'</div>'
+      +(roLines.length?roLines.map(function(l){return '<div>'+l+'</div>';}).join(''):'<div style="color:var(--tx3);font-style:italic;">Không có nhắm mục tiêu cụ thể (target rộng).</div>')
+      +'<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--bd1);color:var(--tx3);font-size:11px;">Chiến dịch sao chép từ: <code>'+esc(existing.source_campaign_id||'—')+'</code></div>'
       +'</div>'
-      +'<div style="font-size:11px;color:var(--tx3);margin-top:8px;padding-top:8px;border-top:1px solid var(--bd1);">💡 Muốn đổi vị trí/sở thích/custom audience → xóa preset này và tạo lại từ campaign mẫu mới (clone target khác).</div>'
+      +'<div style="font-size:11px;color:var(--tx3);margin-top:8px;padding-top:8px;border-top:1px solid var(--bd1);">💡 Muốn đổi Trang hoặc TKQC mặc định → xoá công thức này và tạo lại từ chiến dịch mẫu khác.</div>'
       +'</div>';
   }
   modal.innerHTML=
     '<div class="hc-modal" role="dialog" aria-modal="true" style="max-width:640px;">'
-    +'<div class="hc-modal-head"><h3>'+(existing?'Sửa công thức '+esc(existing.name):'Tạo công thức mới')+'</h3><button class="hc-modal-close" onclick="closePresetModal()" aria-label="Đóng">×</button></div>'
+    +'<div class="hc-modal-head"><h3>'+(existing?'Chỉnh sửa công thức "'+esc(existing.name)+'"':'Tạo công thức quảng cáo mới')+'</h3><button class="hc-modal-close" onclick="closePresetModal()" aria-label="Đóng">×</button></div>'
     +'<div class="hc-modal-body">'
     +'<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Tên công thức *</label>'
     +'<input id="pm-name" type="text" class="fi" placeholder="VD: A1, B2, Mom_Mess_HCM" value="'+esc(existing?existing.name:'')+'"'+(existing?' disabled':'')+'>'
-    +(existing?'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tên không sửa được — xóa rồi tạo lại nếu cần đổi.</div>':'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Đặt ngắn, dùng làm khoá khi gõ lệnh Telegram.</div>')
+    +(existing?'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tên không sửa được — xoá công thức này rồi tạo lại nếu cần đổi.</div>':'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Đặt tên ngắn dễ nhớ — dùng để gõ lệnh trên Telegram.</div>')
     +'</div>'
     +(existing?editFieldsHtml:
       '<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">1. Tài khoản quảng cáo * <span style="font-weight:400;color:var(--tx3);">— gõ tên để tìm nhanh</span></label>'
       +accSearchHtml+'</div>'
-      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">2. Chiến dịch để clone target *</label>'
+      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">2. Chiến dịch để sao chép đối tượng *</label>'
       +'<select id="pm-camp-sel" class="fi" disabled onchange="_onPresetCampChange(this.value)"><option value="">— Chọn TKQC trước —</option></select>'
-      +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Bot copy Page + Target + Đích từ adset đầu tiên của campaign này.</div></div>'
+      +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Bot sẽ sao chép <b>Trang chạy</b> + <b>Đối tượng</b> (tuổi, vị trí, sở thích…) + <b>Đích đến tin nhắn</b> từ nhóm quảng cáo đầu tiên của chiến dịch này.</div></div>'
       +'<div id="pm-preview" style="margin-bottom:12px;display:none;"></div>'
-      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ngân sách mặc định (VNĐ/ngày) <span style="font-weight:400;color:var(--tx3);">— tùy chọn</span></label>'
-      +'<input id="pm-budget" type="number" class="fi" min="0" step="10000" placeholder="Để trống = phải chỉ định khi sét ads" value="">'
-      +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Có thể bỏ trống → lúc gõ lệnh phải thêm <code>Ngân sách: 200K</code>. Để tự fill khi chọn campaign.</div></div>'
-      +'<div style="margin-bottom:12px;background:var(--bg2);padding:10px;border-radius:8px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--tx2);cursor:pointer;"><input id="pm-save-tkqc" type="checkbox" checked style="width:14px;height:14px;cursor:pointer;"><span>Gắn TKQC đã chọn làm mặc định cho preset</span></label><div style="font-size:11px;color:var(--tx3);margin-top:6px;padding-left:22px;">Bỏ check → preset thành template thuần (target + page), khi gõ lệnh phải có <code>TKQC: &lt;id&gt;</code>. Hữu ích nếu muốn 1 preset dùng cho nhiều TKQC.</div></div>'
+      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ngân sách mặc định (VNĐ/ngày) <span style="font-weight:400;color:var(--tx3);">— tuỳ chọn</span></label>'
+      +'<input id="pm-budget" type="number" class="fi" min="0" step="10000" placeholder="Để trống = lúc tạo quảng cáo phải nhập ngân sách" value="">'
+      +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Có thể bỏ trống → lúc gõ lệnh trên Telegram phải thêm <code>Ngân sách: 200K</code>. Sẽ tự điền khi chọn chiến dịch ở trên.</div></div>'
+      +'<div style="margin-bottom:12px;background:var(--bg2);padding:10px;border-radius:8px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--tx2);cursor:pointer;"><input id="pm-save-tkqc" type="checkbox" checked style="width:14px;height:14px;cursor:pointer;"><span>Gắn TKQC đã chọn làm mặc định cho công thức này</span></label><div style="font-size:11px;color:var(--tx3);margin-top:6px;padding-left:22px;">Bỏ tick → công thức thành <b>mẫu chung</b> (chỉ có đối tượng + trang), khi tạo quảng cáo phải chỉ định TKQC. Hữu ích nếu muốn dùng 1 công thức cho nhiều TKQC khác nhau.</div></div>'
       +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ghi chú (tuỳ chọn)</label>'
-      +'<textarea id="pm-note" class="fi" rows="2" placeholder="VD: Mẹ bỉm sữa HCM, post mess intent"></textarea></div>'
+      +'<textarea id="pm-note" class="fi" rows="2" placeholder="VD: Mẹ bỉm sữa HCM, bài đăng nhắn tin"></textarea></div>'
     )
     +'<div id="pm-error" style="display:none;color:var(--red);font-size:12px;margin-top:10px;padding:8px;background:var(--red-bg);border-radius:6px;"></div>'
     +'</div>'
