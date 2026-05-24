@@ -5126,10 +5126,13 @@ function openSavePresetModal(presetName){
   var root=document.getElementById('hc-modal-root')||(function(){var d=document.createElement('div');d.id='hc-modal-root';document.body.appendChild(d);return d;})();
   var old=document.getElementById('preset-modal');if(old)old.remove();
   var modal=document.createElement('div');modal.id='preset-modal';modal.className='hc-modal-backdrop';
-  // Build dropdown TKQC options
-  var accOptions='<option value="">— Chọn TKQC —</option>';
-  adList.filter(function(a){return a.fb_account_id;}).sort(function(a,b){return(a.account_name||'').localeCompare(b.account_name||'');}).forEach(function(a){
-    accOptions+='<option value="'+esc(a.id)+'">'+esc(a.account_name||a.fb_account_id)+'</option>';
+  // Build dropdown TKQC options — dùng searchableSelect (có search + strip dấu tiếng Việt)
+  var validAccsList=adList.filter(function(a){return a.fb_account_id;}).sort(function(a,b){return(a.account_name||'').localeCompare(b.account_name||'');});
+  var accSearchHtml=searchableSelect({
+    id:'pm-acc-sel',
+    options:validAccsList.map(function(a){return{value:a.id,label:(a.account_name||a.fb_account_id)+' — '+a.fb_account_id};}),
+    placeholder:'— Tìm hoặc chọn TKQC —',
+    onChange:function(v){_onPresetAccChange(v);}
   });
   // Build edit-mode targeting summary (readonly) + form fields
   var editFieldsHtml='';
@@ -5209,8 +5212,8 @@ function openSavePresetModal(presetName){
     +(existing?'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tên không sửa được — xóa rồi tạo lại nếu cần đổi.</div>':'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Đặt ngắn, dùng làm khoá khi gõ lệnh Telegram.</div>')
     +'</div>'
     +(existing?editFieldsHtml:
-      '<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">1. Tài khoản quảng cáo *</label>'
-      +'<select id="pm-acc-sel" class="fi" onchange="_onPresetAccChange(this.value)">'+accOptions+'</select></div>'
+      '<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">1. Tài khoản quảng cáo * <span style="font-weight:400;color:var(--tx3);">— gõ tên để tìm nhanh</span></label>'
+      +accSearchHtml+'</div>'
       +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">2. Chiến dịch để clone target *</label>'
       +'<select id="pm-camp-sel" class="fi" disabled onchange="_onPresetCampChange(this.value)"><option value="">— Chọn TKQC trước —</option></select>'
       +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Bot copy Page + Target + Đích từ adset đầu tiên của campaign này.</div></div>'
