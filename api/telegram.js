@@ -53,6 +53,11 @@ async function sendMessage(chatId, text, opts) {
   }
 }
 
+function getTelegramMessageText(message) {
+  if (!message) return '';
+  return String(message.text || message.caption || '').trim();
+}
+
 // ═══ DATA QUERIES ═══
 async function getActiveClients() {
   const { data, error } = await sb.from('client').select('*').eq('status', 'active');
@@ -844,7 +849,8 @@ async function askAIAgent(question, chatId) {
     '2. Trả lời ngắn gọn, dùng số liệu cụ thể (đ, %, ngày).',
     '3. Khi user yêu cầu HÀNH ĐỘNG (tắt/bật/sửa), confirm ID đúng rồi mới gọi action tool.',
     '4. KHÔNG output thông tin nhạy cảm (access_token, full ad_account_id nếu user không hỏi).',
-    '5. Hôm nay là ' + vnDateStr(0) + ', tháng ' + vnDateStr(0).substring(0,7) + '.'
+    '5. Nếu câu hỏi có phần "Ngữ cảnh tin nhắn được reply", ưu tiên ngữ cảnh đó hơn lịch sử conversation cũ.',
+    '6. Hôm nay là ' + vnDateStr(0) + ', tháng ' + vnDateStr(0).substring(0,7) + '.'
   ].join('\n');
   let messages = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: question }];
   const allTools = [...AI_TOOLS, ...AI_QUERY_TOOLS];
@@ -1050,6 +1056,26 @@ async function metaApi(method, path, payload, customToken) {
   }
 }
 
+async function metaApiGetAll(path, payload, maxPages) {
+  const firstPayload = Object.assign({ limit: 500 }, payload || {});
+  let page = await metaApi('GET', path, firstPayload);
+  if (page.error) return page;
+
+  const rows = [];
+  let pages = 0;
+  const limit = maxPages || 10;
+  while (page && !page.error) {
+    if (Array.isArray(page.data)) rows.push.apply(rows, page.data);
+    pages += 1;
+    if (!page.paging || !page.paging.next || pages >= limit) break;
+    const resp = await fetch(page.paging.next);
+    page = await resp.json();
+  }
+
+  if (page && page.error) return page;
+  return { data: rows };
+}
+
 // ─── Lấy page access token (cần cho /<page_id>/feed read) ───
 // Yêu cầu META_TOKEN có pages_show_list + system user phải được gán làm admin/editor của Page.
 async function getPageAccessToken(pageId) {
@@ -1203,6 +1229,29 @@ function parseAdId(input) {
   if (m) return m[1];
   m = s.match(/(?:^|\n|[\s•-])ad\s*[:#-]?\s*(\d{8,})/i);
   return m ? m[1] : null;
+}
+
+function parseAdAccountId(input) {
+  if (!input) return null;
+  const s = String(input || '');
+  let m = s.match(/\bact_(\d{8,})\b/i);
+  if (m) return 'act_' + m[1];
+  m = s.match(/[?&]act=(\d{8,})/i);
+  if (m) return 'act_' + m[1];
+  m = s.match(/(?:tkqc|ad\s*account|account|tài\s*khoản|tai\s*khoan)\s*[:#-]?\s*(\d{8,})/i);
+  if (m) return 'act_' + m[1];
+  return null;
+}
+
+function extractMessageCount(actions) {
+  let total = 0;
+  (actions || []).forEach(function(act){
+    const type = String(act.action_type || '').toLowerCase();
+    if (type.indexOf('messaging_conversation_started') >= 0 || type === 'onsite_conversion.messaging_conversation_started_7d') {
+      total += Number(act.value || 0);
+    }
+  });
+  return total;
 }
 
 function normalizeLookupText(v) {
@@ -1662,9 +1711,8 @@ async function handleListAccounts(searchKw) {
 // ─── Handle: /camps <act_id> [filter] — list campaign live từ Meta API ───
 async function handleListCampaigns(text) {
   const t = String(text || '').trim();
-  let actId = null;
-  let m = t.match(/act_(\d+)/i);
-  if (m) actId = 'act_' + m[1];
+  let actId = parseAdAccountId(t);
+  let m = null;
   if (!actId) {
     m = t.match(/[?&]act=(\d+)/);
     if (m) actId = 'act_' + m[1];
@@ -1736,6 +1784,99 @@ async function handleListCampaigns(text) {
   lines.push('');
   lines.push('<i>🔍 Chi tiết camp: /camp &lt;id&gt;</i>');
   lines.push('<i>⏸ Tắt: /tatads &lt;id&gt; · ▶ Bật: /batads &lt;id&gt;</i>');
+  return lines.join('\n');
+}
+
+async function handleAccountCampaignSpendMess(text) {
+  const actId = parseAdAccountId(text);
+  if (!actId) {
+    return [
+      '❌ Mình cần TKQC ID để kiểm tra campaign đang chi tiêu.',
+      'Ví dụ: <code>act_1909474376641098</code>'
+    ].join('\n');
+  }
+
+  const today = vnDateStr(0);
+  const [account, campaigns, insights] = await Promise.all([
+    metaApi('GET', actId, { fields: 'id,name,account_status,currency' }),
+    metaApiGetAll(actId + '/campaigns', {
+      fields: 'id,name,status,effective_status,daily_budget,lifetime_budget',
+      limit: 500,
+      sort: 'created_time_descending'
+    }, 10),
+    metaApiGetAll(actId + '/insights', {
+      level: 'campaign',
+      fields: 'campaign_id,campaign_name,spend,actions',
+      time_range: { since: today, until: today },
+      limit: 500
+    }, 10)
+  ]);
+
+  if (account.error) return '❌ Không đọc được TKQC: <code>' + formatMetaError(account.error) + '</code>';
+  if (campaigns.error) return '❌ Không đọc được campaign: <code>' + formatMetaError(campaigns.error) + '</code>';
+  if (insights.error) return '❌ Không đọc được insights: <code>' + formatMetaError(insights.error) + '</code>';
+
+  const campaignById = {};
+  (campaigns.data || []).forEach(function(c){ campaignById[c.id] = c; });
+  const activeCampaigns = (campaigns.data || []).filter(function(c){
+    return c.status === 'ACTIVE' || c.effective_status === 'ACTIVE';
+  });
+
+  const rows = (insights.data || []).map(function(r){
+    const c = campaignById[r.campaign_id] || {};
+    const spend = Math.round(Number(r.spend || 0));
+    const mess = extractMessageCount(r.actions);
+    return {
+      id: r.campaign_id,
+      name: r.campaign_name || c.name || r.campaign_id || '—',
+      status: c.status || '—',
+      effective_status: c.effective_status || '—',
+      spend: spend,
+      mess: mess,
+      cost: mess > 0 ? Math.round(spend / mess) : null
+    };
+  }).filter(function(r){ return r.id && r.spend > 0; }).sort(function(a, b){ return b.spend - a.spend; });
+
+  const totalSpend = rows.reduce(function(sum, r){ return sum + r.spend; }, 0);
+  const totalMess = rows.reduce(function(sum, r){ return sum + r.mess; }, 0);
+  const avgCost = totalMess > 0 ? Math.round(totalSpend / totalMess) : null;
+  const accountName = account.name || actId;
+  const currency = account.currency || 'VND';
+  const moneySuffix = currency === 'VND' ? 'đ' : ' ' + esc(currency);
+
+  const lines = [
+    '<b>📊 Campaign đang chi tiêu</b>',
+    '• TKQC: <b>' + esc(accountName) + '</b> — <code>' + actId + '</code>',
+    '• Ngày: <b>' + today + '</b>',
+    '• Campaign ACTIVE: <b>' + activeCampaigns.length + '</b>',
+    '• Có spend hôm nay: <b>' + rows.length + '</b>',
+    '• Tổng chi: <b>' + fm(totalSpend) + moneySuffix + '</b>',
+    '• Tổng mess: <b>' + fm(totalMess) + '</b>' + (avgCost ? ' · Giá TB: <b>' + fm(avgCost) + moneySuffix + '/mess</b>' : '')
+  ];
+
+  if (!rows.length) {
+    lines.push('');
+    lines.push('Chưa thấy campaign nào có spend trong dữ liệu Meta hôm nay.');
+    if (activeCampaigns.length) {
+      lines.push('');
+      lines.push('<b>Campaign đang bật:</b>');
+      activeCampaigns.slice(0, 10).forEach(function(c){
+        lines.push('• ' + esc(c.name || c.id) + ' — <code>' + c.id + '</code>');
+      });
+      if (activeCampaigns.length > 10) lines.push('• ... +' + (activeCampaigns.length - 10) + ' campaign khác');
+    }
+    return lines.join('\n');
+  }
+
+  lines.push('');
+  lines.push('<b>Chi tiết:</b>');
+  rows.slice(0, 15).forEach(function(r){
+    const cost = r.cost ? fm(r.cost) + moneySuffix + '/mess' : '—';
+    lines.push('• <b>' + esc(r.name) + '</b>');
+    lines.push('  Spend: <b>' + fm(r.spend) + moneySuffix + '</b> · Mess: <b>' + fm(r.mess) + '</b> · Giá mess: <b>' + cost + '</b>');
+    lines.push('  Status: <b>' + r.status + '</b> · Effective: <b>' + r.effective_status + '</b> · <code>' + r.id + '</code>');
+  });
+  if (rows.length > 15) lines.push('• ... +' + (rows.length - 15) + ' campaign khác có spend');
   return lines.join('\n');
 }
 
@@ -2083,9 +2224,14 @@ async function handleCampaignBudget(text, mode) {
 }
 
 // ═══ ROUTER ═══
-async function route(text, chatId) {
-  const tLower = text.trim().toLowerCase();
-  const cmd = text.split(/\s+/)[0].toLowerCase();
+async function route(text, chatId, ctx) {
+  const rawText = String(text || '').trim();
+  ctx = ctx || {};
+  const replyText = String(ctx.replyText || '').trim();
+  const lookupText = replyText ? rawText + '\n\n' + replyText : rawText;
+  const tLower = rawText.toLowerCase();
+  const compactText = normalizeLookupText(rawText);
+  const cmd = rawText.split(/\s+/)[0].toLowerCase();
   if (cmd === '/myid' || cmd === '/me' || cmd === '/chatid') return '🆔 Chat ID của bạn: <code>' + chatId + '</code>\n\n<i>Copy số trên paste vào Vercel env <b>TELEGRAM_ALLOWED_CHAT_IDS</b> để giới hạn ai dùng được bot.</i>';
   if (cmd === '/clear' || cmd === '/reset' || cmd === '/quenhet' || /^(quên\s*hết|xóa\s*lịch\s*sử)/i.test(tLower)) { await clearConversation(chatId); return '🧹 Đã xóa lịch sử conversation. AI sẽ không nhớ context cũ.'; }
   if (cmd === '/start' || cmd === '/help') return helpText();
@@ -2096,7 +2242,7 @@ async function route(text, chatId) {
   // Pattern chung "đối tượng": ads | quảng cáo | qc | camp(aign) | chiến dịch | cd
   const objPat = '(ads?|qu[ảa]ng\\s*c[áa]o|qc|camp(aign)?|chi[ếe]n\\s*d[ịi]ch|cd)';
 
-  if (cmd === '/setads' || /^sét\s*ads?\s*[:.]?/i.test(tLower) || /^set\s*ads?\s*[:.]?/i.test(tLower) || /^tạo\s*(quảng\s*cáo|ads|qc)/i.test(tLower) || /^tao\s*(quang\s*cao|ads|qc)/i.test(tLower)) return await handleSetAds(text, chatId);
+  if (cmd === '/setads' || /^sét\s*ads?\s*[:.]?/i.test(tLower) || /^set\s*ads?\s*[:.]?/i.test(tLower) || /^tạo\s*(quảng\s*cáo|ads|qc)/i.test(tLower) || /^tao\s*(quang\s*cao|ads|qc)/i.test(tLower)) return await handleSetAds(rawText, chatId);
   // /tkqc: bắt nhiều cách hỏi tự nhiên — danh sách, liệt kê, có những, xem, list, tất cả
   // KHÔNG match nếu câu chứa keyword action (tắt/bật/sửa/đổi/tạo) — tránh xung đột
   const isListAccQuery = (
@@ -2105,36 +2251,39 @@ async function route(text, chatId) {
     /(danh\s*sách|danh\s*sach|liệt\s*kê|liet\s*ke|xem|show|có\s*những|co\s*nhung|có\s*bao\s*nhiêu|co\s*bao\s*nhieu|list|tất\s*cả|tat\s*ca|all|các)\s+(tkqc|tài\s*khoản|tai\s*khoan|ad\s*account|account)/i.test(tLower)
   );
   if (isListAccQuery && !/(tắt|bật|sửa|đổi|tạo|set|tat|bat|sua|doi)/i.test(tLower)) return await handleListAccounts();
-  if (cmd === '/camp' || cmd === '/campaign' || /^(chi\s*tiết|chi\s*tiet)\s*(camp|chiến|chien)/i.test(tLower)) return await handleCampaignDetail(text);
-  if (cmd === '/camps' || cmd === '/campaigns' || cmd === '/chiendich' || /^(chiến|chien)\s*(dịch|dich)/i.test(tLower) || /(list|liệt\s*kê|liet\s*ke|xem|danh\s*sách|danh\s*sach|có\s*những|co\s*nhung)\s+(camp|campaign|chiến|chien|chiến\s*dịch|chien\s*dich|qc|quảng\s*cáo|quang\s*cao)/i.test(tLower)) return await handleListCampaigns(text);
-  if (cmd === '/luupreset' || cmd === '/savepreset' || /^(lưu|luu)\s*(preset|công\s*thức|cong\s*thuc)/i.test(tLower)) return await handleSavePreset(text, chatId);
+  const asksCampaignSpendMess = /(chiendich|campaign|camp)/.test(compactText) && /(chitieu|dangchi|spend|giamess|costmess|mess)/.test(compactText);
+  if (asksCampaignSpendMess && parseAdAccountId(lookupText)) return await handleAccountCampaignSpendMess(lookupText);
+  if (cmd === '/camp' || cmd === '/campaign' || /^(chi\s*tiết|chi\s*tiet)\s*(camp|chiến|chien)/i.test(tLower)) return await handleCampaignDetail(lookupText);
+  if (cmd === '/camps' || cmd === '/campaigns' || cmd === '/chiendich' || /^(chiến|chien)\s*(dịch|dich)/i.test(tLower) || /(list|liệt\s*kê|liet\s*ke|xem|danh\s*sách|danh\s*sach|có\s*những|co\s*nhung)\s+(camp|campaign|chiến|chien|chiến\s*dịch|chien\s*dich|qc|quảng\s*cáo|quang\s*cao)/i.test(tLower)) return await handleListCampaigns(lookupText);
+  if (cmd === '/luupreset' || cmd === '/savepreset' || /^(lưu|luu)\s*(preset|công\s*thức|cong\s*thuc)/i.test(tLower)) return await handleSavePreset(rawText, chatId);
   if (cmd === '/presets' || cmd === '/listpresets' || cmd === '/congthuc' || /^(xem|list|danh\s*sách|danh\s*sach)\s*(preset|công\s*thức|cong\s*thuc)/i.test(tLower)) return await handleListPresets();
   // TẮT: tắt | dừng | stop | pause | dung + đối tượng
-  if (cmd === '/tatads' || cmd === '/pauseads' || cmd === '/pause' || new RegExp('^(t[ắa]t|d[ừu]ng|stop|pause)\\s+' + objPat, 'i').test(tLower)) return await handleToggleCampaign(text, 'PAUSED');
+  if (cmd === '/tatads' || cmd === '/pauseads' || cmd === '/pause' || new RegExp('^(t[ắa]t|d[ừu]ng|stop|pause)\\s+' + objPat, 'i').test(tLower)) return await handleToggleCampaign(lookupText, 'PAUSED');
   // BẬT: bật | mở | on | resume | start | active + đối tượng
-  if (cmd === '/batads' || cmd === '/resumeads' || cmd === '/activeads' || cmd === '/resume' || new RegExp('^(b[ậa]t|m[ởo]|on|resume|start|active|chạy\\s*lại|chay\\s*lai)\\s+' + objPat, 'i').test(tLower)) return await handleToggleCampaign(text, 'ACTIVE');
+  if (cmd === '/batads' || cmd === '/resumeads' || cmd === '/activeads' || cmd === '/resume' || new RegExp('^(b[ậa]t|m[ởo]|on|resume|start|active|chạy\\s*lại|chay\\s*lai)\\s+' + objPat, 'i').test(tLower)) return await handleToggleCampaign(lookupText, 'ACTIVE');
   // KIỂM TRA: kiểm tra | xem | trạng thái | status | check + đối tượng
-  if (cmd === '/checkads' || cmd === '/statusads' || cmd === '/check' || new RegExp('^(ki[ểe]m\\s*tra|xem|tr[ạa]ng\\s*th[áa]i|status|check)\\s+' + objPat, 'i').test(tLower)) return await handleCheckAdsStatus(text);
+  if (cmd === '/checkads' || cmd === '/statusads' || cmd === '/check' || new RegExp('^(ki[ểe]m\\s*tra|xem|tr[ạa]ng\\s*th[áa]i|status|check)\\s+' + objPat, 'i').test(tLower)) return await handleCheckAdsStatus(lookupText);
   // ĐẶT NGÂN SÁCH: ngân sách | budget | đặt ngân sách | set budget
-  if (cmd === '/nsads' || cmd === '/budgetads' || cmd === '/setbudget' || /^(ng[âa]n\s*s[áa]ch|budget|đặt\s*ng[âa]n\s*s[áa]ch|dat\s*ngan\s*sach|set\s*budget)/i.test(tLower)) return await handleCampaignBudget(text, 'set');
+  if (cmd === '/nsads' || cmd === '/budgetads' || cmd === '/setbudget' || /^(ng[âa]n\s*s[áa]ch|budget|đặt\s*ng[âa]n\s*s[áa]ch|dat\s*ngan\s*sach|set\s*budget)/i.test(tLower)) return await handleCampaignBudget(rawText, 'set');
   // TĂNG NGÂN SÁCH: tăng ns | tăng ngân sách | increase | thêm budget
-  if (cmd === '/tangns' || cmd === '/increasebudget' || /^(t[ăa]ng|th[êe]m|increase|raise)\s*(ns|ng[âa]n\s*s[áa]ch|budget)/i.test(tLower)) return await handleCampaignBudget(text, 'increase');
+  if (cmd === '/tangns' || cmd === '/increasebudget' || /^(t[ăa]ng|th[êe]m|increase|raise)\s*(ns|ng[âa]n\s*s[áa]ch|budget)/i.test(tLower)) return await handleCampaignBudget(rawText, 'increase');
   // GIẢM NGÂN SÁCH: giảm ns | giảm ngân sách | decrease | bớt budget
-  if (cmd === '/giamns' || cmd === '/decreasebudget' || /^(gi[ảa]m|b[ớo]t|hạ|ha|decrease|lower)\s*(ns|ng[âa]n\s*s[áa]ch|budget)/i.test(tLower)) return await handleCampaignBudget(text, 'decrease');
+  if (cmd === '/giamns' || cmd === '/decreasebudget' || /^(gi[ảa]m|b[ớo]t|hạ|ha|decrease|lower)\s*(ns|ng[âa]n\s*s[áa]ch|budget)/i.test(tLower)) return await handleCampaignBudget(rawText, 'decrease');
   if (cmd === '/clonecamp' || cmd === '/duplicate' || cmd === '/nhanban' || /^(nhân\s*bản|nhan\s*ban|clone|copy|duplicate|sao\s*chép|sao\s*chep)\s+(campaign|camp|ads?|chiến\s*dịch|chien\s*dich|qc)/i.test(tLower)) {
-    const m = text.match(/\b(\d{10,})\b/);
+    const m = lookupText.match(/\b(\d{10,})\b/);
     if (!m) return '❌ Format: <code>/clonecamp &lt;campaign_id&gt; [budget]</code>\n\nVD: <code>/clonecamp 120249707557470404 200K</code>';
-    const parts = text.trim().split(/\s+/);
+    const parts = rawText.trim().split(/\s+/);
     const budgetStr = parts.find(function(p, i){ return i > 0 && p !== m[1] && parseBudget(p) >= 50000; });
     return await handleDuplicateCampaign({ source_campaign_id: m[1], budget: budgetStr || null });
   }
   // ═══ Cấp 3: AI Agent multi-turn với memory + DB query + Meta live ═══
   // Mọi câu không match command đều qua agent. Agent tự quyết khi nào cần query DB,
   // khi nào trả lời text, khi nào trigger action. Có context conversation per chat_id.
-  const agentReply = await askAIAgent(text, chatId);
+  const agentQuestion = replyText ? 'Ngữ cảnh tin nhắn được reply:\n' + replyText + '\n\nCâu hỏi user:\n' + rawText : rawText;
+  const agentReply = await askAIAgent(agentQuestion, chatId);
   if (agentReply) return agentReply;
   // Fallback cuối nếu agent fail
-  return await askAI(text);
+  return await askAI(agentQuestion);
 }
 
 // ═══ ENTRY ═══
@@ -2147,10 +2296,12 @@ module.exports = async (req, res) => {
 
   const update = req.body || {};
   const msg = update.message || update.edited_message;
-  if (!msg || !msg.chat || !msg.text) return res.status(200).send('ok');
+  if (!msg || !msg.chat) return res.status(200).send('ok');
 
   const chatId = String(msg.chat.id);
-  const text = String(msg.text || '').trim();
+  const text = getTelegramMessageText(msg);
+  const replyText = getTelegramMessageText(msg.reply_to_message);
+  if (!text) return res.status(200).send('ok');
 
   if (ALLOWED_CHAT_IDS.length && ALLOWED_CHAT_IDS.indexOf(chatId) < 0) {
     await sendMessage(chatId, '❌ Bot này dành riêng cho HC Agency.\nChat ID của bạn: <code>' + chatId + '</code>');
@@ -2158,7 +2309,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const reply = await route(text, chatId);
+    const reply = await route(text, chatId, { replyText: replyText });
     await sendMessage(chatId, reply, {reply_to_message_id: msg.message_id});
   } catch (e) {
     console.error('[Telegram route error]', e);
