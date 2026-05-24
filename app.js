@@ -303,9 +303,29 @@ function sselToggle(sid){
   document.querySelectorAll('.ssel-pop').forEach(function(p){if(p!==pop)p.setAttribute('hidden','');});
   if(willOpen){
     pop.removeAttribute('hidden');
+    _sselPositionPop(wrap,pop);
     var search=pop.querySelector('.ssel-search');
     if(search){search.value='';_sselRefresh(sid,'');setTimeout(function(){search.focus();},10);}
+    // Reposition khi scroll/resize tránh popup bay khỏi anchor
+    if(!pop._reposHandler){
+      pop._reposHandler=function(){if(!pop.hasAttribute('hidden'))_sselPositionPop(wrap,pop);};
+      window.addEventListener('scroll',pop._reposHandler,true);
+      window.addEventListener('resize',pop._reposHandler);
+    }
   }else pop.setAttribute('hidden','');
+}
+// Đặt popup theo toạ độ display, flip lên trên nếu dưới không đủ chỗ.
+function _sselPositionPop(wrap,pop){
+  var display=wrap.querySelector('.ssel-display');if(!display)return;
+  var r=display.getBoundingClientRect();
+  var vh=window.innerHeight||document.documentElement.clientHeight;
+  var popH=Math.min(pop.scrollHeight||340,340);
+  var spaceBelow=vh-r.bottom,spaceAbove=r.top;
+  var flipUp=spaceBelow<popH+12&&spaceAbove>spaceBelow;
+  pop.style.left=r.left+'px';
+  pop.style.width=r.width+'px';
+  if(flipUp){pop.style.top=Math.max(8,r.top-popH-4)+'px';pop.style.maxHeight=Math.min(popH,spaceAbove-12)+'px';}
+  else{pop.style.top=(r.bottom+4)+'px';pop.style.maxHeight=Math.min(popH,spaceBelow-12)+'px';}
 }
 function sselFilter(sid,q){_sselRefresh(sid,q);}
 function _sselRefresh(sid,q){
