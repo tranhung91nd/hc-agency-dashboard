@@ -133,6 +133,7 @@ function helpText() {
     '',
     '/luupreset &lt;tên&gt; &lt;campaign_id&gt; — clone công thức từ campaign cũ',
     '/presets — Xem tất cả công thức',
+    '/clonecamp &lt;campaign_id&gt; [budget] — Nhân bản nguyên văn 1 campaign',
     '',
     '<b>⏸ Tắt ads:</b>',
     '<code>Tắt Ads',
@@ -316,6 +317,14 @@ const AI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'duplicate_campaign',
+      description: 'Nhân bản 1 campaign trên Meta (clone toàn bộ: page, targeting, post, destination). Có thể override budget hoặc tên. Khi user nói: nhân bản/clone/copy/duplicate + campaign + ID.',
+      parameters: { type: 'object', properties: { source_campaign_id: { type: 'string', description: 'Campaign ID cần clone' }, new_name: { type: 'string', description: 'Tên campaign mới (optional)' }, budget: { type: 'string', description: 'Ngân sách mới VD 200K, 500K, 1tr (optional, default = budget cũ)' } }, required: ['source_campaign_id'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'pause_campaign',
       description: 'Tắt (PAUSED) campaign trên Meta. Khi user nói: tắt/dừng/stop/pause + (ads/qc/campaign/chiến dịch + ID).',
       parameters: { type: 'object', properties: { campaign_id: { type: 'string', description: 'Campaign ID dạng số 15-17 chữ số' } }, required: ['campaign_id'] }
@@ -402,6 +411,131 @@ const AI_TOOLS = [
     }
   }
 ];
+
+// ═══ DUPLICATE CAMPAIGN — clone nguyên văn 1 campaign Meta ═══
+// Khác với createAdsFromPreset (cần preset + post mới), function này:
+// - Đọc trực tiếp source campaign + adset + ad creative từ Meta
+// - Clone cùng targeting + page + post + destination + budget
+// - Có thể override budget/name nếu user request
+async function duplicateCampaign(sourceCampaignId, opts) {
+  opts = opts || {};
+  // 1. Source campaign info
+  const camp = await metaApi('GET', sourceCampaignId, { fields: 'id,name,account_id,objective,special_ad_categories' });
+  if (camp.error) return { ok: false, step: 'fetch_campaign', error: formatMetaError(camp.error) };
+  if (!camp.account_id) return { ok: false, step: 'fetch_campaign', error: 'Campaign không có account_id (deleted?)' };
+
+  // 2. Source adset (lấy cái đầu tiên)
+  const adsets = await metaApi('GET', sourceCampaignId + '/adsets', { fields: 'id,name,daily_budget,destination_type,promoted_object,targeting,billing_event,optimization_goal,bid_strategy', limit: 1 });
+  if (adsets.error) return { ok: false, step: 'fetch_adset', error: formatMetaError(adsets.error) };
+  if (!adsets.data || !adsets.data.length) return { ok: false, step: 'fetch_adset', error: 'Campaign không có adset' };
+  const srcAdset = adsets.data[0];
+
+  // 3. Source ad + creative
+  const ads = await metaApi('GET', sourceCampaignId + '/ads', { fields: 'id,name,creative{id,effective_object_story_id,object_story_id}', limit: 1 });
+  if (ads.error) return { ok: false, step: 'fetch_ad', error: formatMetaError(ads.error) };
+  if (!ads.data || !ads.data.length) return { ok: false, step: 'fetch_ad', error: 'Campaign không có ad' };
+  const srcAd = ads.data[0];
+  const objectStoryId = (srcAd.creative && (srcAd.creative.effective_object_story_id || srcAd.creative.object_story_id));
+  if (!objectStoryId) return { ok: false, step: 'fetch_creative', error: 'Không lấy được object_story_id từ creative cũ (creative có thể không phải post link)' };
+
+  // 4. Override values + naming
+  const actPath = 'act_' + camp.account_id;
+  const budget = opts.budget ? parseBudget(opts.budget) : parseInt(srcAdset.daily_budget) || 0;
+  if (!budget || budget < 50000) return { ok: false, step: 'validate', error: 'Budget thiếu hoặc <50.000đ' };
+  const newName = opts.new_name || ('[Clone] ' + (camp.name || 'Camp') + ' - ' + vnDateStr(0));
+
+  // 5. Tạo Campaign mới (clone objective + special_ad_categories)
+  const newCamp = await metaApi('POST', actPath + '/campaigns', {
+    name: newName,
+    objective: camp.objective || 'OUTCOME_ENGAGEMENT',
+    special_ad_categories: camp.special_ad_categories || [],
+    status: 'ACTIVE',
+    buying_type: 'AUCTION',
+    is_adset_budget_sharing_enabled: false
+  });
+  if (newCamp.error) return { ok: false, step: 'campaign', error: formatMetaError(newCamp.error) };
+  if (!newCamp.id) return { ok: false, step: 'campaign', error: 'Không trả về campaign_id' };
+
+  // 6. Tạo Adset mới (clone targeting + promoted_object + destination)
+  const newAdset = await metaApi('POST', actPath + '/adsets', {
+    name: newName + ' - Adset',
+    campaign_id: newCamp.id,
+    daily_budget: budget,
+    billing_event: srcAdset.billing_event || 'IMPRESSIONS',
+    optimization_goal: srcAdset.optimization_goal || 'CONVERSATIONS',
+    bid_strategy: srcAdset.bid_strategy || 'LOWEST_COST_WITHOUT_CAP',
+    destination_type: srcAdset.destination_type || 'MESSENGER',
+    promoted_object: srcAdset.promoted_object || {},
+    targeting: srcAdset.targeting || {},
+    status: 'ACTIVE'
+  });
+  if (newAdset.error) return { ok: false, step: 'adset', error: formatMetaError(newAdset.error) };
+
+  // 7. Tạo Creative mới (cùng object_story_id = cùng post)
+  const newCreative = await metaApi('POST', actPath + '/adcreatives', {
+    name: newName + ' - Creative',
+    object_story_id: objectStoryId
+  });
+  if (newCreative.error) return { ok: false, step: 'creative', error: formatMetaError(newCreative.error) };
+
+  // 8. Tạo Ad mới
+  const newAd = await metaApi('POST', actPath + '/ads', {
+    name: newName + ' - Ad',
+    adset_id: newAdset.id,
+    creative: { creative_id: newCreative.id },
+    status: 'ACTIVE'
+  });
+  if (newAd.error) return { ok: false, step: 'ad', error: formatMetaError(newAd.error) };
+
+  // Log
+  try {
+    await sb.from('auto_ads_log').insert({
+      source: 'duplicate',
+      preset_name: 'clone:' + sourceCampaignId,
+      post_id: objectStoryId,
+      budget: budget,
+      campaign_id: newCamp.id,
+      adset_id: newAdset.id,
+      creative_id: newCreative.id,
+      ad_id: newAd.id,
+      status: 'success'
+    });
+  } catch (e) {}
+
+  return {
+    ok: true,
+    source_campaign_id: sourceCampaignId,
+    source_name: camp.name,
+    new_campaign_id: newCamp.id,
+    new_ad_id: newAd.id,
+    new_name: newName,
+    budget: budget,
+    manager_link: 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=' + camp.account_id + '&selected_campaign_ids=' + newCamp.id
+  };
+}
+
+async function handleDuplicateCampaign(args) {
+  const r = await duplicateCampaign(args.source_campaign_id, { new_name: args.new_name, budget: args.budget });
+  if (!r.ok) {
+    return [
+      '❌ <b>Nhân bản campaign thất bại</b>',
+      '',
+      'Bước lỗi: <b>' + (r.step || '—') + '</b>',
+      'Chi tiết: <code>' + (r.error || '—') + '</code>'
+    ].join('\n');
+  }
+  return [
+    '✅ <b>Đã nhân bản campaign</b>',
+    '',
+    '• Tên mới: ' + r.new_name,
+    '• Campaign mới: <code>' + r.new_campaign_id + '</code>',
+    '• Ad mới: <code>' + r.new_ad_id + '</code>',
+    '• Ngân sách: ' + fm(r.budget) + 'đ/ngày',
+    '• Source: ' + (r.source_name || r.source_campaign_id),
+    '',
+    '🔗 <a href="' + r.manager_link + '">Mở Ads Manager</a>'
+  ].join('\n');
+}
 
 // ═══ AI AGENT TOOLS CẤP 3 ═══
 // 11 query tools (DB live + Meta live + scan). AI tự gọi để lấy data trước khi trả lời.
@@ -735,6 +869,8 @@ async function askAIWithTools(question) {
 async function dispatchAIIntent(intent, chatId) {
   const { fn, args } = intent;
   switch (fn) {
+    case 'duplicate_campaign':
+      return await handleDuplicateCampaign(args);
     case 'pause_campaign':
       return await handleToggleCampaign('Tắt ads ' + args.campaign_id, 'PAUSED');
     case 'activate_campaign':
@@ -1679,6 +1815,13 @@ async function route(text, chatId) {
   if (cmd === '/tangns' || cmd === '/increasebudget' || /^(t[ăa]ng|th[êe]m|increase|raise)\s*(ns|ng[âa]n\s*s[áa]ch|budget)/i.test(tLower)) return await handleCampaignBudget(text, 'increase');
   // GIẢM NGÂN SÁCH: giảm ns | giảm ngân sách | decrease | bớt budget
   if (cmd === '/giamns' || cmd === '/decreasebudget' || /^(gi[ảa]m|b[ớo]t|hạ|ha|decrease|lower)\s*(ns|ng[âa]n\s*s[áa]ch|budget)/i.test(tLower)) return await handleCampaignBudget(text, 'decrease');
+  if (cmd === '/clonecamp' || cmd === '/duplicate' || cmd === '/nhanban' || /^(nhân\s*bản|nhan\s*ban|clone|copy|duplicate|sao\s*chép|sao\s*chep)\s+(campaign|camp|ads?|chiến\s*dịch|chien\s*dich|qc)/i.test(tLower)) {
+    const m = text.match(/\b(\d{10,})\b/);
+    if (!m) return '❌ Format: <code>/clonecamp &lt;campaign_id&gt; [budget]</code>\n\nVD: <code>/clonecamp 120249707557470404 200K</code>';
+    const parts = text.trim().split(/\s+/);
+    const budgetStr = parts.find(function(p, i){ return i > 0 && p !== m[1] && parseBudget(p) >= 50000; });
+    return await handleDuplicateCampaign({ source_campaign_id: m[1], budget: budgetStr || null });
+  }
   // ═══ Cấp 3: AI Agent multi-turn với memory + DB query + Meta live ═══
   // Mọi câu không match command đều qua agent. Agent tự quyết khi nào cần query DB,
   // khi nào trả lời text, khi nào trigger action. Có context conversation per chat_id.
