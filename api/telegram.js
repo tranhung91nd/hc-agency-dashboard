@@ -504,7 +504,20 @@ function parseCampaignId(input) {
   if (m) return m[1];
   m = s.match(/[?&]campaign_id=(\d+)/);
   if (m) return m[1];
+  m = s.match(/(?:campaign|camp|chien\s*dich|chiến\s*dịch)\s*[:#-]?\s*(\d{8,})/i);
+  if (m) return m[1];
   m = s.match(/\b(\d{8,})\b/);
+  return m ? m[1] : null;
+}
+
+function parseAdId(input) {
+  if (!input) return null;
+  const s = String(input).trim();
+  let m = s.match(/[?&]selected_ad_ids=(\d+)/);
+  if (m) return m[1];
+  m = s.match(/[?&]ad_id=(\d+)/);
+  if (m) return m[1];
+  m = s.match(/(?:^|\n|[\s•-])ad\s*[:#-]?\s*(\d{8,})/i);
   return m ? m[1] : null;
 }
 
@@ -847,6 +860,7 @@ async function updateMetaObjectStatus(type, id, name, nextStatus) {
 async function handleToggleCampaign(text, nextStatus) {
   const cmdLabel = nextStatus === 'ACTIVE' ? '/batads' : '/tatads';
   const campaignId = parseCampaignId(text);
+  const explicitAdId = parseAdId(text);
   if (!campaignId) {
     return [
       '❌ Format: <code>' + cmdLabel + ' &lt;campaign_id_hoặc_link_AdsManager&gt;</code>',
@@ -875,15 +889,22 @@ async function handleToggleCampaign(text, nextStatus) {
 
   const adsetRows = adsets.data || [];
   const adRows = ads.data || [];
+  let explicitAd = null;
+  if (explicitAdId && !adRows.some(function(ad){return ad.id === explicitAdId;})) {
+    const adInfo = await metaApi('GET', explicitAdId, { fields: 'id,name,status,effective_status' });
+    explicitAd = adInfo && !adInfo.error ? adInfo : { id: explicitAdId, name: explicitAdId };
+  }
   const results = [];
 
   if (nextStatus === 'PAUSED') {
     results.push(await updateMetaObjectStatus('campaign', campaignId, before.name, nextStatus));
     for (const adset of adsetRows) results.push(await updateMetaObjectStatus('adset', adset.id, adset.name, nextStatus));
     for (const ad of adRows) results.push(await updateMetaObjectStatus('ad', ad.id, ad.name, nextStatus));
+    if (explicitAd) results.push(await updateMetaObjectStatus('ad', explicitAd.id, explicitAd.name, nextStatus));
   } else {
     for (const adset of adsetRows) results.push(await updateMetaObjectStatus('adset', adset.id, adset.name, nextStatus));
     for (const ad of adRows) results.push(await updateMetaObjectStatus('ad', ad.id, ad.name, nextStatus));
+    if (explicitAd) results.push(await updateMetaObjectStatus('ad', explicitAd.id, explicitAd.name, nextStatus));
     results.push(await updateMetaObjectStatus('campaign', campaignId, before.name, nextStatus));
   }
 
@@ -899,7 +920,7 @@ async function handleToggleCampaign(text, nextStatus) {
     '• Campaign: <code>' + campaignId + '</code>',
     '• Campaign status: <b>' + ((after && !after.error && after.status) || nextStatus) + '</b>',
     '• Effective: <b>' + ((after && !after.error && after.effective_status) || 'đang cập nhật') + '</b>',
-    '• Đã xử lý: ' + adsetRows.length + ' adset, ' + adRows.length + ' ad'
+    '• Đã xử lý: ' + adsetRows.length + ' adset, ' + (adRows.length + (explicitAd ? 1 : 0)) + ' ad'
   ];
   failRows.slice(0, 5).forEach(function(r){
     lines.push('• Lỗi ' + r.type + ' ' + (r.name || r.id) + ': <code>' + r.error + '</code>');
