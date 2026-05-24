@@ -1267,6 +1267,49 @@ function parseAccountHint(raw) {
   return s || null;
 }
 
+function cleanNaturalAccountHint(raw) {
+  if (!raw) return null;
+  let s = String(raw || '').trim();
+  s = s.replace(/[?!.。]+$/g, '').trim();
+  s = s.replace(/^(?:id\s*)?(?:tkqc|tk|account|ad\s*account|tai\s*khoan|tài\s*khoản)\s*[:=]?\s*/i, '').trim();
+  s = s.replace(/^(?:của|cua)\s+/i, '').trim();
+  s = s.replace(/\s+(?:có|co)\s+(?:những|nhung|các|cac)?\s*(?:chiến\s*dịch|chien\s*dich|campaigns?|camp|quảng\s*cáo|quang\s*cao).*$/i, '').trim();
+  s = s.replace(/\s+(?:đang|dang)\s+(?:chạy|chay|bật|bat|tắt|tat).*$/i, '').trim();
+  s = s.replace(/\s+(?:gồm|gom|bao\s+nhiêu|bao\s+nhieu|mấy|may|nào|nao|gì|gi).*$/i, '').trim();
+  return s || null;
+}
+
+function extractAccountHintFromNaturalCampaignQuestion(text) {
+  const s = String(text || '').split(/\n\n/)[0].trim();
+  let m = s.match(/(?:id\s*)?(?:tài\s*khoản|tai\s*khoan|tkqc|account|ad\s*account)\s+(.+?)(?:\s+(?:có|co|gồm|gom|đang|dang)\s|$)/i);
+  if (m) return cleanNaturalAccountHint(m[1]);
+  m = s.match(/(?:campaigns?|camp|chiến\s*dịch|chien\s*dich|quảng\s*cáo|quang\s*cao).*(?:của|cua)\s+(.+)$/i);
+  if (m) return cleanNaturalAccountHint(m[1]);
+  m = s.match(/^(.+?)\s+(?:có|co)\s+(?:những|nhung|các|cac|bao\s+nhiêu|bao\s+nhieu|mấy|may)?\s*(?:chiến\s*dịch|chien\s*dich|campaigns?|camp|quảng\s*cáo|quang\s*cao)/i);
+  if (m) return cleanNaturalAccountHint(m[1]);
+  m = s.match(/^(.+?)\s+(?:đang|dang)\s+(?:chạy|chay|bật|bat|tắt|tat).*(?:chiến\s*dịch|chien\s*dich|campaigns?|camp|quảng\s*cáo|quang\s*cao)/i);
+  if (m) return cleanNaturalAccountHint(m[1]);
+  return null;
+}
+
+function extractAccountHintFromNaturalAccountQuestion(text) {
+  const s = String(text || '').split(/\n\n/)[0].trim();
+  let m = s.match(/(?:id\s*)?(?:tài\s*khoản|tai\s*khoan|tkqc|account|ad\s*account)\s+(.+)$/i);
+  if (!m) return null;
+  let hint = cleanNaturalAccountHint(m[1]);
+  if (!hint || /^(nào|nao|gì|gi|bao\s+nhiêu|bao\s+nhieu|nhiêu|nhieu)$/i.test(hint)) return null;
+  hint = hint.replace(/\s+(?:là|la)\s*(?:gì|gi).*$/i, '').trim();
+  hint = hint.replace(/\s+(?:id|mã|ma)\s*(?:là|la)?\s*(?:gì|gi).*$/i, '').trim();
+  return hint || null;
+}
+
+function inferCampaignFilter(text) {
+  const s = String(text || '');
+  if (/\b(active|đang\s*chạy|dang\s*chay|chạy|chay|đang\s*bật|dang\s*bat|bật|bat|on)\b/i.test(s)) return 'active';
+  if (/\b(paused|đang\s*tắt|dang\s*tat|tắt|tat|off|dừng|dung)\b/i.test(s)) return 'paused';
+  return 'all';
+}
+
 async function resolveAdAccountOverride(hint) {
   hint = parseAccountHint(hint);
   if (!hint) return { account: null };
@@ -1787,6 +1830,39 @@ async function handleListCampaigns(text) {
   return lines.join('\n');
 }
 
+async function handleNaturalListCampaigns(text) {
+  const t = String(text || '').trim();
+  const actId = parseAdAccountId(t);
+  const filter = inferCampaignFilter(t);
+  if (actId) return await handleListCampaigns('/camps ' + actId + ' ' + filter);
+
+  const hint = extractAccountHintFromNaturalCampaignQuestion(t);
+  if (!hint) return null;
+
+  const resolved = await resolveAdAccountOverride(hint);
+  if (resolved.error) return resolved.error;
+  if (!resolved.account || !resolved.account.fb_account_id) return null;
+
+  const reply = await handleListCampaigns('/camps ' + resolved.account.fb_account_id + ' ' + filter);
+  return '<i>Tìm TKQC theo tên: <b>' + esc(hint) + '</b> → <b>' + esc(resolved.account.account_name || resolved.account.fb_account_id) + '</b></i>\n\n' + reply;
+}
+
+async function handleNaturalAccountCampaignSpendMess(text) {
+  const t = String(text || '').trim();
+  const actId = parseAdAccountId(t);
+  if (actId) return await handleAccountCampaignSpendMess('/spend ' + actId);
+
+  const hint = extractAccountHintFromNaturalCampaignQuestion(t);
+  if (!hint) return null;
+
+  const resolved = await resolveAdAccountOverride(hint);
+  if (resolved.error) return resolved.error;
+  if (!resolved.account || !resolved.account.fb_account_id) return null;
+
+  const reply = await handleAccountCampaignSpendMess('/spend ' + resolved.account.fb_account_id);
+  return '<i>Tìm TKQC theo tên: <b>' + esc(hint) + '</b> → <b>' + esc(resolved.account.account_name || resolved.account.fb_account_id) + '</b></i>\n\n' + reply;
+}
+
 async function handleAccountCampaignSpendMess(text) {
   const actId = parseAdAccountId(text);
   if (!actId) {
@@ -2243,18 +2319,43 @@ async function route(text, chatId, ctx) {
   const objPat = '(ads?|qu[ảa]ng\\s*c[áa]o|qc|camp(aign)?|chi[ếe]n\\s*d[ịi]ch|cd)';
 
   if (cmd === '/setads' || /^sét\s*ads?\s*[:.]?/i.test(tLower) || /^set\s*ads?\s*[:.]?/i.test(tLower) || /^tạo\s*(quảng\s*cáo|ads|qc)/i.test(tLower) || /^tao\s*(quang\s*cao|ads|qc)/i.test(tLower)) return await handleSetAds(rawText, chatId);
+  const asksCampaignList = (
+    cmd === '/camps' || cmd === '/campaigns' || cmd === '/chiendich' ||
+    /^(chiến|chien)\s*(dịch|dich)/i.test(tLower) ||
+    /(list|liệt\s*kê|liet\s*ke|xem|danh\s*sách|danh\s*sach|có\s*những|co\s*nhung)\s+(camp|campaign|chiến|chien|chiến\s*dịch|chien\s*dich|qc|quảng\s*cáo|quang\s*cao)/i.test(tLower) ||
+    /(camp|campaign|chiến\s*dịch|chien\s*dich|quảng\s*cáo|quang\s*cao).*(của|cua)\s+/i.test(tLower) ||
+    /(?:tài\s*khoản|tai\s*khoan|tkqc|account|ad\s*account)\s+.+(?:có|co|gồm|gom|đang|dang).*(camp|campaign|chiến\s*dịch|chien\s*dich|quảng\s*cáo|quang\s*cao)/i.test(tLower)
+  );
+  const asksCampaignSpendMess = /(chiendich|campaign|camp)/.test(compactText) && /(chitieu|dangchi|spend|giamess|costmess|mess)/.test(compactText);
+  if (asksCampaignSpendMess) {
+    const spendMessReply = await handleNaturalAccountCampaignSpendMess(lookupText);
+    if (spendMessReply) return spendMessReply;
+  }
+  if (asksCampaignList) {
+    const naturalCampaignReply = await handleNaturalListCampaigns(lookupText);
+    if (naturalCampaignReply) return naturalCampaignReply;
+    if (cmd === '/camps' || cmd === '/campaigns' || cmd === '/chiendich' || parseAdAccountId(lookupText)) {
+      return await handleListCampaigns(lookupText);
+    }
+    return [
+      'Mình hiểu bạn muốn xem danh sách chiến dịch.',
+      'Bạn gửi thêm tên TKQC hoặc ID tài khoản quảng cáo nhé.',
+      '',
+      'Ví dụ: <code>Livefit 03 VAT có những chiến dịch nào?</code>'
+    ].join('\n');
+  }
   // /tkqc: bắt nhiều cách hỏi tự nhiên — danh sách, liệt kê, có những, xem, list, tất cả
   // KHÔNG match nếu câu chứa keyword action (tắt/bật/sửa/đổi/tạo) — tránh xung đột
   const isListAccQuery = (
     cmd === '/tkqc' || cmd === '/taikhoan' || cmd === '/accounts' ||
     /^(tài|tai)\s*khoản?/i.test(tLower) ||
+    /^(id|mã|ma)\s+(tkqc|tài\s*khoản|tai\s*khoan|ad\s*account|account)/i.test(tLower) ||
     /(danh\s*sách|danh\s*sach|liệt\s*kê|liet\s*ke|xem|show|có\s*những|co\s*nhung|có\s*bao\s*nhiêu|co\s*bao\s*nhieu|list|tất\s*cả|tat\s*ca|all|các)\s+(tkqc|tài\s*khoản|tai\s*khoan|ad\s*account|account)/i.test(tLower)
   );
-  if (isListAccQuery && !/(tắt|bật|sửa|đổi|tạo|set|tat|bat|sua|doi)/i.test(tLower)) return await handleListAccounts();
-  const asksCampaignSpendMess = /(chiendich|campaign|camp)/.test(compactText) && /(chitieu|dangchi|spend|giamess|costmess|mess)/.test(compactText);
-  if (asksCampaignSpendMess && parseAdAccountId(lookupText)) return await handleAccountCampaignSpendMess(lookupText);
+  if (isListAccQuery && !/(tắt|bật|sửa|đổi|tạo|set|tat|bat|sua|doi)/i.test(tLower)) {
+    return await handleListAccounts(extractAccountHintFromNaturalAccountQuestion(rawText));
+  }
   if (cmd === '/camp' || cmd === '/campaign' || /^(chi\s*tiết|chi\s*tiet)\s*(camp|chiến|chien)/i.test(tLower)) return await handleCampaignDetail(lookupText);
-  if (cmd === '/camps' || cmd === '/campaigns' || cmd === '/chiendich' || /^(chiến|chien)\s*(dịch|dich)/i.test(tLower) || /(list|liệt\s*kê|liet\s*ke|xem|danh\s*sách|danh\s*sach|có\s*những|co\s*nhung)\s+(camp|campaign|chiến|chien|chiến\s*dịch|chien\s*dich|qc|quảng\s*cáo|quang\s*cao)/i.test(tLower)) return await handleListCampaigns(lookupText);
   if (cmd === '/luupreset' || cmd === '/savepreset' || /^(lưu|luu)\s*(preset|công\s*thức|cong\s*thuc)/i.test(tLower)) return await handleSavePreset(rawText, chatId);
   if (cmd === '/presets' || cmd === '/listpresets' || cmd === '/congthuc' || /^(xem|list|danh\s*sách|danh\s*sach)\s*(preset|công\s*thức|cong\s*thuc)/i.test(tLower)) return await handleListPresets();
   // TẮT: tắt | dừng | stop | pause | dung + đối tượng
