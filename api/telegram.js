@@ -861,7 +861,25 @@ async function updateMetaObjectStatus(type, id, name, nextStatus) {
   if (updated.success === false) {
     return { type: type, id: id, name: name, ok: false, error: 'Meta trả success=false' };
   }
-  return { type: type, id: id, name: name, ok: true };
+  const verified = await metaApi('GET', id, { fields: 'id,name,status,effective_status' });
+  if (verified.error) {
+    return { type: type, id: id, name: name, ok: false, error: 'Update xong nhưng không verify được: ' + formatMetaError(verified.error) };
+  }
+  const status = verified.status || '';
+  const effective = verified.effective_status || '';
+  const applied = nextStatus === 'PAUSED'
+    ? (status === 'PAUSED' || effective === 'PAUSED' || /PAUSED$/.test(effective))
+    : (status === 'ACTIVE' || effective === 'ACTIVE');
+  if (!applied) {
+    return {
+      type: type,
+      id: id,
+      name: verified.name || name,
+      ok: false,
+      error: 'Meta chưa đổi trạng thái sau update: status=' + (status || '—') + ', effective=' + (effective || '—')
+    };
+  }
+  return { type: type, id: id, name: verified.name || name, ok: true, status: status, effective_status: effective };
 }
 
 function formatStatusLine(type, obj) {
@@ -953,10 +971,10 @@ async function handleToggleCampaign(text, nextStatus) {
   const results = [];
 
   if (nextStatus === 'PAUSED') {
-    results.push(await updateMetaObjectStatus('campaign', campaignId, before.name, nextStatus));
-    for (const adset of adsetRows) results.push(await updateMetaObjectStatus('adset', adset.id, adset.name, nextStatus));
     for (const ad of adRows) results.push(await updateMetaObjectStatus('ad', ad.id, ad.name, nextStatus));
     if (explicitAd) results.push(await updateMetaObjectStatus('ad', explicitAd.id, explicitAd.name, nextStatus));
+    for (const adset of adsetRows) results.push(await updateMetaObjectStatus('adset', adset.id, adset.name, nextStatus));
+    results.push(await updateMetaObjectStatus('campaign', campaignId, before.name, nextStatus));
   } else {
     for (const adset of adsetRows) results.push(await updateMetaObjectStatus('adset', adset.id, adset.name, nextStatus));
     for (const ad of adRows) results.push(await updateMetaObjectStatus('ad', ad.id, ad.name, nextStatus));
