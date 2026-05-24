@@ -118,6 +118,10 @@ function helpText() {
     '/canhbao — TKQC sắp hết tiền (≥80%)',
     '/canthu — Khách chưa thanh toán + đã gửi phiếu',
     '',
+    '<b>💳 Tài khoản & Campaign:</b>',
+    '/tkqc — Danh sách TKQC đang quản lý',
+    '/camps &lt;tkqc_id&gt; — Campaign trong 1 TKQC',
+    '',
     '<b>🚀 Auto Ads:</b>',
     '/setads &lt;preset&gt; &lt;budget&gt; &lt;url&gt; — tạo ad nhanh',
     'Hoặc nhắn đa dòng:',
@@ -843,6 +847,111 @@ async function handleSavePreset(text, chatId) {
   ].join('\n');
 }
 
+// ─── Handle: /tkqc — list tất cả TKQC từ DB local ───
+async function handleListAccounts() {
+  const accounts = await getAdAccounts();
+  if (!accounts.length) return '📋 Chưa có TKQC nào trong DB. Vào dashboard → Tài khoản quảng cáo → Thêm.';
+  // Sort: active trước, ngân sách cao trước
+  const active = accounts.filter(a => (a.account_status || 1) === 1).sort((a, b) => (b.spend_cap || 0) - (a.spend_cap || 0));
+  const inactive = accounts.filter(a => (a.account_status || 1) !== 1);
+  const lines = ['<b>💳 Tài khoản quảng cáo (' + accounts.length + ')</b>', ''];
+  active.forEach(function(a){
+    const spent = a.amount_spent ? shortMoney(a.amount_spent) : '0';
+    const cap = a.spend_cap ? shortMoney(a.spend_cap) : '∞';
+    const remain = a.spend_cap && a.amount_spent ? shortMoney(Math.max(0, a.spend_cap - a.amount_spent)) : '—';
+    const pct = a.spend_cap && a.amount_spent ? Math.round(a.amount_spent / a.spend_cap * 100) : 0;
+    const warn = pct >= 80 ? ' ⚠️' : '';
+    lines.push('• <b>' + (a.account_name || a.fb_account_id || '(no name)') + '</b>' + warn);
+    if (a.fb_account_id) lines.push('  ID: <code>' + a.fb_account_id + '</code>');
+    lines.push('  Chi: ' + spent + ' / ' + cap + ' (còn ' + remain + (pct ? ' · ' + pct + '%' : '') + ')');
+  });
+  if (inactive.length) {
+    lines.push('');
+    lines.push('<b>⏸ Ngưng / Tạm dừng (' + inactive.length + '):</b>');
+    inactive.slice(0, 5).forEach(function(a){
+      lines.push('• ' + (a.account_name || a.fb_account_id));
+    });
+    if (inactive.length > 5) lines.push('• ... +' + (inactive.length - 5) + ' khác');
+  }
+  lines.push('');
+  lines.push('<i>Xem campaign 1 TKQC: /camps &lt;act_id&gt;</i>');
+  return lines.join('\n');
+}
+
+// ─── Handle: /camps <act_id> — list campaign live từ Meta API ───
+async function handleListCampaigns(text) {
+  const t = String(text || '').trim();
+  let actId = null;
+  let m = t.match(/act_(\d+)/i);
+  if (m) actId = 'act_' + m[1];
+  if (!actId) {
+    m = t.match(/[?&]act=(\d+)/);
+    if (m) actId = 'act_' + m[1];
+  }
+  if (!actId) {
+    // ID số dài (>=10 digit) cuối — assume account_id
+    const nums = t.match(/\b\d{10,}\b/g) || [];
+    if (nums.length) actId = 'act_' + nums[nums.length - 1];
+  }
+  if (!actId) {
+    return [
+      '❌ Format: <code>/camps &lt;tkqc_id&gt;</code>',
+      '',
+      'Ví dụ:',
+      '<code>/camps act_1080264843255322</code>',
+      '<code>/camps 1080264843255322</code>',
+      '',
+      'Xem danh sách TKQC: /tkqc'
+    ].join('\n');
+  }
+  const r = await metaApi('GET', actId + '/campaigns', {
+    fields: 'id,name,status,effective_status,objective,daily_budget,lifetime_budget,created_time',
+    limit: 50,
+    sort: 'created_time_descending'
+  });
+  if (r.error) return '❌ Meta lỗi: ' + formatMetaError(r.error);
+  const camps = r.data || [];
+  if (!camps.length) return '📋 TKQC <code>' + actId + '</code> chưa có campaign nào.';
+  const active = camps.filter(c => c.status === 'ACTIVE');
+  const paused = camps.filter(c => c.status === 'PAUSED');
+  const archived = camps.filter(c => c.status === 'ARCHIVED');
+  const other = camps.filter(c => !['ACTIVE', 'PAUSED', 'ARCHIVED'].includes(c.status));
+  const lines = ['<b>📋 Campaign — ' + actId + '</b>'];
+  lines.push('<i>' + active.length + ' đang chạy · ' + paused.length + ' tạm dừng · ' + archived.length + ' lưu trữ' + (other.length ? ' · ' + other.length + ' khác' : '') + '</i>');
+  lines.push('');
+  if (active.length) {
+    lines.push('<b>🟢 ACTIVE (' + active.length + '):</b>');
+    active.slice(0, 15).forEach(function(c){
+      let budget = '—';
+      if (c.daily_budget && parseInt(c.daily_budget) > 0) budget = fm(parseInt(c.daily_budget)) + 'đ/ngày';
+      else if (c.lifetime_budget && parseInt(c.lifetime_budget) > 0) budget = fm(parseInt(c.lifetime_budget)) + 'đ tổng';
+      lines.push('• ' + esc(c.name || '(no name)') + ' · ' + budget);
+      lines.push('  <code>' + c.id + '</code>');
+    });
+    if (active.length > 15) lines.push('  <i>... +' + (active.length - 15) + ' active khác</i>');
+  }
+  if (paused.length) {
+    lines.push('');
+    lines.push('<b>⏸ PAUSED (' + paused.length + '):</b>');
+    paused.slice(0, 8).forEach(function(c){
+      lines.push('• ' + esc(c.name || '(no name)') + ' · <code>' + c.id + '</code>');
+    });
+    if (paused.length > 8) lines.push('  <i>... +' + (paused.length - 8) + ' paused khác</i>');
+  }
+  if (archived.length > 0) {
+    lines.push('');
+    lines.push('<i>📦 ' + archived.length + ' campaign đã ARCHIVED (ẩn)</i>');
+  }
+  lines.push('');
+  lines.push('<i>Tắt: /tatads &lt;id&gt; · Bật: /batads &lt;id&gt; · Trạng thái: /checkads &lt;id&gt;</i>');
+  return lines.join('\n');
+}
+
+// HTML escape helper (cho safe trong reply Telegram parse_mode HTML)
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 // ─── Handle: /presets — list tất cả preset ───
 async function handleListPresets() {
   const list = await listPresets();
@@ -1087,6 +1196,8 @@ async function route(text, chatId) {
   if (cmd === '/canhbao' || cmd === '/alert') return await balanceAlerts();
   if (cmd === '/canthu' || cmd === '/unpaid') return await unpaidClients();
   if (cmd === '/setads' || /^sét\s*ads\s*[:.]?/i.test(tLower) || /^set\s*ads\s*[:.]?/i.test(tLower)) return await handleSetAds(text, chatId);
+  if (cmd === '/tkqc' || cmd === '/taikhoan' || cmd === '/accounts' || /^tài\s*khoản/i.test(tLower) || /^tai\s*khoan/i.test(tLower)) return await handleListAccounts();
+  if (cmd === '/camps' || cmd === '/campaigns' || cmd === '/chiendich' || /^chiến\s*dịch/i.test(tLower) || /^chien\s*dich/i.test(tLower)) return await handleListCampaigns(text);
   if (cmd === '/luupreset' || cmd === '/savepreset') return await handleSavePreset(text, chatId);
   if (cmd === '/presets' || cmd === '/listpresets' || cmd === '/congthuc') return await handleListPresets();
   if (cmd === '/tatads' || cmd === '/pauseads' || /^tắt\s*(ads|quảng\s*cáo)/i.test(tLower) || /^tat\s*(ads|quang\s*cao)/i.test(tLower)) return await handleToggleCampaign(text, 'PAUSED');
