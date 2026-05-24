@@ -5438,9 +5438,11 @@ function p8(){
     h+='</div>';
   }
   h+='</div>';
-  // ═══ Form ĐƠN GIẢN — Sét quảng cáo mới (Sprint 13) ═══
-  h+='<div style="background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;padding:18px;">';
-  h+='<div style="font-size:15px;font-weight:600;margin-bottom:14px;">⚡ Sét quảng cáo mới</div>';
+  // ═══ Form ĐƠN GIẢN — Sét quảng cáo mới (2-cột, redesign) ═══
+  h+='<div style="background:var(--bg2);border:1px solid var(--bd1);border-radius:16px;padding:28px;">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;padding-bottom:16px;border-bottom:1px solid var(--bd1);">';
+  h+='<div><div style="font-size:18px;font-weight:600;display:flex;align-items:center;gap:8px;">⚡ Sét quảng cáo mới</div><div style="font-size:12px;color:var(--tx3);margin-top:3px;">Chọn TKQC + công thức + paste post → bot tạo campaign ACTIVE ngay</div></div>';
+  h+='</div>';
   if(simpleSetAdsState.busy&&simpleSetAdsState.progress){
     // Progress UI khi đang tạo bulk
     var pg=simpleSetAdsState.progress;
@@ -5485,73 +5487,104 @@ function p8(){
     }
   }else{
     var validAccs=adList.filter(function(a){return a.fb_account_id;});
-    // TKQC checkbox list (multi-select)
-    h+='<div style="margin-bottom:12px;">';
-    h+='<label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">1. Tài khoản quảng cáo * <span style="font-weight:400;color:var(--tx3);">— chọn 1 hoặc nhiều</span></label>';
-    h+='<div style="display:flex;align-items:center;gap:12px;font-size:11px;margin-bottom:6px;color:var(--tx3);">';
-    h+='<span>Đã chọn: <b style="color:var(--blue);">'+simpleSetAdsState.acc_ids.length+'/'+validAccs.length+'</b></span>';
-    h+='<a href="#" onclick="event.preventDefault();simpleSelectAllAccs(true);" style="color:var(--blue);">Chọn tất cả</a>';
-    h+='<a href="#" onclick="event.preventDefault();simpleSelectAllAccs(false);" style="color:var(--tx3);">Bỏ chọn</a>';
-    h+='</div>';
-    h+='<div style="max-height:180px;overflow:auto;border:1px solid var(--bd1);border-radius:8px;padding:6px;background:var(--bg1);">';
-    if(!validAccs.length){
-      h+='<div style="padding:14px;text-align:center;color:var(--tx3);font-size:12px;">Chưa có TKQC nào ghép Meta. Vào trang Tài khoản quảng cáo.</div>';
-    }else{
-      validAccs.forEach(function(a){
-        var checked=simpleSetAdsState.acc_ids.indexOf(a.id)>=0;
-        h+='<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;font-size:12px;border-radius:4px;'+(checked?'background:var(--blue-bg);':'')+'">';
-        h+='<input type="checkbox" '+(checked?'checked':'')+' onchange="toggleSimpleAcc(\''+esc(a.id)+'\')" style="cursor:pointer;flex-shrink:0;">';
-        h+='<span style="flex:1;">'+esc(a.account_name||'(no name)')+'</span>';
-        h+='<span style="color:var(--tx3);font-size:11px;font-family:var(--mono,monospace);">'+esc(a.fb_account_id)+'</span>';
-        h+='</label>';
-      });
-    }
-    h+='</div></div>';
-    // Preset
-    h+='<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">2. Công thức *</label>';
-    h+='<select class="fi" onchange="simpleSetAdsField(\'preset_name\',this.value)">';
-    h+='<option value="">— Chọn công thức —</option>';
-    autoAdsPresets.forEach(function(p){
-      h+='<option value="'+esc(p.name)+'"'+(simpleSetAdsState.preset_name===p.name?' selected':'')+'>'+esc(p.name)+'</option>';
-    });
-    h+='</select>';
-    if(!autoAdsPresets.length)h+='<div style="font-size:11px;color:var(--amber-tx);margin-top:4px;">Chưa có preset — bấm "+ Tạo công thức" ở trên</div>';
-    h+='</div>';
-    // Đếm số post hợp lệ
     var postLines=(simpleSetAdsState.post_input||'').split('\n').map(function(s){return s.trim();}).filter(Boolean);
     var nPosts=postLines.length;
     var totalLines=(simpleSetAdsState.post_input||'').split('\n').length;
-    h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;">3. Post ID hoặc URL * <span style="font-weight:400;color:var(--tx3);">— mỗi dòng 1 post</span></label>';
-    // Dual-pane: line numbers + textarea, sync scroll
-    h+='<div class="post-input-wrap" style="display:flex;border:1px solid var(--bd2);border-radius:8px;overflow:hidden;background:var(--bg1);transition:border-color .15s;">';
-    h+='<div id="simple-post-ln" style="flex-shrink:0;min-width:36px;padding:10px 6px 10px 10px;background:var(--bg2);border-right:1px solid var(--bd1);font-family:var(--mono,Menlo,monospace);font-size:12px;line-height:20px;color:var(--tx3);text-align:right;user-select:none;overflow:hidden;white-space:pre;">';
-    // Generate line number content
-    var lnHtml='';for(var ln=1;ln<=Math.max(totalLines,4);ln++)lnHtml+=ln+'\n';
-    h+=lnHtml;
-    h+='</div>';
-    h+='<textarea id="simple-post" rows="8" placeholder="https://facebook.com/.../posts/...&#10;https://facebook.com/.../posts/...&#10;123456789012345" oninput="simpleSetAdsState.post_input=this.value;syncPostLineNumbers();render();" onscroll="syncPostScroll();" onfocus="this.parentElement.style.borderColor=\'var(--blue)\';" onblur="this.parentElement.style.borderColor=\'\';" style="flex:1;border:none;background:repeating-linear-gradient(to bottom,transparent 0px,transparent 20px,rgba(0,0,0,.025) 20px,rgba(0,0,0,.025) 40px);padding:10px 12px;font-family:var(--mono,Menlo,monospace);font-size:13px;line-height:20px;resize:vertical;outline:none;min-height:160px;color:var(--tx1);">'+esc(simpleSetAdsState.post_input)+'</textarea>';
-    h+='</div>';
-    h+='<div style="font-size:11px;color:var(--tx3);margin-top:6px;display:flex;align-items:center;gap:12px;">';
-    h+='<span>Số post hợp lệ: <b style="color:'+(nPosts>0?'var(--blue)':'var(--tx3)')+';">'+nPosts+'</b></span>';
-    h+='<span>Chấp nhận: ID số · link <code>/posts/</code> · URL <code>pfbid</code></span>';
-    h+='</div></div>';
-    h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">4. Ngân sách/ngày (VNĐ) *</label>';
-    h+='<input id="simple-budget" type="number" class="fi" min="50000" step="10000" value="'+esc(simpleSetAdsState.budget)+'" placeholder="200000" oninput="simpleSetAdsState.budget=this.value;render();">';
-    h+='<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tự fill khi chọn preset (nếu preset có ngân sách mặc định).</div></div>';
-    // Preview tổng số campaign + tổng ngân sách
     var nAccs=simpleSetAdsState.acc_ids.length;
     var budgetNum=parseInt(simpleSetAdsState.budget||'0',10)||0;
     var totalCampaigns=nAccs*nPosts;
     var totalBudgetDay=totalCampaigns*budgetNum;
+    // ═══ 2-COLUMN GRID: TKQC left | Preset+Post+Budget+Action right ═══
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:28px;">';
+
+    // ─── LEFT COL: TKQC ──────────────────────────────────────
+    h+='<div>';
+    h+='<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">';
+    h+='<label style="font-size:13px;font-weight:600;color:var(--tx1);">1. Tài khoản quảng cáo <span style="color:var(--red);">*</span></label>';
+    h+='<div style="font-size:11px;color:var(--tx3);">Chọn 1 hoặc nhiều</div>';
+    h+='</div>';
+    h+='<div style="display:flex;align-items:center;gap:14px;font-size:12px;margin-bottom:10px;padding:8px 12px;background:var(--bg1);border-radius:8px;border:1px solid var(--bd1);">';
+    h+='<span style="color:var(--tx2);">Đã chọn: <b style="color:var(--blue);font-size:14px;">'+nAccs+'</b><span style="color:var(--tx3);">/'+validAccs.length+'</span></span>';
+    h+='<a href="#" onclick="event.preventDefault();simpleSelectAllAccs(true);" style="color:var(--blue);text-decoration:none;font-weight:500;margin-left:auto;">✓ Chọn tất cả</a>';
+    h+='<a href="#" onclick="event.preventDefault();simpleSelectAllAccs(false);" style="color:var(--tx3);text-decoration:none;">✕ Bỏ chọn</a>';
+    h+='</div>';
+    h+='<div style="max-height:380px;overflow:auto;border:1px solid var(--bd1);border-radius:10px;background:var(--bg1);">';
+    if(!validAccs.length){
+      h+='<div style="padding:32px 18px;text-align:center;color:var(--tx3);font-size:13px;">Chưa có TKQC nào ghép Meta.<br><span style="font-size:11px;">Vào trang Tài khoản quảng cáo để gán.</span></div>';
+    }else{
+      validAccs.forEach(function(a,i){
+        var checked=simpleSetAdsState.acc_ids.indexOf(a.id)>=0;
+        var bg=checked?'background:var(--blue-bg);':'';
+        var borderTop=i>0?'border-top:1px solid var(--bd1);':'';
+        h+='<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;font-size:13px;'+bg+borderTop+'transition:background .15s;" onmouseover="if(!this.querySelector(\'input\').checked)this.style.background=\'var(--bg2)\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.background=\'\'">';
+        h+='<input type="checkbox" '+(checked?'checked':'')+' onchange="toggleSimpleAcc(\''+esc(a.id)+'\')" style="cursor:pointer;flex-shrink:0;width:16px;height:16px;accent-color:var(--blue);">';
+        h+='<div style="flex:1;min-width:0;">';
+        h+='<div style="font-weight:'+(checked?'600':'500')+';color:var(--tx1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(a.account_name||'(no name)')+'</div>';
+        h+='<div style="color:var(--tx3);font-size:11px;font-family:var(--mono,Menlo,monospace);margin-top:1px;">'+esc(a.fb_account_id)+'</div>';
+        h+='</div></label>';
+      });
+    }
+    h+='</div></div>';
+
+    // ─── RIGHT COL: Preset + Post + Budget + Summary + Action ────
+    h+='<div style="display:flex;flex-direction:column;gap:18px;">';
+
+    // Preset
+    h+='<div>';
+    h+='<label style="display:block;font-size:13px;font-weight:600;color:var(--tx1);margin-bottom:8px;">2. Công thức <span style="color:var(--red);">*</span></label>';
+    h+='<select class="fi" style="font-size:14px;padding:10px 12px;" onchange="simpleSetAdsField(\'preset_name\',this.value)">';
+    h+='<option value="">— Chọn công thức —</option>';
+    autoAdsPresets.forEach(function(p){
+      var label=p.name+(p.default_budget?' · '+fm(p.default_budget)+'đ/ngày':'');
+      h+='<option value="'+esc(p.name)+'"'+(simpleSetAdsState.preset_name===p.name?' selected':'')+'>'+esc(label)+'</option>';
+    });
+    h+='</select>';
+    if(!autoAdsPresets.length)h+='<div style="font-size:11px;color:var(--amber-tx);margin-top:6px;">Chưa có preset — bấm "+ Tạo công thức" ở khung trên</div>';
+    h+='</div>';
+
+    // Post textarea
+    h+='<div>';
+    h+='<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;">';
+    h+='<label style="font-size:13px;font-weight:600;color:var(--tx1);">3. Post ID hoặc URL <span style="color:var(--red);">*</span></label>';
+    h+='<span style="font-size:11px;color:var(--tx3);">Mỗi dòng 1 post · <b style="color:'+(nPosts>0?'var(--blue)':'var(--tx3)')+';">'+nPosts+'</b> post hợp lệ</span>';
+    h+='</div>';
+    h+='<div class="post-input-wrap" style="display:flex;border:1px solid var(--bd2);border-radius:10px;overflow:hidden;background:var(--bg1);transition:border-color .15s,box-shadow .15s;">';
+    h+='<div id="simple-post-ln" style="flex-shrink:0;min-width:40px;padding:12px 8px 12px 12px;background:var(--bg2);border-right:1px solid var(--bd1);font-family:var(--mono,Menlo,monospace);font-size:12px;line-height:22px;color:var(--tx3);text-align:right;user-select:none;overflow:hidden;white-space:pre;">';
+    var lnHtml='';for(var ln=1;ln<=Math.max(totalLines,5);ln++)lnHtml+=ln+'\n';
+    h+=lnHtml;
+    h+='</div>';
+    h+='<textarea id="simple-post" rows="9" placeholder="https://facebook.com/.../posts/...&#10;https://facebook.com/.../posts/...&#10;123456789012345" oninput="simpleSetAdsState.post_input=this.value;syncPostLineNumbers();render();" onscroll="syncPostScroll();" onfocus="this.parentElement.style.borderColor=\'var(--blue)\';this.parentElement.style.boxShadow=\'var(--ring-blue,0 0 0 3px rgba(37,99,235,.15))\';" onblur="this.parentElement.style.borderColor=\'\';this.parentElement.style.boxShadow=\'\';" style="flex:1;border:none;background:repeating-linear-gradient(to bottom,transparent 0px,transparent 22px,rgba(0,0,0,.025) 22px,rgba(0,0,0,.025) 44px);padding:12px 14px;font-family:var(--mono,Menlo,monospace);font-size:13px;line-height:22px;resize:vertical;outline:none;min-height:200px;color:var(--tx1);">'+esc(simpleSetAdsState.post_input)+'</textarea>';
+    h+='</div>';
+    h+='<div style="font-size:11px;color:var(--tx3);margin-top:6px;">💡 Chấp nhận: ID số · link <code>/posts/</code> · URL <code>pfbid</code> (auto resolve)</div>';
+    h+='</div>';
+
+    // Budget
+    h+='<div>';
+    h+='<label style="display:block;font-size:13px;font-weight:600;color:var(--tx1);margin-bottom:8px;">4. Ngân sách/ngày (VNĐ) <span style="color:var(--red);">*</span></label>';
+    h+='<input id="simple-budget" type="number" class="fi" min="50000" step="10000" value="'+esc(simpleSetAdsState.budget)+'" placeholder="200000" oninput="simpleSetAdsState.budget=this.value;render();" style="font-size:14px;padding:10px 12px;">';
+    h+='<div style="font-size:11px;color:var(--tx3);margin-top:6px;">Tự fill khi chọn preset (nếu preset có default).</div>';
+    h+='</div>';
+
+    // Summary preview
     if(totalCampaigns>0){
       var warnBg=totalBudgetDay>5000000?'red':(totalBudgetDay>2000000?'amber':'blue');
-      h+='<div style="background:var(--'+warnBg+'-bg);border:1px solid var(--'+warnBg+');border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;color:var(--'+warnBg+'-tx);">';
-      h+='<b>Sẽ tạo '+totalCampaigns+' campaign</b> ('+nAccs+' TKQC × '+nPosts+' post) · Tổng <b>'+fm(totalBudgetDay)+'đ/ngày</b>';
-      if(totalBudgetDay>=2000000)h+='<div style="margin-top:4px;">⚠ Ngân sách lớn — kiểm tra kỹ trước khi chạy.</div>';
+      h+='<div style="background:var(--'+warnBg+'-bg);border:1px solid var(--'+warnBg+');border-radius:10px;padding:14px;color:var(--'+warnBg+'-tx);">';
+      h+='<div style="font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between;">';
+      h+='<span>📋 Sẽ tạo <b style="font-size:18px;">'+totalCampaigns+'</b> campaign</span>';
+      h+='<span style="font-size:12px;font-weight:500;opacity:.85;">'+nAccs+' TKQC × '+nPosts+' post</span>';
+      h+='</div>';
+      h+='<div style="font-size:13px;margin-top:6px;">Tổng ngân sách: <b style="font-size:16px;">'+fm(totalBudgetDay)+'đ/ngày</b></div>';
+      if(totalBudgetDay>=2000000)h+='<div style="margin-top:6px;font-size:12px;opacity:.9;">⚠ Ngân sách lớn — kiểm tra kỹ trước khi chạy.</div>';
       h+='</div>';
     }
-    h+='<button class="btn btn-primary" onclick="submitSimpleSetAds()" style="width:100%;padding:12px;font-size:14px;font-weight:600;"'+(simpleSetAdsState.busy?' disabled':'')+'>'+(simpleSetAdsState.busy?'⏳ Đang tạo...':'▶ Tạo & Chạy '+(totalCampaigns||'')+' chiến dịch (ACTIVE)')+'</button>';
-    h+='<div style="font-size:11px;color:var(--tx3);margin-top:6px;text-align:center;">Chiến dịch chạy ngay khi tạo. Log đẩy về tab "📊 Lịch sử".</div>';
+
+    // Submit button
+    var btnLabel=simpleSetAdsState.busy?'⏳ Đang tạo...':('▶ Tạo & Chạy '+(totalCampaigns?totalCampaigns+' ':'')+'chiến dịch (ACTIVE)');
+    h+='<button class="btn btn-primary" onclick="submitSimpleSetAds()" style="width:100%;padding:14px;font-size:15px;font-weight:600;border-radius:10px;box-shadow:0 2px 8px rgba(37,99,235,.25);"'+(simpleSetAdsState.busy?' disabled':'')+'>'+btnLabel+'</button>';
+    h+='<div style="font-size:11px;color:var(--tx3);text-align:center;">Chiến dịch chạy ngay khi tạo. Log đẩy về tab "📊 Lịch sử".</div>';
+
+    h+='</div>'; // end RIGHT col
+    h+='</div>'; // end grid
   }
   h+='</div>';
   return h;
