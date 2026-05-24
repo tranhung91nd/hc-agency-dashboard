@@ -7503,7 +7503,7 @@ function renderClientReportInline(clientId,month){
   var h='<div style="padding:14px 16px;">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">';
   h+='<div style="font-weight:600;font-size:14px;">📊 Báo cáo chi phí Ads — '+esc(clientName)+' — T'+mn+'/'+year+'</div>';
-  if(!hasMessSync)h+='<div style="font-size:11px;color:var(--tx3);background:var(--amber-bg);color:var(--amber-tx);padding:4px 10px;border-radius:6px;">⚠ Chưa quét Mess/Bình luận cho khách này — vào Cảnh báo bấm "Quét giá Messenger"</div>';
+  if(!hasMessSync)h+='<div style="display:inline-flex;align-items:center;gap:8px;background:var(--amber-bg);color:var(--amber-tx);padding:6px 10px;border-radius:6px;font-size:11px;"><span>⚠ Chưa quét Mess/Bình luận cho khách này</span><button class="btn btn-sm btn-primary" style="padding:3px 10px;font-size:11px;" onclick="syncCampaignMess(this)">🔄 Quét ngay</button></div>';
   h+='</div>';
   h+='<div class="table-wrap" style="background:var(--bg1);border-radius:var(--radius);"><table style="font-size:13px;"><thead>';
   h+='<tr><th style="text-align:center;">NGÀY</th><th style="text-align:right;">CHI PHÍ ADS</th><th style="text-align:center;">Số Mess</th><th style="text-align:center;">Số Bình luận</th><th style="text-align:right;">Giá kết quả</th><th style="text-align:center;">Lượt thanh toán</th><th style="text-align:right;">Giá / Lượt thanh toán</th></tr>';
@@ -7563,8 +7563,9 @@ function renderClientPostWeekly(clientId,month){
   h+='<span style="font-size:11px;color:var(--tx3);font-weight:400;">(gom theo post Facebook, sort theo chi phí/kết quả tăng dần)</span>';
   h+='</div>';
   if(!rows.length){
-    h+='<div style="padding:14px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--tx3);">';
-    h+='Chưa có dữ liệu bài chạy cho khách này trong tháng. Vào <b>Cảnh báo</b> bấm <b>"Quét giá Messenger & form"</b> để cập nhật dữ liệu mới nhất.';
+    h+='<div style="padding:14px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--tx3);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">';
+    h+='<span>Chưa có dữ liệu bài chạy cho khách này trong tháng.</span>';
+    h+='<button class="btn btn-sm btn-primary" onclick="syncCampaignMess(this)" style="flex-shrink:0;">🔄 Quét Messenger & Form</button>';
     h+='</div></div>';
     return h;
   }
