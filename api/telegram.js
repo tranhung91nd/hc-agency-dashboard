@@ -375,7 +375,7 @@ const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'list_accounts',
-      description: 'Liệt kê tất cả TKQC user đang quản lý. Khi user hỏi: có những TKQC nào, danh sách tài khoản quảng cáo, list ad accounts.',
+      description: 'Liệt kê tất cả tài khoản quảng cáo (TKQC) user đang quản lý. GỌI LUÔN tool này khi user hỏi BẤT KỲ câu nào về danh sách/liệt kê TKQC, vd: "Danh sách tài khoản quảng cáo của tôi?", "Có những TKQC nào?", "Liệt kê TKQC", "Tôi có bao nhiêu tài khoản?", "Show me my ad accounts". Đây là ACTION (query data), không phải câu hỏi phân tích.',
       parameters: { type: 'object', properties: {} }
     }
   },
@@ -2008,9 +2008,16 @@ async function route(text, chatId) {
   const objPat = '(ads?|qu[ảa]ng\\s*c[áa]o|qc|camp(aign)?|chi[ếe]n\\s*d[ịi]ch|cd)';
 
   if (cmd === '/setads' || /^sét\s*ads?\s*[:.]?/i.test(tLower) || /^set\s*ads?\s*[:.]?/i.test(tLower) || /^tạo\s*(quảng\s*cáo|ads|qc)/i.test(tLower) || /^tao\s*(quang\s*cao|ads|qc)/i.test(tLower)) return await handleSetAds(text, chatId);
-  if (cmd === '/tkqc' || cmd === '/taikhoan' || cmd === '/accounts' || /^(tài|tai)\s*khoản?/i.test(tLower) || /^(list|liệt\s*kê|liet\s*ke)\s*(tkqc|tài\s*khoản|tai\s*khoan)/i.test(tLower)) return await handleListAccounts();
+  // /tkqc: bắt nhiều cách hỏi tự nhiên — danh sách, liệt kê, có những, xem, list, tất cả
+  // KHÔNG match nếu câu chứa keyword action (tắt/bật/sửa/đổi/tạo) — tránh xung đột
+  const isListAccQuery = (
+    cmd === '/tkqc' || cmd === '/taikhoan' || cmd === '/accounts' ||
+    /^(tài|tai)\s*khoản?/i.test(tLower) ||
+    /(danh\s*sách|danh\s*sach|liệt\s*kê|liet\s*ke|xem|show|có\s*những|co\s*nhung|có\s*bao\s*nhiêu|co\s*bao\s*nhieu|list|tất\s*cả|tat\s*ca|all|các)\s+(tkqc|tài\s*khoản|tai\s*khoan|ad\s*account|account)/i.test(tLower)
+  );
+  if (isListAccQuery && !/(tắt|bật|sửa|đổi|tạo|set|tat|bat|sua|doi)/i.test(tLower)) return await handleListAccounts();
   if (cmd === '/camp' || cmd === '/campaign' || /^(chi\s*tiết|chi\s*tiet)\s*(camp|chiến|chien)/i.test(tLower)) return await handleCampaignDetail(text);
-  if (cmd === '/camps' || cmd === '/campaigns' || cmd === '/chiendich' || /^(chiến|chien)\s*(dịch|dich)/i.test(tLower) || /^(list|liệt\s*kê|liet\s*ke|xem)\s*(camp|chiến|chien)/i.test(tLower)) return await handleListCampaigns(text);
+  if (cmd === '/camps' || cmd === '/campaigns' || cmd === '/chiendich' || /^(chiến|chien)\s*(dịch|dich)/i.test(tLower) || /(list|liệt\s*kê|liet\s*ke|xem|danh\s*sách|danh\s*sach|có\s*những|co\s*nhung)\s+(camp|campaign|chiến|chien|chiến\s*dịch|chien\s*dich|qc|quảng\s*cáo|quang\s*cao)/i.test(tLower)) return await handleListCampaigns(text);
   if (cmd === '/luupreset' || cmd === '/savepreset' || /^(lưu|luu)\s*(preset|công\s*thức|cong\s*thuc)/i.test(tLower)) return await handleSavePreset(text, chatId);
   if (cmd === '/presets' || cmd === '/listpresets' || cmd === '/congthuc' || /^(xem|list|danh\s*sách|danh\s*sach)\s*(preset|công\s*thức|cong\s*thuc)/i.test(tLower)) return await handleListPresets();
   // TẮT: tắt | dừng | stop | pause | dung + đối tượng
