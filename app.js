@@ -5064,9 +5064,15 @@ function _renderPresetPreview(){
   if(geo.cities)lines.push(geo.cities.length+' thành phố');
   if(geo.regions)lines.push(geo.regions.length+' vùng');
   if(tg.flexible_spec){
-    var ints=0,behs=0;
-    tg.flexible_spec.forEach(function(s){if(s.interests)ints+=s.interests.length;if(s.behaviors)behs+=s.behaviors.length;});
-    if(ints)lines.push(ints+' sở thích');
+    var demoKeys=['demographics','work_employers','work_positions','education_majors','education_schools','education_statuses','family_statuses','relationship_statuses','life_events','industries','income','generation','home_ownership','home_type','home_value','household_composition','net_worth','office_type','politics','interested_in'];
+    var demos=0,ints=0,behs=0;
+    tg.flexible_spec.forEach(function(s){
+      if(s.interests)ints+=s.interests.length;
+      if(s.behaviors)behs+=s.behaviors.length;
+      demoKeys.forEach(function(k){if(s[k])demos+=s[k].length;});
+    });
+    if(demos)lines.push(demos+' nhân khẩu học');
+    if(ints)lines.push(ints+' mối quan tâm');
     if(behs)lines.push(behs+' hành vi');
   }
   if(tg.custom_audiences&&tg.custom_audiences.length)lines.push(tg.custom_audiences.length+' custom audience');
@@ -5131,18 +5137,20 @@ function openSavePresetModal(presetName){
   var pre=presetName?autoAdsPresets.find(function(p){return p.name===presetName;}):null;
   if(pre&&pre.targeting){
     if(pre.targeting.flexible_spec){
+      // 3 nhóm Meta: Nhân khẩu học (demographic) / Mối quan tâm (interest) / Hành vi (behavior)
+      // Nhân khẩu học gom tất cả sub-key: work, education, life_events, family_statuses, income…
+      var DEMO_KEYS=['demographics','work_employers','work_positions','education_majors','education_schools','education_statuses','family_statuses','relationship_statuses','life_events','industries','income','generation','home_ownership','home_type','home_value','household_composition','net_worth','office_type','politics','interested_in'];
       pre.targeting.flexible_spec.forEach(function(spec){
         if(spec.interests)spec.interests.forEach(function(it){
-          _presetMod.editInterests.push({id:it.id,name:it.name,type:'interest'});
+          _presetMod.editInterests.push({id:it.id,name:it.name,type:'interest',sub:'interests'});
         });
         if(spec.behaviors)spec.behaviors.forEach(function(it){
-          _presetMod.editInterests.push({id:it.id,name:it.name,type:'behavior'});
+          _presetMod.editInterests.push({id:it.id,name:it.name,type:'behavior',sub:'behaviors'});
         });
-        if(spec.work_employers)spec.work_employers.forEach(function(it){
-          _presetMod.editInterests.push({id:it.id,name:it.name,type:'work_employer'});
-        });
-        if(spec.work_positions)spec.work_positions.forEach(function(it){
-          _presetMod.editInterests.push({id:it.id,name:it.name,type:'work_position'});
+        DEMO_KEYS.forEach(function(k){
+          if(spec[k])spec[k].forEach(function(it){
+            _presetMod.editInterests.push({id:it.id,name:it.name,type:'demographic',sub:k});
+          });
         });
       });
     }
@@ -5291,16 +5299,23 @@ function closePresetModal(){var m=document.getElementById('preset-modal');if(m)m
 // ─── Edit interests (chips + search Meta API) ───
 function renderEditInterestsBox(){
   var ints=_presetMod.editInterests||[];
-  var typeMeta={interest:{label:'Sở thích',bg:'var(--purple-bg)',tx:'var(--purple-tx)'},behavior:{label:'Hành vi',bg:'var(--amber-bg)',tx:'var(--amber-tx)'},work_employer:{label:'Công ty',bg:'var(--blue-bg)',tx:'var(--blue-tx)'},work_position:{label:'Chức vụ',bg:'var(--teal-bg, var(--blue-bg))',tx:'var(--teal-tx, var(--blue-tx))'}};
+  var typeMeta={
+    demographic:{label:'Nhân khẩu học',bg:'var(--blue-bg)',tx:'var(--blue-tx)'},
+    interest:{label:'Mối quan tâm',bg:'var(--purple-bg)',tx:'var(--purple-tx)'},
+    behavior:{label:'Hành vi',bg:'var(--amber-bg)',tx:'var(--amber-tx)'}
+  };
+  // Sort theo type cho gọn: demographic → interest → behavior
+  var order={demographic:1,interest:2,behavior:3};
+  var sorted=ints.slice().sort(function(a,b){return(order[a.type]||9)-(order[b.type]||9);});
   var h='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:32px;padding:8px;background:var(--bg2);border-radius:6px;">';
-  if(ints.length){
-    ints.forEach(function(it){
+  if(sorted.length){
+    sorted.forEach(function(it){
       var meta=typeMeta[it.type||'interest']||typeMeta.interest;
-      var typeBadge='<span style="font-size:10px;opacity:.7;padding:0 4px;border-right:1px solid currentColor;margin-right:2px;">'+meta.label+'</span>';
+      var typeBadge='<span style="font-size:10px;opacity:.75;padding:0 5px;border-right:1px solid currentColor;margin-right:2px;">'+meta.label+'</span>';
       h+='<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px 4px 4px;background:'+meta.bg+';color:'+meta.tx+';border-radius:14px;font-size:12px;font-weight:500;">'+typeBadge+esc(it.name)+' <button type="button" onclick="removeEditInterest(\''+esc(it.id)+'\')" style="background:none;border:0;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;">×</button></span>';
     });
   }else{
-    h+='<span style="font-size:11px;color:var(--tx3);font-style:italic;">Chưa có sở thích/hành vi nào — gõ tìm bên dưới để thêm</span>';
+    h+='<span style="font-size:11px;color:var(--tx3);font-style:italic;">Chưa có nhắm mục tiêu chi tiết nào — gõ tìm bên dưới để thêm</span>';
   }
   h+='</div>';
   h+='<div style="display:flex;gap:6px;">';
@@ -5470,12 +5485,13 @@ async function submitPresetModal(isEdit){
         else if(gs==='female')newTargeting.genders=[2];
         else if(gs==='both')newTargeting.genders=[1,2];
       }
-      // Save edited interests/behaviors vào flexible_spec — gom theo type
+      // Save Nhân khẩu học / Mối quan tâm / Hành vi vào flexible_spec
+      // Mỗi item có .sub = sub-key gốc (interests/behaviors/work_positions/education_majors/...)
+      // → gom đúng vào sub-key đó để không mất chi tiết khi save lại
       if(_presetMod.editInterests&&_presetMod.editInterests.length){
         var spec={};
-        var groups={interest:'interests',behavior:'behaviors',work_employer:'work_employers',work_position:'work_positions'};
         _presetMod.editInterests.forEach(function(it){
-          var key=groups[it.type||'interest']||'interests';
+          var key=it.sub||(it.type==='behavior'?'behaviors':(it.type==='demographic'?'demographics':'interests'));
           if(!spec[key])spec[key]=[];
           spec[key].push({id:it.id,name:it.name});
         });
