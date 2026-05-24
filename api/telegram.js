@@ -124,10 +124,16 @@ function helpText() {
     '<code>Sét Ads:',
     'https://facebook.com/.../posts/...',
     'Công thức: A1',
-    'Ngân sách: 200K</code>',
+    'Ngân sách: 200K',
+    'TKQC: 9326</code>',
     '',
     '/luupreset &lt;tên&gt; &lt;campaign_id&gt; — clone công thức từ campaign cũ',
     '/presets — Xem tất cả công thức',
+    '/tatads &lt;campaign_id|link&gt; — tắt campaign',
+    '/batads &lt;campaign_id|link&gt; — bật lại campaign',
+    '/nsads &lt;campaign_id|link&gt; &lt;budget&gt; — đặt ngân sách/ngày',
+    '/tangns &lt;campaign_id|link&gt; &lt;budget&gt; — tăng ngân sách/ngày',
+    '/giamns &lt;campaign_id|link&gt; &lt;budget&gt; — giảm ngân sách/ngày',
     '',
     '<b>🤖 Tự nhiên:</b>',
     'Gõ thẳng câu hỏi → AI trả lời theo data.',
@@ -346,7 +352,15 @@ async function metaApi(method, path, payload, customToken) {
     const r = await fetch(fullUrl);
     return await r.json();
   } else {
-    init.body = JSON.stringify(body);
+    const parts = [];
+    Object.keys(body).forEach(function(k){
+      const v = body[k];
+      if (v === undefined || v === null) return;
+      const sv = typeof v === 'object' ? JSON.stringify(v) : String(v);
+      parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(sv));
+    });
+    init.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+    init.body = parts.join('&');
     const r = await fetch(url, init);
     return await r.json();
   }
@@ -482,22 +496,76 @@ function parsePostId(input) {
   return null;
 }
 
+// ─── Parse campaign ID từ ID thô hoặc link Ads Manager ───
+function parseCampaignId(input) {
+  if (!input) return null;
+  const s = String(input).trim();
+  let m = s.match(/[?&]selected_campaign_ids=(\d+)/);
+  if (m) return m[1];
+  m = s.match(/[?&]campaign_id=(\d+)/);
+  if (m) return m[1];
+  m = s.match(/\b(\d{8,})\b/);
+  return m ? m[1] : null;
+}
+
+function normalizeLookupText(v) {
+  return String(v || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function parseAccountHint(raw) {
+  if (!raw) return null;
+  let s = String(raw).trim();
+  s = s.replace(/^(?:tkqc|tk|account|ad_account|tai\s*khoan|tài\s*khoản)\s*[:=]?\s*/i, '').trim();
+  return s || null;
+}
+
+async function resolveAdAccountOverride(hint) {
+  hint = parseAccountHint(hint);
+  if (!hint) return { account: null };
+  const accounts = await getAdAccounts();
+  const mapped = accounts.filter(function(a){ return a.fb_account_id; });
+  const needle = normalizeLookupText(hint);
+  const digitNeedle = String(hint).replace(/[^\d]/g, '');
+  const matches = mapped.filter(function(a){
+    const fb = String(a.fb_account_id || '');
+    const fbNum = fb.replace(/^act_/, '');
+    const name = String(a.account_name || '');
+    return normalizeLookupText(fb) === needle
+      || normalizeLookupText(fbNum) === needle
+      || (digitNeedle && fbNum.endsWith(digitNeedle))
+      || normalizeLookupText(name).indexOf(needle) >= 0;
+  });
+  if (!matches.length) return { error: 'Không tìm thấy TKQC khớp với "' + hint + '". Dùng act_id, ID số, hoặc đoạn tên/suffix trong dashboard.' };
+  if (matches.length > 1) {
+    const lines = ['Tìm thấy nhiều TKQC khớp "' + hint + '", nhập rõ hơn:'];
+    matches.slice(0, 8).forEach(function(a){
+      lines.push('• ' + (a.account_name || a.fb_account_id) + ' — <code>' + a.fb_account_id + '</code>');
+    });
+    if (matches.length > 8) lines.push('• ... +' + (matches.length - 8) + ' tài khoản khác');
+    return { error: lines.join('\n') };
+  }
+  return { account: matches[0] };
+}
+
 // ─── Parse lệnh "Sét Ads" (multi-line) hoặc "/setads A1 200K <url>" (1 dòng) ───
 function parseSetAdsCommand(text) {
   const t = String(text || '').trim();
-  // Format 1: /setads <preset> <budget> <url>
-  const oneLineMatch = t.match(/^\/setads\s+(\S+)\s+(\S+)\s+(\S+)/i);
+  // Format 1: /setads <preset> <budget> <url> [tkqc]
+  const oneLineMatch = t.match(/^\/setads\s+(\S+)\s+(\S+)\s+(\S+)(?:\s+(.+))?$/i);
   if (oneLineMatch) {
     return {
       preset: oneLineMatch[1],
       budget: parseBudget(oneLineMatch[2]),
-      postInput: oneLineMatch[3]
+      postInput: oneLineMatch[3],
+      accountHint: parseAccountHint(oneLineMatch[4])
     };
   }
-  // Format 2: multi-line "Sét Ads:\n<url>\nCông thức: A1\nNgân sách: 200K"
+  // Format 2: multi-line "Sét Ads:\n<url>\nCông thức: A1\nNgân sách: 200K\nTKQC: 9326"
   if (!/sét\s*ads/i.test(t) && !/set\s*ads/i.test(t)) return null;
   const lines = t.split('\n').map(function(x){return x.trim();}).filter(Boolean);
-  let postInput = null, preset = null, budget = null;
+  let postInput = null, preset = null, budget = null, accountHint = null;
   lines.forEach(function(line){
     if (/^https?:\/\//i.test(line) || /^pfbid/i.test(line) || /^\d+(_\d+)?$/.test(line)) {
       postInput = line;
@@ -506,10 +574,12 @@ function parseSetAdsCommand(text) {
       if (m1) preset = m1[1];
       const m2 = line.match(/^(?:ngân\s*sách|budget|ns)\s*[:=]\s*(\S+)/i);
       if (m2) budget = parseBudget(m2[1]);
+      const m3 = line.match(/^(?:tkqc|tk|account|ad_account|tài\s*khoản|tai\s*khoan)\s*[:=]\s*(.+)$/i);
+      if (m3) accountHint = parseAccountHint(m3[1]);
     }
   });
   if (!preset || !budget || !postInput) return null;
-  return { preset: preset, budget: budget, postInput: postInput };
+  return { preset: preset, budget: budget, postInput: postInput, accountHint: accountHint };
 }
 
 // ─── DB: lấy preset theo tên ───
@@ -529,10 +599,11 @@ async function insertAutoAdsLog(row) {
 }
 
 // ─── Core: tạo 4-step Meta campaign từ preset + post + budget ───
-async function createAdsFromPreset(preset, postId, postUrl, budget, source, chatId) {
+async function createAdsFromPreset(preset, postId, postUrl, budget, source, chatId, opts) {
+  opts = opts || {};
   const log = { source: source, chat_id: chatId, preset_name: preset.name, post_id: postId, post_url: postUrl, budget: budget, status: 'pending' };
   try {
-    const actPath = preset.ad_account_id; // act_xxx
+    const actPath = (opts.account && opts.account.fb_account_id) || preset.ad_account_id; // act_xxx
     const pageId = preset.page_id;
     const dest = preset.destination_type || 'MESSENGER';
     const targeting = Object.assign({}, preset.targeting || {});
@@ -643,10 +714,11 @@ async function handleSetAds(text, chatId) {
       '<code>Sét Ads:',
       'https://facebook.com/.../posts/...',
       'Công thức: A1',
-      'Ngân sách: 200K</code>',
+      'Ngân sách: 200K',
+      'TKQC: 9326</code>',
       '',
       '<b>Cách 2 (1 dòng):</b>',
-      '<code>/setads A1 200K https://facebook.com/.../posts/...</code>'
+      '<code>/setads A1 200K https://facebook.com/.../posts/... 9326</code>'
     ].join('\n');
   }
   const postId = parsePostId(parsed.postInput);
@@ -656,11 +728,17 @@ async function handleSetAds(text, chatId) {
   const preset = await getPreset(parsed.preset);
   if (!preset) return '❌ Không tìm thấy công thức <b>' + parsed.preset + '</b>.\nGõ /presets xem danh sách.';
 
+  const override = await resolveAdAccountOverride(parsed.accountHint);
+  if (override.error) return '❌ ' + override.error;
+  const runAccountName = override.account
+    ? (override.account.account_name || override.account.fb_account_id)
+    : (preset.source_account_name || preset.ad_account_id);
+
   // Reply preview ngay (Telegram không hỗ trợ async streaming, gửi tin riêng rồi update)
   await sendMessage(chatId, [
     '📋 <b>Sét Ads với công thức ' + preset.name + '</b>',
     '• Page: ' + (preset.source_page_name || preset.page_id),
-    '• TKQC: ' + (preset.source_account_name || preset.ad_account_id),
+    '• TKQC: ' + runAccountName + (override.account ? ' <i>(override)</i>' : ''),
     '• Đích: ' + (preset.destination_type || 'MESSENGER'),
     '• Ngân sách: ' + fm(parsed.budget) + 'đ/ngày',
     '• Post: <code>' + postId + '</code>',
@@ -668,7 +746,7 @@ async function handleSetAds(text, chatId) {
     '⏳ Đang tạo Campaign + Adset + Creative + Ad...'
   ].join('\n'));
 
-  const result = await createAdsFromPreset(preset, postId, parsed.postInput, parsed.budget, 'telegram', chatId);
+  const result = await createAdsFromPreset(preset, postId, parsed.postInput, parsed.budget, 'telegram', chatId, { account: override.account });
   if (result.success) {
     return [
       '✅ <b>Hoàn tất! Campaign đang ACTIVE</b>',
@@ -757,6 +835,106 @@ async function handleListPresets() {
   return lines.join('\n');
 }
 
+// ─── Handle: /tatads /batads <campaign_id|link> ───
+async function handleToggleCampaign(text, nextStatus) {
+  const cmdLabel = nextStatus === 'ACTIVE' ? '/batads' : '/tatads';
+  const campaignId = parseCampaignId(text);
+  if (!campaignId) {
+    return [
+      '❌ Format: <code>' + cmdLabel + ' &lt;campaign_id_hoặc_link_AdsManager&gt;</code>',
+      '',
+      'Ví dụ:',
+      '<code>' + cmdLabel + ' 123456789012345</code>'
+    ].join('\n');
+  }
+
+  const before = await metaApi('GET', campaignId, { fields: 'id,name,status,effective_status' });
+  if (before.error) {
+    return '❌ Không đọc được campaign: <code>' + formatMetaError(before.error) + '</code>';
+  }
+
+  const updated = await metaApi('POST', campaignId, { status: nextStatus });
+  if (updated.error) {
+    return '❌ Không cập nhật được campaign: <code>' + formatMetaError(updated.error) + '</code>';
+  }
+
+  const actionText = nextStatus === 'ACTIVE' ? 'bật lại' : 'tắt';
+  return [
+    '✅ <b>Đã ' + actionText + ' campaign</b>',
+    '',
+    '• Tên: ' + (before.name || '—'),
+    '• Campaign: <code>' + campaignId + '</code>',
+    '• Trạng thái mới: <b>' + nextStatus + '</b>'
+  ].join('\n');
+}
+
+// ─── Handle: /nsads /tangns /giamns <campaign_id|link> <budget> ───
+async function handleCampaignBudget(text, mode) {
+  const cmdLabel = mode === 'increase' ? '/tangns' : (mode === 'decrease' ? '/giamns' : '/nsads');
+  const campaignId = parseCampaignId(text);
+  const parts = String(text || '').trim().split(/\s+/).filter(Boolean);
+  const budget = parseBudget(parts[parts.length - 1]);
+  if (!campaignId || !budget) {
+    return [
+      '❌ Format: <code>' + cmdLabel + ' &lt;campaign_id_hoặc_link_AdsManager&gt; &lt;budget&gt;</code>',
+      '',
+      'Ví dụ:',
+      '<code>' + cmdLabel + ' 123456789012345 200K</code>'
+    ].join('\n');
+  }
+  if (budget < 10000) return '❌ Số tiền thay đổi quá nhỏ. Nhập từ 10.000đ trở lên.';
+
+  const camp = await metaApi('GET', campaignId, { fields: 'id,name,status,effective_status' });
+  if (camp.error) return '❌ Không đọc được campaign: <code>' + formatMetaError(camp.error) + '</code>';
+
+  const adsets = await metaApi('GET', campaignId + '/adsets', {
+    fields: 'id,name,daily_budget,status,effective_status',
+    limit: 50
+  });
+  if (adsets.error) return '❌ Không đọc được adset: <code>' + formatMetaError(adsets.error) + '</code>';
+  const rows = adsets.data || [];
+  if (!rows.length) return '❌ Campaign này không có adset để cập nhật ngân sách.';
+
+  const results = [];
+  for (const adset of rows) {
+    const oldBudget = parseInt(adset.daily_budget || '0', 10) || 0;
+    let nextBudget = budget;
+    if (mode === 'increase') {
+      if (!oldBudget) {
+        results.push({ adset: adset, ok: false, error: 'Không có daily_budget hiện tại để tăng' });
+        continue;
+      }
+      nextBudget = oldBudget + budget;
+    } else if (mode === 'decrease') {
+      if (!oldBudget) {
+        results.push({ adset: adset, ok: false, error: 'Không có daily_budget hiện tại để giảm' });
+        continue;
+      }
+      nextBudget = oldBudget - budget;
+      if (nextBudget < 50000) nextBudget = 50000;
+    }
+
+    const updated = await metaApi('POST', adset.id, { daily_budget: nextBudget });
+    if (updated.error) results.push({ adset: adset, ok: false, error: formatMetaError(updated.error), oldBudget: oldBudget, nextBudget: nextBudget });
+    else results.push({ adset: adset, ok: true, oldBudget: oldBudget, nextBudget: nextBudget });
+  }
+
+  const okCount = results.filter(function(r){return r.ok;}).length;
+  const actionText = mode === 'increase' ? 'tăng ngân sách' : (mode === 'decrease' ? 'giảm ngân sách' : 'đặt ngân sách');
+  const lines = [
+    (okCount ? '✅' : '❌') + ' <b>Đã ' + actionText + ' ' + okCount + '/' + rows.length + ' adset</b>',
+    '',
+    '• Campaign: ' + (camp.name || campaignId),
+    '• ID: <code>' + campaignId + '</code>'
+  ];
+  results.slice(0, 10).forEach(function(r){
+    if (r.ok) lines.push('• ' + (r.adset.name || r.adset.id) + ': ' + fm(r.oldBudget) + 'đ → <b>' + fm(r.nextBudget) + 'đ/ngày</b>');
+    else lines.push('• ' + (r.adset.name || r.adset.id) + ': lỗi <code>' + r.error + '</code>');
+  });
+  if (results.length > 10) lines.push('• ... +' + (results.length - 10) + ' adset khác');
+  return lines.join('\n');
+}
+
 // ═══ ROUTER ═══
 async function route(text, chatId) {
   const tLower = text.trim().toLowerCase();
@@ -769,6 +947,11 @@ async function route(text, chatId) {
   if (cmd === '/setads' || /^sét\s*ads\s*[:.]?/i.test(tLower) || /^set\s*ads\s*[:.]?/i.test(tLower)) return await handleSetAds(text, chatId);
   if (cmd === '/luupreset' || cmd === '/savepreset') return await handleSavePreset(text, chatId);
   if (cmd === '/presets' || cmd === '/listpresets' || cmd === '/congthuc') return await handleListPresets();
+  if (cmd === '/tatads' || cmd === '/pauseads' || /^tắt\s*ads/i.test(tLower) || /^tat\s*ads/i.test(tLower)) return await handleToggleCampaign(text, 'PAUSED');
+  if (cmd === '/batads' || cmd === '/resumeads' || cmd === '/activeads' || /^bật\s*ads/i.test(tLower) || /^bat\s*ads/i.test(tLower)) return await handleToggleCampaign(text, 'ACTIVE');
+  if (cmd === '/nsads' || cmd === '/budgetads' || cmd === '/setbudget' || /^ngân\s*sách\s*ads/i.test(tLower) || /^ngan\s*sach\s*ads/i.test(tLower)) return await handleCampaignBudget(text, 'set');
+  if (cmd === '/tangns' || cmd === '/increasebudget' || /^tăng\s*ns/i.test(tLower) || /^tang\s*ns/i.test(tLower)) return await handleCampaignBudget(text, 'increase');
+  if (cmd === '/giamns' || cmd === '/decreasebudget' || /^giảm\s*ns/i.test(tLower) || /^giam\s*ns/i.test(tLower)) return await handleCampaignBudget(text, 'decrease');
   return await askAI(text);
 }
 
