@@ -759,13 +759,67 @@ async function executeQueryTool(fn, args) {
 }
 
 // ═══ CONVERSATION MEMORY ═══
+// Sanitize messages: loại bỏ orphan 'tool' messages (không có assistant.tool_calls đứng trước),
+// và assistant.tool_calls không có đủ tool responses đứng sau.
+// Lỗi OpenAI: "messages with role 'tool' must be a response to a preceeding message with 'tool_calls'"
+function sanitizeAIMessages(msgs) {
+  if (!Array.isArray(msgs) || !msgs.length) return [];
+  // Pass 1: mỗi assistant với tool_calls phải có tool response cho TỪNG tool_call_id ngay sau.
+  //          Nếu thiếu bất kỳ tool response nào → bỏ cả assistant + tool responses lẻ.
+  // Pass 2: tool message phải đứng sau assistant.tool_calls có tool_call_id match.
+  const out = [];
+  for (let i = 0; i < msgs.length; i++) {
+    const m = msgs[i];
+    if (!m || !m.role) continue;
+    if (m.role === 'tool') {
+      // Chỉ giữ nếu đứng ngay sau assistant.tool_calls match
+      const prev = out[out.length - 1];
+      const isValidTool = prev && prev.role === 'assistant' && Array.isArray(prev.tool_calls) &&
+        prev.tool_calls.some(c => c.id === m.tool_call_id);
+      // hoặc đứng sau tool message khác trong cùng group (multi-tool)
+      const isContinuationTool = prev && prev.role === 'tool';
+      if (!isValidTool && !isContinuationTool) continue;
+      if (isContinuationTool) {
+        // Tìm assistant gần nhất phía trước
+        let assistant = null;
+        for (let j = out.length - 1; j >= 0; j--) {
+          if (out[j].role === 'assistant' && out[j].tool_calls) { assistant = out[j]; break; }
+          if (out[j].role !== 'tool') break;
+        }
+        if (!assistant || !assistant.tool_calls.some(c => c.id === m.tool_call_id)) continue;
+      }
+      out.push(m);
+      continue;
+    }
+    if (m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length) {
+      // Phải có đủ tool responses ngay sau trong msgs gốc
+      const needIds = new Set(m.tool_calls.map(c => c.id));
+      const haveIds = new Set();
+      for (let j = i + 1; j < msgs.length; j++) {
+        if (msgs[j].role !== 'tool') break;
+        if (needIds.has(msgs[j].tool_call_id)) haveIds.add(msgs[j].tool_call_id);
+      }
+      if (needIds.size !== haveIds.size) continue; // skip — không đủ response
+      out.push(m);
+      continue;
+    }
+    out.push(m);
+  }
+  return out;
+}
+
 async function getConversation(chatId) {
   const r = await sb.from('telegram_conversation').select('messages').eq('chat_id', chatId).maybeSingle();
-  return (r.data && r.data.messages) || [];
+  const raw = (r.data && r.data.messages) || [];
+  return sanitizeAIMessages(raw);
 }
 async function saveConversation(chatId, messages, tokens) {
-  // Trim còn 20 messages gần nhất (tránh context bloat)
-  const trimmed = messages.slice(-20);
+  // Sanitize TRƯỚC khi trim — đảm bảo không lưu orphan
+  const clean = sanitizeAIMessages(messages);
+  // Trim còn 20 messages cuối nhưng giữ nguyên cấu trúc tool_calls ↔ tool responses
+  let trimmed = clean.slice(-20);
+  // Sau slice có thể vô tình cắt đầu trên 1 tool message → sanitize lần nữa
+  trimmed = sanitizeAIMessages(trimmed);
   await sb.from('telegram_conversation').upsert({
     chat_id: chatId,
     messages: trimmed,
@@ -803,7 +857,15 @@ async function askAIAgent(question, chatId) {
         body: JSON.stringify({ model: OPENAI_MODEL, messages: messages, tools: allTools, tool_choice: 'auto', max_completion_tokens: 800 })
       });
       const data = await resp.json();
-      if (data.error) return '❌ AI lỗi: ' + data.error.message;
+      if (data.error) {
+        // Tự phục hồi: nếu lỗi do conversation history orphan tool messages → clear + báo user thử lại
+        const errMsg = data.error.message || '';
+        if (/tool.*tool_calls|preceeding message with 'tool_calls'/i.test(errMsg)) {
+          await clearConversation(chatId);
+          return '⚠ Đã reset lịch sử AI do conversation lỗi. Hỏi lại câu vừa rồi nhé.';
+        }
+        return '❌ AI lỗi: ' + errMsg;
+      }
       totalTokens += (data.usage && data.usage.total_tokens) || 0;
       const msg = data.choices && data.choices[0] && data.choices[0].message;
       if (!msg) return '❌ AI không trả lời.';
