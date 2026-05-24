@@ -4974,8 +4974,14 @@ function p8History(){
     }else statusBadge='<span class="badge b-amber">'+esc(row.status||'—')+'</span>';
     var postShort=row.post_id?(row.post_id.length>14?row.post_id.substring(0,14)+'…':row.post_id):'—';
     var postCell=row.post_id?'<a href="https://www.facebook.com/'+esc(row.post_id)+'" target="_blank" rel="noopener" style="font-family:monospace;font-size:11px;color:var(--blue-tx);" title="'+esc(row.post_id)+'">'+esc(postShort)+'</a>':'<span style="color:var(--tx3);">—</span>';
+    // Tìm ad_account_id để build link Ads Manager đầy đủ (act= + selected_campaign_ids=).
+    // Ưu tiên row.ad_account_id (mới), fallback preset.ad_account_id (cũ).
+    var rowAccId=row.ad_account_id||'';
+    if(!rowAccId&&row.preset_name){var _pre=autoAdsPresets.find(function(p){return p.name===row.preset_name;});if(_pre)rowAccId=_pre.ad_account_id||'';}
+    var rowAccNum=rowAccId.replace(/^act_/,'');
     var campShort=row.campaign_id?row.campaign_id.substring(0,10)+'…':'—';
-    var campCell=row.campaign_id?'<a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?selected_campaign_ids='+esc(row.campaign_id)+'" target="_blank" rel="noopener" style="font-family:monospace;font-size:11px;color:var(--blue-tx);" title="'+esc(row.campaign_id)+'">'+esc(campShort)+'</a>':'<span style="color:var(--tx3);">—</span>';
+    var campUrl=row.campaign_id?(rowAccNum?'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+rowAccNum+'&selected_campaign_ids='+esc(row.campaign_id):'https://adsmanager.facebook.com/adsmanager/manage/campaigns?selected_campaign_ids='+esc(row.campaign_id)):'';
+    var campCell=row.campaign_id?'<a href="'+campUrl+'" target="_blank" rel="noopener" style="font-family:monospace;font-size:11px;color:var(--blue-tx);" title="'+esc(row.campaign_id)+(rowAccNum?' · act='+rowAccNum:'')+'">'+esc(campShort)+'</a>':'<span style="color:var(--tx3);">—</span>';
     var sourceCell=row.source==='telegram'?'<span title="chat_id: '+esc(row.chat_id||'')+'">📱 Telegram</span>':'🌐 Web';
     var errCell='—';
     if(row.status==='failed'&&row.error_message){

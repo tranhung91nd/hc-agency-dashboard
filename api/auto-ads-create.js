@@ -176,6 +176,7 @@ module.exports = async (req, res) => {
     post_id: postId,
     post_url: /^https?:\/\//.test(postInput) ? postInput : null,
     budget: budget,
+    ad_account_id: accId,
     status: 'pending'
   };
 

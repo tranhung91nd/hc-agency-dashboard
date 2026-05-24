@@ -507,6 +507,7 @@ async function duplicateCampaign(sourceCampaignId, opts) {
       adset_id: newAdset.id,
       creative_id: newCreative.id,
       ad_id: newAd.id,
+      ad_account_id: actPath,
       status: 'success'
     });
   } catch (e) {}
@@ -1239,9 +1240,9 @@ async function insertAutoAdsLog(row) {
 // ─── Core: tạo 4-step Meta campaign từ preset + post + budget ───
 async function createAdsFromPreset(preset, postId, postUrl, budget, source, chatId, opts) {
   opts = opts || {};
-  const log = { source: source, chat_id: chatId, preset_name: preset.name, post_id: postId, post_url: postUrl, budget: budget, status: 'pending' };
+  const actPath = (opts.account && opts.account.fb_account_id) || preset.ad_account_id; // act_xxx
+  const log = { source: source, chat_id: chatId, preset_name: preset.name, post_id: postId, post_url: postUrl, budget: budget, ad_account_id: actPath || null, status: 'pending' };
   try {
-    const actPath = (opts.account && opts.account.fb_account_id) || preset.ad_account_id; // act_xxx
     const pageId = preset.page_id;
     const dest = preset.destination_type || 'MESSENGER';
     const targeting = Object.assign({}, preset.targeting || {});
