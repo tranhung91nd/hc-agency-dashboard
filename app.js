@@ -5063,7 +5063,12 @@ function _renderPresetPreview(){
   if(geo.countries)lines.push('Quốc gia: '+geo.countries.join(','));
   if(geo.cities)lines.push(geo.cities.length+' thành phố');
   if(geo.regions)lines.push(geo.regions.length+' vùng');
-  if(tg.flexible_spec){var ints=0;tg.flexible_spec.forEach(function(s){if(s.interests)ints+=s.interests.length;});if(ints)lines.push(ints+' sở thích');}
+  if(tg.flexible_spec){
+    var ints=0,behs=0;
+    tg.flexible_spec.forEach(function(s){if(s.interests)ints+=s.interests.length;if(s.behaviors)behs+=s.behaviors.length;});
+    if(ints)lines.push(ints+' sở thích');
+    if(behs)lines.push(behs+' hành vi');
+  }
   if(tg.custom_audiences&&tg.custom_audiences.length)lines.push(tg.custom_audiences.length+' custom audience');
   var dest=pv.destination_type||'MESSENGER';var destIcon=dest==='MESSENGER'?'💬':(dest==='WHATSAPP'?'📱':(dest==='INSTAGRAM_DIRECT'?'📷':'📨'));
   var h='<div style="background:var(--green-bg);padding:12px;border-radius:8px;border:1px solid var(--green);font-size:12px;color:var(--tx2);line-height:1.7;">';
@@ -5128,7 +5133,16 @@ function openSavePresetModal(presetName){
     if(pre.targeting.flexible_spec){
       pre.targeting.flexible_spec.forEach(function(spec){
         if(spec.interests)spec.interests.forEach(function(it){
-          _presetMod.editInterests.push({id:it.id,name:it.name});
+          _presetMod.editInterests.push({id:it.id,name:it.name,type:'interest'});
+        });
+        if(spec.behaviors)spec.behaviors.forEach(function(it){
+          _presetMod.editInterests.push({id:it.id,name:it.name,type:'behavior'});
+        });
+        if(spec.work_employers)spec.work_employers.forEach(function(it){
+          _presetMod.editInterests.push({id:it.id,name:it.name,type:'work_employer'});
+        });
+        if(spec.work_positions)spec.work_positions.forEach(function(it){
+          _presetMod.editInterests.push({id:it.id,name:it.name,type:'work_position'});
         });
       });
     }
@@ -5277,13 +5291,16 @@ function closePresetModal(){var m=document.getElementById('preset-modal');if(m)m
 // ─── Edit interests (chips + search Meta API) ───
 function renderEditInterestsBox(){
   var ints=_presetMod.editInterests||[];
+  var typeMeta={interest:{label:'Sở thích',bg:'var(--purple-bg)',tx:'var(--purple-tx)'},behavior:{label:'Hành vi',bg:'var(--amber-bg)',tx:'var(--amber-tx)'},work_employer:{label:'Công ty',bg:'var(--blue-bg)',tx:'var(--blue-tx)'},work_position:{label:'Chức vụ',bg:'var(--teal-bg, var(--blue-bg))',tx:'var(--teal-tx, var(--blue-tx))'}};
   var h='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:32px;padding:8px;background:var(--bg2);border-radius:6px;">';
   if(ints.length){
     ints.forEach(function(it){
-      h+='<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--purple-bg);color:var(--purple-tx);border-radius:14px;font-size:12px;font-weight:500;">'+esc(it.name)+' <button type="button" onclick="removeEditInterest(\''+esc(it.id)+'\')" style="background:none;border:0;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;">×</button></span>';
+      var meta=typeMeta[it.type||'interest']||typeMeta.interest;
+      var typeBadge='<span style="font-size:10px;opacity:.7;padding:0 4px;border-right:1px solid currentColor;margin-right:2px;">'+meta.label+'</span>';
+      h+='<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px 4px 4px;background:'+meta.bg+';color:'+meta.tx+';border-radius:14px;font-size:12px;font-weight:500;">'+typeBadge+esc(it.name)+' <button type="button" onclick="removeEditInterest(\''+esc(it.id)+'\')" style="background:none;border:0;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;">×</button></span>';
     });
   }else{
-    h+='<span style="font-size:11px;color:var(--tx3);font-style:italic;">Chưa có sở thích nào — gõ tìm bên dưới để thêm</span>';
+    h+='<span style="font-size:11px;color:var(--tx3);font-style:italic;">Chưa có sở thích/hành vi nào — gõ tìm bên dưới để thêm</span>';
   }
   h+='</div>';
   h+='<div style="display:flex;gap:6px;">';
@@ -5317,10 +5334,10 @@ function _rerenderInterests(){
   var box=document.getElementById('pm-interests-section');
   if(box)box.innerHTML=renderEditInterestsBox();
 }
-function addEditInterest(id,name){
+function addEditInterest(id,name,type){
   if(!_presetMod.editInterests)_presetMod.editInterests=[];
   if(_presetMod.editInterests.find(function(i){return i.id===id;}))return;
-  _presetMod.editInterests.push({id:id,name:name});
+  _presetMod.editInterests.push({id:id,name:name,type:type||'interest'});
   _presetMod.intSearchResults=null; // clear suggestions after add
   _rerenderInterests();
 }
@@ -5453,9 +5470,16 @@ async function submitPresetModal(isEdit){
         else if(gs==='female')newTargeting.genders=[2];
         else if(gs==='both')newTargeting.genders=[1,2];
       }
-      // Save edited interests vào flexible_spec
+      // Save edited interests/behaviors vào flexible_spec — gom theo type
       if(_presetMod.editInterests&&_presetMod.editInterests.length){
-        newTargeting.flexible_spec=[{interests:_presetMod.editInterests.map(function(i){return{id:i.id,name:i.name};})}];
+        var spec={};
+        var groups={interest:'interests',behavior:'behaviors',work_employer:'work_employers',work_position:'work_positions'};
+        _presetMod.editInterests.forEach(function(it){
+          var key=groups[it.type||'interest']||'interests';
+          if(!spec[key])spec[key]=[];
+          spec[key].push({id:it.id,name:it.name});
+        });
+        newTargeting.flexible_spec=[spec];
       }else{
         delete newTargeting.flexible_spec;
       }
