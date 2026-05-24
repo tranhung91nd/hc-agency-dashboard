@@ -835,6 +835,14 @@ async function handleListPresets() {
   return lines.join('\n');
 }
 
+async function updateMetaObjectStatus(type, id, name, nextStatus) {
+  const updated = await metaApi('POST', id, { status: nextStatus });
+  if (updated.error) {
+    return { type: type, id: id, name: name, ok: false, error: formatMetaError(updated.error) };
+  }
+  return { type: type, id: id, name: name, ok: true };
+}
+
 // ─── Handle: /tatads /batads <campaign_id|link> ───
 async function handleToggleCampaign(text, nextStatus) {
   const cmdLabel = nextStatus === 'ACTIVE' ? '/batads' : '/tatads';
@@ -853,19 +861,51 @@ async function handleToggleCampaign(text, nextStatus) {
     return '❌ Không đọc được campaign: <code>' + formatMetaError(before.error) + '</code>';
   }
 
-  const updated = await metaApi('POST', campaignId, { status: nextStatus });
-  if (updated.error) {
-    return '❌ Không cập nhật được campaign: <code>' + formatMetaError(updated.error) + '</code>';
+  const adsets = await metaApi('GET', campaignId + '/adsets', {
+    fields: 'id,name,status,effective_status',
+    limit: 100
+  });
+  if (adsets.error) return '❌ Không đọc được adset: <code>' + formatMetaError(adsets.error) + '</code>';
+
+  const ads = await metaApi('GET', campaignId + '/ads', {
+    fields: 'id,name,status,effective_status',
+    limit: 100
+  });
+  if (ads.error) return '❌ Không đọc được ads: <code>' + formatMetaError(ads.error) + '</code>';
+
+  const adsetRows = adsets.data || [];
+  const adRows = ads.data || [];
+  const results = [];
+
+  if (nextStatus === 'PAUSED') {
+    results.push(await updateMetaObjectStatus('campaign', campaignId, before.name, nextStatus));
+    for (const adset of adsetRows) results.push(await updateMetaObjectStatus('adset', adset.id, adset.name, nextStatus));
+    for (const ad of adRows) results.push(await updateMetaObjectStatus('ad', ad.id, ad.name, nextStatus));
+  } else {
+    for (const adset of adsetRows) results.push(await updateMetaObjectStatus('adset', adset.id, adset.name, nextStatus));
+    for (const ad of adRows) results.push(await updateMetaObjectStatus('ad', ad.id, ad.name, nextStatus));
+    results.push(await updateMetaObjectStatus('campaign', campaignId, before.name, nextStatus));
   }
 
+  const after = await metaApi('GET', campaignId, { fields: 'id,name,status,effective_status' });
+  const okCount = results.filter(function(r){return r.ok;}).length;
+  const failRows = results.filter(function(r){return !r.ok;});
+
   const actionText = nextStatus === 'ACTIVE' ? 'bật lại' : 'tắt';
-  return [
-    '✅ <b>Đã ' + actionText + ' campaign</b>',
+  const lines = [
+    (failRows.length ? '⚠️' : '✅') + ' <b>Đã ' + actionText + ' ' + okCount + '/' + results.length + ' đối tượng</b>',
     '',
     '• Tên: ' + (before.name || '—'),
     '• Campaign: <code>' + campaignId + '</code>',
-    '• Trạng thái mới: <b>' + nextStatus + '</b>'
-  ].join('\n');
+    '• Campaign status: <b>' + ((after && !after.error && after.status) || nextStatus) + '</b>',
+    '• Effective: <b>' + ((after && !after.error && after.effective_status) || 'đang cập nhật') + '</b>',
+    '• Đã xử lý: ' + adsetRows.length + ' adset, ' + adRows.length + ' ad'
+  ];
+  failRows.slice(0, 5).forEach(function(r){
+    lines.push('• Lỗi ' + r.type + ' ' + (r.name || r.id) + ': <code>' + r.error + '</code>');
+  });
+  if (failRows.length > 5) lines.push('• ... +' + (failRows.length - 5) + ' lỗi khác');
+  return lines.join('\n');
 }
 
 // ─── Handle: /nsads /tangns /giamns <campaign_id|link> <budget> ───
