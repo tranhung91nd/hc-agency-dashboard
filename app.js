@@ -4914,8 +4914,7 @@ function p8History(){
   autoAdsPresets.forEach(function(p){h+='<option value="'+esc(p.name)+'"'+(autoAdsLogFilter.preset===p.name?' selected':'')+'>'+esc(p.name)+'</option>';});
   h+='</select>';
   h+='<select class="fi" style="width:140px;" onchange="setAutoAdsLogFilter(\'source\',this.value)"><option value="">Tất cả nguồn</option><option value="telegram"'+(autoAdsLogFilter.source==='telegram'?' selected':'')+'>📱 Telegram</option><option value="web"'+(autoAdsLogFilter.source==='web'?' selected':'')+'>🌐 Web</option></select>';
-  h+='<button class="btn btn-sm" onclick="loadAutoAdsLog()" title="Tải lại danh sách">🔄</button>';
-  h+='<button class="btn btn-sm" onclick="refreshAutoAdsLiveStatus(true)" title="Sync live status từ Meta ngay">⚡ Sync Meta</button>';
+  h+='<button class="btn btn-sm" onclick="loadAutoAdsLog().then(function(){refreshAutoAdsLiveStatus(true);})" title="Tải lại log và sync trạng thái từ Meta">🔄 Tải dữ liệu quảng cáo</button>';
   h+='<div class="qt-action-wrap" style="display:inline-block;">';
   h+='<button class="btn btn-sm" onclick="toggleAdsLogBulkMenu(event)" title="Xóa nhiều log">🗑 Xóa…</button>';
   h+='<div class="qt-action-menu" id="ads-log-bulk-menu" role="menu" onclick="event.stopPropagation();">';
