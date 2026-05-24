@@ -5106,7 +5106,16 @@ async function _onPresetCampChange(campId){
   finally{_presetMod.loading_preview=false;_renderPresetPreview();}
 }
 function openSavePresetModal(presetName){
-  _presetMod={acc_id:'',acc_fbid:'',campaigns:null,camp_id:'',preview:null,loading_camps:false,loading_preview:false};
+  _presetMod={acc_id:'',acc_fbid:'',campaigns:null,camp_id:'',preview:null,loading_camps:false,loading_preview:false,editInterests:[],intSearchResults:null};
+  // Init editInterests từ preset hiện tại (nếu edit)
+  var pre=presetName?autoAdsPresets.find(function(p){return p.name===presetName;}):null;
+  if(pre&&pre.targeting&&pre.targeting.flexible_spec){
+    pre.targeting.flexible_spec.forEach(function(spec){
+      if(spec.interests)spec.interests.forEach(function(it){
+        _presetMod.editInterests.push({id:it.id,name:it.name});
+      });
+    });
+  }
   var existing=presetName?autoAdsPresets.find(function(p){return p.name===presetName;}):null;
   var root=document.getElementById('hc-modal-root')||(function(){var d=document.createElement('div');d.id='hc-modal-root';document.body.appendChild(d);return d;})();
   var old=document.getElementById('preset-modal');if(old)old.remove();
@@ -5131,9 +5140,7 @@ function openSavePresetModal(presetName){
     if(geo.regions&&geo.regions.length)roLines.push('📍 Vùng ('+geo.regions.length+'): '+geo.regions.slice(0,5).map(function(r){return esc(r.name||r.key);}).join(', ')+(geo.regions.length>5?'…':''));
     if(geo.cities&&geo.cities.length)roLines.push('🏙 TP ('+geo.cities.length+'): '+geo.cities.slice(0,5).map(function(c){return esc(c.name||c.key);}).join(', ')+(geo.cities.length>5?'…':''));
     if(geo.location_types&&geo.location_types.length)roLines.push('📌 Loại vị trí: '+geo.location_types.join(', '));
-    var totalInt=0,intNames=[];
-    if(tg.flexible_spec)tg.flexible_spec.forEach(function(s){if(s.interests){totalInt+=s.interests.length;s.interests.forEach(function(it){if(intNames.length<8)intNames.push(it.name);});}});
-    if(totalInt)roLines.push('🎯 Sở thích ('+totalInt+'): '+intNames.map(esc).join(', ')+(totalInt>intNames.length?'…':''));
+    // Interests giờ editable — không cần show trong read-only nữa
     if(tg.custom_audiences&&tg.custom_audiences.length)roLines.push('👥 Custom audience: '+tg.custom_audiences.length+' nhóm');
     if(tg.excluded_custom_audiences&&tg.excluded_custom_audiences.length)roLines.push('🚫 Loại trừ: '+tg.excluded_custom_audiences.length+' nhóm');
     var advantage=tg.targeting_automation&&tg.targeting_automation.advantage_audience;
@@ -5166,6 +5173,10 @@ function openSavePresetModal(presetName){
       // Budget
       +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ngân sách mặc định (VNĐ/ngày) <span style="font-weight:400;color:var(--tx3);">— tùy chọn</span></label>'
       +'<input id="pm-budget" type="number" class="fi" min="0" step="10000" placeholder="Để trống = phải chỉ định khi sét" value="'+(existing.default_budget||'')+'"></div>'
+      // Interests (editable via Meta Search API)
+      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;">🎯 Nhắm mục tiêu chi tiết (sở thích)</label>'
+      +'<div id="pm-interests-section">'+renderEditInterestsBox()+'</div>'
+      +'</div>'
       // Note
       +'<div><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ghi chú</label>'
       +'<textarea id="pm-note" class="fi" rows="2" placeholder="VD: Mẹ bỉm sữa HCM">'+esc(existing.note||'')+'</textarea></div>'
@@ -5214,6 +5225,74 @@ function openSavePresetModal(presetName){
   setTimeout(function(){var el=document.getElementById(existing?'pm-budget':'pm-name');if(el)el.focus();},50);
 }
 function closePresetModal(){var m=document.getElementById('preset-modal');if(m)m.remove();}
+// ─── Edit interests (chips + search Meta API) ───
+function renderEditInterestsBox(){
+  var ints=_presetMod.editInterests||[];
+  var h='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:32px;padding:8px;background:var(--bg2);border-radius:6px;">';
+  if(ints.length){
+    ints.forEach(function(it){
+      h+='<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--purple-bg);color:var(--purple-tx);border-radius:14px;font-size:12px;font-weight:500;">'+esc(it.name)+' <button type="button" onclick="removeEditInterest(\''+esc(it.id)+'\')" style="background:none;border:0;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;">×</button></span>';
+    });
+  }else{
+    h+='<span style="font-size:11px;color:var(--tx3);font-style:italic;">Chưa có sở thích nào — gõ tìm bên dưới để thêm</span>';
+  }
+  h+='</div>';
+  h+='<div style="display:flex;gap:6px;">';
+  h+='<input id="pm-int-q" type="text" class="fi" placeholder="Tìm sở thích (vd fitness, yoga, mỹ phẩm, mua sắm)" style="flex:1;font-size:13px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();searchEditInterest();}">';
+  h+='<button type="button" class="btn btn-sm" onclick="searchEditInterest()">🔍 Tìm</button>';
+  h+='</div>';
+  if(_presetMod.intSearchResults){
+    h+='<div style="margin-top:6px;border:1px solid var(--bd1);border-radius:6px;max-height:180px;overflow:auto;background:var(--bg1);">';
+    if(!_presetMod.intSearchResults.length){
+      h+='<div style="padding:10px;font-size:12px;color:var(--tx3);text-align:center;">Không có kết quả</div>';
+    }else{
+      _presetMod.intSearchResults.forEach(function(r){
+        var sizeStr='';
+        if(r.audience_size_lower_bound){
+          var size=r.audience_size_lower_bound;
+          sizeStr=size>=1e9?(size/1e9).toFixed(1)+'B':(size>=1e6?(size/1e6).toFixed(1)+'M':(size>=1e3?Math.round(size/1e3)+'K':size));
+          sizeStr=' · '+sizeStr+' người';
+        }
+        var pathStr=r.path&&r.path.length?' <span style="color:var(--tx3);font-size:11px;">('+esc(r.path.join(' > '))+')</span>':'';
+        var added=_presetMod.editInterests.some(function(i){return i.id===r.id;});
+        h+='<div style="padding:8px 12px;cursor:'+(added?'default':'pointer')+';font-size:12px;border-bottom:1px solid var(--bd1);opacity:'+(added?'.5':'1')+';" '+(added?'':'onclick="addEditInterest(\''+esc(r.id)+'\',\''+esc(r.name)+'\')"')+'>';
+        h+=(added?'<span style="color:var(--green-tx);">✓ </span>':'+ ')+'<b>'+esc(r.name)+'</b>'+sizeStr+pathStr;
+        h+='</div>';
+      });
+    }
+    h+='</div>';
+  }
+  return h;
+}
+function _rerenderInterests(){
+  var box=document.getElementById('pm-interests-section');
+  if(box)box.innerHTML=renderEditInterestsBox();
+}
+function addEditInterest(id,name){
+  if(!_presetMod.editInterests)_presetMod.editInterests=[];
+  if(_presetMod.editInterests.find(function(i){return i.id===id;}))return;
+  _presetMod.editInterests.push({id:id,name:name});
+  _presetMod.intSearchResults=null; // clear suggestions after add
+  _rerenderInterests();
+}
+function removeEditInterest(id){
+  _presetMod.editInterests=(_presetMod.editInterests||[]).filter(function(i){return i.id!==id;});
+  _rerenderInterests();
+}
+async function searchEditInterest(){
+  var qEl=document.getElementById('pm-int-q');if(!qEl)return;
+  var q=qEl.value.trim();
+  if(!q||q.length<2){_presetMod.intSearchResults=null;_rerenderInterests();return;}
+  var btn=document.querySelector('#pm-interests-section button.btn-sm');
+  var old=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='⏳';}
+  try{
+    var r=await metaGet('search?type=adinterest&q='+encodeURIComponent(q)+'&limit=10');
+    if(r.error){toast('Lỗi: '+r.error.message,false);_presetMod.intSearchResults=[];}
+    else _presetMod.intSearchResults=r.data||[];
+  }catch(e){toast('Lỗi mạng',false);_presetMod.intSearchResults=[];}
+  finally{if(btn){btn.disabled=false;btn.textContent=old||'🔍 Tìm';}_rerenderInterests();}
+}
 async function submitPresetModal(isEdit){
   var btn=document.getElementById('pm-submit');var errEl=document.getElementById('pm-error');
   errEl.style.display='none';
@@ -5244,6 +5323,12 @@ async function submitPresetModal(isEdit){
         else if(gs==='male')newTargeting.genders=[1];
         else if(gs==='female')newTargeting.genders=[2];
         else if(gs==='both')newTargeting.genders=[1,2];
+      }
+      // Save edited interests vào flexible_spec
+      if(_presetMod.editInterests&&_presetMod.editInterests.length){
+        newTargeting.flexible_spec=[{interests:_presetMod.editInterests.map(function(i){return{id:i.id,name:i.name};})}];
+      }else{
+        delete newTargeting.flexible_spec;
       }
       var updatePayload={default_budget:budget,note:note,targeting:newTargeting};
       if(destEl)updatePayload.destination_type=destEl.value;
