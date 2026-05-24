@@ -1064,8 +1064,8 @@ async function route(text, chatId) {
   if (cmd === '/setads' || /^sét\s*ads\s*[:.]?/i.test(tLower) || /^set\s*ads\s*[:.]?/i.test(tLower)) return await handleSetAds(text, chatId);
   if (cmd === '/luupreset' || cmd === '/savepreset') return await handleSavePreset(text, chatId);
   if (cmd === '/presets' || cmd === '/listpresets' || cmd === '/congthuc') return await handleListPresets();
-  if (cmd === '/tatads' || cmd === '/pauseads' || /^tắt\s*ads/i.test(tLower) || /^tat\s*ads/i.test(tLower)) return await handleToggleCampaign(text, 'PAUSED');
-  if (cmd === '/batads' || cmd === '/resumeads' || cmd === '/activeads' || /^bật\s*ads/i.test(tLower) || /^bat\s*ads/i.test(tLower)) return await handleToggleCampaign(text, 'ACTIVE');
+  if (cmd === '/tatads' || cmd === '/pauseads' || /^tắt\s*(ads|quảng\s*cáo)/i.test(tLower) || /^tat\s*(ads|quang\s*cao)/i.test(tLower)) return await handleToggleCampaign(text, 'PAUSED');
+  if (cmd === '/batads' || cmd === '/resumeads' || cmd === '/activeads' || /^bật\s*(ads|quảng\s*cáo)/i.test(tLower) || /^bat\s*(ads|quang\s*cao)/i.test(tLower)) return await handleToggleCampaign(text, 'ACTIVE');
   if (cmd === '/checkads' || cmd === '/statusads' || /^kiểm\s*tra\s*ads/i.test(tLower) || /^kiem\s*tra\s*ads/i.test(tLower) || /^trạng\s*thái\s*ads/i.test(tLower) || /^trang\s*thai\s*ads/i.test(tLower)) return await handleCheckAdsStatus(text);
   if (cmd === '/nsads' || cmd === '/budgetads' || cmd === '/setbudget' || /^ngân\s*sách\s*ads/i.test(tLower) || /^ngan\s*sach\s*ads/i.test(tLower)) return await handleCampaignBudget(text, 'set');
   if (cmd === '/tangns' || cmd === '/increasebudget' || /^tăng\s*ns/i.test(tLower) || /^tang\s*ns/i.test(tLower)) return await handleCampaignBudget(text, 'increase');
