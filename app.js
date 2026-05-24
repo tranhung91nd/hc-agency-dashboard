@@ -5203,33 +5203,57 @@ function openSavePresetModal(presetName){
       +'<div style="font-size:11px;color:var(--tx3);margin-top:8px;padding-top:8px;border-top:1px solid var(--bd1);">💡 Muốn đổi Trang hoặc TKQC mặc định → xoá công thức này và tạo lại từ chiến dịch mẫu khác.</div>'
       +'</div>';
   }
+  // ─── Helper styles tái sử dụng ───
+  var sectionCardStyle='background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;padding:18px;margin-bottom:16px;';
+  var sectionTitleStyle='font-size:13px;font-weight:600;color:var(--tx1);margin-bottom:12px;display:flex;align-items:center;gap:6px;';
+  var labelStyle='display:block;font-size:13px;font-weight:500;color:var(--tx2);margin-bottom:6px;';
+  var hintStyle='font-size:11px;color:var(--tx3);margin-top:6px;line-height:1.5;';
+
   modal.innerHTML=
-    '<div class="hc-modal" role="dialog" aria-modal="true" style="max-width:640px;">'
-    +'<div class="hc-modal-head"><h3>'+(existing?'Chỉnh sửa công thức "'+esc(existing.name)+'"':'Tạo công thức quảng cáo mới')+'</h3><button class="hc-modal-close" onclick="closePresetModal()" aria-label="Đóng">×</button></div>'
-    +'<div class="hc-modal-body">'
-    +'<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Tên công thức *</label>'
-    +'<input id="pm-name" type="text" class="fi" placeholder="VD: A1, B2, Mom_Mess_HCM" value="'+esc(existing?existing.name:'')+'"'+(existing?' disabled':'')+'>'
-    +(existing?'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tên không sửa được — xoá công thức này rồi tạo lại nếu cần đổi.</div>':'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Đặt tên ngắn dễ nhớ — dùng để gõ lệnh trên Telegram.</div>')
+    '<div class="hc-modal" role="dialog" aria-modal="true" style="max-width:720px;">'
+    +'<div class="hc-modal-head" style="padding:18px 24px;"><h3 style="font-size:17px;">'+(existing?'Chỉnh sửa công thức "'+esc(existing.name)+'"':'Tạo công thức quảng cáo mới')+'</h3><button class="hc-modal-close" onclick="closePresetModal()" aria-label="Đóng">×</button></div>'
+    +'<div class="hc-modal-body" style="padding:20px 24px;">'
+
+    // ─── Section: Tên công thức ───
+    +'<div style="'+sectionCardStyle+'">'
+    +'<label style="'+labelStyle+'">Tên công thức <span style="color:var(--red);">*</span></label>'
+    +'<input id="pm-name" type="text" class="fi" placeholder="VD: A1, B2, Mom_Mess_HCM" value="'+esc(existing?existing.name:'')+'"'+(existing?' disabled':'')+' style="font-size:14px;padding:10px 12px;">'
+    +(existing?'<div style="'+hintStyle+'">Tên không sửa được — xoá công thức này rồi tạo lại nếu cần đổi.</div>':'<div style="'+hintStyle+'">Đặt ngắn, dễ nhớ — dùng để gõ lệnh trên Telegram. VD: <code>Sét Ads · Công thức: A1</code></div>')
     +'</div>'
+
     +(existing?editFieldsHtml:
-      '<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">1. Tài khoản quảng cáo * <span style="font-weight:400;color:var(--tx3);">— gõ tên để tìm nhanh</span></label>'
+      // ─── Section: Sao chép từ chiến dịch mẫu ───
+      '<div style="'+sectionCardStyle+'">'
+      +'<div style="'+sectionTitleStyle+'">📋 Sao chép từ chiến dịch mẫu</div>'
+      +'<div style="margin-bottom:14px;"><label style="'+labelStyle+'">Bước 1 — Tài khoản quảng cáo <span style="color:var(--red);">*</span> <span style="font-weight:400;color:var(--tx3);font-size:11px;">gõ tên để tìm nhanh</span></label>'
       +accSearchHtml+'</div>'
-      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">2. Chiến dịch để sao chép đối tượng *</label>'
-      +'<select id="pm-camp-sel" class="fi" disabled onchange="_onPresetCampChange(this.value)"><option value="">— Chọn TKQC trước —</option></select>'
-      +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Bot sẽ sao chép <b>Trang chạy</b> + <b>Đối tượng</b> (tuổi, vị trí, sở thích…) + <b>Đích đến tin nhắn</b> từ nhóm quảng cáo đầu tiên của chiến dịch này.</div></div>'
-      +'<div id="pm-preview" style="margin-bottom:12px;display:none;"></div>'
-      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ngân sách mặc định (VNĐ/ngày) <span style="font-weight:400;color:var(--tx3);">— tuỳ chọn</span></label>'
-      +'<input id="pm-budget" type="number" class="fi" min="0" step="10000" placeholder="Để trống = lúc tạo quảng cáo phải nhập ngân sách" value="">'
-      +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Có thể bỏ trống → lúc gõ lệnh trên Telegram phải thêm <code>Ngân sách: 200K</code>. Sẽ tự điền khi chọn chiến dịch ở trên.</div></div>'
-      +'<div style="margin-bottom:12px;background:var(--bg2);padding:10px;border-radius:8px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--tx2);cursor:pointer;"><input id="pm-save-tkqc" type="checkbox" checked style="width:14px;height:14px;cursor:pointer;"><span>Gắn TKQC đã chọn làm mặc định cho công thức này</span></label><div style="font-size:11px;color:var(--tx3);margin-top:6px;padding-left:22px;">Bỏ tick → công thức thành <b>mẫu chung</b> (chỉ có đối tượng + trang), khi tạo quảng cáo phải chỉ định TKQC. Hữu ích nếu muốn dùng 1 công thức cho nhiều TKQC khác nhau.</div></div>'
-      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ghi chú (tuỳ chọn)</label>'
-      +'<textarea id="pm-note" class="fi" rows="2" placeholder="VD: Mẹ bỉm sữa HCM, bài đăng nhắn tin"></textarea></div>'
+      +'<div><label style="'+labelStyle+'">Bước 2 — Chọn chiến dịch mẫu <span style="color:var(--red);">*</span></label>'
+      +'<select id="pm-camp-sel" class="fi" disabled onchange="_onPresetCampChange(this.value)" style="font-size:14px;padding:10px 12px;"><option value="">— Chọn TKQC trước —</option></select>'
+      +'<div style="'+hintStyle+'">Bot sẽ sao chép <b>Trang chạy</b> + <b>Đối tượng</b> (tuổi, vị trí, sở thích…) + <b>Đích đến tin nhắn</b> từ nhóm quảng cáo đầu tiên của chiến dịch này.</div></div>'
+      +'<div id="pm-preview" style="margin-top:14px;display:none;"></div>'
+      +'</div>'
+
+      // ─── Section: Cài đặt mặc định ───
+      +'<div style="'+sectionCardStyle+'">'
+      +'<div style="'+sectionTitleStyle+'">⚙ Cài đặt mặc định</div>'
+      +'<div style="margin-bottom:16px;"><label style="'+labelStyle+'">Ngân sách (VNĐ/ngày) <span style="font-weight:400;color:var(--tx3);font-size:11px;">tuỳ chọn</span></label>'
+      +'<input id="pm-budget" type="number" class="fi" min="0" step="10000" placeholder="Để trống = lúc tạo quảng cáo phải nhập ngân sách" value="" style="font-size:14px;padding:10px 12px;">'
+      +'<div style="'+hintStyle+'">Có thể bỏ trống → khi gõ lệnh phải thêm <code>Ngân sách: 200K</code>. Tự điền khi chọn chiến dịch ở trên.</div></div>'
+      +'<label style="display:flex;align-items:flex-start;gap:10px;padding:14px;background:var(--bg1);border:1px solid var(--bd1);border-radius:10px;cursor:pointer;"><input id="pm-save-tkqc" type="checkbox" checked style="width:16px;height:16px;cursor:pointer;flex-shrink:0;margin-top:2px;accent-color:var(--blue);"><div><div style="font-size:13px;font-weight:500;color:var(--tx1);">Gắn TKQC đã chọn làm mặc định</div><div style="font-size:11px;color:var(--tx3);margin-top:4px;line-height:1.5;">Bỏ tick → công thức thành <b>mẫu chung</b> (chỉ có đối tượng + trang). Khi tạo quảng cáo phải chỉ định TKQC. Hữu ích nếu muốn dùng 1 công thức cho nhiều TKQC khác nhau.</div></div></label>'
+      +'</div>'
+
+      // ─── Section: Ghi chú ───
+      +'<div style="'+sectionCardStyle+'margin-bottom:0;">'
+      +'<label style="'+labelStyle+'">Ghi chú nội bộ <span style="font-weight:400;color:var(--tx3);font-size:11px;">tuỳ chọn</span></label>'
+      +'<textarea id="pm-note" class="fi" rows="4" placeholder="VD: Mẹ bỉm sữa HCM-HN · ngân sách dao động 200-500K · bài dạng nhắn tin tư vấn miễn phí · A/B test với QC2 dùng audience rộng hơn" style="font-family:inherit;font-size:13px;line-height:1.5;padding:10px 12px;resize:vertical;min-height:90px;"></textarea>'
+      +'<div style="'+hintStyle+'">Mô tả mục đích, đối tượng, hoặc ghi chú test — chỉ hiển thị trong dashboard, không gửi Meta.</div>'
+      +'</div>'
     )
-    +'<div id="pm-error" style="display:none;color:var(--red);font-size:12px;margin-top:10px;padding:8px;background:var(--red-bg);border-radius:6px;"></div>'
+    +'<div id="pm-error" style="display:none;color:var(--red);font-size:12px;margin-top:14px;padding:10px 12px;background:var(--red-bg);border-radius:8px;border:1px solid var(--red);"></div>'
     +'</div>'
-    +'<div class="hc-modal-foot">'
-    +'<button type="button" class="btn btn-ghost" onclick="closePresetModal()">Hủy</button>'
-    +'<button id="pm-submit" type="button" class="btn btn-primary" onclick="submitPresetModal('+(existing?'true':'false')+')">'+(existing?'Lưu thay đổi':'Tạo công thức')+'</button>'
+    +'<div class="hc-modal-foot" style="padding:14px 24px;gap:10px;">'
+    +'<button type="button" class="btn btn-ghost" onclick="closePresetModal()" style="padding:10px 20px;">Hủy</button>'
+    +'<button id="pm-submit" type="button" class="btn btn-primary" onclick="submitPresetModal('+(existing?'true':'false')+')" style="padding:10px 24px;font-weight:600;">'+(existing?'Lưu thay đổi':'+ Tạo công thức')+'</button>'
     +'</div></div>';
   root.appendChild(modal);
   setTimeout(function(){var el=document.getElementById(existing?'pm-budget':'pm-name');if(el)el.focus();},50);
