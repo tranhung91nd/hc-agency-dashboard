@@ -5438,200 +5438,113 @@ function p8(){
     h+='</div>';
   }
   h+='</div>';
-  // ═══ Form set ads manual (cũ) ═══
-  if(setAdsResult){
-    if(setAdsResult.success){
-      h+='<div class="form-card" style="padding:24px;border-color:var(--green);background:var(--green-bg);">';
-      h+='<div style="font-size:18px;font-weight:600;color:var(--green);margin-bottom:12px;">✓ Đã tạo & chạy chiến dịch</div>';
-      h+='<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13px;margin-bottom:14px;">';
-      h+='<div style="color:var(--tx3);">Campaign ID:</div><div class="mono">'+esc(setAdsResult.campaign_id)+'</div>';
-      h+='<div style="color:var(--tx3);">Adset ID:</div><div class="mono">'+esc(setAdsResult.adset_id)+'</div>';
-      h+='<div style="color:var(--tx3);">Creative ID:</div><div class="mono">'+esc(setAdsResult.creative_id)+'</div>';
-      h+='<div style="color:var(--tx3);">Ad ID:</div><div class="mono">'+esc(setAdsResult.ad_id)+'</div>';
-      h+='</div>';
-      if(setAdsResult.manager_link)h+='<a href="'+esc(setAdsResult.manager_link)+'" target="_blank" rel="noopener" class="btn btn-primary" style="margin-right:8px;">Mở trên Ads Manager ↗</a>';
-      h+='<button class="btn" onclick="setAdsClearResult()">Tạo chiến dịch khác</button>';
-      h+='</div>';
+  // ═══ Form ĐƠN GIẢN — Sét quảng cáo mới (Sprint 13) ═══
+  h+='<div style="background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;padding:18px;">';
+  h+='<div style="font-size:15px;font-weight:600;margin-bottom:14px;">⚡ Sét quảng cáo mới</div>';
+  if(simpleSetAdsState.result){
+    var r=simpleSetAdsState.result;
+    if(r.ok){
+      h+='<div style="padding:14px;background:var(--green-bg);border:1px solid var(--green);border-radius:8px;color:var(--green-tx);">';
+      h+='<div style="font-weight:600;font-size:14px;">✅ Đã tạo & chạy chiến dịch ACTIVE</div>';
+      h+='<div style="font-size:12px;margin-top:8px;">Campaign: <code>'+esc(r.campaign_id)+'</code></div>';
+      h+='<div style="font-size:12px;">Ad: <code>'+esc(r.ad_id)+'</code></div>';
+      h+='<div style="margin-top:10px;display:flex;gap:8px;">';
+      if(r.manager_link)h+='<a href="'+esc(r.manager_link)+'" target="_blank" rel="noopener" class="btn btn-sm btn-primary">Mở Ads Manager ↗</a>';
+      h+='<button class="btn btn-sm" onclick="simpleSetAdsClear()">Tạo cái khác</button>';
+      h+='</div></div>';
     }else{
-      h+='<div class="form-card" style="padding:20px;border-color:var(--red);background:var(--red-bg);">';
-      h+='<div style="font-size:16px;font-weight:600;color:var(--red);margin-bottom:8px;">✗ Tạo chiến dịch thất bại</div>';
-      h+='<div style="font-size:13px;margin-bottom:10px;white-space:pre-wrap;">'+esc(setAdsResult.error||'Lỗi không rõ')+'</div>';
-      if(setAdsResult.step)h+='<div style="font-size:12px;color:var(--tx3);margin-bottom:10px;">Lỗi ở bước: '+esc(setAdsResult.step)+'</div>';
-      if(setAdsLog.length){
-        h+='<details><summary style="cursor:pointer;font-size:12px;color:var(--tx3);">Chi tiết log ('+setAdsLog.length+' bước)</summary>';
-        h+='<pre style="font-size:11px;background:#fff;padding:10px;border-radius:6px;margin-top:8px;max-height:300px;overflow:auto;">'+esc(setAdsLog.join('\n'))+'</pre></details>';
-      }
-      h+='<div style="margin-top:12px;"><button class="btn" onclick="setAdsClearResult()">Thử lại</button></div>';
+      h+='<div style="padding:14px;background:var(--red-bg);border:1px solid var(--red);border-radius:8px;color:var(--red-tx);">';
+      h+='<div style="font-weight:600;font-size:14px;">❌ Tạo thất bại</div>';
+      if(r.step)h+='<div style="font-size:12px;margin-top:6px;">Bước lỗi: <b>'+esc(r.step)+'</b></div>';
+      h+='<div style="font-size:12px;margin-top:4px;">'+esc(r.error||'không rõ')+'</div>';
+      h+='<button class="btn btn-sm" style="margin-top:10px;" onclick="simpleSetAdsClear()">Thử lại</button>';
       h+='</div>';
     }
-    return h;
-  }
-  // FORM
-  h+='<div class="form-card" style="padding:20px;max-width:780px;">';
-  // Clone box (optional shortcut)
-  h+='<div style="background:var(--blue-bg);border:1px solid var(--bd2);border-radius:8px;padding:12px;margin-bottom:18px;">';
-  h+='<div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:6px;">⚡ CLONE TỪ CAMPAIGN CÓ SẴN (tuỳ chọn)</div>';
-  h+='<div style="font-size:11px;color:var(--tx3);margin-bottom:8px;">Paste Campaign ID hoặc link Ads Manager — tự động điền targeting + post từ campaign cũ. Bạn vẫn có thể sửa trước khi chạy.</div>';
-  h+='<div style="display:flex;gap:6px;">';
-  h+='<input id="sa-clone-id" type="text" class="fi" placeholder="VD: 120249131122740404 hoặc link Ads Manager" style="flex:1;" '+(setAdsCloning?'disabled':'')+'>';
-  h+='<button type="button" class="btn btn-primary" onclick="cloneFromCampaign()" '+(setAdsCloning?'disabled':'')+'>'+(setAdsCloning?'Đang tải...':'⬇ Tải dữ liệu')+'</button>';
-  h+='</div>';
-  if(setAdsCloneNote)h+='<div style="font-size:11px;color:var(--tx3);margin-top:6px;">'+esc(setAdsCloneNote)+'</div>';
-  h+='</div>';
-  // Section 1: TKQC + Page + Post
-  h+='<div style="font-size:13px;font-weight:600;color:var(--tx2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">1. Tài khoản & Nguồn post</div>';
-  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">';
-  // TKQC select
-  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Tài khoản quảng cáo *</label>';
-  h+='<select class="fi" onchange="onSetAdsAccChange(this.value)">';
-  h+='<option value="">— Chọn TKQC —</option>';
-  validAccs.forEach(function(a){
-    h+='<option value="'+esc(a.id)+'"'+(setAdsState.acc_id===a.id?' selected':'')+'>'+esc(a.account_name||a.fb_account_id)+'</option>';
-  });
-  h+='</select></div>';
-  // Page select
-  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Page chạy ads *</label>';
-  if(setAdsPages===null){
-    h+='<button type="button" class="btn" style="width:100%;" onclick="setAdsLoadPages()">Tải danh sách Page</button>';
-  }else if(!setAdsPages.length){
-    h+='<select class="fi" disabled><option>Đang tải...</option></select>';
   }else{
-    h+='<select class="fi" onchange="setAdsField(\'page_id\',this.value)">';
-    h+='<option value="">— Chọn Page —</option>';
-    setAdsPages.forEach(function(p){
-      h+='<option value="'+esc(p.id)+'"'+(setAdsState.page_id===p.id?' selected':'')+'>'+esc(p.name)+'</option>';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">';
+    h+='<div><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">1. Tài khoản quảng cáo *</label>';
+    h+='<select class="fi" onchange="simpleSetAdsField(\'acc_id\',this.value)">';
+    h+='<option value="">— Chọn TKQC —</option>';
+    adList.filter(function(a){return a.fb_account_id;}).forEach(function(a){
+      h+='<option value="'+esc(a.id)+'"'+(simpleSetAdsState.acc_id===a.id?' selected':'')+'>'+esc(a.account_name||a.fb_account_id)+'</option>';
+    });
+    h+='</select></div>';
+    h+='<div><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">2. Công thức *</label>';
+    h+='<select class="fi" onchange="simpleSetAdsField(\'preset_name\',this.value)">';
+    h+='<option value="">— Chọn công thức —</option>';
+    autoAdsPresets.forEach(function(p){
+      h+='<option value="'+esc(p.name)+'"'+(simpleSetAdsState.preset_name===p.name?' selected':'')+'>'+esc(p.name)+'</option>';
     });
     h+='</select>';
+    if(!autoAdsPresets.length)h+='<div style="font-size:11px;color:var(--amber-tx);margin-top:4px;">Chưa có preset — bấm "+ Tạo công thức" ở trên</div>';
+    h+='</div></div>';
+    h+='<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">3. Post ID hoặc URL *</label>';
+    h+='<input id="simple-post" type="text" class="fi" value="'+esc(simpleSetAdsState.post_input)+'" placeholder="VD: 123456789 hoặc https://facebook.com/.../posts/..." oninput="simpleSetAdsState.post_input=this.value;">';
+    h+='<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Chấp nhận ID số, link /posts/, hoặc URL pfbid (auto resolve).</div></div>';
+    h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">4. Ngân sách/ngày (VNĐ) *</label>';
+    h+='<input id="simple-budget" type="number" class="fi" min="50000" step="10000" value="'+esc(simpleSetAdsState.budget)+'" placeholder="200000" oninput="simpleSetAdsState.budget=this.value;">';
+    h+='<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tự fill khi chọn preset (nếu preset có ngân sách mặc định).</div></div>';
+    h+='<button class="btn btn-primary" onclick="submitSimpleSetAds()" style="width:100%;padding:12px;font-size:14px;font-weight:600;"'+(simpleSetAdsState.busy?' disabled':'')+'>'+(simpleSetAdsState.busy?'⏳ Đang tạo...':'▶ Tạo & Chạy chiến dịch (ACTIVE)')+'</button>';
+    h+='<div style="font-size:11px;color:var(--tx3);margin-top:6px;text-align:center;">Chiến dịch chạy ngay khi tạo. Log đẩy về tab "📊 Lịch sử".</div>';
   }
-  h+='</div></div>';
-  // Post input
-  h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Post ID hoặc URL post *</label>';
-  h+='<input id="sa-post" type="text" class="fi" value="'+esc(setAdsState.post_input)+'" placeholder="VD: 123456789 hoặc https://facebook.com/.../posts/123456" oninput="setAdsState.post_input=this.value;">';
-  h+='<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Chấp nhận: số ID, link /posts/, link ?story_fbid=, hoặc format page_post</div></div>';
-  // Client link (optional)
-  h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Khách hàng (tuỳ chọn — để link báo cáo)</label>';
-  h+='<select class="fi" onchange="setAdsField(\'client_id\',this.value)">';
-  h+='<option value="">— Không gán —</option>';
-  clientList.filter(function(c){return c.status!=='prospect';}).forEach(function(c){
-    h+='<option value="'+esc(c.id)+'"'+(setAdsState.client_id===c.id?' selected':'')+'>'+esc(c.name)+'</option>';
-  });
-  h+='</select></div>';
-  // Section 2: Campaign settings
-  h+='<div style="font-size:13px;font-weight:600;color:var(--tx2);margin:18px 0 10px;text-transform:uppercase;letter-spacing:.5px;">2. Chiến dịch</div>';
-  h+='<div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:14px;">';
-  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Tên chiến dịch *</label>';
-  h+='<input id="sa-name" type="text" class="fi" value="'+esc(setAdsState.campaign_name)+'" placeholder="VD: Khách ABC | Mess | '+vnDateStr(0)+'" oninput="setAdsState.campaign_name=this.value;"></div>';
-  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Ngân sách/ngày (VNĐ) *</label>';
-  h+='<input id="sa-bud" type="number" class="fi" min="50000" step="10000" value="'+esc(setAdsState.daily_budget)+'" oninput="setAdsState.daily_budget=this.value;"></div>';
-  h+='</div>';
-  h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Đích đến tin nhắn</label>';
-  h+='<div style="display:flex;gap:8px;">';
-  ['MESSENGER','WHATSAPP','INSTAGRAM_DIRECT'].forEach(function(d){
-    var lbl=d==='MESSENGER'?'Messenger':(d==='WHATSAPP'?'WhatsApp':'Instagram DM');
-    var sel=setAdsState.destination===d;
-    h+='<button type="button" class="btn'+(sel?' btn-primary':'')+'" onclick="setAdsField(\'destination\',\''+d+'\')" style="flex:1;">'+lbl+'</button>';
-  });
-  h+='</div></div>';
-  // Section 3: Targeting
-  h+='<div style="font-size:13px;font-weight:600;color:var(--tx2);margin:18px 0 10px;text-transform:uppercase;letter-spacing:.5px;">3. Đối tượng (Targeting)</div>';
-  // Age + Gender
-  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;">';
-  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Tuổi tối thiểu</label>';
-  h+='<input type="number" class="fi" min="13" max="65" value="'+setAdsState.age_min+'" onchange="setAdsField(\'age_min\',parseInt(this.value)||18)"></div>';
-  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Tuổi tối đa</label>';
-  h+='<input type="number" class="fi" min="13" max="65" value="'+setAdsState.age_max+'" onchange="setAdsField(\'age_max\',parseInt(this.value)||65)"></div>';
-  h+='<div><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Giới tính</label>';
-  h+='<select class="fi" onchange="setAdsField(\'gender\',this.value)">';
-  ['all','male','female'].forEach(function(g){
-    var lbl=g==='all'?'Tất cả':(g==='male'?'Nam':'Nữ');
-    h+='<option value="'+g+'"'+(setAdsState.gender===g?' selected':'')+'>'+lbl+'</option>';
-  });
-  h+='</select></div></div>';
-  // Locations
-  h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Vị trí (đã chọn '+setAdsState.locations.length+')</label>';
-  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">';
-  setAdsState.locations.forEach(function(l){
-    h+='<span class="chip" style="background:var(--blue-bg);color:var(--blue);padding:4px 10px;border-radius:14px;font-size:12px;display:inline-flex;align-items:center;gap:6px;">'+esc(l.name)+' <button type="button" onclick="setAdsRemoveLoc(\''+esc(l.key)+'\')" style="background:none;border:0;color:inherit;cursor:pointer;font-size:14px;line-height:1;">×</button></span>';
-  });
-  if(!setAdsState.locations.length)h+='<span style="font-size:12px;color:var(--tx3);">Chưa chọn — mặc định toàn quốc VN</span>';
-  h+='</div>';
-  h+='<div style="display:flex;gap:6px;">';
-  h+='<input id="sa-loc-q" type="text" class="fi" placeholder="Tìm tỉnh/thành (vd Hà Nội, TP.HCM)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();setAdsSearchLocation();}" style="flex:1;">';
-  h+='<button type="button" class="btn" onclick="setAdsSearchLocation()">Tìm</button>';
-  h+='</div>';
-  if(setAdsSearchResults.location){
-    h+='<div style="margin-top:6px;border:1px solid var(--bd);border-radius:6px;max-height:160px;overflow:auto;background:#fff;">';
-    if(!setAdsSearchResults.location.length)h+='<div style="padding:8px;font-size:12px;color:var(--tx3);">Không có kết quả</div>';
-    setAdsSearchResults.location.forEach(function(r){
-      var label=r.name+(r.region?' · '+r.region:'')+(r.type?' ['+r.type+']':'');
-      h+='<div style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--bg-soft);" onclick="setAdsAddLoc(\''+esc(r.key)+'\',\''+esc(r.name)+'\',\''+esc(r.type)+'\')">'+esc(label)+'</div>';
-    });
-    h+='</div>';
-  }
-  h+='</div>';
-  // Interests
-  h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Sở thích (đã chọn '+setAdsState.interests.length+')</label>';
-  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">';
-  setAdsState.interests.forEach(function(it){
-    h+='<span class="chip" style="background:var(--purple-bg);color:var(--purple);padding:4px 10px;border-radius:14px;font-size:12px;display:inline-flex;align-items:center;gap:6px;">'+esc(it.name)+' <button type="button" onclick="setAdsRemoveInt(\''+esc(it.id)+'\')" style="background:none;border:0;color:inherit;cursor:pointer;font-size:14px;line-height:1;">×</button></span>';
-  });
-  if(!setAdsState.interests.length)h+='<span style="font-size:12px;color:var(--tx3);">Chưa chọn</span>';
-  h+='</div>';
-  h+='<div style="display:flex;gap:6px;">';
-  h+='<input id="sa-int-q" type="text" class="fi" placeholder="Tìm sở thích (vd kinh doanh online, mỹ phẩm)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();setAdsSearchInterest();}" style="flex:1;">';
-  h+='<button type="button" class="btn" onclick="setAdsSearchInterest()">Tìm</button>';
-  h+='</div>';
-  if(setAdsSearchResults.interest){
-    h+='<div style="margin-top:6px;border:1px solid var(--bd);border-radius:6px;max-height:200px;overflow:auto;background:#fff;">';
-    if(!setAdsSearchResults.interest.length)h+='<div style="padding:8px;font-size:12px;color:var(--tx3);">Không có kết quả</div>';
-    setAdsSearchResults.interest.forEach(function(r){
-      var aud=r.audience_size_lower_bound?' (~'+fm(r.audience_size_lower_bound)+'-'+fm(r.audience_size_upper_bound||0)+')':'';
-      h+='<div style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--bg-soft);" onclick="setAdsAddInt(\''+esc(r.id)+'\',\''+esc((r.name||'').replace(/\x27/g,'\\\x27'))+'\')">'+esc(r.name)+'<span style="color:var(--tx3);">'+esc(aud)+'</span></div>';
-    });
-    h+='</div>';
-  }
-  h+='</div>';
-  // Saved + Custom audiences (depend on TKQC)
-  if(setAdsState.acc_id){
-    if(!auds||auds.loading){
-      h+='<div style="margin-bottom:14px;font-size:12px;color:var(--tx3);">Đang tải Saved/Custom Audience...</div>';
-    }else{
-      // Saved
-      if(auds.saved&&auds.saved.length){
-        h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Saved Audience (chọn tối đa 1 — Meta giới hạn) <span style="color:var(--tx3);font-weight:400;">'+(setAdsState.saved_audiences.length?'· đã chọn: '+esc(setAdsState.saved_audiences[0].name):'')+'</span></label>';
-        h+='<div style="display:flex;flex-wrap:wrap;gap:6px;max-height:120px;overflow:auto;border:1px solid var(--bd);border-radius:6px;padding:8px;">';
-        auds.saved.forEach(function(s){
-          var sel=setAdsState.saved_audiences.find(function(x){return x.id===s.id;});
-          h+='<button type="button" class="btn'+(sel?' btn-primary':'')+'" style="font-size:12px;padding:4px 10px;" onclick="setAdsToggleSaved(\''+esc(s.id)+'\',\''+esc((s.name||'').replace(/\x27/g,'\\\x27'))+'\')">'+esc(s.name)+'</button>';
-        });
-        h+='</div></div>';
-      }
-      // Custom + Lookalike
-      if(auds.custom&&auds.custom.length){
-        h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;color:var(--tx2);font-weight:500;margin-bottom:4px;">Custom / Lookalike Audience (đã chọn '+setAdsState.custom_audiences.length+'/'+auds.custom.length+')</label>';
-        h+='<div style="display:flex;flex-wrap:wrap;gap:6px;max-height:120px;overflow:auto;border:1px solid var(--bd);border-radius:6px;padding:8px;">';
-        auds.custom.forEach(function(c){
-          var sel=setAdsState.custom_audiences.find(function(x){return x.id===c.id;});
-          var prefix=c.subtype==='LOOKALIKE'?'⟲ ':'';
-          h+='<button type="button" class="btn'+(sel?' btn-primary':'')+'" style="font-size:12px;padding:4px 10px;" onclick="setAdsToggleCustom(\''+esc(c.id)+'\',\''+esc((c.name||'').replace(/\x27/g,'\\\x27'))+'\')">'+prefix+esc(c.name)+'</button>';
-        });
-        h+='</div></div>';
-      }
-    }
-  }
-  // Submit
-  h+='<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--bd);">';
-  if(setAdsBusy){
-    h+='<button class="btn btn-primary" disabled style="width:100%;padding:12px;">Đang tạo... ('+(setAdsLog.length||0)+'/4)</button>';
-    if(setAdsLog.length)h+='<pre style="font-size:11px;color:var(--tx3);margin-top:8px;max-height:120px;overflow:auto;">'+esc(setAdsLog.join('\n'))+'</pre>';
-  }else{
-    h+='<button class="btn btn-primary" onclick="submitSetAds()" style="width:100%;padding:12px;font-size:14px;">▶ Tạo & Chạy chiến dịch (ACTIVE)</button>';
-    h+='<div style="font-size:11px;color:var(--tx3);margin-top:6px;text-align:center;">Chiến dịch sẽ chạy ngay khi tạo. Đảm bảo TKQC có số dư đủ.</div>';
-  }
-  h+='</div>';
   h+='</div>';
   return h;
 }
+
+// ═══ STATE + HANDLERS cho Form set ads đơn giản (Sprint 13) ═══
+var simpleSetAdsState={acc_id:'',preset_name:'',post_input:'',budget:'',busy:false,result:null};
+function simpleSetAdsField(field,value){
+  simpleSetAdsState[field]=value;
+  if(field==='preset_name'&&value){
+    var p=autoAdsPresets.find(function(x){return x.name===value;});
+    if(p&&p.default_budget&&!simpleSetAdsState.budget){
+      simpleSetAdsState.budget=String(p.default_budget);
+    }
+  }
+  render();
+}
+function simpleSetAdsClear(){
+  simpleSetAdsState.result=null;
+  simpleSetAdsState.post_input='';
+  render();
+}
+async function submitSimpleSetAds(){
+  if(simpleSetAdsState.busy)return;
+  var st=simpleSetAdsState;
+  if(!st.acc_id){toast('Chọn TKQC',false);return;}
+  if(!st.preset_name){toast('Chọn công thức',false);return;}
+  if(!st.post_input||!st.post_input.trim()){toast('Nhập Post ID/URL',false);return;}
+  var budget=parseInt(st.budget||'0',10);
+  if(!budget||budget<50000){toast('Ngân sách ≥ 50.000đ',false);return;}
+  var acc=adList.find(function(a){return a.id===st.acc_id;});
+  if(!acc||!acc.fb_account_id){toast('TKQC chưa ghép Meta',false);return;}
+  simpleSetAdsState.busy=true;simpleSetAdsState.result=null;render();
+  try{
+    var s=await sb2.auth.getSession();
+    var token=s&&s.data&&s.data.session&&s.data.session.access_token;
+    if(!token){toast('Chưa đăng nhập',false);simpleSetAdsState.busy=false;render();return;}
+    var resp=await fetch('/api/auto-ads-create',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+      body:JSON.stringify({acc_id:acc.fb_account_id,preset_name:st.preset_name,post_input:st.post_input.trim(),budget:budget})
+    });
+    var data=await resp.json();
+    simpleSetAdsState.result=data;
+    if(data.ok){
+      toast('✅ Campaign '+data.campaign_id+' đang ACTIVE',true);
+      loadAutoAdsLog();
+    }else{
+      toast('❌ '+(data.error||'Lỗi'),false);
+    }
+  }catch(e){
+    simpleSetAdsState.result={ok:false,error:'Lỗi mạng: '+e.message};
+    toast('Lỗi mạng',false);
+  }finally{
+    simpleSetAdsState.busy=false;
+    render();
+  }
+}
+
 async function submitSetAds(){
   if(setAdsBusy)return;
   // Validate
