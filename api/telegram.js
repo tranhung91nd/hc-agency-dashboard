@@ -33,16 +33,29 @@ function shortMoney(n) {
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 // ═══ TELEGRAM API ═══
+function normalizeTelegramHtml(text) {
+  let out = String(text || '').trim();
+  if (!out) return out;
+  out = out.replace(/\*\*([^*\n]+?)\*\*/g, '<b>$1</b>');
+  out = out.replace(/__([^_\n]+?)__/g, '<b>$1</b>');
+  out = out.replace(/`([^`\n]+?)`/g, '<code>$1</code>');
+  out = out.replace(/^\s*[-*]\s+/gm, '• ');
+  out = out.replace(/[ \t]+\n/g, '\n');
+  out = out.replace(/\n{3,}/g, '\n\n');
+  return out;
+}
+
 async function sendMessage(chatId, text, opts) {
   opts = opts || {};
   const body = {
     chat_id: chatId,
-    text: text,
+    text: normalizeTelegramHtml(text),
     parse_mode: 'HTML',
     disable_web_page_preview: true
   };
   if (opts.reply_to_message_id) body.reply_to_message_id = opts.reply_to_message_id;
-  const resp = await fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage', {
+  const url = 'https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage';
+  const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
@@ -50,6 +63,15 @@ async function sendMessage(chatId, text, opts) {
   if (!resp.ok) {
     const errText = await resp.text();
     console.error('[Telegram sendMessage]', resp.status, errText);
+    if (/can't parse entities|parse/i.test(errText)) {
+      const fallback = Object.assign({}, body);
+      delete fallback.parse_mode;
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fallback)
+      });
+    }
   }
 }
 
@@ -163,6 +185,35 @@ function helpText() {
     '/clear — Xóa lịch sử AI nhớ',
     '',
     '<i>Budget: 200K · 1tr · 200.000 · 1tr5</i>'
+  ].join('\n');
+}
+
+function capabilitiesText() {
+  return [
+    '<b>🤖 Trợ lý HC Quảng cáo</b>',
+    '<i>Bạn cứ hỏi tự nhiên, bot sẽ tự tìm TKQC/campaign và gọi Meta API khi cần.</i>',
+    '',
+    '<b>💳 TKQC & Campaign</b>',
+    '• Tìm ID tài khoản theo tên',
+    '• Xem campaign đang chạy/tạm dừng',
+    '• Kiểm tra spend, mess, giá/mess theo campaign',
+    '',
+    '<b>⚙️ Thao tác Ads</b>',
+    '• Tắt/bật campaign, adset, ads',
+    '• Tăng/giảm/đặt ngân sách',
+    '• Clone campaign hoặc set ads từ công thức',
+    '',
+    '<b>📊 Báo cáo</b>',
+    '• Chi tiêu hôm nay',
+    '• TKQC sắp hết tiền',
+    '• Khách chưa thanh toán',
+    '',
+    '<b>Ví dụ hỏi nhanh</b>',
+    '• <code>ID tài khoản Livefit 03 VAT</code>',
+    '• <code>Livefit 03 VAT có những campaign nào?</code>',
+    '• <code>Campaign nào đang chi tiêu, giá mess bao nhiêu?</code>',
+    '• <code>Tắt campaign 120249724924720404</code>',
+    '• <code>Tăng ngân sách campaign này thêm 100K</code>'
   ].join('\n');
 }
 
@@ -850,7 +901,9 @@ async function askAIAgent(question, chatId) {
     '3. Khi user yêu cầu HÀNH ĐỘNG (tắt/bật/sửa), confirm ID đúng rồi mới gọi action tool.',
     '4. KHÔNG output thông tin nhạy cảm (access_token, full ad_account_id nếu user không hỏi).',
     '5. Nếu câu hỏi có phần "Ngữ cảnh tin nhắn được reply", ưu tiên ngữ cảnh đó hơn lịch sử conversation cũ.',
-    '6. Hôm nay là ' + vnDateStr(0) + ', tháng ' + vnDateStr(0).substring(0,7) + '.'
+    '6. Định dạng cho Telegram parse_mode HTML: dùng <b>...</b>, <code>...</code>, bullet "•". KHÔNG dùng Markdown như **bold**, ###, hoặc bảng.',
+    '7. Khi trả lời danh sách, chia nhóm ngắn, mỗi dòng 1 ý, tránh đoạn văn dài.',
+    '8. Hôm nay là ' + vnDateStr(0) + ', tháng ' + vnDateStr(0).substring(0,7) + '.'
   ].join('\n');
   let messages = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: question }];
   const allTools = [...AI_TOOLS, ...AI_QUERY_TOOLS];
@@ -992,7 +1045,14 @@ async function askAI(question) {
     ].join('\n');
   }
   const context = await buildContextSummary();
-  const systemPrompt = 'Bạn là trợ lý của HC Agency (agency Facebook Ads VN). Trả lời ngắn gọn, dùng tiếng Việt, bullet/số liệu cụ thể. Dữ liệu dashboard hiện tại:\n\n' + context;
+  const systemPrompt = [
+    'Bạn là trợ lý của HC Agency (agency Facebook Ads VN).',
+    'Trả lời ngắn gọn, dùng tiếng Việt, bullet/số liệu cụ thể.',
+    'Định dạng cho Telegram parse_mode HTML: dùng <b>...</b>, <code>...</code>, bullet "•". KHÔNG dùng Markdown như **bold**, ###, hoặc bảng.',
+    'Dữ liệu dashboard hiện tại:',
+    '',
+    context
+  ].join('\n');
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -2310,7 +2370,8 @@ async function route(text, chatId, ctx) {
   const cmd = rawText.split(/\s+/)[0].toLowerCase();
   if (cmd === '/myid' || cmd === '/me' || cmd === '/chatid') return '🆔 Chat ID của bạn: <code>' + chatId + '</code>\n\n<i>Copy số trên paste vào Vercel env <b>TELEGRAM_ALLOWED_CHAT_IDS</b> để giới hạn ai dùng được bot.</i>';
   if (cmd === '/clear' || cmd === '/reset' || cmd === '/quenhet' || /^(quên\s*hết|xóa\s*lịch\s*sử)/i.test(tLower)) { await clearConversation(chatId); return '🧹 Đã xóa lịch sử conversation. AI sẽ không nhớ context cũ.'; }
-  if (cmd === '/start' || cmd === '/help') return helpText();
+  if (cmd === '/start' || cmd === '/help') return capabilitiesText();
+  if (/(bot|bạn|ban|trợ\s*lý|tro\s*ly|mày|may|em|mình|minh).*(làm|lam|giúp|giup|hỗ\s*trợ|ho\s*tro).*(gì|gi|được|duoc|nào|nao)/i.test(tLower) || /(có\s*thể|co\s*the).*(làm|lam).*(gì|gi)/i.test(tLower)) return capabilitiesText();
   if (cmd === '/chitieu' || cmd === '/spend') return await spendToday();
   if (cmd === '/canhbao' || cmd === '/alert') return await balanceAlerts();
   if (cmd === '/canthu' || cmd === '/unpaid') return await unpaidClients();
