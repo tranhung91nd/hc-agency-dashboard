@@ -5116,33 +5116,94 @@ function openSavePresetModal(presetName){
   adList.filter(function(a){return a.fb_account_id;}).sort(function(a,b){return(a.account_name||'').localeCompare(b.account_name||'');}).forEach(function(a){
     accOptions+='<option value="'+esc(a.id)+'">'+esc(a.account_name||a.fb_account_id)+'</option>';
   });
+  // Build edit-mode targeting summary (readonly) + form fields
+  var editFieldsHtml='';
+  if(existing){
+    var tg=existing.targeting||{};
+    var dest=existing.destination_type||'MESSENGER';
+    var ageMin=tg.age_min||18,ageMax=tg.age_max||65;
+    var genders=tg.genders||[];
+    var genderSel=(!genders.length)?'all':(genders.indexOf(1)>=0&&genders.indexOf(2)>=0?'both':(genders.indexOf(1)>=0?'male':'female'));
+    // Build readonly summary cho location + interest + custom audience
+    var roLines=[];
+    var geo=tg.geo_locations||{};
+    if(geo.countries&&geo.countries.length)roLines.push('🌐 Quốc gia: '+geo.countries.join(', '));
+    if(geo.regions&&geo.regions.length)roLines.push('📍 Vùng ('+geo.regions.length+'): '+geo.regions.slice(0,5).map(function(r){return esc(r.name||r.key);}).join(', ')+(geo.regions.length>5?'…':''));
+    if(geo.cities&&geo.cities.length)roLines.push('🏙 TP ('+geo.cities.length+'): '+geo.cities.slice(0,5).map(function(c){return esc(c.name||c.key);}).join(', ')+(geo.cities.length>5?'…':''));
+    if(geo.location_types&&geo.location_types.length)roLines.push('📌 Loại vị trí: '+geo.location_types.join(', '));
+    var totalInt=0,intNames=[];
+    if(tg.flexible_spec)tg.flexible_spec.forEach(function(s){if(s.interests){totalInt+=s.interests.length;s.interests.forEach(function(it){if(intNames.length<8)intNames.push(it.name);});}});
+    if(totalInt)roLines.push('🎯 Sở thích ('+totalInt+'): '+intNames.map(esc).join(', ')+(totalInt>intNames.length?'…':''));
+    if(tg.custom_audiences&&tg.custom_audiences.length)roLines.push('👥 Custom audience: '+tg.custom_audiences.length+' nhóm');
+    if(tg.excluded_custom_audiences&&tg.excluded_custom_audiences.length)roLines.push('🚫 Loại trừ: '+tg.excluded_custom_audiences.length+' nhóm');
+    var advantage=tg.targeting_automation&&tg.targeting_automation.advantage_audience;
+    if(advantage)roLines.push('✨ Advantage+ Audience: BẬT');
+    // EDIT FORM
+    editFieldsHtml=
+      // Section 1: Sửa được
+      '<div style="background:var(--bg1);border:1px solid var(--bd1);border-radius:10px;padding:14px;margin-bottom:14px;">'
+      +'<div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--blue-tx);">✏ Sửa được</div>'
+      // Destination
+      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Đích đến tin nhắn</label>'
+      +'<select id="pm-dest" class="fi">'
+      +['MESSENGER','WHATSAPP','INSTAGRAM_DIRECT','ON_AD'].map(function(d){
+        var lbl=d==='MESSENGER'?'💬 Messenger':(d==='WHATSAPP'?'📱 WhatsApp':(d==='INSTAGRAM_DIRECT'?'📷 Instagram DM':'📋 Instant Form (ON_AD)'));
+        return '<option value="'+d+'"'+(dest===d?' selected':'')+'>'+lbl+'</option>';
+      }).join('')
+      +'</select></div>'
+      // Age min/max
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">'
+      +'<div><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Tuổi min</label>'
+      +'<input id="pm-age-min" type="number" class="fi" min="13" max="65" value="'+ageMin+'"></div>'
+      +'<div><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Tuổi max</label>'
+      +'<input id="pm-age-max" type="number" class="fi" min="13" max="65" value="'+ageMax+'"></div>'
+      // Gender
+      +'<div><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Giới tính</label>'
+      +'<select id="pm-gender" class="fi">'
+      +[['all','Tất cả'],['male','Nam'],['female','Nữ'],['both','Nam + Nữ (riêng)']].map(function(g){return '<option value="'+g[0]+'"'+(genderSel===g[0]?' selected':'')+'>'+g[1]+'</option>';}).join('')
+      +'</select></div>'
+      +'</div>'
+      // Budget
+      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ngân sách mặc định (VNĐ/ngày) <span style="font-weight:400;color:var(--tx3);">— tùy chọn</span></label>'
+      +'<input id="pm-budget" type="number" class="fi" min="0" step="10000" placeholder="Để trống = phải chỉ định khi sét" value="'+(existing.default_budget||'')+'"></div>'
+      // Note
+      +'<div><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ghi chú</label>'
+      +'<textarea id="pm-note" class="fi" rows="2" placeholder="VD: Mẹ bỉm sữa HCM">'+esc(existing.note||'')+'</textarea></div>'
+      +'</div>'
+      // Section 2: Read-only (đọc-only — phức tạp, edit qua tạo preset mới)
+      +'<div style="background:var(--bg2);border:1px solid var(--bd1);border-radius:10px;padding:14px;">'
+      +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--tx2);">📋 Cấu hình clone (read-only)</div>'
+      +'<div style="font-size:12px;color:var(--tx2);line-height:1.8;">'
+      +'<div>📄 <b>Page:</b> '+esc(existing.source_page_name||existing.page_id)+'</div>'
+      +'<div>💳 <b>TKQC mặc định:</b> '+(existing.ad_account_id?esc(existing.source_account_name||existing.ad_account_id):'<i>Template thuần — không gắn TKQC</i>')+'</div>'
+      +(roLines.length?roLines.map(function(l){return '<div>'+l+'</div>';}).join(''):'<div style="color:var(--tx3);font-style:italic;">Không có thông tin targeting (broad).</div>')
+      +'<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--bd1);color:var(--tx3);font-size:11px;">Source campaign: <code>'+esc(existing.source_campaign_id||'—')+'</code></div>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--tx3);margin-top:8px;padding-top:8px;border-top:1px solid var(--bd1);">💡 Muốn đổi vị trí/sở thích/custom audience → xóa preset này và tạo lại từ campaign mẫu mới (clone target khác).</div>'
+      +'</div>';
+  }
   modal.innerHTML=
-    '<div class="hc-modal" role="dialog" aria-modal="true" style="max-width:560px;">'
+    '<div class="hc-modal" role="dialog" aria-modal="true" style="max-width:640px;">'
     +'<div class="hc-modal-head"><h3>'+(existing?'Sửa công thức '+esc(existing.name):'Tạo công thức mới')+'</h3><button class="hc-modal-close" onclick="closePresetModal()" aria-label="Đóng">×</button></div>'
     +'<div class="hc-modal-body">'
-    +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Tên công thức *</label>'
+    +'<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Tên công thức *</label>'
     +'<input id="pm-name" type="text" class="fi" placeholder="VD: A1, B2, Mom_Mess_HCM" value="'+esc(existing?existing.name:'')+'"'+(existing?' disabled':'')+'>'
     +(existing?'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tên không sửa được — xóa rồi tạo lại nếu cần đổi.</div>':'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Đặt ngắn, dùng làm khoá khi gõ lệnh Telegram.</div>')
     +'</div>'
-    +(existing?'':
+    +(existing?editFieldsHtml:
       '<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">1. Tài khoản quảng cáo *</label>'
       +'<select id="pm-acc-sel" class="fi" onchange="_onPresetAccChange(this.value)">'+accOptions+'</select></div>'
       +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">2. Chiến dịch để clone target *</label>'
       +'<select id="pm-camp-sel" class="fi" disabled onchange="_onPresetCampChange(this.value)"><option value="">— Chọn TKQC trước —</option></select>'
       +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Bot copy Page + Target + Đích từ adset đầu tiên của campaign này.</div></div>'
       +'<div id="pm-preview" style="margin-bottom:12px;display:none;"></div>'
+      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ngân sách mặc định (VNĐ/ngày) <span style="font-weight:400;color:var(--tx3);">— tùy chọn</span></label>'
+      +'<input id="pm-budget" type="number" class="fi" min="0" step="10000" placeholder="Để trống = phải chỉ định khi sét ads" value="">'
+      +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Có thể bỏ trống → lúc gõ lệnh phải thêm <code>Ngân sách: 200K</code>. Để tự fill khi chọn campaign.</div></div>'
+      +'<div style="margin-bottom:12px;background:var(--bg2);padding:10px;border-radius:8px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--tx2);cursor:pointer;"><input id="pm-save-tkqc" type="checkbox" checked style="width:14px;height:14px;cursor:pointer;"><span>Gắn TKQC đã chọn làm mặc định cho preset</span></label><div style="font-size:11px;color:var(--tx3);margin-top:6px;padding-left:22px;">Bỏ check → preset thành template thuần (target + page), khi gõ lệnh phải có <code>TKQC: &lt;id&gt;</code>. Hữu ích nếu muốn 1 preset dùng cho nhiều TKQC.</div></div>'
+      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ghi chú (tuỳ chọn)</label>'
+      +'<textarea id="pm-note" class="fi" rows="2" placeholder="VD: Mẹ bỉm sữa HCM, post mess intent"></textarea></div>'
     )
-    +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ngân sách mặc định (VNĐ/ngày) <span style="font-weight:400;color:var(--tx3);">— tùy chọn</span></label>'
-    +'<input id="pm-budget" type="number" class="fi" min="0" step="10000" placeholder="Để trống = phải chỉ định khi sét ads" value="'+(existing?(existing.default_budget||''):'')+'">'
-    +'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Có thể bỏ trống → lúc gõ lệnh phải thêm <code>Ngân sách: 200K</code>. Để tự fill khi chọn campaign.</div></div>'
-    +(existing?'':'<div style="margin-bottom:12px;background:var(--bg2);padding:10px;border-radius:8px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--tx2);cursor:pointer;"><input id="pm-save-tkqc" type="checkbox" checked style="width:14px;height:14px;cursor:pointer;"><span>Gắn TKQC đã chọn làm mặc định cho preset</span></label><div style="font-size:11px;color:var(--tx3);margin-top:6px;padding-left:22px;">Bỏ check → preset thành template thuần (target + page), khi gõ lệnh phải có <code>TKQC: &lt;id&gt;</code>. Hữu ích nếu muốn 1 preset dùng cho nhiều TKQC.</div></div>')
-    +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ghi chú (tuỳ chọn)</label>'
-    +'<textarea id="pm-note" class="fi" rows="2" placeholder="VD: Mẹ bỉm sữa HCM, post mess intent">'+esc((existing&&existing.note)||'')+'</textarea></div>'
-    +(existing?'<div style="background:var(--bg2);padding:10px;border-radius:8px;font-size:12px;color:var(--tx3);"><strong style="color:var(--tx1);">Cấu hình hiện tại:</strong><br>'
-      +'Page: '+esc(existing.source_page_name||existing.page_id)+'<br>'
-      +'TKQC: '+esc(existing.source_account_name||existing.ad_account_id)+'<br>'
-      +'Đích: '+esc(existing.destination_type||'MESSENGER')+'<br>'
-      +'Source campaign: <code>'+esc(existing.source_campaign_id||'—')+'</code></div>':'')
     +'<div id="pm-error" style="display:none;color:var(--red);font-size:12px;margin-top:10px;padding:8px;background:var(--red-bg);border-radius:6px;"></div>'
     +'</div>'
     +'<div class="hc-modal-foot">'
@@ -5165,7 +5226,28 @@ async function submitPresetModal(isEdit){
   btn.disabled=true;btn.textContent='Đang xử lý...';
   try{
     if(isEdit){
-      var u=await sb2.from('auto_ads_preset').update({default_budget:budget,note:note}).eq('name',name);
+      // Get current preset để merge targeting
+      var curr=autoAdsPresets.find(function(p){return p.name===name;});
+      var newTargeting=Object.assign({},(curr&&curr.targeting)||{});
+      // Apply age/gender changes
+      var ageMinEl=document.getElementById('pm-age-min'),ageMaxEl=document.getElementById('pm-age-max'),genderEl=document.getElementById('pm-gender'),destEl=document.getElementById('pm-dest');
+      if(ageMinEl){
+        var ageMin=parseInt(ageMinEl.value,10)||18;
+        var ageMax=parseInt(ageMaxEl.value,10)||65;
+        if(ageMin<13)ageMin=13;if(ageMax>65)ageMax=65;if(ageMin>ageMax){var t=ageMin;ageMin=ageMax;ageMax=t;}
+        newTargeting.age_min=ageMin;
+        newTargeting.age_max=ageMax;
+      }
+      if(genderEl){
+        var gs=genderEl.value;
+        if(gs==='all')delete newTargeting.genders;
+        else if(gs==='male')newTargeting.genders=[1];
+        else if(gs==='female')newTargeting.genders=[2];
+        else if(gs==='both')newTargeting.genders=[1,2];
+      }
+      var updatePayload={default_budget:budget,note:note,targeting:newTargeting};
+      if(destEl)updatePayload.destination_type=destEl.value;
+      var u=await sb2.from('auto_ads_preset').update(updatePayload).eq('name',name);
       if(u.error)throw new Error(u.error.message);
       toast('Đã cập nhật công thức '+name,true);
     }else{
