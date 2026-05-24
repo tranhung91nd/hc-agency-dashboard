@@ -5520,9 +5520,21 @@ function p8(){
     // Đếm số post hợp lệ
     var postLines=(simpleSetAdsState.post_input||'').split('\n').map(function(s){return s.trim();}).filter(Boolean);
     var nPosts=postLines.length;
-    h+='<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">3. Post ID hoặc URL * <span style="font-weight:400;color:var(--tx3);">— mỗi dòng 1 post (có thể nhiều)</span></label>';
-    h+='<textarea id="simple-post" class="fi" rows="4" placeholder="https://facebook.com/.../posts/...&#10;https://facebook.com/.../posts/...&#10;123456789012345" oninput="simpleSetAdsState.post_input=this.value;render();" style="font-family:var(--mono,monospace);font-size:12px;resize:vertical;">'+esc(simpleSetAdsState.post_input)+'</textarea>';
-    h+='<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Số post: <b style="color:var(--blue);">'+nPosts+'</b> · Chấp nhận ID số, link /posts/, URL pfbid (mỗi dòng 1).</div></div>';
+    var totalLines=(simpleSetAdsState.post_input||'').split('\n').length;
+    h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;">3. Post ID hoặc URL * <span style="font-weight:400;color:var(--tx3);">— mỗi dòng 1 post</span></label>';
+    // Dual-pane: line numbers + textarea, sync scroll
+    h+='<div class="post-input-wrap" style="display:flex;border:1px solid var(--bd2);border-radius:8px;overflow:hidden;background:var(--bg1);transition:border-color .15s;">';
+    h+='<div id="simple-post-ln" style="flex-shrink:0;min-width:36px;padding:10px 6px 10px 10px;background:var(--bg2);border-right:1px solid var(--bd1);font-family:var(--mono,Menlo,monospace);font-size:12px;line-height:20px;color:var(--tx3);text-align:right;user-select:none;overflow:hidden;white-space:pre;">';
+    // Generate line number content
+    var lnHtml='';for(var ln=1;ln<=Math.max(totalLines,4);ln++)lnHtml+=ln+'\n';
+    h+=lnHtml;
+    h+='</div>';
+    h+='<textarea id="simple-post" rows="8" placeholder="https://facebook.com/.../posts/...&#10;https://facebook.com/.../posts/...&#10;123456789012345" oninput="simpleSetAdsState.post_input=this.value;syncPostLineNumbers();render();" onscroll="syncPostScroll();" onfocus="this.parentElement.style.borderColor=\'var(--blue)\';" onblur="this.parentElement.style.borderColor=\'\';" style="flex:1;border:none;background:repeating-linear-gradient(to bottom,transparent 0px,transparent 20px,rgba(0,0,0,.025) 20px,rgba(0,0,0,.025) 40px);padding:10px 12px;font-family:var(--mono,Menlo,monospace);font-size:13px;line-height:20px;resize:vertical;outline:none;min-height:160px;color:var(--tx1);">'+esc(simpleSetAdsState.post_input)+'</textarea>';
+    h+='</div>';
+    h+='<div style="font-size:11px;color:var(--tx3);margin-top:6px;display:flex;align-items:center;gap:12px;">';
+    h+='<span>Số post hợp lệ: <b style="color:'+(nPosts>0?'var(--blue)':'var(--tx3)')+';">'+nPosts+'</b></span>';
+    h+='<span>Chấp nhận: ID số · link <code>/posts/</code> · URL <code>pfbid</code></span>';
+    h+='</div></div>';
     h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">4. Ngân sách/ngày (VNĐ) *</label>';
     h+='<input id="simple-budget" type="number" class="fi" min="50000" step="10000" value="'+esc(simpleSetAdsState.budget)+'" placeholder="200000" oninput="simpleSetAdsState.budget=this.value;render();">';
     h+='<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tự fill khi chọn preset (nếu preset có ngân sách mặc định).</div></div>';
@@ -5575,6 +5587,20 @@ function simpleSetAdsClear(){
   simpleSetAdsState.result=null;
   simpleSetAdsState.post_input='';
   render();
+}
+function syncPostLineNumbers(){
+  var ta=document.getElementById('simple-post');
+  var ln=document.getElementById('simple-post-ln');
+  if(!ta||!ln)return;
+  var lines=ta.value.split('\n').length;
+  var html='';
+  for(var i=1;i<=Math.max(lines,4);i++)html+=i+'\n';
+  ln.textContent=html;
+}
+function syncPostScroll(){
+  var ta=document.getElementById('simple-post');
+  var ln=document.getElementById('simple-post-ln');
+  if(ta&&ln)ln.scrollTop=ta.scrollTop;
 }
 async function submitSimpleSetAds(){
   if(simpleSetAdsState.busy)return;
