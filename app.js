@@ -703,6 +703,8 @@ var errs=[];
  var ds2=new Set();dailyData.forEach(function(d){ds2.add(d.report_date);});
 dates=Array.from(ds2).sort();if(dates.length)cDay=dates.length-1;
 if(!finMonth)finMonth=lm();if(!adViewDate)adViewDate=td();if(!rptMonth)rptMonth=lm();if(!clientMonth)clientMonth=lm();if(!ovMonth)ovMonth=lm();
+// Apply URL route TRƯỚC render() đầu tiên — tránh nháy về Tổng quan rồi mới sang đúng trang
+if(authUser)applyRouteFromUrl();
 render();
 // ─── Wave 2: background, không await ───
 loadDeferred();
@@ -10757,7 +10759,7 @@ async function init(){try{
   if(isAdmin())await loadAllUserRoles();
   await loadAll();
   if(authUser&&userAllowedPages&&userAllowedPages.length){var fp=permKeyToPage(userAllowedPages[0]);if(!canAccessPage(curPage))curPage=fp;}
-  if(authUser)applyRouteFromUrl();
+  // applyRouteFromUrl đã được gọi bên trong loadAll() trước render() đầu — không cần gọi lại
   autoSync();
   render();
 }catch(e){document.getElementById('page').innerHTML='<div style="padding:40px;text-align:center;color:var(--tx2);"><div style="font-size:16px;font-weight:500;margin-bottom:8px;">Không thể kết nối</div><div style="font-size:13px;margin-bottom:16px;">'+esc(e.message)+'</div><button class="btn btn-primary" onclick="location.reload()">Thử lại</button></div>';}}
