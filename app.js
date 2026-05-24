@@ -4771,6 +4771,8 @@ async function loadAutoAdsLog(){
     autoAdsLog=r.data||[];
     autoAdsLogTotal=r.count||0;
     if(curPage===8&&autoAdsLogTab==='history')render();
+    // Refresh live status background (async, không block render)
+    if(autoAdsLog.length)refreshAutoAdsLiveStatus(false);
   }finally{autoAdsLogLoading=false;}
 }
 function setAutoAdsTab(tab){
@@ -4791,15 +4793,71 @@ function setAutoAdsLogPage(p){
   loadAutoAdsLog();
 }
 async function pauseCampaignFromLog(campId,btn){
-  if(!await hcConfirm({title:'Tắt campaign',message:'Tắt campaign '+campId+' trên Meta? Có thể bật lại trên Ads Manager.',confirmLabel:'Tắt',danger:true}))return;
+  if(!await hcConfirm({title:'Tắt campaign',message:'Tắt campaign '+campId+' trên Meta? Có thể bật lại sau.',confirmLabel:'Tắt',danger:true}))return;
   var old=btn?btn.textContent:'';
   if(btn){btn.disabled=true;btn.textContent='⏳';}
   try{
     var r=await metaPost(campId+'?status=PAUSED');
-    if(r.error){toast('Lỗi: '+r.error.message,false);}
-    else{toast('Đã tắt campaign',true);}
+    if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+    toast('Đã tắt campaign',true);
+    // Update local + DB cache live_status
+    autoAdsLog.forEach(function(row){if(row.campaign_id===campId){row.live_status='PAUSED';row.live_status_updated_at=new Date().toISOString();}});
+    sb2.from('auto_ads_log').update({live_status:'PAUSED',live_status_updated_at:new Date().toISOString()}).eq('campaign_id',campId).then(function(){});
+    render();
   }catch(e){toast('Lỗi mạng: '+e.message,false);}
   finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+async function activateCampaignFromLog(campId,btn){
+  if(!await hcConfirm({title:'Bật campaign',message:'Bật lại campaign '+campId+' trên Meta?',confirmLabel:'Bật'}))return;
+  var old=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='⏳';}
+  try{
+    var r=await metaPost(campId+'?status=ACTIVE');
+    if(r.error){toast('Lỗi: '+r.error.message,false);return;}
+    toast('Đã bật campaign',true);
+    autoAdsLog.forEach(function(row){if(row.campaign_id===campId){row.live_status='ACTIVE';row.live_status_updated_at=new Date().toISOString();}});
+    sb2.from('auto_ads_log').update({live_status:'ACTIVE',live_status_updated_at:new Date().toISOString()}).eq('campaign_id',campId).then(function(){});
+    render();
+  }catch(e){toast('Lỗi mạng: '+e.message,false);}
+  finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+// Batch GET live status từ Meta + cache DB. force=true để bỏ qua TTL 5 phút.
+async function refreshAutoAdsLiveStatus(force){
+  var stale=autoAdsLog.filter(function(r){
+    if(!r.campaign_id)return false;
+    if(force)return true;
+    if(!r.live_status_updated_at)return true;
+    return(new Date(r.live_status_updated_at)<new Date(Date.now()-5*60*1000));
+  });
+  if(!stale.length)return;
+  var campIds=Array.from(new Set(stale.map(function(r){return r.campaign_id;})));
+  // Batch (max 50/batch)
+  for(var b=0;b<campIds.length;b+=50){
+    var chunk=campIds.slice(b,b+50);
+    var batchReqs=chunk.map(function(id){return{method:'GET',relative_url:id+'?fields=id,status,effective_status,name'};});
+    try{
+      var results=await metaBatch(batchReqs);
+      if(!Array.isArray(results))continue;
+      var updates=[];
+      chunk.forEach(function(id,i){
+        var r=results[i];if(!r||r.code!==200)return;
+        try{
+          var body=JSON.parse(r.body||'{}');
+          var liveStatus=body.status||null;
+          if(!liveStatus)return;
+          autoAdsLog.forEach(function(row){if(row.campaign_id===id){row.live_status=liveStatus;row.live_status_updated_at=new Date().toISOString();}});
+          updates.push({id:id,status:liveStatus});
+        }catch(e){}
+      });
+      // Batch update DB (background)
+      if(updates.length){
+        Promise.all(updates.map(function(u){
+          return sb2.from('auto_ads_log').update({live_status:u.status,live_status_updated_at:new Date().toISOString()}).eq('campaign_id',u.id);
+        })).catch(function(e){console.warn('[live status DB update]',e);});
+      }
+    }catch(e){console.warn('[refreshLiveStatus]',e.message);}
+  }
+  if(curPage===8&&autoAdsLogTab==='history')render();
 }
 // Realtime: lắng nghe auto_ads_log để toast + refresh bảng khi bot tạo mới
 var _autoAdsLogRtChannel=null;
@@ -4828,7 +4886,8 @@ function p8History(){
   autoAdsPresets.forEach(function(p){h+='<option value="'+esc(p.name)+'"'+(autoAdsLogFilter.preset===p.name?' selected':'')+'>'+esc(p.name)+'</option>';});
   h+='</select>';
   h+='<select class="fi" style="width:140px;" onchange="setAutoAdsLogFilter(\'source\',this.value)"><option value="">Tất cả nguồn</option><option value="telegram"'+(autoAdsLogFilter.source==='telegram'?' selected':'')+'>📱 Telegram</option><option value="web"'+(autoAdsLogFilter.source==='web'?' selected':'')+'>🌐 Web</option></select>';
-  h+='<button class="btn btn-sm" onclick="loadAutoAdsLog()" title="Tải lại">🔄</button>';
+  h+='<button class="btn btn-sm" onclick="loadAutoAdsLog()" title="Tải lại danh sách">🔄</button>';
+  h+='<button class="btn btn-sm" onclick="refreshAutoAdsLiveStatus(true)" title="Sync live status từ Meta ngay">⚡ Sync Meta</button>';
   h+='<span style="font-size:12px;color:var(--tx3);margin-left:auto;">'+autoAdsLogTotal+' bản ghi</span>';
   h+='</div>';
   if(autoAdsLogLoading&&!autoAdsLog.length){
@@ -4855,7 +4914,17 @@ function p8History(){
   autoAdsLog.forEach(function(row){
     var dt=new Date(row.created_at);
     var dtStr=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0')+' '+String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0');
-    var statusBadge=row.status==='success'?'<span class="badge b-green">Thành công</span>':(row.status==='failed'?'<span class="badge b-red">Lỗi</span>':'<span class="badge b-amber">'+esc(row.status||'—')+'</span>');
+    // Status badge: ưu tiên live_status từ Meta, fallback bot status
+    var statusBadge;
+    if(row.live_status){
+      var liveMap={ACTIVE:{cls:'b-green',lbl:'🟢 Đang chạy'},PAUSED:{cls:'b-amber',lbl:'⏸ Tạm dừng'},ARCHIVED:{cls:'b-gray',lbl:'📦 Lưu trữ'},DELETED:{cls:'b-red',lbl:'🗑 Đã xóa'}};
+      var lm=liveMap[row.live_status]||{cls:'b-gray',lbl:row.live_status};
+      statusBadge='<span class="badge '+lm.cls+'" title="Live từ Meta">'+lm.lbl+'</span>';
+    }else if(row.status==='success'){
+      statusBadge='<span class="badge b-green">Thành công</span>';
+    }else if(row.status==='failed'){
+      statusBadge='<span class="badge b-red">Lỗi</span>';
+    }else statusBadge='<span class="badge b-amber">'+esc(row.status||'—')+'</span>';
     var postShort=row.post_id?(row.post_id.length>14?row.post_id.substring(0,14)+'…':row.post_id):'—';
     var postCell=row.post_id?'<a href="https://www.facebook.com/'+esc(row.post_id)+'" target="_blank" rel="noopener" style="font-family:monospace;font-size:11px;color:var(--blue-tx);" title="'+esc(row.post_id)+'">'+esc(postShort)+'</a>':'<span style="color:var(--tx3);">—</span>';
     var campShort=row.campaign_id?row.campaign_id.substring(0,10)+'…':'—';
@@ -4866,9 +4935,19 @@ function p8History(){
       var msg=row.error_message||'';var short=msg.length>50?msg.substring(0,50)+'…':msg;
       errCell='<span title="'+esc(msg)+'" style="color:var(--red-tx);font-size:11px;">'+esc(row.error_step||'err')+': '+esc(short)+'</span>';
     }
+    // Action button — theo live_status: ACTIVE → Tắt, PAUSED → Bật, ARCHIVED/DELETED → disabled
     var actionCell='';
     if(row.campaign_id&&row.status==='success'){
-      actionCell='<button class="btn btn-sm" style="padding:3px 9px;font-size:11px;" onclick="pauseCampaignFromLog(\''+esc(row.campaign_id)+'\',this)" title="Tắt campaign trên Meta">⏸ Tắt</button>';
+      if(row.live_status==='ACTIVE'){
+        actionCell='<button class="btn btn-sm" style="padding:3px 9px;font-size:11px;" onclick="pauseCampaignFromLog(\''+esc(row.campaign_id)+'\',this)" title="Tắt campaign trên Meta">⏸ Tắt</button>';
+      }else if(row.live_status==='PAUSED'){
+        actionCell='<button class="btn btn-sm" style="padding:3px 9px;font-size:11px;background:var(--green);color:#fff;border:none;" onclick="activateCampaignFromLog(\''+esc(row.campaign_id)+'\',this)" title="Bật campaign trên Meta">▶ Bật</button>';
+      }else if(row.live_status==='ARCHIVED'||row.live_status==='DELETED'){
+        actionCell='<span style="color:var(--tx3);font-size:11px;">—</span>';
+      }else{
+        // Chưa có live_status (đang load) → giữ nút Tắt mặc định
+        actionCell='<button class="btn btn-sm" style="padding:3px 9px;font-size:11px;" onclick="pauseCampaignFromLog(\''+esc(row.campaign_id)+'\',this)" title="Tắt campaign trên Meta">⏸ Tắt</button>';
+      }
     }else actionCell='<span style="color:var(--tx3);">—</span>';
     h+='<tr>';
     h+='<td style="font-size:12px;color:var(--tx2);white-space:nowrap;">'+dtStr+'</td>';
