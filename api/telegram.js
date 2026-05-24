@@ -840,80 +840,6 @@ async function handleSavePreset(text, chatId) {
   ].join('\n');
 }
 
-// ─── Parse lệnh tắt: "Tắt Ads\nCampaign: 123\nAd: 456" hoặc "/tatads 123 456" ───
-function parsePauseAdsCommand(text) {
-  const t = String(text || '').trim();
-  if (!/^tắt\s*ads/i.test(t) && !/^turn\s*off\s*ads/i.test(t) && !/^\/tatads\b/i.test(t)) return null;
-  const ids = { campaign_id: null, adset_id: null, ad_id: null };
-  // Format đa dòng "Campaign: 123\nAd: 456"
-  const campM = t.match(/campaign\s*[:=]\s*(\d+)/i);
-  if (campM) ids.campaign_id = campM[1];
-  const adsetM = t.match(/adset\s*[:=]\s*(\d+)/i);
-  if (adsetM) ids.adset_id = adsetM[1];
-  const adM = t.match(/(?:^|[^a-z_])ad\s*[:=]\s*(\d+)/i);
-  if (adM) ids.ad_id = adM[1];
-  // Format 1 dòng "/tatads <id1> <id2> ..."
-  if (!ids.campaign_id && !ids.adset_id && !ids.ad_id) {
-    const nums = t.match(/\d{8,}/g) || [];
-    if (nums.length) ids.campaign_id = nums[0]; // assume first ID is campaign
-    if (nums.length > 1) ids.ad_id = nums[1];
-  }
-  if (!ids.campaign_id && !ids.adset_id && !ids.ad_id) return null;
-  return ids;
-}
-
-async function handlePauseAds(text, chatId) {
-  const parsed = parsePauseAdsCommand(text);
-  if (!parsed) {
-    return [
-      '❌ Lệnh không hợp lệ. Format:',
-      '',
-      '<code>Tắt Ads',
-      'Campaign: 120249724924720404',
-      'Ad: 120249724925480404</code>',
-      '',
-      'Hoặc dùng /tatads &lt;campaign_id&gt; &lt;ad_id&gt;'
-    ].join('\n');
-  }
-  await sendMessage(chatId, '⏳ Đang tắt qua Meta API...');
-  const tasks = [];
-  if (parsed.campaign_id) tasks.push({ key: 'Campaign', id: parsed.campaign_id });
-  if (parsed.adset_id) tasks.push({ key: 'Adset', id: parsed.adset_id });
-  if (parsed.ad_id) tasks.push({ key: 'Ad', id: parsed.ad_id });
-
-  const results = [];
-  for (const t of tasks) {
-    try {
-      const r = await metaApi('POST', t.id, { status: 'PAUSED' });
-      if (r.error) {
-        results.push({ ...t, ok: false, error: formatMetaError(r.error) });
-      } else if (r.success === false) {
-        results.push({ ...t, ok: false, error: 'Meta không xác nhận thành công' });
-      } else {
-        results.push({ ...t, ok: true });
-      }
-    } catch (e) {
-      results.push({ ...t, ok: false, error: e.message || String(e) });
-    }
-  }
-
-  const ok = results.filter(r => r.ok);
-  const fail = results.filter(r => !r.ok);
-  const lines = [];
-  if (ok.length === tasks.length) {
-    lines.push('✅ <b>Đã tắt ' + ok.length + '/' + tasks.length + ' đối tượng</b>');
-  } else if (ok.length) {
-    lines.push('⚠️ Tắt ' + ok.length + '/' + tasks.length + ' đối tượng (có lỗi)');
-  } else {
-    lines.push('❌ <b>Tắt thất bại</b>');
-  }
-  lines.push('');
-  results.forEach(r => {
-    lines.push('• ' + r.key + ': <code>' + r.id + '</code> ' + (r.ok ? '✅ PAUSED' : '❌ ' + r.error));
-  });
-  return lines.join('\n');
-}
-
 // ─── Handle: /presets — list tất cả preset ───
 async function handleListPresets() {
   const list = await listPresets();
@@ -1136,7 +1062,6 @@ async function route(text, chatId) {
   if (cmd === '/canhbao' || cmd === '/alert') return await balanceAlerts();
   if (cmd === '/canthu' || cmd === '/unpaid') return await unpaidClients();
   if (cmd === '/setads' || /^sét\s*ads\s*[:.]?/i.test(tLower) || /^set\s*ads\s*[:.]?/i.test(tLower)) return await handleSetAds(text, chatId);
-  if (cmd === '/tatads' || cmd === '/pause' || /^tắt\s*ads/i.test(tLower) || /^turn\s*off\s*ads/i.test(tLower)) return await handlePauseAds(text, chatId);
   if (cmd === '/luupreset' || cmd === '/savepreset') return await handleSavePreset(text, chatId);
   if (cmd === '/presets' || cmd === '/listpresets' || cmd === '/congthuc') return await handleListPresets();
   if (cmd === '/tatads' || cmd === '/pauseads' || /^tắt\s*ads/i.test(tLower) || /^tat\s*ads/i.test(tLower)) return await handleToggleCampaign(text, 'PAUSED');
