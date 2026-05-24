@@ -324,6 +324,18 @@ function sselPick(sid,value){
   var pop=wrap.querySelector('.ssel-pop');if(pop)pop.setAttribute('hidden','');
   if(reg.onChange)try{reg.onChange(reg.value);}catch(e){console.warn('[ssel onChange]',e);}
 }
+// Set value của searchableSelect KHÔNG kích hoạt onChange — dùng cho prefill modal
+function sselSetValue(sid,value){
+  var reg=SSEL_REG[sid];if(!reg)return false;
+  reg.value=value==null?'':String(value);
+  var hidden=document.getElementById(sid);if(hidden)hidden.value=reg.value;
+  var sel=reg.options.find(function(x){return String(x.value)===reg.value;});
+  var dispText=sel?sel.label:'';
+  var wrap=document.querySelector('[data-ssel-id="'+sid+'"]');if(!wrap)return true;
+  var t=wrap.querySelector('.ssel-text');
+  if(t){t.textContent=dispText||reg.placeholder;t.classList.toggle('empty',!dispText);}
+  return true;
+}
 function sselSearchKey(e,sid){
   if(e.key==='Escape'){e.preventDefault();sselToggle(sid);}
   else if(e.key==='Enter'){
@@ -1653,9 +1665,7 @@ h+='</div></div>';
 // Form nhập phạt
 if(authUser&&isAdmin()){
 h+='<div class="form-card" style="padding:12px 14px;margin-bottom:10px;">';
-h+='<div class="form-row"><div class="form-group"><label>Nhân sự</label><select id="pn-staff">';
-staffList.forEach(function(s){h+='<option value="'+s.id+'">'+esc(s.short_name)+'</option>';});
-h+='</select></div>';
+h+='<div class="form-row"><div class="form-group"><label>Nhân sự</label>'+searchableSelect({id:'pn-staff',options:staffList.map(function(s){return{value:s.id,label:s.short_name};}),placeholder:'— Chọn nhân sự —'})+'</div>';
 h+='<div class="form-group"><label>Ngày</label><input type="date" id="pn-date" value="'+td()+'"></div>';
 h+='<div class="form-group"><label>Số tiền</label><input type="number" id="pn-amount" placeholder="30000"></div></div>';
 h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Lý do</label><input type="text" id="pn-reason" placeholder="VD: Quên báo cáo, đi làm muộn…"></div></div>';
@@ -2927,7 +2937,9 @@ sm.forEach(function(m){h+='<option value="'+m+'"'+(m===finMonth?' selected':'')+
 h+='<div class="kpi-grid kpi-3"><div class="kpi"><div class="kpi-label">Doanh thu</div><div class="kpi-value" style="color:var(--green);">'+ff(inc)+'</div></div><div class="kpi"><div class="kpi-label">Chi phí</div><div class="kpi-value" style="color:var(--red);">'+ff(exp)+'</div></div><div class="kpi"><div class="kpi-label">Lợi nhuận</div><div class="kpi-value" style="color:var(--green);">'+ff(pr)+'</div><div class="kpi-note">Biên lợi nhuận '+mg+'%</div></div></div>';
 if(authUser){
 h+='<div class="form-card"><h3>Thêm giao dịch</h3><div class="form-row"><div class="form-group"><label>Ngày</label><input type="date" id="td2" value="'+td()+'"></div><div class="form-group"><label>Loại</label><select id="tt"><option value="income">Thu</option><option value="expense">Chi</option></select></div><div class="form-group"><label>Số tiền</label><input type="number" id="tv" placeholder="0"></div></div>';
-h+='<div class="form-row"><div class="form-group"><label>Phân loại</label><select id="tc"><option value="service_fee">Phí dịch vụ</option><option value="salary">Lương</option><option value="rent">Mặt bằng</option><option value="other">Khác</option></select></div><div class="form-group"><label>Khách hàng</label><select id="tk"><option value="">—</option>';clientList.forEach(function(c2){h+='<option value="'+c2.id+'">'+esc(c2.name)+'</option>';});h+='</select></div><div class="form-group"><label>Nhân viên</label><select id="tn"><option value="">—</option>';staffList.forEach(function(s){h+='<option value="'+s.id+'">'+esc(s.short_name)+'</option>';});h+='</select></div></div>';
+h+='<div class="form-row"><div class="form-group"><label>Phân loại</label><select id="tc"><option value="service_fee">Phí dịch vụ</option><option value="salary">Lương</option><option value="rent">Mặt bằng</option><option value="other">Khác</option></select></div>';
+h+='<div class="form-group"><label>Khách hàng</label>'+searchableSelect({id:'tk',options:clientList.map(function(c2){return{value:c2.id,label:c2.name};}),placeholder:'— Chọn khách —'})+'</div>';
+h+='<div class="form-group"><label>Nhân viên</label>'+searchableSelect({id:'tn',options:staffList.map(function(s){return{value:s.id,label:s.short_name};}),placeholder:'— Chọn nhân viên —'})+'</div></div>';
 h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Ghi chú</label><input type="text" id="tno" placeholder=""></div></div><div class="btn-row"><button class="btn btn-primary" onclick="svt(this)">Lưu</button></div></div>';
 }
 var cm2={service_fee:'Phí dịch vụ',salary:'Lương nhân viên',rent:'Chi phí vận hành',other:'Khác'};
@@ -3660,9 +3672,7 @@ h+='<div id="add-tk-form" style="display:none;margin-bottom:12px;"><div class="f
 h+='<div class="form-row"><div class="form-group"><label>Tên tài khoản</label><input type="text" id="new-tk-name" placeholder="VD: Tài khoản NBNB - 1234"></div><div class="form-group"><label>FB Account ID (bỏ trống = Tài khoản ngoài)</label><input type="text" id="new-tk-fbid" placeholder="act_123456789"></div></div>';
 h+='<div class="form-row"><div class="form-group"><label>Khách hàng</label>'+
   searchableSelect({id:'new-tk-client',options:clientList.map(function(c2){return{value:c2.id,label:c2.name};}),placeholder:'— Chọn Khách hàng —'})+
-  '</div><div class="form-group"><label>Nhân sự phụ trách</label><select id="new-tk-staff"><option value="">— Chọn Nhân sự —</option>';
-staffList.forEach(function(s2){h+='<option value="'+s2.id+'">'+esc(s2.short_name)+'</option>';});
-h+='</select></div><div class="form-group"><label>Loại</label><select id="new-tk-shared"><option value="false">Riêng (1 Nhân sự)</option><option value="true">Dùng chung (nhiều Nhân sự)</option></select></div></div>';
+  '</div><div class="form-group"><label>Nhân sự phụ trách</label>'+searchableSelect({id:'new-tk-staff',options:staffList.map(function(s2){return{value:s2.id,label:s2.short_name};}),placeholder:'— Chọn Nhân sự —'})+'</div><div class="form-group"><label>Loại</label><select id="new-tk-shared"><option value="false">Riêng (1 Nhân sự)</option><option value="true">Dùng chung (nhiều Nhân sự)</option></select></div></div>';
 h+='<div style="display:flex;gap:8px;align-items:center;"><button class="btn btn-primary" onclick="saveNewTk(this)">+ Thêm Tài khoản</button><span style="font-size:11px;color:var(--tx3);">Bỏ trống FB ID = tài khoản ngoài Business Manager, nhập doanh số thủ công</span></div></div></div>';
 h+='<div class="active-chips" id="active-chips"></div>';
 // Table
@@ -5024,17 +5034,22 @@ async function loadAutoAdsPresets(){
 // State động của modal preset (giữ giữa các lần update dropdown)
 var _presetMod={acc_id:'',acc_fbid:'',campaigns:null,camp_id:'',preview:null,loading_camps:false,loading_preview:false};
 function _renderPresetCampDropdown(){
-  var sel=document.getElementById('pm-camp-sel');if(!sel)return;
-  if(_presetMod.loading_camps){sel.innerHTML='<option>⏳ Đang tải chiến dịch từ Meta...</option>';sel.disabled=true;return;}
-  if(!_presetMod.campaigns){sel.innerHTML='<option value="">— Chọn TKQC trước —</option>';sel.disabled=true;return;}
-  sel.disabled=false;
-  if(!_presetMod.campaigns.length){sel.innerHTML='<option value="">(TKQC này chưa có campaign nào)</option>';return;}
-  var opts=['<option value="">— Chọn chiến dịch để clone —</option>'];
-  _presetMod.campaigns.forEach(function(c){
-    var status=c.status==='ACTIVE'?'🟢':(c.status==='PAUSED'?'⏸':'⚫');
-    opts.push('<option value="'+esc(c.id)+'"'+(_presetMod.camp_id===c.id?' selected':'')+'>'+status+' '+esc(c.name)+'</option>');
+  var wrap=document.getElementById('pm-camp-sel-wrap');if(!wrap)return;
+  var stateBox='display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius);font-size:13px;color:var(--tx3);min-height:36px;box-sizing:border-box;';
+  if(_presetMod.loading_camps){wrap.innerHTML='<div style="'+stateBox+'">⏳ Đang tải chiến dịch từ Meta...</div>';return;}
+  if(!_presetMod.campaigns){wrap.innerHTML='<div style="'+stateBox+'">— Chọn TKQC trước —</div>';return;}
+  if(!_presetMod.campaigns.length){wrap.innerHTML='<div style="'+stateBox+'color:var(--amber-tx);">(TKQC này chưa có chiến dịch nào)</div>';return;}
+  // Render searchableSelect — có ô tìm, lọc theo tên + bỏ dấu tiếng Việt
+  wrap.innerHTML=searchableSelect({
+    id:'pm-camp-ssel',
+    options:_presetMod.campaigns.map(function(c){
+      var status=c.status==='ACTIVE'?'🟢':(c.status==='PAUSED'?'⏸':'⚫');
+      return{value:c.id,label:status+' '+(c.name||c.id)};
+    }),
+    value:_presetMod.camp_id||'',
+    placeholder:'— Gõ tên hoặc chọn chiến dịch để sao chép —',
+    onChange:function(v){_onPresetCampChange(v);}
   });
-  sel.innerHTML=opts.join('');
 }
 function _renderPresetPreview(){
   var box=document.getElementById('pm-preview');if(!box)return;
@@ -5227,8 +5242,8 @@ function openSavePresetModal(presetName){
       +'<div style="'+sectionTitleStyle+'">📋 Sao chép từ chiến dịch mẫu</div>'
       +'<div style="margin-bottom:14px;"><label style="'+labelStyle+'">Bước 1 — Tài khoản quảng cáo <span style="color:var(--red);">*</span> <span style="font-weight:400;color:var(--tx3);font-size:11px;">gõ tên để tìm nhanh</span></label>'
       +accSearchHtml+'</div>'
-      +'<div><label style="'+labelStyle+'">Bước 2 — Chọn chiến dịch mẫu <span style="color:var(--red);">*</span></label>'
-      +'<select id="pm-camp-sel" class="fi" disabled onchange="_onPresetCampChange(this.value)" style="font-size:14px;padding:10px 12px;"><option value="">— Chọn TKQC trước —</option></select>'
+      +'<div><label style="'+labelStyle+'">Bước 2 — Chọn chiến dịch mẫu <span style="color:var(--red);">*</span> <span style="font-weight:400;color:var(--tx3);font-size:11px;">gõ tên để tìm nhanh</span></label>'
+      +'<div id="pm-camp-sel-wrap"><div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius);font-size:13px;color:var(--tx3);min-height:36px;">— Chọn TKQC trước —</div></div>'
       +'<div style="'+hintStyle+'">Bot sẽ sao chép <b>Trang chạy</b> + <b>Đối tượng</b> (tuổi, vị trí, sở thích…) + <b>Đích đến tin nhắn</b> từ nhóm quảng cáo đầu tiên của chiến dịch này.</div></div>'
       +'<div id="pm-preview" style="margin-top:14px;display:none;"></div>'
       +'</div>'
@@ -5825,14 +5840,14 @@ function p8(){
 
     // Preset
     h+='<div>';
-    h+='<label style="display:block;font-size:13px;font-weight:600;color:var(--tx1);margin-bottom:8px;">2. Công thức <span style="color:var(--red);">*</span></label>';
-    h+='<select class="fi" style="font-size:14px;padding:10px 12px;" onchange="simpleSetAdsField(\'preset_name\',this.value)">';
-    h+='<option value="">— Chọn công thức —</option>';
-    autoAdsPresets.forEach(function(p){
-      var label=p.name+(p.default_budget?' · '+fm(p.default_budget)+'đ/ngày':'');
-      h+='<option value="'+esc(p.name)+'"'+(simpleSetAdsState.preset_name===p.name?' selected':'')+'>'+esc(label)+'</option>';
+    h+='<label style="display:block;font-size:13px;font-weight:600;color:var(--tx1);margin-bottom:8px;">2. Công thức <span style="color:var(--red);">*</span> <span style="font-weight:400;color:var(--tx3);font-size:11px;">gõ tên để tìm nhanh</span></label>';
+    h+=searchableSelect({
+      id:'simple-preset-ssel',
+      options:autoAdsPresets.map(function(p){return{value:p.name,label:p.name+(p.default_budget?' · '+fm(p.default_budget)+'đ/ngày':'')};}),
+      value:simpleSetAdsState.preset_name||'',
+      placeholder:'— Chọn công thức —',
+      onChange:function(v){simpleSetAdsField('preset_name',v);}
     });
-    h+='</select>';
     if(!autoAdsPresets.length)h+='<div style="font-size:11px;color:var(--amber-tx);margin-top:6px;">Chưa có preset — bấm "+ Tạo công thức" ở khung trên</div>';
     h+='</div>';
 
@@ -7172,10 +7187,13 @@ function p3Quotation(tabH){
   h+='<option value="">Tất cả trạng thái</option>';
   Object.keys(QUOTATION_STATUS_META).forEach(function(k){h+='<option value="'+k+'"'+(quotationFilterStatus===k?' selected':'')+'>'+QUOTATION_STATUS_META[k].label+'</option>';});
   h+='</select>';
-  h+='<select class="fi" style="width:180px;" onchange="quotationPage=1;quotationFilterClient=this.value;render();">';
-  h+='<option value="">Tất cả khách</option>';
-  clientList.forEach(function(c){h+='<option value="'+c.id+'"'+(quotationFilterClient===c.id?' selected':'')+'>'+esc(c.name)+'</option>';});
-  h+='</select>';
+  h+='<div style="width:200px;">'+searchableSelect({
+    id:'quotation-filter-client',
+    options:[{value:'',label:'Tất cả khách'}].concat(clientList.map(function(c){return{value:c.id,label:c.name};})),
+    value:quotationFilterClient||'',
+    placeholder:'Tất cả khách',
+    onChange:function(v){quotationPage=1;quotationFilterClient=v;render();}
+  })+'</div>';
   h+='</div>';
 
   // Filter
@@ -7697,14 +7715,14 @@ function openQuotationForClient(clientId){
   quotationModalId='new';render();
   setTimeout(function(){
     fillQuotationDefaults(null);
-    var el=document.getElementById('qt-client');if(el){el.value=clientId;onQuotationClientChange();}
+    sselSetValue('qt-client',clientId);onQuotationClientChange();
   },50);
 }
 function closeQuotationModal(){quotationModalId=null;render();}
 
 function fillQuotationDefaults(id){
   var q=id?quotationList.find(function(x){return x.id===id;}):null;
-  var set=function(eid,val){var el=document.getElementById(eid);if(el)el.value=val==null?'':val;};
+  var set=function(eid,val){if(SSEL_REG[eid]){sselSetValue(eid,val);return;}var el=document.getElementById(eid);if(el)el.value=val==null?'':val;};
   var check=function(eid,v){var el=document.getElementById(eid);if(el)el.checked=!!v;};
   var t=new Date();
   var today=t.toISOString().substring(0,10);
@@ -7850,9 +7868,14 @@ function renderQuotationModal(){
   h+='<div class="hc-modal-body">';
   h+='<div style="background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue-tx);padding:10px 12px;border-radius:var(--radius);font-size:12px;margin-bottom:14px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>Phí hỗ trợ Quảng cáo tự động tính theo bậc ngân sách. Bạn có thể sửa tay nếu cần thoả thuận riêng.</div>';
   h+='<div class="hc-form-grid">';
-  h+='<div style="grid-column:1/-1;"><label for="qt-client">Khách hàng *</label><select id="qt-client" class="fi" aria-required="true" aria-describedby="qt-client-err" onchange="onQuotationClientChange()"><option value="">— Chọn khách —</option>';
-  clientList.forEach(function(c){h+='<option value="'+c.id+'">'+esc(c.name)+(c.status==='prospect'?' (tiềm năng)':'')+'</option>';});
-  h+='</select><span id="qt-client-err" class="field-error" hidden>Vui lòng chọn khách hàng</span></div>';
+  h+='<div style="grid-column:1/-1;"><label for="qt-client">Khách hàng * <span style="font-weight:400;color:var(--tx3);font-size:11px;text-transform:none;">gõ tên để tìm nhanh</span></label>'
+    +searchableSelect({
+      id:'qt-client',
+      options:clientList.map(function(c){return{value:c.id,label:c.name+(c.status==='prospect'?' (tiềm năng)':'')};}),
+      placeholder:'— Chọn khách —',
+      onChange:function(v){onQuotationClientChange();}
+    })
+    +'<span id="qt-client-err" class="field-error" hidden>Vui lòng chọn khách hàng</span></div>';
   h+='<div><label>Mã báo giá</label><input id="qt-number" class="fi" placeholder="Sẽ tạo tự động sau khi chọn khách hàng"></div>';
   h+='<div><label>Ngày lập</label><input id="qt-issued" type="date" class="fi"></div>';
   h+='<div><label>Hiệu lực đến</label><input id="qt-valid" type="date" class="fi"></div>';
@@ -9966,9 +9989,8 @@ var roleVal=editingUR?editingUR.role:'accountant';
 var staffIdVal=editingUR?(editingUR.staff_id||''):(pendingNewUserRoleStaffId||'');
 h+='<div class="form-row"><div class="form-group"><label>Email</label><input type="email" id="ur-email" value="'+emailVal+'" placeholder="VD: linh.kt@hcagency.vn"'+(editingUR?' readonly style="background:var(--bg2);color:var(--tx3);"':'')+'></div><div class="form-group"><label>Tên hiển thị</label><input type="text" id="ur-name" value="'+nameVal+'" placeholder="VD: Ngọc Linh"></div></div>';
 h+='<div class="form-row"><div class="form-group"><label>Mật khẩu '+(editingUR?'(chỉ áp dụng nếu user chưa có Auth account)':'đăng nhập')+'</label><input type="text" id="ur-pass" placeholder="'+(editingUR?'Để trống nếu không đổi':'Tạo mật khẩu cho tài khoản này')+'" style="font-family:monospace;"></div><div class="form-group"><label>Vai trò</label><select id="ur-role">'+userRoleOptionsHtml(roleVal)+'</select></div></div>';
-h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Gán với nhân sự (nếu có)</label><select id="ur-staff"><option value="">— Không gán (full view trang Nhân sự) —</option>';
-(allStaff.length?allStaff:staffList).slice().sort(function(a,b){var an=parseInt(a.display_code||'9999'),bn=parseInt(b.display_code||'9999');return an-bn;}).forEach(function(s){var codePrefix=s.display_code?'['+s.display_code+'] ':'';h+='<option value="'+esc(s.id)+'"'+(staffIdVal===s.id?' selected':'')+'>'+codePrefix+esc(s.full_name||s.short_name)+(s.short_name&&s.full_name!==s.short_name?' — '+esc(s.short_name):'')+'</option>';});
-h+='</select><div style="font-size:11px;color:var(--tx3);margin-top:4px;">Nếu gán, user này chỉ xem được Lương / Sổ phạt / Công việc của chính nhân sự được gán. Admin/Kế toán giữ full view → để trống.</div></div></div>';
+var urStaffOpts=(allStaff.length?allStaff:staffList).slice().sort(function(a,b){var an=parseInt(a.display_code||'9999'),bn=parseInt(b.display_code||'9999');return an-bn;}).map(function(s){var codePrefix=s.display_code?'['+s.display_code+'] ':'';return{value:s.id,label:codePrefix+(s.full_name||s.short_name)+(s.short_name&&s.full_name!==s.short_name?' — '+s.short_name:'')};});
+h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Gán với nhân sự (nếu có)</label>'+searchableSelect({id:'ur-staff',options:urStaffOpts,value:staffIdVal||'',placeholder:'— Không gán (full view trang Nhân sự) —'})+'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Nếu gán, user này chỉ xem được Lương / Sổ phạt / Công việc của chính nhân sự được gán. Admin/Kế toán giữ full view → để trống.</div></div></div>';
 if(editingUR){
   h+='<div style="font-size:11px;color:var(--tx3);margin:4px 0 10px;background:var(--bg2);padding:8px 12px;border-radius:6px;border-left:3px solid var(--blue);">⚠ Supabase không cho admin đổi mật khẩu user khác từ trình duyệt. Để user quên/đổi mật khẩu, bấm nút bên dưới — Supabase sẽ gửi email link đặt lại password cho user đó.</div>';
   h+='<div class="btn-row" style="margin-bottom:14px;"><button class="btn btn-ghost btn-sm" onclick="sendPasswordResetLink(this,\''+esc(editingUR.email)+'\')">📧 Gửi link đặt lại mật khẩu cho '+esc(editingUR.email)+'</button></div>';
