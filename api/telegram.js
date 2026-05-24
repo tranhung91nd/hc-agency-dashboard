@@ -853,7 +853,58 @@ async function updateMetaObjectStatus(type, id, name, nextStatus) {
   if (updated.error) {
     return { type: type, id: id, name: name, ok: false, error: formatMetaError(updated.error) };
   }
+  if (updated.success === false) {
+    return { type: type, id: id, name: name, ok: false, error: 'Meta trả success=false' };
+  }
   return { type: type, id: id, name: name, ok: true };
+}
+
+function formatStatusLine(type, obj) {
+  if (!obj) return '• ' + type + ': không có dữ liệu';
+  return '• ' + type + ' ' + (obj.name || obj.id || '—')
+    + ': status=<b>' + (obj.status || '—') + '</b>'
+    + ', effective=<b>' + (obj.effective_status || '—') + '</b>'
+    + (obj.id ? ' · <code>' + obj.id + '</code>' : '');
+}
+
+async function handleCheckAdsStatus(text) {
+  const campaignId = parseCampaignId(text);
+  const explicitAdId = parseAdId(text);
+  if (!campaignId) {
+    return [
+      '❌ Format: <code>/checkads &lt;campaign_id_hoặc_link_AdsManager&gt;</code>',
+      '',
+      'Ví dụ:',
+      '<code>/checkads 120249724924720404</code>'
+    ].join('\n');
+  }
+
+  const camp = await metaApi('GET', campaignId, { fields: 'id,name,status,effective_status' });
+  if (camp.error) return '❌ Không đọc được campaign: <code>' + formatMetaError(camp.error) + '</code>';
+
+  const adsets = await metaApi('GET', campaignId + '/adsets', {
+    fields: 'id,name,status,effective_status',
+    limit: 20
+  });
+  if (adsets.error) return '❌ Không đọc được adset: <code>' + formatMetaError(adsets.error) + '</code>';
+
+  const ads = await metaApi('GET', campaignId + '/ads', {
+    fields: 'id,name,status,effective_status',
+    limit: 20
+  });
+  if (ads.error) return '❌ Không đọc được ads: <code>' + formatMetaError(ads.error) + '</code>';
+
+  const lines = ['📌 <b>Trạng thái Ads</b>', '', formatStatusLine('Campaign', camp)];
+  (adsets.data || []).slice(0, 5).forEach(function(a){ lines.push(formatStatusLine('Adset', a)); });
+  (ads.data || []).slice(0, 5).forEach(function(a){ lines.push(formatStatusLine('Ad', a)); });
+  if (explicitAdId && !(ads.data || []).some(function(a){return a.id === explicitAdId;})) {
+    const adInfo = await metaApi('GET', explicitAdId, { fields: 'id,name,status,effective_status' });
+    if (adInfo.error) lines.push('• Ad explicit <code>' + explicitAdId + '</code>: lỗi ' + formatMetaError(adInfo.error));
+    else lines.push(formatStatusLine('Ad explicit', adInfo));
+  }
+  if ((adsets.data || []).length > 5) lines.push('• ... +' + ((adsets.data || []).length - 5) + ' adset khác');
+  if ((ads.data || []).length > 5) lines.push('• ... +' + ((ads.data || []).length - 5) + ' ad khác');
+  return lines.join('\n');
 }
 
 // ─── Handle: /tatads /batads <campaign_id|link> ───
@@ -1010,6 +1061,7 @@ async function route(text, chatId) {
   if (cmd === '/presets' || cmd === '/listpresets' || cmd === '/congthuc') return await handleListPresets();
   if (cmd === '/tatads' || cmd === '/pauseads' || /^tắt\s*ads/i.test(tLower) || /^tat\s*ads/i.test(tLower)) return await handleToggleCampaign(text, 'PAUSED');
   if (cmd === '/batads' || cmd === '/resumeads' || cmd === '/activeads' || /^bật\s*ads/i.test(tLower) || /^bat\s*ads/i.test(tLower)) return await handleToggleCampaign(text, 'ACTIVE');
+  if (cmd === '/checkads' || cmd === '/statusads' || /^kiểm\s*tra\s*ads/i.test(tLower) || /^kiem\s*tra\s*ads/i.test(tLower) || /^trạng\s*thái\s*ads/i.test(tLower) || /^trang\s*thai\s*ads/i.test(tLower)) return await handleCheckAdsStatus(text);
   if (cmd === '/nsads' || cmd === '/budgetads' || cmd === '/setbudget' || /^ngân\s*sách\s*ads/i.test(tLower) || /^ngan\s*sach\s*ads/i.test(tLower)) return await handleCampaignBudget(text, 'set');
   if (cmd === '/tangns' || cmd === '/increasebudget' || /^tăng\s*ns/i.test(tLower) || /^tang\s*ns/i.test(tLower)) return await handleCampaignBudget(text, 'increase');
   if (cmd === '/giamns' || cmd === '/decreasebudget' || /^giảm\s*ns/i.test(tLower) || /^giam\s*ns/i.test(tLower)) return await handleCampaignBudget(text, 'decrease');
