@@ -5106,15 +5106,21 @@ async function _onPresetCampChange(campId){
   finally{_presetMod.loading_preview=false;_renderPresetPreview();}
 }
 function openSavePresetModal(presetName){
-  _presetMod={acc_id:'',acc_fbid:'',campaigns:null,camp_id:'',preview:null,loading_camps:false,loading_preview:false,editInterests:[],intSearchResults:null};
-  // Init editInterests từ preset hiện tại (nếu edit)
+  _presetMod={acc_id:'',acc_fbid:'',campaigns:null,camp_id:'',preview:null,loading_camps:false,loading_preview:false,editInterests:[],intSearchResults:null,editLocations:[],locSearchResults:null};
+  // Init editInterests + editLocations từ preset hiện tại (nếu edit)
   var pre=presetName?autoAdsPresets.find(function(p){return p.name===presetName;}):null;
-  if(pre&&pre.targeting&&pre.targeting.flexible_spec){
-    pre.targeting.flexible_spec.forEach(function(spec){
-      if(spec.interests)spec.interests.forEach(function(it){
-        _presetMod.editInterests.push({id:it.id,name:it.name});
+  if(pre&&pre.targeting){
+    if(pre.targeting.flexible_spec){
+      pre.targeting.flexible_spec.forEach(function(spec){
+        if(spec.interests)spec.interests.forEach(function(it){
+          _presetMod.editInterests.push({id:it.id,name:it.name});
+        });
       });
-    });
+    }
+    var geo=pre.targeting.geo_locations||{};
+    if(geo.countries)geo.countries.forEach(function(c){_presetMod.editLocations.push({id:c,name:c,type:'country'});});
+    if(geo.regions)geo.regions.forEach(function(r){_presetMod.editLocations.push({id:r.key,name:r.name,type:'region',country:r.country});});
+    if(geo.cities)geo.cities.forEach(function(c){_presetMod.editLocations.push({id:c.key,name:c.name,type:'city',country:c.country,region:c.region,region_id:c.region_id});});
   }
   var existing=presetName?autoAdsPresets.find(function(p){return p.name===presetName;}):null;
   var root=document.getElementById('hc-modal-root')||(function(){var d=document.createElement('div');d.id='hc-modal-root';document.body.appendChild(d);return d;})();
@@ -5133,14 +5139,11 @@ function openSavePresetModal(presetName){
     var ageMin=tg.age_min||18,ageMax=tg.age_max||65;
     var genders=tg.genders||[];
     var genderSel=(!genders.length)?'all':(genders.indexOf(1)>=0&&genders.indexOf(2)>=0?'both':(genders.indexOf(1)>=0?'male':'female'));
-    // Build readonly summary cho location + interest + custom audience
+    // Build readonly summary cho custom audience + location_types
     var roLines=[];
     var geo=tg.geo_locations||{};
-    if(geo.countries&&geo.countries.length)roLines.push('🌐 Quốc gia: '+geo.countries.join(', '));
-    if(geo.regions&&geo.regions.length)roLines.push('📍 Vùng ('+geo.regions.length+'): '+geo.regions.slice(0,5).map(function(r){return esc(r.name||r.key);}).join(', ')+(geo.regions.length>5?'…':''));
-    if(geo.cities&&geo.cities.length)roLines.push('🏙 TP ('+geo.cities.length+'): '+geo.cities.slice(0,5).map(function(c){return esc(c.name||c.key);}).join(', ')+(geo.cities.length>5?'…':''));
-    if(geo.location_types&&geo.location_types.length)roLines.push('📌 Loại vị trí: '+geo.location_types.join(', '));
-    // Interests giờ editable — không cần show trong read-only nữa
+    if(geo.location_types&&geo.location_types.length)roLines.push('📌 Loại vị trí: '+geo.location_types.join(', ')+' <span style="color:var(--tx3);font-size:11px;">(người dân/người đi qua)</span>');
+    // Interests + locations giờ editable — không cần show trong read-only
     if(tg.custom_audiences&&tg.custom_audiences.length)roLines.push('👥 Custom audience: '+tg.custom_audiences.length+' nhóm');
     if(tg.excluded_custom_audiences&&tg.excluded_custom_audiences.length)roLines.push('🚫 Loại trừ: '+tg.excluded_custom_audiences.length+' nhóm');
     var advantage=tg.targeting_automation&&tg.targeting_automation.advantage_audience;
@@ -5173,6 +5176,10 @@ function openSavePresetModal(presetName){
       // Budget
       +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">Ngân sách mặc định (VNĐ/ngày) <span style="font-weight:400;color:var(--tx3);">— tùy chọn</span></label>'
       +'<input id="pm-budget" type="number" class="fi" min="0" step="10000" placeholder="Để trống = phải chỉ định khi sét" value="'+(existing.default_budget||'')+'"></div>'
+      // Locations (editable via Meta Search API)
+      +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;">📍 Vị trí địa lý</label>'
+      +'<div id="pm-locations-section">'+renderEditLocationsBox()+'</div>'
+      +'</div>'
       // Interests (editable via Meta Search API)
       +'<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;">🎯 Nhắm mục tiêu chi tiết (sở thích)</label>'
       +'<div id="pm-interests-section">'+renderEditInterestsBox()+'</div>'
@@ -5293,6 +5300,86 @@ async function searchEditInterest(){
   }catch(e){toast('Lỗi mạng',false);_presetMod.intSearchResults=[];}
   finally{if(btn){btn.disabled=false;btn.textContent=old||'🔍 Tìm';}_rerenderInterests();}
 }
+
+// ─── Edit locations (chips + search Meta API) ───
+function renderEditLocationsBox(){
+  var locs=_presetMod.editLocations||[];
+  var typeIcon={country:'🌐',region:'📍',city:'🏙'};
+  var typeColor={country:'blue',region:'teal',city:'purple'};
+  var h='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:32px;padding:8px;background:var(--bg2);border-radius:6px;">';
+  if(locs.length){
+    locs.forEach(function(l){
+      var clr=typeColor[l.type]||'gray';
+      var icon=typeIcon[l.type]||'📌';
+      var subInfo='';
+      if(l.type==='city'&&l.region)subInfo=' <span style="opacity:.7;font-size:10px;">— '+esc(l.region)+'</span>';
+      else if((l.type==='region'||l.type==='city')&&l.country)subInfo=' <span style="opacity:.7;font-size:10px;">— '+esc(l.country)+'</span>';
+      h+='<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--'+clr+'-bg);color:var(--'+clr+'-tx);border-radius:14px;font-size:12px;font-weight:500;">'+icon+' '+esc(l.name)+subInfo+' <button type="button" onclick="removeEditLocation(\''+esc(l.id)+'\',\''+l.type+'\')" style="background:none;border:0;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;">×</button></span>';
+    });
+  }else{
+    h+='<span style="font-size:11px;color:var(--tx3);font-style:italic;">Chưa có vị trí — broad (toàn cầu)</span>';
+  }
+  h+='</div>';
+  h+='<div style="display:flex;gap:6px;">';
+  h+='<input id="pm-loc-q" type="text" class="fi" placeholder="Tìm quốc gia/tỉnh/thành (vd Hà Nội, Vietnam, HCM)" style="flex:1;font-size:13px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();searchEditLocation();}">';
+  h+='<button type="button" class="btn btn-sm" onclick="searchEditLocation()">🔍 Tìm</button>';
+  h+='</div>';
+  if(_presetMod.locSearchResults){
+    h+='<div style="margin-top:6px;border:1px solid var(--bd1);border-radius:6px;max-height:180px;overflow:auto;background:var(--bg1);">';
+    if(!_presetMod.locSearchResults.length){
+      h+='<div style="padding:10px;font-size:12px;color:var(--tx3);text-align:center;">Không có kết quả</div>';
+    }else{
+      _presetMod.locSearchResults.forEach(function(r){
+        var t=(r.type||'').toLowerCase();
+        var icon=typeIcon[t]||'📌';
+        var typeLabel=t==='country'?'Quốc gia':(t==='region'?'Vùng/Tỉnh':(t==='city'?'TP':t));
+        var subInfo='';
+        if(t==='city'&&(r.region||r.region_id))subInfo=' · '+esc(r.region||'');
+        if(t!=='country'&&r.country_name)subInfo+=' · '+esc(r.country_name);
+        var added=_presetMod.editLocations.some(function(l){return l.id===r.key&&l.type===t;});
+        h+='<div style="padding:8px 12px;cursor:'+(added?'default':'pointer')+';font-size:12px;border-bottom:1px solid var(--bd1);opacity:'+(added?'.5':'1')+';" '+(added?'':'onclick="addEditLocation(\''+esc(r.key)+'\',\''+esc(r.name)+'\',\''+t+'\',\''+esc(r.country_code||r.country||'')+'\',\''+esc(r.region||'')+'\',\''+esc(r.region_id||'')+'\')"')+'>';
+        h+=(added?'<span style="color:var(--green-tx);">✓ </span>':'+ ')+icon+' <b>'+esc(r.name)+'</b> <span style="color:var(--tx3);font-size:11px;">['+typeLabel+']</span>'+subInfo;
+        h+='</div>';
+      });
+    }
+    h+='</div>';
+  }
+  return h;
+}
+function _rerenderLocations(){
+  var box=document.getElementById('pm-locations-section');
+  if(box)box.innerHTML=renderEditLocationsBox();
+}
+function addEditLocation(id,name,type,country,region,region_id){
+  if(!_presetMod.editLocations)_presetMod.editLocations=[];
+  if(_presetMod.editLocations.some(function(l){return l.id===id&&l.type===type;}))return;
+  var loc={id:id,name:name,type:type};
+  if(country)loc.country=country;
+  if(region)loc.region=region;
+  if(region_id)loc.region_id=region_id;
+  _presetMod.editLocations.push(loc);
+  _presetMod.locSearchResults=null;
+  _rerenderLocations();
+}
+function removeEditLocation(id,type){
+  _presetMod.editLocations=(_presetMod.editLocations||[]).filter(function(l){return!(l.id===id&&l.type===type);});
+  _rerenderLocations();
+}
+async function searchEditLocation(){
+  var qEl=document.getElementById('pm-loc-q');if(!qEl)return;
+  var q=qEl.value.trim();
+  if(!q||q.length<2){_presetMod.locSearchResults=null;_rerenderLocations();return;}
+  var btn=document.querySelector('#pm-locations-section button.btn-sm');
+  var old=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='⏳';}
+  try{
+    var path='search?type=adgeolocation&q='+encodeURIComponent(q)+'&location_types=%5B%22country%22%2C%22region%22%2C%22city%22%5D&limit=10';
+    var r=await metaGet(path);
+    if(r.error){toast('Lỗi: '+r.error.message,false);_presetMod.locSearchResults=[];}
+    else _presetMod.locSearchResults=r.data||[];
+  }catch(e){toast('Lỗi mạng',false);_presetMod.locSearchResults=[];}
+  finally{if(btn){btn.disabled=false;btn.textContent=old||'🔍 Tìm';}_rerenderLocations();}
+}
 async function submitPresetModal(isEdit){
   var btn=document.getElementById('pm-submit');var errEl=document.getElementById('pm-error');
   errEl.style.display='none';
@@ -5330,6 +5417,19 @@ async function submitPresetModal(isEdit){
       }else{
         delete newTargeting.flexible_spec;
       }
+      // Save edited locations → geo_locations
+      var locs=_presetMod.editLocations||[];
+      var oldLocTypes=(newTargeting.geo_locations||{}).location_types;
+      var newGeo={};
+      var countries=locs.filter(function(l){return l.type==='country';}).map(function(l){return l.id;});
+      var regions=locs.filter(function(l){return l.type==='region';}).map(function(l){var o={key:l.id,name:l.name};if(l.country)o.country=l.country;return o;});
+      var cities=locs.filter(function(l){return l.type==='city';}).map(function(l){var o={key:l.id,name:l.name};if(l.country)o.country=l.country;if(l.region)o.region=l.region;if(l.region_id)o.region_id=l.region_id;return o;});
+      if(countries.length)newGeo.countries=countries;
+      if(regions.length)newGeo.regions=regions;
+      if(cities.length)newGeo.cities=cities;
+      if(oldLocTypes)newGeo.location_types=oldLocTypes; // giữ home/recent
+      if(Object.keys(newGeo).length)newTargeting.geo_locations=newGeo;
+      else delete newTargeting.geo_locations;
       var updatePayload={default_budget:budget,note:note,targeting:newTargeting};
       if(destEl)updatePayload.destination_type=destEl.value;
       var u=await sb2.from('auto_ads_preset').update(updatePayload).eq('name',name);
