@@ -4821,6 +4821,34 @@ async function activateCampaignFromLog(campId,btn){
   }catch(e){toast('Lỗi mạng: '+e.message,false);}
   finally{if(btn){btn.disabled=false;btn.textContent=old;}}
 }
+function toggleAdsLogBulkMenu(e){
+  e.stopPropagation();
+  closeQuotationMenus();
+  var m=document.getElementById('ads-log-bulk-menu');
+  if(m)m.classList.toggle('open');
+}
+async function deleteAutoAdsLog(id){
+  if(!await hcConfirm({title:'Xóa lịch sử',message:'Xóa record này khỏi bảng Lịch sử?\n\n⚠ Chỉ xóa log local — campaign trên Meta KHÔNG bị tắt/xóa. Muốn tắt campaign hãy bấm "⏸ Tắt" trước.',confirmLabel:'Xóa log',danger:true}))return;
+  var r=await sb2.from('auto_ads_log').delete().eq('id',id);
+  if(r.error){toast('Lỗi xóa: '+r.error.message,false);return;}
+  toast('Đã xóa log',true);
+  autoAdsLog=autoAdsLog.filter(function(row){return row.id!==id;});
+  autoAdsLogTotal=Math.max(0,autoAdsLogTotal-1);
+  render();
+}
+async function deleteAllAutoAdsLogs(filterType){
+  var label=filterType==='failed'?'fail (status=failed)':(filterType==='all'?'TẤT CẢ':'đã xóa trên Meta (ARCHIVED/DELETED)');
+  var warning=filterType==='all'?'\n\n⚠ THẬN TRỌNG: xóa toàn bộ lịch sử bot tạo. Không undo.':'';
+  if(!await hcConfirm({title:'Xóa nhiều log',message:'Xóa các record '+label+' khỏi Lịch sử?'+warning,confirmLabel:'Xóa',danger:filterType==='all'}))return;
+  var q=sb2.from('auto_ads_log').delete();
+  if(filterType==='failed')q=q.eq('status','failed');
+  else if(filterType==='archived')q=q.in('live_status',['ARCHIVED','DELETED']);
+  // 'all' = không filter
+  var r=await q;
+  if(r.error){toast('Lỗi xóa: '+r.error.message,false);return;}
+  toast('Đã xóa xong',true);
+  loadAutoAdsLog();
+}
 // Batch GET live status từ Meta + cache DB. force=true để bỏ qua TTL 5 phút.
 async function refreshAutoAdsLiveStatus(force){
   var stale=autoAdsLog.filter(function(r){
@@ -4888,6 +4916,14 @@ function p8History(){
   h+='<select class="fi" style="width:140px;" onchange="setAutoAdsLogFilter(\'source\',this.value)"><option value="">Tất cả nguồn</option><option value="telegram"'+(autoAdsLogFilter.source==='telegram'?' selected':'')+'>📱 Telegram</option><option value="web"'+(autoAdsLogFilter.source==='web'?' selected':'')+'>🌐 Web</option></select>';
   h+='<button class="btn btn-sm" onclick="loadAutoAdsLog()" title="Tải lại danh sách">🔄</button>';
   h+='<button class="btn btn-sm" onclick="refreshAutoAdsLiveStatus(true)" title="Sync live status từ Meta ngay">⚡ Sync Meta</button>';
+  h+='<div class="qt-action-wrap" style="display:inline-block;">';
+  h+='<button class="btn btn-sm" onclick="toggleAdsLogBulkMenu(event)" title="Xóa nhiều log">🗑 Xóa…</button>';
+  h+='<div class="qt-action-menu" id="ads-log-bulk-menu" role="menu" onclick="event.stopPropagation();">';
+  h+='<button role="menuitem" onclick="deleteAllAutoAdsLogs(\'failed\');closeQuotationMenus();">Xóa các log thất bại</button>';
+  h+='<button role="menuitem" onclick="deleteAllAutoAdsLogs(\'archived\');closeQuotationMenus();">Xóa log của camp đã ARCHIVED/DELETED</button>';
+  h+='<div class="sep"></div>';
+  h+='<button role="menuitem" class="danger" onclick="deleteAllAutoAdsLogs(\'all\');closeQuotationMenus();">⚠ Xóa TẤT CẢ lịch sử</button>';
+  h+='</div></div>';
   h+='<span style="font-size:12px;color:var(--tx3);margin-left:auto;">'+autoAdsLogTotal+' bản ghi</span>';
   h+='</div>';
   if(autoAdsLogLoading&&!autoAdsLog.length){
@@ -4935,20 +4971,21 @@ function p8History(){
       var msg=row.error_message||'';var short=msg.length>50?msg.substring(0,50)+'…':msg;
       errCell='<span title="'+esc(msg)+'" style="color:var(--red-tx);font-size:11px;">'+esc(row.error_step||'err')+': '+esc(short)+'</span>';
     }
-    // Action button — theo live_status: ACTIVE → Tắt, PAUSED → Bật, ARCHIVED/DELETED → disabled
-    var actionCell='';
+    // Action button — theo live_status + icon xóa log
+    var actionBtn='';
     if(row.campaign_id&&row.status==='success'){
       if(row.live_status==='ACTIVE'){
-        actionCell='<button class="btn btn-sm" style="padding:3px 9px;font-size:11px;" onclick="pauseCampaignFromLog(\''+esc(row.campaign_id)+'\',this)" title="Tắt campaign trên Meta">⏸ Tắt</button>';
+        actionBtn='<button class="btn btn-sm" style="padding:3px 9px;font-size:11px;" onclick="pauseCampaignFromLog(\''+esc(row.campaign_id)+'\',this)" title="Tắt campaign trên Meta">⏸ Tắt</button>';
       }else if(row.live_status==='PAUSED'){
-        actionCell='<button class="btn btn-sm" style="padding:3px 9px;font-size:11px;background:var(--green);color:#fff;border:none;" onclick="activateCampaignFromLog(\''+esc(row.campaign_id)+'\',this)" title="Bật campaign trên Meta">▶ Bật</button>';
+        actionBtn='<button class="btn btn-sm" style="padding:3px 9px;font-size:11px;background:var(--green);color:#fff;border:none;" onclick="activateCampaignFromLog(\''+esc(row.campaign_id)+'\',this)" title="Bật campaign trên Meta">▶ Bật</button>';
       }else if(row.live_status==='ARCHIVED'||row.live_status==='DELETED'){
-        actionCell='<span style="color:var(--tx3);font-size:11px;">—</span>';
+        actionBtn='';
       }else{
-        // Chưa có live_status (đang load) → giữ nút Tắt mặc định
-        actionCell='<button class="btn btn-sm" style="padding:3px 9px;font-size:11px;" onclick="pauseCampaignFromLog(\''+esc(row.campaign_id)+'\',this)" title="Tắt campaign trên Meta">⏸ Tắt</button>';
+        actionBtn='<button class="btn btn-sm" style="padding:3px 9px;font-size:11px;" onclick="pauseCampaignFromLog(\''+esc(row.campaign_id)+'\',this)" title="Tắt campaign trên Meta">⏸ Tắt</button>';
       }
-    }else actionCell='<span style="color:var(--tx3);">—</span>';
+    }
+    var deleteBtn='<button class="kh-edit-btn" style="opacity:1;width:22px;height:22px;color:var(--red);margin-left:4px;" onclick="deleteAutoAdsLog(\''+esc(row.id)+'\')" title="Xóa log (KHÔNG tắt campaign)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg></button>';
+    var actionCell='<div style="display:inline-flex;align-items:center;">'+actionBtn+deleteBtn+'</div>';
     h+='<tr>';
     h+='<td style="font-size:12px;color:var(--tx2);white-space:nowrap;">'+dtStr+'</td>';
     h+='<td>'+(row.preset_name?'<span class="badge b-blue">'+esc(row.preset_name)+'</span>':'<span style="color:var(--tx3);">—</span>')+'</td>';
