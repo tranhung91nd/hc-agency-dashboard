@@ -5453,21 +5453,22 @@ function p8(){
   }else if(simpleSetAdsState.result){
     var r=simpleSetAdsState.result;
     if(r.bulk){
-      // Bulk result
       var okClr=r.ok_count===r.total?'green':'amber';
       h+='<div style="padding:14px;background:var(--'+okClr+'-bg);border:1px solid var(--'+okClr+');border-radius:8px;color:var(--'+okClr+'-tx);">';
-      h+='<div style="font-weight:600;font-size:14px;">'+(r.ok_count===r.total?'✅':'⚠️')+' Bulk hoàn tất: '+r.ok_count+'/'+r.total+' TKQC</div>';
-      h+='<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">';
+      h+='<div style="font-weight:600;font-size:14px;">'+(r.ok_count===r.total?'✅':'⚠️')+' Bulk hoàn tất: '+r.ok_count+'/'+r.total+' campaign</div>';
+      h+='<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto;">';
       r.results.forEach(function(item){
-        var nm=esc(item.acc.account_name||item.acc.fb_account_id||'(unknown)');
+        var nm=esc((item.acc.account_name||item.acc.fb_account_id||'(unknown)').substring(0,35));
+        var postShort=item.post?esc(String(item.post).substring(0,25)+(String(item.post).length>25?'…':'')):'';
         if(item.data.ok){
-          h+='<div style="font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+          h+='<div style="font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 6px;background:rgba(255,255,255,.4);border-radius:4px;">';
           h+='<span>✅ <b>'+nm+'</b></span>';
-          h+='<code style="font-size:11px;">'+esc(item.data.campaign_id)+'</code>';
+          if(postShort)h+='<span style="color:var(--tx3);font-size:11px;">→</span><code style="font-size:10px;">'+postShort+'</code>';
+          h+='<code style="font-size:11px;margin-left:auto;">'+esc(item.data.campaign_id)+'</code>';
           if(item.data.manager_link)h+='<a href="'+esc(item.data.manager_link)+'" target="_blank" rel="noopener" style="font-size:11px;color:var(--blue);">Mở ↗</a>';
           h+='</div>';
         }else{
-          h+='<div style="font-size:12px;">❌ <b>'+nm+'</b>: '+esc((item.data.error||'').substring(0,150))+'</div>';
+          h+='<div style="font-size:12px;padding:4px 6px;background:rgba(255,255,255,.4);border-radius:4px;">❌ <b>'+nm+'</b>'+(postShort?' → <code style="font-size:10px;">'+postShort+'</code>':'')+': '+esc((item.data.error||'').substring(0,120))+'</div>';
         }
       });
       h+='</div>';
@@ -5516,13 +5517,28 @@ function p8(){
     h+='</select>';
     if(!autoAdsPresets.length)h+='<div style="font-size:11px;color:var(--amber-tx);margin-top:4px;">Chưa có preset — bấm "+ Tạo công thức" ở trên</div>';
     h+='</div>';
-    h+='<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">3. Post ID hoặc URL *</label>';
-    h+='<input id="simple-post" type="text" class="fi" value="'+esc(simpleSetAdsState.post_input)+'" placeholder="VD: 123456789 hoặc https://facebook.com/.../posts/..." oninput="simpleSetAdsState.post_input=this.value;">';
-    h+='<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Chấp nhận ID số, link /posts/, hoặc URL pfbid (auto resolve).</div></div>';
+    // Đếm số post hợp lệ
+    var postLines=(simpleSetAdsState.post_input||'').split('\n').map(function(s){return s.trim();}).filter(Boolean);
+    var nPosts=postLines.length;
+    h+='<div style="margin-bottom:12px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">3. Post ID hoặc URL * <span style="font-weight:400;color:var(--tx3);">— mỗi dòng 1 post (có thể nhiều)</span></label>';
+    h+='<textarea id="simple-post" class="fi" rows="4" placeholder="https://facebook.com/.../posts/...&#10;https://facebook.com/.../posts/...&#10;123456789012345" oninput="simpleSetAdsState.post_input=this.value;render();" style="font-family:var(--mono,monospace);font-size:12px;resize:vertical;">'+esc(simpleSetAdsState.post_input)+'</textarea>';
+    h+='<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Số post: <b style="color:var(--blue);">'+nPosts+'</b> · Chấp nhận ID số, link /posts/, URL pfbid (mỗi dòng 1).</div></div>';
     h+='<div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px;">4. Ngân sách/ngày (VNĐ) *</label>';
-    h+='<input id="simple-budget" type="number" class="fi" min="50000" step="10000" value="'+esc(simpleSetAdsState.budget)+'" placeholder="200000" oninput="simpleSetAdsState.budget=this.value;">';
+    h+='<input id="simple-budget" type="number" class="fi" min="50000" step="10000" value="'+esc(simpleSetAdsState.budget)+'" placeholder="200000" oninput="simpleSetAdsState.budget=this.value;render();">';
     h+='<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Tự fill khi chọn preset (nếu preset có ngân sách mặc định).</div></div>';
-    h+='<button class="btn btn-primary" onclick="submitSimpleSetAds()" style="width:100%;padding:12px;font-size:14px;font-weight:600;"'+(simpleSetAdsState.busy?' disabled':'')+'>'+(simpleSetAdsState.busy?'⏳ Đang tạo...':'▶ Tạo & Chạy chiến dịch (ACTIVE)')+'</button>';
+    // Preview tổng số campaign + tổng ngân sách
+    var nAccs=simpleSetAdsState.acc_ids.length;
+    var budgetNum=parseInt(simpleSetAdsState.budget||'0',10)||0;
+    var totalCampaigns=nAccs*nPosts;
+    var totalBudgetDay=totalCampaigns*budgetNum;
+    if(totalCampaigns>0){
+      var warnBg=totalBudgetDay>5000000?'red':(totalBudgetDay>2000000?'amber':'blue');
+      h+='<div style="background:var(--'+warnBg+'-bg);border:1px solid var(--'+warnBg+');border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;color:var(--'+warnBg+'-tx);">';
+      h+='<b>Sẽ tạo '+totalCampaigns+' campaign</b> ('+nAccs+' TKQC × '+nPosts+' post) · Tổng <b>'+fm(totalBudgetDay)+'đ/ngày</b>';
+      if(totalBudgetDay>=2000000)h+='<div style="margin-top:4px;">⚠ Ngân sách lớn — kiểm tra kỹ trước khi chạy.</div>';
+      h+='</div>';
+    }
+    h+='<button class="btn btn-primary" onclick="submitSimpleSetAds()" style="width:100%;padding:12px;font-size:14px;font-weight:600;"'+(simpleSetAdsState.busy?' disabled':'')+'>'+(simpleSetAdsState.busy?'⏳ Đang tạo...':'▶ Tạo & Chạy '+(totalCampaigns||'')+' chiến dịch (ACTIVE)')+'</button>';
     h+='<div style="font-size:11px;color:var(--tx3);margin-top:6px;text-align:center;">Chiến dịch chạy ngay khi tạo. Log đẩy về tab "📊 Lịch sử".</div>';
   }
   h+='</div>';
@@ -5565,42 +5581,56 @@ async function submitSimpleSetAds(){
   var st=simpleSetAdsState;
   if(!st.acc_ids||!st.acc_ids.length){toast('Chọn ít nhất 1 TKQC',false);return;}
   if(!st.preset_name){toast('Chọn công thức',false);return;}
-  if(!st.post_input||!st.post_input.trim()){toast('Nhập Post ID/URL',false);return;}
+  var posts=(st.post_input||'').split('\n').map(function(s){return s.trim();}).filter(Boolean);
+  if(!posts.length){toast('Nhập ít nhất 1 Post ID/URL',false);return;}
   var budget=parseInt(st.budget||'0',10);
   if(!budget||budget<50000){toast('Ngân sách ≥ 50.000đ',false);return;}
+  var total=st.acc_ids.length*posts.length;
+  // Confirm nếu nhiều campaign
+  if(total>=4){
+    if(!await hcConfirm({title:'Tạo bulk '+total+' campaign?',message:'Sẽ tạo '+total+' campaign ('+st.acc_ids.length+' TKQC × '+posts.length+' post)\nTổng ngân sách: '+fm(total*budget)+'đ/ngày\n\nXác nhận chạy?',confirmLabel:'Chạy '+total+' campaign',danger:total>=10}))return;
+  }
   st.busy=true;st.result=null;
-  st.progress={total:st.acc_ids.length,done:0,results:[]};
+  st.progress={total:total,done:0,results:[]};
   render();
   try{
     var s=await sb2.auth.getSession();
     var token=s&&s.data&&s.data.session&&s.data.session.access_token;
     if(!token){toast('Chưa đăng nhập',false);st.busy=false;st.progress=null;render();return;}
+    // Nested loop: TKQC × Post
     for(var i=0;i<st.acc_ids.length;i++){
       var accId=st.acc_ids[i];
       var acc=adList.find(function(a){return a.id===accId;});
       if(!acc||!acc.fb_account_id){
-        st.progress.results.push({acc:{account_name:'(unknown)'},data:{ok:false,error:'TKQC chưa ghép Meta'}});
+        for(var pp=0;pp<posts.length;pp++){
+          st.progress.results.push({acc:{account_name:'(unknown)'},post:posts[pp],data:{ok:false,error:'TKQC chưa ghép Meta'}});
+          st.progress.done++;
+        }
+        render();
         continue;
       }
-      st.progress.current=acc.account_name||acc.fb_account_id;
-      render();
-      try{
-        var resp=await fetch('/api/auto-ads-create',{
-          method:'POST',
-          headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
-          body:JSON.stringify({acc_id:acc.fb_account_id,preset_name:st.preset_name,post_input:st.post_input.trim(),budget:budget})
-        });
-        var data=await resp.json();
-        st.progress.results.push({acc:acc,data:data});
-      }catch(e){
-        st.progress.results.push({acc:acc,data:{ok:false,error:'Lỗi mạng: '+e.message}});
+      for(var j=0;j<posts.length;j++){
+        var post=posts[j];
+        st.progress.current=(acc.account_name||acc.fb_account_id)+' · post '+(j+1)+'/'+posts.length;
+        render();
+        try{
+          var resp=await fetch('/api/auto-ads-create',{
+            method:'POST',
+            headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+            body:JSON.stringify({acc_id:acc.fb_account_id,preset_name:st.preset_name,post_input:post,budget:budget})
+          });
+          var data=await resp.json();
+          st.progress.results.push({acc:acc,post:post,data:data});
+        }catch(e){
+          st.progress.results.push({acc:acc,post:post,data:{ok:false,error:'Lỗi mạng: '+e.message}});
+        }
+        st.progress.done++;
+        render();
       }
-      st.progress.done=i+1;
-      render();
     }
     var okCount=st.progress.results.filter(function(r){return r.data.ok;}).length;
-    st.result={bulk:true,total:st.acc_ids.length,ok_count:okCount,results:st.progress.results};
-    toast((okCount===st.acc_ids.length?'✅':'⚠️')+' Tạo '+okCount+'/'+st.acc_ids.length+' campaign',okCount===st.acc_ids.length);
+    st.result={bulk:true,total:total,ok_count:okCount,results:st.progress.results};
+    toast((okCount===total?'✅':'⚠️')+' Tạo '+okCount+'/'+total+' campaign',okCount===total);
     loadAutoAdsLog();
   }catch(e){
     st.result={ok:false,error:'Lỗi: '+e.message};
