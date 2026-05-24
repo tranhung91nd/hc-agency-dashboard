@@ -144,10 +144,18 @@ function helpText() {
     '/tangns &lt;campaign_id|link&gt; &lt;budget&gt; — tăng ngân sách/ngày',
     '/giamns &lt;campaign_id|link&gt; &lt;budget&gt; — giảm ngân sách/ngày',
     '',
-    '<b>🤖 Tự nhiên:</b>',
-    'Gõ thẳng câu hỏi → AI trả lời theo data.',
+    '<b>🤖 AI Agent (gõ tự nhiên):</b>',
+    'AI tự query DB + Meta API + thực hiện action.',
+    'VD:',
+    '• "Khách Tabb tháng này chi bao nhiêu?"',
+    '• "Top 5 staff chi nhiều nhất tuần này"',
+    '• "Tắt giúp tôi cái campaign 12024..."',
+    '• "TKQC nào đang chạy lỗ tháng này?"',
+    '• "So sánh spend T5 vs T4"',
     '',
-    '<i>Budget hiểu: 200K · 200000 · 1tr · 1tr5 · 200.000</i>'
+    '/clear — Xóa lịch sử AI nhớ',
+    '',
+    '<i>Budget: 200K · 1tr · 200.000 · 1tr5</i>'
   ].join('\n');
 }
 
@@ -394,6 +402,296 @@ const AI_TOOLS = [
     }
   }
 ];
+
+// ═══ AI AGENT TOOLS CẤP 3 ═══
+// 11 query tools (DB live + Meta live + scan). AI tự gọi để lấy data trước khi trả lời.
+const AI_QUERY_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'query_client_by_name',
+      description: 'Tìm thông tin khách theo tên (fuzzy match). Trả về list khách + services + payment_status + spend tháng + balance rental nếu có.',
+      parameters: { type: 'object', properties: { name: { type: 'string', description: 'Tên hoặc 1 phần tên khách' } }, required: ['name'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'query_campaign_details',
+      description: 'Chi tiết campaign từ DB local (đã sync 15p): tên, spend N ngày qua, account. Dùng khi user hỏi về campaign cụ thể.',
+      parameters: { type: 'object', properties: { campaign_id: { type: 'string' }, days: { type: 'number', description: 'Default 7' } }, required: ['campaign_id'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'query_staff_kpi',
+      description: 'KPI 1 nhân sự trong tháng: spend, budget, %, top khách quản lý.',
+      parameters: { type: 'object', properties: { staff_name: { type: 'string' }, month: { type: 'string', description: 'YYYY-MM, default tháng hiện tại' } }, required: ['staff_name'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'query_recent_auto_ads',
+      description: 'Lịch sử bot tạo ads. Filter theo preset_name, status (success/failed). Default 10 dòng mới nhất.',
+      parameters: { type: 'object', properties: { limit: { type: 'number' }, preset_name: { type: 'string' }, status: { type: 'string', enum: ['success', 'failed'] } } }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'query_top_spenders',
+      description: 'Top N người chi nhiều nhất theo type (client/account/staff) trong period (today/week/month).',
+      parameters: { type: 'object', properties: { type: { type: 'string', enum: ['client', 'account', 'staff'] }, period: { type: 'string', enum: ['today', 'week', 'month'] }, limit: { type: 'number', description: 'Default 5' } }, required: ['type', 'period'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_meta_ad_insights',
+      description: 'Lấy insights LIVE từ Meta API: spend, impressions, clicks, conversions của 1 object (campaign/adset/ad).',
+      parameters: { type: 'object', properties: { object_id: { type: 'string' }, days: { type: 'number', description: 'Số ngày, default 7' } }, required: ['object_id'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_invoice_for_client',
+      description: 'Sinh tóm tắt phiếu thanh toán tháng cho khách: spend, fee, VAT, total, payment_status.',
+      parameters: { type: 'object', properties: { client_name: { type: 'string' }, month: { type: 'string', description: 'YYYY-MM, default tháng hiện tại' } }, required: ['client_name'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'scan_unprofitable_accounts',
+      description: 'Quét TKQC có thể đang chạy lỗ trong tháng (spend cao nhưng không có khách gán đủ phí).',
+      parameters: { type: 'object', properties: { month: { type: 'string', description: 'YYYY-MM, default tháng hiện tại' } } }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'scan_inactive_clients',
+      description: 'Quét khách lâu không chi tiêu (active nhưng spend=0 trong N ngày).',
+      parameters: { type: 'object', properties: { days: { type: 'number', description: 'Default 14' } } }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'compare_periods',
+      description: 'So sánh tổng spend / doanh thu / số khách giữa 2 tháng. Trả % change.',
+      parameters: { type: 'object', properties: { metric: { type: 'string', enum: ['spend', 'revenue', 'clients'] }, month_a: { type: 'string', description: 'YYYY-MM' }, month_b: { type: 'string', description: 'YYYY-MM' } }, required: ['metric', 'month_a', 'month_b'] }
+    }
+  }
+];
+
+// ═══ TOOL HANDLERS — execute query và trả về JSON cho AI ═══
+async function executeQueryTool(fn, args) {
+  try {
+    switch (fn) {
+      case 'query_client_by_name': {
+        const r = await sb.from('client').select('id,name,phone,status,payment_status,services,service_fee,rental_fee_pct,has_vat,start_date,campaign_keyword').ilike('name', '%' + args.name + '%').limit(5);
+        return r.data || [];
+      }
+      case 'query_campaign_details': {
+        const days = Math.min(args.days || 7, 30);
+        const since = vnDateStr(-days * 86400000);
+        const spend = await sb.from('campaign_daily_mess').select('report_date,spend,mess_count,lead_count,campaign_name,ad_account_id').eq('campaign_id', args.campaign_id).gte('report_date', since).order('report_date');
+        if (!spend.data || !spend.data.length) {
+          // Try Meta live
+          const meta = await metaApi('GET', args.campaign_id, { fields: 'id,name,status,effective_status,daily_budget,created_time' });
+          return { source: 'meta_live', meta: meta, db_rows: 0 };
+        }
+        const total = spend.data.reduce((s,d) => s + (d.spend||0), 0);
+        const totalMess = spend.data.reduce((s,d) => s + (d.mess_count||0), 0);
+        return { campaign_id: args.campaign_id, name: spend.data[0].campaign_name, days: spend.data.length, total_spend: total, total_mess: totalMess, ad_account_id: spend.data[0].ad_account_id, daily: spend.data };
+      }
+      case 'query_staff_kpi': {
+        const month = args.month || vnDateStr(0).substring(0,7);
+        const staff = await sb.from('staff').select('*').or('short_name.ilike.%' + args.staff_name + '%,full_name.ilike.%' + args.staff_name + '%').limit(1);
+        if (!staff.data || !staff.data.length) return { error: 'Không tìm thấy nhân sự ' + args.staff_name };
+        const s = staff.data[0];
+        const ds = await sb.from('daily_spend').select('spend_amount').gte('report_date', month + '-01').lt('report_date', month + '-32').eq('staff_id', s.id);
+        const total = (ds.data || []).reduce((sum,d) => sum + (d.spend_amount||0), 0);
+        return { staff: { id: s.id, name: s.short_name || s.full_name, monthly_budget: s.monthly_budget }, month: month, spend: total, pct_of_budget: s.monthly_budget ? Math.round(total/s.monthly_budget*100) : null };
+      }
+      case 'query_recent_auto_ads': {
+        let q = sb.from('auto_ads_log').select('created_at,preset_name,status,campaign_id,ad_id,budget,source,error_step,error_message').order('created_at',{ascending:false}).limit(Math.min(args.limit || 10, 30));
+        if (args.preset_name) q = q.eq('preset_name', args.preset_name);
+        if (args.status) q = q.eq('status', args.status);
+        const r = await q;
+        return r.data || [];
+      }
+      case 'query_top_spenders': {
+        const period = args.period || 'month';
+        const today = vnDateStr(0);
+        let since;
+        if (period === 'today') since = today;
+        else if (period === 'week') since = vnDateStr(-7 * 86400000);
+        else since = today.substring(0,7) + '-01';
+        const limit = Math.min(args.limit || 5, 20);
+        const daily = await sb.from('daily_spend').select('ad_account_id,staff_id,matched_client_id,spend_amount').gte('report_date', since);
+        const rows = daily.data || [];
+        const groupBy = args.type === 'client' ? 'matched_client_id' : (args.type === 'staff' ? 'staff_id' : 'ad_account_id');
+        const totals = {};
+        rows.forEach(d => {
+          const key = d[groupBy];
+          if (!key) return;
+          totals[key] = (totals[key] || 0) + (d.spend_amount||0);
+        });
+        const sorted = Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,limit);
+        // Resolve names
+        const result = [];
+        for (const [id, total] of sorted) {
+          let name = id;
+          if (args.type === 'client') { const r = await sb.from('client').select('name').eq('id',id).maybeSingle(); name = r.data?.name || id; }
+          else if (args.type === 'staff') { const r = await sb.from('staff').select('short_name,full_name').eq('id',id).maybeSingle(); name = r.data?.short_name || r.data?.full_name || id; }
+          else { const r = await sb.from('ad_account').select('account_name').eq('id',id).maybeSingle(); name = r.data?.account_name || id; }
+          result.push({ id, name, total_spend: total });
+        }
+        return { period, type: args.type, top: result };
+      }
+      case 'get_meta_ad_insights': {
+        const days = Math.min(args.days || 7, 30);
+        const since = vnDateStr(-days * 86400000);
+        const until = vnDateStr(0);
+        const r = await metaApi('GET', args.object_id + '/insights', { fields: 'spend,impressions,clicks,actions,date_start,date_stop', time_range: { since, until }, time_increment: 1 });
+        if (r.error) return { error: formatMetaError(r.error) };
+        return r.data || [];
+      }
+      case 'get_invoice_for_client': {
+        const month = args.month || vnDateStr(0).substring(0,7);
+        const client = await sb.from('client').select('*').ilike('name', '%' + args.client_name + '%').limit(1);
+        if (!client.data || !client.data.length) return { error: 'Không tìm thấy khách ' + args.client_name };
+        const c = client.data[0];
+        const ds = await sb.from('daily_spend').select('spend_amount').gte('report_date', month+'-01').lt('report_date', month+'-32').or('matched_client_id.eq.' + c.id);
+        const spend = (ds.data||[]).reduce((s,d)=>s+(d.spend_amount||0),0);
+        const fee = c.service_fee || 0;
+        const rentalFee = c.rental_fee_pct ? Math.round(spend * c.rental_fee_pct / 1000) * 1000 : 0;
+        const totalFee = fee + rentalFee;
+        const vat = c.has_vat ? Math.round(totalFee * 0.08) : 0;
+        return { client_name: c.name, month, spend, service_fee: fee, rental_fee: rentalFee, vat, total: totalFee + vat, payment_status: c.payment_status };
+      }
+      case 'scan_unprofitable_accounts': {
+        const month = args.month || vnDateStr(0).substring(0,7);
+        const ads = await sb.from('ad_account').select('id,account_name,client_id').eq('account_status',1);
+        const daily = await sb.from('daily_spend').select('ad_account_id,spend_amount').gte('report_date', month+'-01');
+        const spendByAcc = {};
+        (daily.data||[]).forEach(d => { spendByAcc[d.ad_account_id] = (spendByAcc[d.ad_account_id]||0) + (d.spend_amount||0); });
+        const unprofitable = (ads.data||[]).filter(a => !a.client_id && (spendByAcc[a.id] || 0) > 0).map(a => ({ id: a.id, name: a.account_name, spend: spendByAcc[a.id] }));
+        return { month, count: unprofitable.length, accounts: unprofitable.slice(0, 10) };
+      }
+      case 'scan_inactive_clients': {
+        const days = Math.min(args.days || 14, 90);
+        const since = vnDateStr(-days * 86400000);
+        const clients = await sb.from('client').select('id,name,start_date').eq('status','active');
+        const daily = await sb.from('daily_spend').select('matched_client_id').gte('report_date', since);
+        const activeIds = new Set((daily.data||[]).map(d => d.matched_client_id).filter(Boolean));
+        const inactive = (clients.data||[]).filter(c => !activeIds.has(c.id));
+        return { days_inactive: days, count: inactive.length, clients: inactive.slice(0, 15) };
+      }
+      case 'compare_periods': {
+        const monthA = args.month_a;
+        const monthB = args.month_b;
+        if (args.metric === 'spend') {
+          const a = await sb.from('daily_spend').select('spend_amount').gte('report_date', monthA+'-01').lt('report_date', monthA+'-32');
+          const b = await sb.from('daily_spend').select('spend_amount').gte('report_date', monthB+'-01').lt('report_date', monthB+'-32');
+          const totalA = (a.data||[]).reduce((s,d)=>s+(d.spend_amount||0),0);
+          const totalB = (b.data||[]).reduce((s,d)=>s+(d.spend_amount||0),0);
+          const pct = totalA ? Math.round((totalB-totalA)/totalA*100) : null;
+          return { metric: 'spend', month_a: monthA, total_a: totalA, month_b: monthB, total_b: totalB, change_pct: pct };
+        }
+        return { error: 'metric chưa support: ' + args.metric };
+      }
+      default: return { error: 'Unknown tool: ' + fn };
+    }
+  } catch (e) {
+    console.error('[executeQueryTool]', fn, e.message);
+    return { error: e.message };
+  }
+}
+
+// ═══ CONVERSATION MEMORY ═══
+async function getConversation(chatId) {
+  const r = await sb.from('telegram_conversation').select('messages').eq('chat_id', chatId).maybeSingle();
+  return (r.data && r.data.messages) || [];
+}
+async function saveConversation(chatId, messages, tokens) {
+  // Trim còn 20 messages gần nhất (tránh context bloat)
+  const trimmed = messages.slice(-20);
+  await sb.from('telegram_conversation').upsert({
+    chat_id: chatId,
+    messages: trimmed,
+    total_turns: trimmed.length,
+    total_tokens: tokens || 0,
+    updated_at: new Date().toISOString()
+  });
+}
+async function clearConversation(chatId) {
+  await sb.from('telegram_conversation').delete().eq('chat_id', chatId);
+}
+
+// ═══ AI AGENT — multi-turn ReAct loop với memory ═══
+async function askAIAgent(question, chatId) {
+  if (!OPENAI_API_KEY) return null;
+  const history = await getConversation(chatId);
+  const systemPrompt = [
+    'Bạn là AI Agent quản lý Facebook Ads cho HC Agency (agency chạy ads tại VN).',
+    'Có thể gọi tools để: query DB local (khách, staff, campaign...), gọi Meta API live, scan toàn bộ data, thực hiện action (tắt/bật/sửa campaign).',
+    'Quy tắc:',
+    '1. Suy luận từng bước. Nếu cần data, gọi tool query TRƯỚC khi trả lời.',
+    '2. Trả lời ngắn gọn, dùng số liệu cụ thể (đ, %, ngày).',
+    '3. Khi user yêu cầu HÀNH ĐỘNG (tắt/bật/sửa), confirm ID đúng rồi mới gọi action tool.',
+    '4. KHÔNG output thông tin nhạy cảm (access_token, full ad_account_id nếu user không hỏi).',
+    '5. Hôm nay là ' + vnDateStr(0) + ', tháng ' + vnDateStr(0).substring(0,7) + '.'
+  ].join('\n');
+  let messages = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: question }];
+  const allTools = [...AI_TOOLS, ...AI_QUERY_TOOLS];
+  let totalTokens = 0;
+  for (let turn = 0; turn < 7; turn++) {
+    try {
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + OPENAI_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: OPENAI_MODEL, messages: messages, tools: allTools, tool_choice: 'auto', max_completion_tokens: 800 })
+      });
+      const data = await resp.json();
+      if (data.error) return '❌ AI lỗi: ' + data.error.message;
+      totalTokens += (data.usage && data.usage.total_tokens) || 0;
+      const msg = data.choices && data.choices[0] && data.choices[0].message;
+      if (!msg) return '❌ AI không trả lời.';
+      messages.push(msg);
+      if (msg.tool_calls && msg.tool_calls.length) {
+        for (const call of msg.tool_calls) {
+          let args = {};
+          try { args = JSON.parse(call.function.arguments || '{}'); } catch (e) {}
+          // Action tool → dispatch + END loop (1 action/conversation turn)
+          if (AI_TOOLS.find(t => t.function.name === call.function.name)) {
+            const actionResult = await dispatchAIIntent({ fn: call.function.name, args }, chatId);
+            messages.push({ role: 'tool', tool_call_id: call.id, content: 'Đã thực hiện action.' });
+            await saveConversation(chatId, messages, totalTokens);
+            return actionResult;
+          }
+          // Query tool → execute + add to messages + continue loop
+          const result = await executeQueryTool(call.function.name, args);
+          const resultStr = JSON.stringify(result).substring(0, 4000);
+          messages.push({ role: 'tool', tool_call_id: call.id, content: resultStr });
+        }
+        continue;
+      }
+      // Final text response
+      await saveConversation(chatId, messages, totalTokens);
+      return msg.content || '❌ AI không có câu trả lời.';
+    } catch (e) {
+      console.error('[askAIAgent]', e.message);
+      return '❌ AI exception: ' + e.message;
+    }
+  }
+  return '❌ AI loop quá nhiều bước (>7 turns). Hỏi lại câu rõ ràng hơn.';
+}
 
 async function askAIWithTools(question) {
   if (!OPENAI_API_KEY) return null;
@@ -1355,6 +1653,7 @@ async function route(text, chatId) {
   const tLower = text.trim().toLowerCase();
   const cmd = text.split(/\s+/)[0].toLowerCase();
   if (cmd === '/myid' || cmd === '/me' || cmd === '/chatid') return '🆔 Chat ID của bạn: <code>' + chatId + '</code>\n\n<i>Copy số trên paste vào Vercel env <b>TELEGRAM_ALLOWED_CHAT_IDS</b> để giới hạn ai dùng được bot.</i>';
+  if (cmd === '/clear' || cmd === '/reset' || cmd === '/quenhet' || /^(quên\s*hết|xóa\s*lịch\s*sử)/i.test(tLower)) { await clearConversation(chatId); return '🧹 Đã xóa lịch sử conversation. AI sẽ không nhớ context cũ.'; }
   if (cmd === '/start' || cmd === '/help') return helpText();
   if (cmd === '/chitieu' || cmd === '/spend') return await spendToday();
   if (cmd === '/canhbao' || cmd === '/alert') return await balanceAlerts();
@@ -1380,17 +1679,12 @@ async function route(text, chatId) {
   if (cmd === '/tangns' || cmd === '/increasebudget' || /^(t[ăa]ng|th[êe]m|increase|raise)\s*(ns|ng[âa]n\s*s[áa]ch|budget)/i.test(tLower)) return await handleCampaignBudget(text, 'increase');
   // GIẢM NGÂN SÁCH: giảm ns | giảm ngân sách | decrease | bớt budget
   if (cmd === '/giamns' || cmd === '/decreasebudget' || /^(gi[ảa]m|b[ớo]t|hạ|ha|decrease|lower)\s*(ns|ng[âa]n\s*s[áa]ch|budget)/i.test(tLower)) return await handleCampaignBudget(text, 'decrease');
-  // ═══ B. AI Function Calling — thử intent extraction trước khi fallback Q&A text ═══
-  // Nếu message chứa con số dài (>=8 digit, có thể là campaign ID) HOẶC có từ khóa action,
-  // gọi AI router để extract intent. Đỡ chi phí — câu hỏi thuần Q&A skip.
-  const hasActionHint = /\b\d{8,}\b/.test(text) || /(tắt|bật|tat|bat|stop|pause|resume|start|dừng|mở|kiểm|check|status|ngân\s*sách|budget|tăng|giảm|increase|decrease|list|liệt\s*kê|xem)/i.test(text);
-  if (hasActionHint) {
-    const intent = await askAIWithTools(text);
-    if (intent && intent.fn) {
-      const result = await dispatchAIIntent(intent, chatId);
-      if (result) return result;
-    }
-  }
+  // ═══ Cấp 3: AI Agent multi-turn với memory + DB query + Meta live ═══
+  // Mọi câu không match command đều qua agent. Agent tự quyết khi nào cần query DB,
+  // khi nào trả lời text, khi nào trigger action. Có context conversation per chat_id.
+  const agentReply = await askAIAgent(text, chatId);
+  if (agentReply) return agentReply;
+  // Fallback cuối nếu agent fail
   return await askAI(text);
 }
 
