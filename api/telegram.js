@@ -300,6 +300,170 @@ async function buildContextSummary() {
   return lines.join('\n');
 }
 
+// ═══ B. AI FUNCTION CALLING — hiểu intent freeform + dispatch action thật ═══
+// 11 tools whitelisted để AI gọi. Mọi action có verify (handleToggleCampaign,
+// handleCampaignBudget...) trước khi confirm thành công. AI KHÔNG gọi được
+// function ngoài whitelist này → an toàn.
+const AI_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'pause_campaign',
+      description: 'Tắt (PAUSED) campaign trên Meta. Khi user nói: tắt/dừng/stop/pause + (ads/qc/campaign/chiến dịch + ID).',
+      parameters: { type: 'object', properties: { campaign_id: { type: 'string', description: 'Campaign ID dạng số 15-17 chữ số' } }, required: ['campaign_id'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'activate_campaign',
+      description: 'Bật lại (ACTIVE) campaign trên Meta. Khi user nói: bật/mở/resume/start + (ads/campaign + ID).',
+      parameters: { type: 'object', properties: { campaign_id: { type: 'string' } }, required: ['campaign_id'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'check_ads_status',
+      description: 'Xem trạng thái hiện tại của campaign + adsets + ads. Khi user hỏi: kiểm tra/xem/trạng thái/status + ID.',
+      parameters: { type: 'object', properties: { campaign_id: { type: 'string' } }, required: ['campaign_id'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'set_campaign_budget',
+      description: 'Đặt ngân sách hàng ngày cho campaign (override hiện tại). Khi user nói: đặt ngân sách/budget X cho campaign Y.',
+      parameters: { type: 'object', properties: { campaign_id: { type: 'string' }, budget: { type: 'string', description: 'Số tiền VND, chấp nhận 200K, 200000, 1tr, 200.000' } }, required: ['campaign_id', 'budget'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'increase_campaign_budget',
+      description: 'Tăng ngân sách hiện tại lên thêm 1 lượng. Khi user nói: tăng/cộng/thêm + ngân sách + delta + campaign.',
+      parameters: { type: 'object', properties: { campaign_id: { type: 'string' }, delta: { type: 'string', description: 'Số tiền cộng thêm VND' } }, required: ['campaign_id', 'delta'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'decrease_campaign_budget',
+      description: 'Giảm ngân sách hiện tại. Floor 50k tối thiểu. Khi user: giảm/bớt + ngân sách + delta.',
+      parameters: { type: 'object', properties: { campaign_id: { type: 'string' }, delta: { type: 'string' } }, required: ['campaign_id', 'delta'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_accounts',
+      description: 'Liệt kê tất cả TKQC user đang quản lý. Khi user hỏi: có những TKQC nào, danh sách tài khoản quảng cáo, list ad accounts.',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_campaigns',
+      description: 'Liệt kê campaigns trong 1 TKQC. Khi user hỏi: TKQC X có campaign gì, list ads của tài khoản Y. Cần ad_account_id (act_xxx hoặc số).',
+      parameters: { type: 'object', properties: { ad_account_id: { type: 'string', description: 'TKQC ID dạng act_xxx hoặc số' } }, required: ['ad_account_id'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'show_spend_today',
+      description: 'Xem chi tiêu hôm nay phân theo nhân sự. Khi user hỏi: hôm nay chi bao nhiêu, spend today, ai chi nhiều nhất hôm nay.',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'show_balance_alerts',
+      description: 'TKQC sắp hết tiền (≥80% spend_cap). Khi user hỏi: TKQC nào sắp hết, cảnh báo balance, ad account low budget.',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'show_unpaid_clients',
+      description: 'Khách chưa thanh toán. Khi user hỏi: ai chưa thanh toán, khách nợ, cần thu, unpaid clients.',
+      parameters: { type: 'object', properties: {} }
+    }
+  }
+];
+
+async function askAIWithTools(question) {
+  if (!OPENAI_API_KEY) return null;
+  try {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + OPENAI_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: 'Bạn là intent router cho bot quản lý Facebook Ads HC Agency. Nếu user yêu cầu HÀNH ĐỘNG cụ thể (tắt/bật/sửa/xem campaign, list TKQC, báo cáo), gọi đúng function với tham số extract từ message. Nếu là câu hỏi phân tích/giải thích/tư vấn → KHÔNG gọi function, trả lời tự nhiên. Campaign ID là chuỗi số 15-17 chữ số. Ngân sách giữ nguyên format user gõ (200K, 1tr...).'
+          },
+          { role: 'user', content: question }
+        ],
+        tools: AI_TOOLS,
+        tool_choice: 'auto',
+        max_completion_tokens: 300
+      })
+    });
+    const data = await resp.json();
+    if (data.error) {
+      console.warn('[askAIWithTools] error:', data.error.message);
+      return null;
+    }
+    const msg = data.choices && data.choices[0] && data.choices[0].message;
+    if (msg && msg.tool_calls && msg.tool_calls.length) {
+      const call = msg.tool_calls[0];
+      try {
+        return { fn: call.function.name, args: JSON.parse(call.function.arguments || '{}') };
+      } catch (e) { return null; }
+    }
+    return null;
+  } catch (e) {
+    console.warn('[askAIWithTools] exception:', e.message);
+    return null;
+  }
+}
+
+async function dispatchAIIntent(intent, chatId) {
+  const { fn, args } = intent;
+  switch (fn) {
+    case 'pause_campaign':
+      return await handleToggleCampaign('Tắt ads ' + args.campaign_id, 'PAUSED');
+    case 'activate_campaign':
+      return await handleToggleCampaign('Bật ads ' + args.campaign_id, 'ACTIVE');
+    case 'check_ads_status':
+      return await handleCheckAdsStatus('Kiểm tra ads ' + args.campaign_id);
+    case 'set_campaign_budget':
+      return await handleCampaignBudget('Ngân sách ads ' + args.campaign_id + ' ' + args.budget, 'set');
+    case 'increase_campaign_budget':
+      return await handleCampaignBudget('Tăng ns ' + args.campaign_id + ' ' + args.delta, 'increase');
+    case 'decrease_campaign_budget':
+      return await handleCampaignBudget('Giảm ns ' + args.campaign_id + ' ' + args.delta, 'decrease');
+    case 'list_accounts':
+      return await handleListAccounts();
+    case 'list_campaigns':
+      return await handleListCampaigns('/camps ' + args.ad_account_id);
+    case 'show_spend_today':
+      return await spendToday();
+    case 'show_balance_alerts':
+      return await balanceAlerts();
+    case 'show_unpaid_clients':
+      return await unpaidClients();
+    default:
+      return null;
+  }
+}
+
 async function askAI(question) {
   if (!OPENAI_API_KEY) {
     return [
@@ -1195,17 +1359,38 @@ async function route(text, chatId) {
   if (cmd === '/chitieu' || cmd === '/spend') return await spendToday();
   if (cmd === '/canhbao' || cmd === '/alert') return await balanceAlerts();
   if (cmd === '/canthu' || cmd === '/unpaid') return await unpaidClients();
-  if (cmd === '/setads' || /^sét\s*ads\s*[:.]?/i.test(tLower) || /^set\s*ads\s*[:.]?/i.test(tLower)) return await handleSetAds(text, chatId);
-  if (cmd === '/tkqc' || cmd === '/taikhoan' || cmd === '/accounts' || /^tài\s*khoản/i.test(tLower) || /^tai\s*khoan/i.test(tLower)) return await handleListAccounts();
-  if (cmd === '/camps' || cmd === '/campaigns' || cmd === '/chiendich' || /^chiến\s*dịch/i.test(tLower) || /^chien\s*dich/i.test(tLower)) return await handleListCampaigns(text);
-  if (cmd === '/luupreset' || cmd === '/savepreset') return await handleSavePreset(text, chatId);
-  if (cmd === '/presets' || cmd === '/listpresets' || cmd === '/congthuc') return await handleListPresets();
-  if (cmd === '/tatads' || cmd === '/pauseads' || /^tắt\s*(ads|quảng\s*cáo)/i.test(tLower) || /^tat\s*(ads|quang\s*cao)/i.test(tLower)) return await handleToggleCampaign(text, 'PAUSED');
-  if (cmd === '/batads' || cmd === '/resumeads' || cmd === '/activeads' || /^bật\s*(ads|quảng\s*cáo)/i.test(tLower) || /^bat\s*(ads|quang\s*cao)/i.test(tLower)) return await handleToggleCampaign(text, 'ACTIVE');
-  if (cmd === '/checkads' || cmd === '/statusads' || /^kiểm\s*tra\s*ads/i.test(tLower) || /^kiem\s*tra\s*ads/i.test(tLower) || /^trạng\s*thái\s*ads/i.test(tLower) || /^trang\s*thai\s*ads/i.test(tLower)) return await handleCheckAdsStatus(text);
-  if (cmd === '/nsads' || cmd === '/budgetads' || cmd === '/setbudget' || /^ngân\s*sách\s*ads/i.test(tLower) || /^ngan\s*sach\s*ads/i.test(tLower)) return await handleCampaignBudget(text, 'set');
-  if (cmd === '/tangns' || cmd === '/increasebudget' || /^tăng\s*ns/i.test(tLower) || /^tang\s*ns/i.test(tLower)) return await handleCampaignBudget(text, 'increase');
-  if (cmd === '/giamns' || cmd === '/decreasebudget' || /^giảm\s*ns/i.test(tLower) || /^giam\s*ns/i.test(tLower)) return await handleCampaignBudget(text, 'decrease');
+  // ═══ A. Mở rộng regex: nhận diện nhiều biến thể tự nhiên ═══
+  // Pattern chung "đối tượng": ads | quảng cáo | qc | camp(aign) | chiến dịch | cd
+  const objPat = '(ads?|qu[ảa]ng\\s*c[áa]o|qc|camp(aign)?|chi[ếe]n\\s*d[ịi]ch|cd)';
+
+  if (cmd === '/setads' || /^sét\s*ads?\s*[:.]?/i.test(tLower) || /^set\s*ads?\s*[:.]?/i.test(tLower) || /^tạo\s*(quảng\s*cáo|ads|qc)/i.test(tLower) || /^tao\s*(quang\s*cao|ads|qc)/i.test(tLower)) return await handleSetAds(text, chatId);
+  if (cmd === '/tkqc' || cmd === '/taikhoan' || cmd === '/accounts' || /^(tài|tai)\s*khoản?/i.test(tLower) || /^(list|liệt\s*kê|liet\s*ke)\s*(tkqc|tài\s*khoản|tai\s*khoan)/i.test(tLower)) return await handleListAccounts();
+  if (cmd === '/camps' || cmd === '/campaigns' || cmd === '/chiendich' || /^(chiến|chien)\s*(dịch|dich)/i.test(tLower) || /^(list|liệt\s*kê|liet\s*ke|xem)\s*(camp|chiến|chien)/i.test(tLower)) return await handleListCampaigns(text);
+  if (cmd === '/luupreset' || cmd === '/savepreset' || /^(lưu|luu)\s*(preset|công\s*thức|cong\s*thuc)/i.test(tLower)) return await handleSavePreset(text, chatId);
+  if (cmd === '/presets' || cmd === '/listpresets' || cmd === '/congthuc' || /^(xem|list|danh\s*sách|danh\s*sach)\s*(preset|công\s*thức|cong\s*thuc)/i.test(tLower)) return await handleListPresets();
+  // TẮT: tắt | dừng | stop | pause | dung + đối tượng
+  if (cmd === '/tatads' || cmd === '/pauseads' || cmd === '/pause' || new RegExp('^(t[ắa]t|d[ừu]ng|stop|pause)\\s+' + objPat, 'i').test(tLower)) return await handleToggleCampaign(text, 'PAUSED');
+  // BẬT: bật | mở | on | resume | start | active + đối tượng
+  if (cmd === '/batads' || cmd === '/resumeads' || cmd === '/activeads' || cmd === '/resume' || new RegExp('^(b[ậa]t|m[ởo]|on|resume|start|active|chạy\\s*lại|chay\\s*lai)\\s+' + objPat, 'i').test(tLower)) return await handleToggleCampaign(text, 'ACTIVE');
+  // KIỂM TRA: kiểm tra | xem | trạng thái | status | check + đối tượng
+  if (cmd === '/checkads' || cmd === '/statusads' || cmd === '/check' || new RegExp('^(ki[ểe]m\\s*tra|xem|tr[ạa]ng\\s*th[áa]i|status|check)\\s+' + objPat, 'i').test(tLower)) return await handleCheckAdsStatus(text);
+  // ĐẶT NGÂN SÁCH: ngân sách | budget | đặt ngân sách | set budget
+  if (cmd === '/nsads' || cmd === '/budgetads' || cmd === '/setbudget' || /^(ng[âa]n\s*s[áa]ch|budget|đặt\s*ng[âa]n\s*s[áa]ch|dat\s*ngan\s*sach|set\s*budget)/i.test(tLower)) return await handleCampaignBudget(text, 'set');
+  // TĂNG NGÂN SÁCH: tăng ns | tăng ngân sách | increase | thêm budget
+  if (cmd === '/tangns' || cmd === '/increasebudget' || /^(t[ăa]ng|th[êe]m|increase|raise)\s*(ns|ng[âa]n\s*s[áa]ch|budget)/i.test(tLower)) return await handleCampaignBudget(text, 'increase');
+  // GIẢM NGÂN SÁCH: giảm ns | giảm ngân sách | decrease | bớt budget
+  if (cmd === '/giamns' || cmd === '/decreasebudget' || /^(gi[ảa]m|b[ớo]t|hạ|ha|decrease|lower)\s*(ns|ng[âa]n\s*s[áa]ch|budget)/i.test(tLower)) return await handleCampaignBudget(text, 'decrease');
+  // ═══ B. AI Function Calling — thử intent extraction trước khi fallback Q&A text ═══
+  // Nếu message chứa con số dài (>=8 digit, có thể là campaign ID) HOẶC có từ khóa action,
+  // gọi AI router để extract intent. Đỡ chi phí — câu hỏi thuần Q&A skip.
+  const hasActionHint = /\b\d{8,}\b/.test(text) || /(tắt|bật|tat|bat|stop|pause|resume|start|dừng|mở|kiểm|check|status|ngân\s*sách|budget|tăng|giảm|increase|decrease|list|liệt\s*kê|xem)/i.test(text);
+  if (hasActionHint) {
+    const intent = await askAIWithTools(text);
+    if (intent && intent.fn) {
+      const result = await dispatchAIIntent(intent, chatId);
+      if (result) return result;
+    }
+  }
   return await askAI(text);
 }
 
