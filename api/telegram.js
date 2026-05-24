@@ -367,7 +367,10 @@ async function metaApi(method, path, payload, customToken) {
     init.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
     init.body = parts.join('&');
     const r = await fetch(url, init);
-    return await r.json();
+    const json = await r.json();
+    // Log raw response cho debug (chỉ POST update — không log GET vì spam)
+    if (json && json.error) console.warn('[metaApi POST]', path, 'error:', JSON.stringify(json.error).substring(0, 200));
+    return json;
   }
 }
 
@@ -859,27 +862,31 @@ async function updateMetaObjectStatus(type, id, name, nextStatus) {
     return { type: type, id: id, name: name, ok: false, error: formatMetaError(updated.error) };
   }
   if (updated.success === false) {
-    return { type: type, id: id, name: name, ok: false, error: 'Meta trả success=false' };
+    return { type: type, id: id, name: name, ok: false, error: 'Meta trả success=false: ' + JSON.stringify(updated).substring(0, 100) };
   }
-  const verified = await metaApi('GET', id, { fields: 'id,name,status,effective_status' });
-  if (verified.error) {
-    return { type: type, id: id, name: name, ok: false, error: 'Update xong nhưng không verify được: ' + formatMetaError(verified.error) };
+  // Meta cần ~0.5-2s để propagate. Verify với retry 3 lần × 700ms delay.
+  let verified = null;
+  let lastStatus = '', lastEffective = '';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(function(res){ setTimeout(res, 700); });
+    verified = await metaApi('GET', id, { fields: 'id,name,status,effective_status' });
+    if (verified.error) {
+      return { type: type, id: id, name: name, ok: false, error: 'Verify lỗi: ' + formatMetaError(verified.error) };
+    }
+    lastStatus = verified.status || '';
+    lastEffective = verified.effective_status || '';
+    // STRICT: chỉ check field `status` (user-intent) — không dựa effective_status (hay trễ + nhiều giá trị)
+    if (lastStatus === nextStatus) {
+      return { type: type, id: id, name: verified.name || name, ok: true, status: lastStatus, effective_status: lastEffective };
+    }
   }
-  const status = verified.status || '';
-  const effective = verified.effective_status || '';
-  const applied = nextStatus === 'PAUSED'
-    ? (status === 'PAUSED' || effective === 'PAUSED' || /PAUSED$/.test(effective))
-    : (status === 'ACTIVE' || effective === 'ACTIVE');
-  if (!applied) {
-    return {
-      type: type,
-      id: id,
-      name: verified.name || name,
-      ok: false,
-      error: 'Meta chưa đổi trạng thái sau update: status=' + (status || '—') + ', effective=' + (effective || '—')
-    };
-  }
-  return { type: type, id: id, name: verified.name || name, ok: true, status: status, effective_status: effective };
+  return {
+    type: type,
+    id: id,
+    name: (verified && verified.name) || name,
+    ok: false,
+    error: 'Meta chưa apply sau 3 lần verify: status=' + (lastStatus || '—') + ' (cần ' + nextStatus + '), effective=' + (lastEffective || '—')
+  };
 }
 
 function formatStatusLine(type, obj) {
