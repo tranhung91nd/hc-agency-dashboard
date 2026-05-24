@@ -375,8 +375,8 @@ const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'list_accounts',
-      description: 'Liệt kê tất cả tài khoản quảng cáo (TKQC) user đang quản lý. GỌI LUÔN tool này khi user hỏi BẤT KỲ câu nào về danh sách/liệt kê TKQC, vd: "Danh sách tài khoản quảng cáo của tôi?", "Có những TKQC nào?", "Liệt kê TKQC", "Tôi có bao nhiêu tài khoản?", "Show me my ad accounts". Đây là ACTION (query data), không phải câu hỏi phân tích.',
-      parameters: { type: 'object', properties: {} }
+      description: 'Tìm hoặc liệt kê tài khoản quảng cáo (TKQC). GỌI LUÔN tool này khi user hỏi về TKQC: danh sách, liệt kê, "ID tài khoản X", "TKQC tên Y là gì". Khi user hỏi 1 TKQC cụ thể theo tên (vd "ID tài khoản Livefit 03"), TRUYỀN search="Livefit 03" để chỉ trả về account match (bỏ dấu tiếng Việt, case-insensitive, partial match). Để search trống nếu user thực sự muốn xem tất cả.',
+      parameters: { type: 'object', properties: { search: { type: 'string', description: 'Từ khoá tên TKQC để filter (vd "Livefit 03", "Hibou"). Để trống = list tất cả.' } } }
     }
   },
   {
@@ -956,7 +956,7 @@ async function dispatchAIIntent(intent, chatId) {
     case 'decrease_campaign_budget':
       return await handleCampaignBudget('Giảm ns ' + args.campaign_id + ' ' + args.delta, 'decrease');
     case 'list_accounts':
-      return await handleListAccounts();
+      return await handleListAccounts(args && args.search);
     case 'list_campaigns':
       return await handleListCampaigns('/camps ' + args.ad_account_id + (args.filter ? ' ' + args.filter : ''));
     case 'campaign_detail':
@@ -1605,12 +1605,38 @@ async function handleSavePreset(text, chatId) {
   ].join('\n');
 }
 
-// ─── Handle: /tkqc — list tất cả TKQC từ DB local (compact: Tên — ID) ───
-async function handleListAccounts() {
+// ─── Handle: /tkqc — list TKQC từ DB local (có thể filter theo search keyword) ───
+async function handleListAccounts(searchKw) {
   const accounts = await getAdAccounts();
   if (!accounts.length) return '📋 Chưa có TKQC nào trong DB.';
-  const active = accounts.filter(a => (a.account_status || 1) === 1).sort((a, b) => (a.account_name||'').localeCompare(b.account_name||''));
-  const inactive = accounts.filter(a => (a.account_status || 1) !== 1);
+  // Strip dấu tiếng Việt + lowercase để search dễ
+  const strip = function(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d'); };
+  const kw = strip((searchKw||'').trim());
+  let pool = accounts;
+  if (kw) {
+    pool = accounts.filter(a => strip(a.account_name).indexOf(kw) >= 0 || String(a.fb_account_id||'').indexOf(kw) >= 0);
+    if (!pool.length) return '🔍 Không tìm thấy TKQC nào khớp "<b>' + searchKw + '</b>". Gõ <code>/tkqc</code> để xem hết.';
+    if (pool.length === 1) {
+      const a = pool[0];
+      const lines = ['<b>💳 ' + (a.account_name || '(no name)') + '</b>'];
+      lines.push('ID: <code>' + (a.fb_account_id || '—') + '</code>');
+      if (a.spend_cap) {
+        const pct = a.amount_spent ? Math.round(a.amount_spent / a.spend_cap * 100) : 0;
+        lines.push('Ngưỡng: ' + shortMoney(a.amount_spent||0) + '/' + shortMoney(a.spend_cap) + ' (' + pct + '%)');
+      }
+      lines.push('Trạng thái: ' + ((a.account_status||1)===1 ? '🟢 Active' : '⏸ Ngưng'));
+      return lines.join('\n');
+    }
+    // Nhiều kết quả → list compact
+    const lines = ['<b>🔍 Tìm "' + searchKw + '" → ' + pool.length + ' TKQC khớp:</b>', ''];
+    pool.sort((a,b) => (a.account_name||'').localeCompare(b.account_name||'')).forEach(function(a){
+      lines.push('• <b>' + (a.account_name || '(no name)') + '</b> — <code>' + (a.fb_account_id || '—') + '</code>');
+    });
+    return lines.join('\n');
+  }
+  // Không search → list đầy đủ như cũ
+  const active = pool.filter(a => (a.account_status || 1) === 1).sort((a, b) => (a.account_name||'').localeCompare(b.account_name||''));
+  const inactive = pool.filter(a => (a.account_status || 1) !== 1);
   const lines = ['<b>💳 Tài khoản quảng cáo (' + accounts.length + ')</b>', ''];
   active.forEach(function(a){
     const pct = a.spend_cap && a.amount_spent ? Math.round(a.amount_spent / a.spend_cap * 100) : 0;
