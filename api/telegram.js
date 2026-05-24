@@ -1201,8 +1201,8 @@ function parseSetAdsCommand(text) {
       if (m3) accountHint = m3[1].trim(); // raw, sẽ split bulk sau
     }
   });
-  if (!preset || !budget || !postInput) return null;
-  // Hỗ trợ bulk: "TKQC: 9326, 1293, 7141" hoặc "9326; 1293" hoặc "9326 1293"
+  if (!preset || !postInput) return null; // budget optional — fallback default_budget của preset
+  // Hỗ trợ bulk: "TKQC: 9326, 1293, 7141" hoặc "9326; 1293"
   const accountHints = accountHint
     ? accountHint.split(/[,;]/).map(function(s){return parseAccountHint(s);}).filter(Boolean)
     : [];
@@ -1350,20 +1350,49 @@ async function handleSetAds(text, chatId) {
   }
   const postId = parsePostId(parsed.postInput);
   if (!postId) return '❌ Không nhận diện được post từ: <code>' + parsed.postInput + '</code>';
-  if (!parsed.budget || parsed.budget < 50000) return '❌ Ngân sách tối thiểu 50.000đ/ngày (anh nhập: ' + fm(parsed.budget) + 'đ).';
 
   const preset = await getPreset(parsed.preset);
   if (!preset) return '❌ Không tìm thấy công thức <b>' + parsed.preset + '</b>.\nGõ /presets xem danh sách.';
 
-  // Resolve TKQC: 0 = dùng default preset, 1 = override single, N = BULK
+  // ═══ Resolve BUDGET: lệnh ưu tiên → fallback preset.default_budget ═══
+  const finalBudget = parsed.budget || preset.default_budget || 0;
+  if (!finalBudget || finalBudget < 50000) {
+    return [
+      '❌ <b>Cần ngân sách</b>',
+      '',
+      'Không có ngân sách trong lệnh và preset <b>' + preset.name + '</b> không có default.',
+      '',
+      'Thêm dòng <code>Ngân sách: 200K</code> vào lệnh, hoặc',
+      'set default_budget cho preset qua dashboard.'
+    ].join('\n');
+  }
+
+  // ═══ Resolve TKQC: lệnh ưu tiên → fallback preset.ad_account_id ═══
   const accounts = [];
   const resolveErrors = [];
   if (parsed.accountHints && parsed.accountHints.length) {
+    // User chỉ định TKQC trong lệnh (1 hoặc nhiều)
     for (const hint of parsed.accountHints) {
       const r = await resolveAdAccountOverride(hint);
       if (r.error) resolveErrors.push('• "' + hint + '": ' + r.error);
       else if (r.account) accounts.push(r.account);
     }
+  } else if (preset.ad_account_id) {
+    // Fallback: dùng TKQC mặc định của preset
+    const defaultAcc = { fb_account_id: preset.ad_account_id, account_name: preset.source_account_name || preset.ad_account_id };
+    accounts.push(defaultAcc);
+  }
+  // Nếu cả lệnh và preset đều không có TKQC → reject
+  if (!accounts.length) {
+    return [
+      '❌ <b>Cần TKQC</b>',
+      '',
+      'Không có TKQC trong lệnh và preset <b>' + preset.name + '</b> không có default.',
+      '',
+      'Thêm dòng <code>TKQC: 9326</code> (hoặc nhiều: <code>TKQC: 9326, 1293</code>) vào lệnh.',
+      '',
+      'Xem danh sách TKQC: /tkqc'
+    ].join('\n');
   }
 
   // ═══ BULK MODE (≥2 TKQC) ═══
@@ -1372,7 +1401,7 @@ async function handleSetAds(text, chatId) {
       '📋 <b>Bulk Sét Ads — ' + accounts.length + ' TKQC</b>',
       '• Công thức: ' + preset.name + ' (Page: ' + (preset.source_page_name || preset.page_id) + ')',
       '• Post: <code>' + postId + '</code>',
-      '• Ngân sách: ' + fm(parsed.budget) + 'đ/ngày × ' + accounts.length + ' TKQC',
+      '• Ngân sách: ' + fm(finalBudget) + 'đ/ngày × ' + accounts.length + ' TKQC' + (parsed.budget ? '' : ' <i>(từ preset)</i>'),
       '• TKQC:',
       ...accounts.map(a => '  - ' + (a.account_name || a.fb_account_id)),
       '',
@@ -1381,7 +1410,7 @@ async function handleSetAds(text, chatId) {
 
     const results = [];
     for (const acc of accounts) {
-      const r = await createAdsFromPreset(preset, postId, parsed.postInput, parsed.budget, 'telegram', chatId, { account: acc });
+      const r = await createAdsFromPreset(preset, postId, parsed.postInput, finalBudget, 'telegram', chatId, { account: acc });
       results.push({ acc: acc, r: r });
     }
     const ok = results.filter(x => x.r.success);
@@ -1420,13 +1449,13 @@ async function handleSetAds(text, chatId) {
     '• Page: ' + (preset.source_page_name || preset.page_id),
     '• TKQC: ' + runAccountName + (overrideAccount ? ' <i>(override)</i>' : ''),
     '• Đích: ' + (preset.destination_type || 'MESSENGER'),
-    '• Ngân sách: ' + fm(parsed.budget) + 'đ/ngày',
+    '• Ngân sách: ' + fm(finalBudget) + 'đ/ngày' + (parsed.budget ? '' : ' <i>(từ preset)</i>'),
     '• Post: <code>' + postId + '</code>',
     '',
     '⏳ Đang tạo Campaign + Adset + Creative + Ad...'
   ].join('\n'));
 
-  const result = await createAdsFromPreset(preset, postId, parsed.postInput, parsed.budget, 'telegram', chatId, { account: overrideAccount });
+  const result = await createAdsFromPreset(preset, postId, parsed.postInput, finalBudget, 'telegram', chatId, { account: overrideAccount });
   if (result.success) {
     return [
       '✅ <b>Hoàn tất! Campaign đang ACTIVE</b>',
