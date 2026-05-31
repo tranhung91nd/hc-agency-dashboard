@@ -4277,9 +4277,9 @@ errors++;
 if(errorSamples.length<5)errorSamples.push({accId:accId,phase:phase,msg:msg,code:code});
 console.warn('[Mess sync]',phase,'acc='+accId,'code='+code,msg);
 }
-// 3 requests/account (campaigns + insights + adsets) → chunk 16 để <50 requests/batch
-for(var b=0;b<accounts.length;b+=16){
-var chunk=accounts.slice(b,b+16);
+// 3 requests/account (campaigns + insights + adsets); batch nhỏ để tránh Meta timeout/rate-limit.
+for(var b=0;b<accounts.length;b+=8){
+var chunk=accounts.slice(b,b+8);
 var batchReqs=[];
 chunk.forEach(function(a){
 batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/campaigns?fields=id,effective_status&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=500'});
@@ -4361,9 +4361,9 @@ async function backfillAdPostsOnce(btn){
     var mapped=adList.filter(function(a){return a.fb_account_id;});
     if(!mapped.length){toast('Không có TK nào ghép Meta',false);return;}
     var allRows=[],errors=0,errorSamples=[],failedAccs=[];
-    for(var b=0;b<mapped.length;b+=24){
-      var chunk=mapped.slice(b,b+24);
-      if(btn)btn.textContent='Backfill: TK '+Math.min(b+24,mapped.length)+'/'+mapped.length;
+    for(var b=0;b<mapped.length;b+=12){
+      var chunk=mapped.slice(b,b+12);
+      if(btn)btn.textContent='Backfill: TK '+Math.min(b+12,mapped.length)+'/'+mapped.length;
       var batchReqs=[];
       chunk.forEach(function(a){
         batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/insights?level=ad&fields=ad_id,ad_name,campaign_id,campaign_name,spend,actions&time_range={"since":"'+dFrom+'","until":"'+dTo+'"}&time_increment=1&limit=500'});

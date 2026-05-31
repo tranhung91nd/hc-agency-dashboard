@@ -28,6 +28,10 @@ const BACKFILL_TO = process.env.BACKFILL_TO || null;
 const IS_BACKFILL = !!BACKFILL_FROM;
 const MESS_SINCE = BACKFILL_FROM || D0;
 const MESS_UNTIL = BACKFILL_TO || D0;
+const CAMPAIGN_MESS_BATCH_SIZE = 8;
+const AD_DAILY_POST_BATCH_SIZE = 12;
+const META_BATCH_MAX_ATTEMPTS = 2;
+const META_BATCH_RETRY_DELAY_MS = 2500;
 
 // daily_spend cần list từng ngày để query insights from..until=same_day
 function buildDailyDays(from, to) {
@@ -42,6 +46,53 @@ function buildDailyDays(from, to) {
 const DAILY_DAYS = buildDailyDays(BACKFILL_FROM, BACKFILL_TO || D0);
 
 console.log(`[HC Sync] window = ${MESS_SINCE} → ${MESS_UNTIL}${IS_BACKFILL ? ' (BACKFILL mode, ' + DAILY_DAYS.length + ' ngày)' : ' (D0 only)'}`);
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isRetryableMetaError(message, code) {
+  const msg = (message || '').toLowerCase();
+  return [4, 17, 32, 613, 80004].includes(Number(code)) ||
+    msg.includes('request aborted') ||
+    msg.includes('application request limit') ||
+    msg.includes('temporarily unavailable') ||
+    msg.includes('timeout') ||
+    msg.includes('timed out');
+}
+
+async function fetchMetaBatch(batchReqs, label) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= META_BATCH_MAX_ATTEMPTS; attempt++) {
+    try {
+      const resp = await fetch('https://graph.facebook.com/v25.0/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `batch=${encodeURIComponent(JSON.stringify(batchReqs))}&access_token=${META_TOKEN}&include_headers=false`
+      });
+      const data = await resp.json();
+      if (Array.isArray(data)) return data;
+      const err = data && data.error;
+      lastError = new Error((err && err.message) || 'Batch API trả về không phải mảng');
+      lastError.code = err && err.code;
+      if (attempt < META_BATCH_MAX_ATTEMPTS && isRetryableMetaError(lastError.message, lastError.code)) {
+        console.warn(`[${label}] retry batch attempt ${attempt + 1}/${META_BATCH_MAX_ATTEMPTS}:`, lastError.message);
+        await sleep(META_BATCH_RETRY_DELAY_MS);
+        continue;
+      }
+      return data;
+    } catch (e) {
+      lastError = e;
+      if (attempt < META_BATCH_MAX_ATTEMPTS && isRetryableMetaError(e.message, e.code)) {
+        console.warn(`[${label}] retry network attempt ${attempt + 1}/${META_BATCH_MAX_ATTEMPTS}:`, e.message);
+        await sleep(META_BATCH_RETRY_DELAY_MS);
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastError;
+}
 
 // ═══ Phân loại campaign theo optimization_goal + destination_type ═══
 function classifyCampaign(optGoal, destType) {
@@ -188,9 +239,9 @@ async function syncCampaignMess(adAccounts) {
   console.log(`[campaign_daily_mess] ${mapped.length} TK đã ghép Meta`);
   let saved = 0, errors = 0;
   const allRows = [];
-  // 3 requests/account → chunk 16 để <50 requests/batch
-  for (let b = 0; b < mapped.length; b += 16) {
-    const chunk = mapped.slice(b, b + 16);
+  // 3 requests/account; dùng batch nhỏ để hạn chế Meta timeout/rate-limit khi backfill nhiều TK.
+  for (let b = 0; b < mapped.length; b += CAMPAIGN_MESS_BATCH_SIZE) {
+    const chunk = mapped.slice(b, b + CAMPAIGN_MESS_BATCH_SIZE);
     const batchReqs = [];
     chunk.forEach(a => {
       batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/campaigns?fields=id,effective_status&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=500` });
@@ -198,12 +249,7 @@ async function syncCampaignMess(adAccounts) {
       batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/adsets?fields=campaign_id,optimization_goal,destination_type&limit=500` });
     });
     try {
-      const resp = await fetch('https://graph.facebook.com/v25.0/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `batch=${encodeURIComponent(JSON.stringify(batchReqs))}&access_token=${META_TOKEN}&include_headers=false`
-      });
-      const bResults = await resp.json();
+      const bResults = await fetchMetaBatch(batchReqs, 'campaign_daily_mess');
       if (!Array.isArray(bResults)) {
         console.error(`[campaign_daily_mess] batch không trả mảng:`, bResults && bResults.error && bResults.error.message);
         errors += chunk.length; continue;
@@ -241,21 +287,16 @@ async function syncAdDailyPost(adAccounts) {
   console.log(`[ad_daily_post] ${mapped.length} TK, range ${MESS_SINCE} → ${MESS_UNTIL}`);
   let saved = 0, errors = 0;
   const allRows = [];
-  // 2 reqs/account (insights/ad + ads metadata) → chunk 24 để ≤50 reqs/batch
-  for (let b = 0; b < mapped.length; b += 24) {
-    const chunk = mapped.slice(b, b + 24);
+  // 2 reqs/account (insights/ad + ads metadata); batch nhỏ hơn giúp tránh Request aborted.
+  for (let b = 0; b < mapped.length; b += AD_DAILY_POST_BATCH_SIZE) {
+    const chunk = mapped.slice(b, b + AD_DAILY_POST_BATCH_SIZE);
     const batchReqs = [];
     chunk.forEach(a => {
       batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/insights?level=ad&fields=ad_id,ad_name,campaign_id,campaign_name,spend,actions&time_range={"since":"${MESS_SINCE}","until":"${MESS_UNTIL}"}&time_increment=1&limit=500` });
       batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/ads?fields=id,name,status,creative{effective_object_story_id,thumbnail_url}&limit=500` });
     });
     try {
-      const resp = await fetch('https://graph.facebook.com/v25.0/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `batch=${encodeURIComponent(JSON.stringify(batchReqs))}&access_token=${META_TOKEN}&include_headers=false`
-      });
-      const bResults = await resp.json();
+      const bResults = await fetchMetaBatch(batchReqs, 'ad_daily_post');
       if (!Array.isArray(bResults)) {
         console.error(`[ad_daily_post] batch không trả mảng:`, bResults && bResults.error && bResults.error.message);
         errors += chunk.length; continue;
