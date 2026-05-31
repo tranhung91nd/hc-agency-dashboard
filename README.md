@@ -106,6 +106,8 @@ OMNI_ADMIN_TOKEN=...
 CRON_SECRET=...
 ```
 
+Cron nhắc hạn/retry email chạy bằng GitHub Actions `.github/workflows/omni-cron.yml` mỗi giờ. Thêm GitHub secret `CRON_SECRET` trùng với env `CRON_SECRET` trên Vercel; nếu dùng domain khác, thêm `OMNI_CRON_URL`.
+
 SePay webhook:
 
 - URL: `/api/omni/payment-webhook`

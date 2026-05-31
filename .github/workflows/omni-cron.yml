@@ -1,0 +1,21 @@
+name: Omni Trial Automation Cron
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  omni-cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Omni trial automation cron
+        env:
+          OMNI_CRON_URL: ${{ secrets.OMNI_CRON_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          URL="${OMNI_CRON_URL:-https://hc-agency-dashboard.vercel.app/api/omni/cron}"
+          curl --fail --show-error --silent \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "$URL"
