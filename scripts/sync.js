@@ -178,13 +178,14 @@ async function syncDailySpendForDate(syncDate, normal, shared, staff, clients) {
 
 // ═══ Sync campaign_daily_mess cho range D3 → D0 ═══
 async function syncCampaignMess(adAccounts) {
-  // Chỉ sync TKQC nào đã đặt ngưỡng giá Mess hoặc Form (giống logic app.js syncCampaignMess)
-  const mapped = adAccounts.filter(a => a.fb_account_id && (a.max_mess_cost || a.max_lead_cost));
+  // Sync mọi TKQC đã ghép Meta để báo cáo khách luôn có Mess/Bình luận.
+  // Cảnh báo giá vẫn chỉ áp dụng cho TK có max_mess_cost/max_lead_cost ở app.js.
+  const mapped = adAccounts.filter(a => a.fb_account_id);
   if (!mapped.length) {
-    console.log(`[campaign_daily_mess] Không có TK nào đặt ngưỡng — bỏ qua`);
+    console.log(`[campaign_daily_mess] Không có TK nào ghép Meta — bỏ qua`);
     return { saved: 0, errors: 0 };
   }
-  console.log(`[campaign_daily_mess] ${mapped.length} TK có ngưỡng`);
+  console.log(`[campaign_daily_mess] ${mapped.length} TK đã ghép Meta`);
   let saved = 0, errors = 0;
   const allRows = [];
   // 3 requests/account → chunk 16 để <50 requests/batch
@@ -232,9 +233,9 @@ async function syncCampaignMess(adAccounts) {
 
 // ═══ Sync ad_daily_post cho range D0 (mỗi ad × ngày + post_id + creative) ═══
 async function syncAdDailyPost(adAccounts) {
-  const mapped = adAccounts.filter(a => a.fb_account_id && (a.max_mess_cost || a.max_lead_cost));
+  const mapped = adAccounts.filter(a => a.fb_account_id);
   if (!mapped.length) {
-    console.log(`[ad_daily_post] Không có TK nào đặt ngưỡng — bỏ qua`);
+    console.log(`[ad_daily_post] Không có TK nào ghép Meta — bỏ qua`);
     return { saved: 0, errors: 0 };
   }
   console.log(`[ad_daily_post] ${mapped.length} TK, range ${MESS_SINCE} → ${MESS_UNTIL}`);

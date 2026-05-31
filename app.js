@@ -4317,8 +4317,8 @@ if(btn){btn.disabled=true;btn.textContent='Đang quét...';}
 // Quét cửa sổ D-3 → D0 (gồm hôm nay) để báo cáo khách thấy realtime.
 // Cảnh báo Mess/Form vẫn chỉ tính D-3..D-1 (xem buildCampAggregates) — D0 không trigger noti.
 var d1=vnDateStr(0),d3=vnDateStr(-259200000);
-var mapped=adList.filter(function(a){return a.fb_account_id&&(a.max_mess_cost||a.max_lead_cost);});
-if(!mapped.length){if(btn){toast('Chưa có Tài khoản nào đặt ngưỡng giá Messenger/form',false);btn.disabled=false;btn.textContent=oldText;}return;}
+var mapped=adList.filter(function(a){return a.fb_account_id;});
+if(!mapped.length){if(btn){toast('Chưa có Tài khoản nào ghép Meta',false);btn.disabled=false;btn.textContent=oldText;}return;}
 var errors=0;
 try{
 if(btn)btn.textContent='Đang quét '+mapped.length+' Tài khoản...';
@@ -4358,8 +4358,8 @@ async function backfillAdPostsOnce(btn){
   if(btn){btn.disabled=true;btn.textContent='Đang backfill...';}
   try{
     var dFrom='2026-04-01',dTo=vnDateStr(0);
-    var mapped=adList.filter(function(a){return a.fb_account_id&&(a.max_mess_cost||a.max_lead_cost);});
-    if(!mapped.length){toast('Không có TK nào đặt ngưỡng',false);return;}
+    var mapped=adList.filter(function(a){return a.fb_account_id;});
+    if(!mapped.length){toast('Không có TK nào ghép Meta',false);return;}
     var allRows=[],errors=0,errorSamples=[],failedAccs=[];
     for(var b=0;b<mapped.length;b+=24){
       var chunk=mapped.slice(b,b+24);
