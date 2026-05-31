@@ -1,6 +1,11 @@
 {
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "has": [{ "type": "host", "value": "zalo.hc-agency.online" }],
+      "destination": "/api/:path*"
+    },
+    {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "zalo.hc-agency.online" }],
       "destination": "/demos/landing-zalo-ai.html"
@@ -12,5 +17,8 @@
     { "source": "/alert/:path*", "destination": "/index.html" },
     { "source": "/admin/:path*", "destination": "/index.html" },
     { "source": "/team", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/omni/cron", "schedule": "0 * * * *" }
   ]
 }

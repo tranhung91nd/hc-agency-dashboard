@@ -73,6 +73,49 @@ Cần secrets trong GitHub Settings:
 
 ---
 
+## Omni AI Marketing trial/license automation
+
+Landing `zalo.hc-agency.online` gửi đăng ký dùng thử sang `/api/omni/trial`.
+Luồng này tạo license 3 ngày từ license server ở `https://ai.hc-agency.online/license-api`, gửi email qua Resend, đối soát chuyển khoản SePay tại `/api/omni/payment-webhook`, rồi tự tạo license 365 ngày khi khách chuyển khoản đủ `1.000.000đ`.
+
+Chạy migration Supabase:
+
+```sql
+-- migrations/2026-05-31_omni_trial_license.sql
+```
+
+Env cần cấu hình trên Vercel:
+
+```bash
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+OMNI_LICENSE_API_BASE=https://ai.hc-agency.online/license-api
+OMNI_LICENSE_ADMIN_TOKEN=...
+OMNI_LICENSE_APP_ID=hc-zalo-agent
+OMNI_APP_URL=https://ai.hc-agency.online/chat.html
+OMNI_DOWNLOADS_URL=https://ai.hc-agency.online/api/downloads/latest
+RESEND_API_KEY=...
+MAIL_FROM="HC Agency <no-reply@hc-agency.online>"
+MAIL_REPLY_TO=hotro@hc-agency.online
+SEPAY_WEBHOOK_SECRET=...
+OMNI_PAYMENT_BANK=Techcombank
+OMNI_PAYMENT_ACCOUNT_NO=9188899999
+OMNI_PAYMENT_ACCOUNT_DISPLAY="9188 8999 99"
+OMNI_PAYMENT_ACCOUNT_NAME="TRAN TRUC HUNG"
+OMNI_ADMIN_TOKEN=...
+CRON_SECRET=...
+```
+
+SePay webhook:
+
+- URL: `/api/omni/payment-webhook`
+- Event: money in / incoming only
+- Auth: HMAC-SHA256
+- Payment code prefix: `OMNI`
+- Nội dung chuyển khoản khách nhận qua email là `payment_code` dạng `OMNIABC123`; mã đơn hiển thị trong hệ thống là `OMNI-ABC123`.
+
+---
+
 ## Push thay đổi local
 
 ```bash
