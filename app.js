@@ -459,8 +459,7 @@ var mk=monthKey(month),total=0;
 dailyData.forEach(function(d){
 if(!d||!d.report_date||d.report_date.substring(0,7)!==mk)return;
 if(startDate&&d.report_date<startDate)return; // bỏ ngày trước start_date
-var cid=d.matched_client_id||null;
-if(!cid){var aa=adList.find(function(a){return a.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
+var cid=getDailySpendClientId(d);
 if(cid===clientId)total+=metaNum(d.spend_amount);
 });
 return total;
@@ -540,8 +539,7 @@ function buildRentalMatrix(clientId,month){
   dailyData.forEach(function(d){
     if(!d||!d.report_date||d.report_date.substring(0,7)!==ms)return;
     if(startDate&&d.report_date<startDate)return; // bỏ ngày trước start_date
-    var cid=d.matched_client_id||null;
-    if(!cid){var aa=adList.find(function(a){return a.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
+    var cid=getDailySpendClientId(d);
     if(cid!==clientId)return;
     var spendVal=metaNum(d.spend_amount);
     if(!accMap[d.ad_account_id]){
@@ -878,6 +876,22 @@ var past=rows.filter(function(a){return a.start_date<=date;});
 if(!past.length)return [];
 past.sort(function(x,y){return(y.start_date||'').localeCompare(x.start_date||'');});
 return [past[0]];
+}
+function hasAnyAssignForAd(adId){
+var rows=(_assignByAcc&&_assignByAcc[adId])||assignData.filter(function(a){return a.ad_account_id===adId;});
+return rows.length>0;
+}
+function getClientForAdDate(adId,date,fallbackClientId){
+var asg=getAssign(adId,date);
+if(asg.length)return asg[0].client_id||null;
+// Nếu TKQC đã có lịch phân công, không dùng client_id hiện tại để kéo ngược dữ liệu trước ngày phân quyền.
+if(hasAnyAssignForAd(adId))return null;
+return fallbackClientId||null;
+}
+function getDailySpendClientId(d){
+if(d&&d.matched_client_id)return d.matched_client_id;
+var aa=findAd(d&&d.ad_account_id);
+return aa?getClientForAdDate(d.ad_account_id,d.report_date,aa.client_id):null;
 }
 function gsfa(aid,date,dsStaffId){
 if(dsStaffId)return dsStaffId;
@@ -1352,13 +1366,7 @@ function p1Client(ms,mDates,nd,dim){
 // Aggregate spend by client
 var clientSpend={};
 dailyData.filter(function(d){return d.report_date.substring(0,7)===ms;}).forEach(function(d){
-var cid=d.matched_client_id||null;
-if(!cid){
-// For non-shared, get client from assignment or ad_account
-var aa=adList.find(function(a){return a.id===d.ad_account_id;});
-if(aa){
-var asg=getAssign(d.ad_account_id,d.report_date);
-cid=asg.length?asg[0].client_id:aa.client_id;}}
+var cid=getDailySpendClientId(d);
 if(!cid)cid='unknown';
 if(!clientSpend[cid])clientSpend[cid]={total:0,daily:{},staffIds:new Set()};
 clientSpend[cid].total+=d.spend_amount;
@@ -1508,8 +1516,7 @@ dailyData.forEach(function(d){
 if(!d.report_date||d.report_date.substring(0,7)!==monthStr)return;
 var sid=gsfa(d.ad_account_id,d.report_date,d.staff_id);
 if(sid!==staffId)return;
-var cid=d.matched_client_id||null;
-if(!cid){var aa=adList.find(function(x){return x.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
+var cid=getDailySpendClientId(d);
 if(!cid)return;
 if(!clientSpend[cid])clientSpend[cid]=0;
 clientSpend[cid]+=moneyVal(d.spend_amount);});
@@ -2454,8 +2461,7 @@ var mLabel='T'+parseInt(ms.split('-')[1]);var yLabel=ms.split('-')[0];
 var activeClients=clientList.filter(function(c){return c.status!=='prospect';});
 var cs={};activeClients.forEach(function(c){cs[c.id]={c:c,spend:0};});
 dailyData.filter(function(d){return d.report_date.substring(0,7)===ms;}).forEach(function(d){
-var cid=d.matched_client_id||null;
-if(!cid){var aa=adList.find(function(a){return a.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
+var cid=getDailySpendClientId(d);
 if(cid&&cs[cid])cs[cid].spend+=d.spend_amount;});
 var allRows=activeClients.map(function(c){return{c:c,spend:cs[c.id]?cs[c.id].spend:0};});
 var rows=allRows.filter(function(row){return clientFilterMatch(row,ms);});
@@ -2542,8 +2548,7 @@ var tkSpend={};
 adList.forEach(function(a){if(a.client_id===c.id)tkSpend[a.id]={name:a.account_name,spend:0};});
 assignData.forEach(function(ag){if(ag.client_id===c.id&&!tkSpend[ag.ad_account_id]){var acc=adList.find(function(x){return x.id===ag.ad_account_id;});if(acc)tkSpend[acc.id]={name:acc.account_name,spend:0};}});
 dailyData.filter(function(d){return d.report_date.substring(0,7)===ms;}).forEach(function(d){
-var cid2=d.matched_client_id||null;
-if(!cid2){var aa2=adList.find(function(a){return a.id===d.ad_account_id;});if(aa2){var asg2=getAssign(d.ad_account_id,d.report_date);cid2=asg2.length?asg2[0].client_id:aa2.client_id;}}
+var cid2=getDailySpendClientId(d);
 if(cid2===c.id&&tkSpend[d.ad_account_id])tkSpend[d.ad_account_id].spend+=d.spend_amount;});
 var tkArr=Object.values(tkSpend).filter(function(t){return t.spend>0;}).sort(function(a,b){return b.spend-a.spend;});
 var domId=invoiceDomId(c.id),qrUrl=getVietQrImageUrl(c,ms,invoice.flatFee,sp);
@@ -7441,16 +7446,14 @@ function p3Quotation(tabH){
 // ═══ P3 — TAB BÁO CÁO: Báo cáo daily theo từng khách (data từ Meta API đã sync) ═══
 // Helper: xác định client_id cho 1 dòng daily_spend (theo matched_client_id → assignment → ad_account.client_id)
 function _rptClientForDaily(d){
-  var cid=d.matched_client_id||null;
-  if(!cid){var aa=adList.find(function(a){return a.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
+  var cid=getDailySpendClientId(d);
   return cid;
 }
 // Helper: xác định client_id cho 1 dòng campaign_daily_mess
 function _rptClientForMess(r){
   var aa=r.ad_account||adList.find(function(a){return a.id===r.ad_account_id;});
   if(!aa)return null;
-  var asg=getAssign(r.ad_account_id,r.report_date);
-  return asg.length?asg[0].client_id:aa.client_id;
+  return getClientForAdDate(r.ad_account_id,r.report_date,aa.client_id);
 }
 // Render content báo cáo daily (không bao gồm page-title) — dùng làm sub-tab trong Khách chính thức
 function p3ActiveReportContent(){
@@ -7597,8 +7600,7 @@ function renderClientPostWeekly(clientId,month){
     if(!x.report_date||x.report_date.substring(0,7)!==month)return false;
     var aa=adList.find(function(a){return a.id===x.ad_account_id;});
     if(!aa)return false;
-    var asg=getAssign(x.ad_account_id,x.report_date);
-    var cid=asg.length?asg[0].client_id:aa.client_id;
+    var cid=getClientForAdDate(x.ad_account_id,x.report_date,aa.client_id);
     return cid===clientId;
   });
   var h='<div style="margin-top:18px;padding:0 2px;">';
@@ -10537,8 +10539,7 @@ var sid=gsfa(d.ad_account_id,d.report_date,d.staff_id);if(sid&&st[sid])st[sid].s
 var cs={};clientList.forEach(function(c){if(c.status==='prospect')return;cs[c.id]={name:c.name,fee:getEffectiveServiceFee(c.id,cm,c.service_fee),payment:c.payment_status,status:c.status,spend:0,tkCount:0};});
 adList.forEach(function(a){if(a.client_id&&cs[a.client_id])cs[a.client_id].tkCount++;});
 dailyData.filter(function(d){return d.report_date.substring(0,7)===cm;}).forEach(function(d){
-var cid=d.matched_client_id||null;
-if(!cid){var aa=adList.find(function(a){return a.id===d.ad_account_id;});if(aa){var asg=getAssign(d.ad_account_id,d.report_date);cid=asg.length?asg[0].client_id:aa.client_id;}}
+var cid=getDailySpendClientId(d);
 if(cid&&cs[cid])cs[cid].spend+=d.spend_amount;});
 // Ad accounts with comparable spend-cap usage
 var tkAlerts=[];adList.forEach(function(a){if(hasComparableSpendCap(a)){var pct=Math.round(a.amount_spent/a.spend_cap*100);if(pct>=80)tkAlerts.push({name:a.account_name,spent:a.amount_spent,cap:a.spend_cap,pct:pct});}});
