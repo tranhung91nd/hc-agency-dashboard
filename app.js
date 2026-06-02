@@ -2770,6 +2770,33 @@ async function deleteProspect(clientId){
   await loadLight();
 }
 function toggleClientInv(id){expandedClientId=(expandedClientId===id)?null:id;render();}
+function keepClientInvoiceVisible(clientId,nextPaymentStatus,opts){
+opts=opts||{};
+var oldY=window.scrollY||document.documentElement.scrollTop||0;
+var c=clientList.find(function(x){return x.id===clientId;});
+if(c&&nextPaymentStatus)c.payment_status=nextPaymentStatus;
+expandedClientId=clientId;
+if(nextPaymentStatus&&clientFilterPayment&&clientFilterPayment!==nextPaymentStatus){
+  clientFilterPayment=nextPaymentStatus;
+}
+render();
+setTimeout(function(){
+  var card=document.getElementById('client-invoice-'+invoiceDomId(clientId));
+  if(card&&card.scrollIntoView){
+    card.scrollIntoView({behavior:opts.smooth?'smooth':'auto',block:'nearest'});
+  }else{
+    window.scrollTo(0,oldY);
+  }
+},30);
+}
+async function reloadAndKeepClientInvoice(clientId,nextPaymentStatus){
+expandedClientId=clientId;
+if(nextPaymentStatus&&clientFilterPayment&&clientFilterPayment!==nextPaymentStatus){
+  clientFilterPayment=nextPaymentStatus;
+}
+await loadAll();
+keepClientInvoiceVisible(clientId,nextPaymentStatus);
+}
 
 async function insertInvoiceIncomeTransaction(payload){
 var r=await sb2.from('transaction').insert(Object.assign({},payload,{source:'invoice'}));
@@ -2791,7 +2818,7 @@ try{
 var r=await sb2.from('client').update({payment_status:'invoice_sent'}).eq('id',clientId);
 if(r.error){toast('Lỗi: '+r.error.message,false);return;}
 toast('Đã đánh dấu Đã gửi phiếu',true);
-await loadAll();render();
+await reloadAndKeepClientInvoice(clientId,'invoice_sent');
 }catch(e){toast('Lỗi: '+e.message,false);}
 finally{if(btn){btn.disabled=false;btn.textContent=oldText||'✉ Đã gửi phiếu';}}}
 async function markInvoiceUnsent(clientId,btn){
@@ -2802,7 +2829,7 @@ try{
 var r=await sb2.from('client').update({payment_status:'unpaid'}).eq('id',clientId);
 if(r.error){toast('Lỗi: '+r.error.message,false);return;}
 toast('Đã chuyển về Chưa thanh toán',true);
-await loadAll();render();
+await reloadAndKeepClientInvoice(clientId,'unpaid');
 }catch(e){toast('Lỗi: '+e.message,false);}
 finally{if(btn){btn.disabled=false;btn.textContent=oldText||'↩ Chưa gửi';}}}
 async function confirmClientPayment(clientId,month,btn){
@@ -2823,7 +2850,7 @@ if(r1.error){toast('Lỗi cập nhật Khách hàng: '+r1.error.message,false);r
 var r2=await insertInvoiceIncomeTransaction({txn_date:td(),txn_type:'income',amount:info.total,category:'service_fee',client_id:clientId,staff_id:null,note:note,month:mk});
 if(r2.error)toast('Đã xác nhận thanh toán, nhưng lỗi tạo giao dịch Thu: '+r2.error.message,false);
 else toast('Đã xác nhận thanh toán và tạo giao dịch Thu: '+ff(info.total),true);
-await loadAll();render();
+await reloadAndKeepClientInvoice(clientId,'paid');
 }catch(e){toast('Lỗi: '+e.message,false);}
 finally{if(btn){btn.disabled=false;btn.textContent=oldText||'✓ Xác nhận thanh toán';}}}
 
@@ -2840,7 +2867,7 @@ if(r1.error){toast('Lỗi: '+r1.error.message,false);return;}
 var r2=await deleteInvoiceIncomeTransactions(clientId,mk,note);
 if(r2.error)console.warn('Không xóa được giao dịch tự động:',r2.error.message);
 toast('Đã hủy thanh toán'+(r2.error?'':' + xóa giao dịch Thu tự động'),true);
-await loadAll();render();
+await reloadAndKeepClientInvoice(clientId,'unpaid');
 }catch(e){toast('Lỗi: '+e.message,false);}
 finally{if(btn){btn.disabled=false;btn.textContent=oldText||'Hủy thanh toán';}}}
 function startEditFee(domId,clientId,month){
