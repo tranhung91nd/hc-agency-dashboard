@@ -1765,8 +1765,17 @@ if(authUser&&isAdmin()){
     h+=' <button onclick="togglePenaltyExcluded(\''+arr[0].id+'\')" style="font-size:11px;border:0;background:none;color:var(--tx3);cursor:pointer;padding:0 2px;" title="'+(arr[0].excluded_from_fund?'Đưa lại vào quỹ':'Đánh dấu bồi thường khách (không vào quỹ)')+'">'+(arr[0].excluded_from_fund?'↩':'🏥')+'</button>';
     h+=' <button onclick="deletePenalty(\''+arr[0].id+'\')" style="font-size:10px;border:0;background:none;color:var(--tx3);cursor:pointer;" title="Xóa">×</button>';
   } else {
-    var _ids=arr.map(function(p){return p.id;}).join(',');
-    h+=' <button onclick="deletePenaltyBulk(\''+_ids+'\','+arr.length+','+sum+')" style="font-size:10px;border:0;background:none;color:var(--tx3);cursor:pointer;" title="Xóa '+arr.length+' khoản phạt ngày này">×</button>';
+    h+='<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px;align-items:flex-end;">';
+    arr.forEach(function(p){
+      var pColor=p.excluded_from_fund?'var(--amber-tx)':'var(--red)';
+      var pPrefix=p.excluded_from_fund?'🏥 ':'';
+      h+='<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:'+pColor+';" title="'+esc(p.reason||'(không ghi lý do)')+'">';
+      h+=pPrefix+ff(Number(p.amount)||0);
+      h+='<button onclick="togglePenaltyExcluded(\''+p.id+'\')" style="font-size:10px;border:0;background:none;color:var(--tx3);cursor:pointer;padding:0 1px;" title="'+(p.excluded_from_fund?'Đưa lại vào quỹ':'Đánh dấu bồi thường khách (không vào quỹ)')+'">'+(p.excluded_from_fund?'↩':'🏥')+'</button>';
+      h+='<button onclick="deletePenalty(\''+p.id+'\')" style="font-size:10px;border:0;background:none;color:var(--tx3);cursor:pointer;padding:0 1px;" title="Xóa khoản này">×</button>';
+      h+='</span>';
+    });
+    h+='</div>';
   }
 }
 h+='</td>';
