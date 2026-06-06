@@ -1,5 +1,5 @@
 // ⚠ WARNING: SB_KEY (anon) is designed to be public but should be paired with RLS policies.
-var SB_URL=(window.HC_SUPABASE_URL||window.location.origin+'/supabase'),SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgwNzE2ODk0LCJleHAiOjE5MzgzOTY4OTR9.lG-PxhWYEL_ZlUIBnGvHFArEXtQoX8XNVBgktHPfLRs';
+var SB_URL=(window.HC_SUPABASE_URL||window.location.origin+'/supabase'),SB_KEY=(window.HC_SUPABASE_KEY||'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxc25vaHd5bWdtZHZicXdmbGFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzU1NzUsImV4cCI6MjA5MTIxMTU3NX0.0cv-j9zJUfVAj9LBG8VFHNO0Jke4JjehBKSzDVd1nA0');
 var sb2=supabase.createClient(SB_URL,SB_KEY);
 // Meta access token KHÔNG còn ở client. Tất cả call Meta API đi qua /api/meta proxy
 // (xem helper metaGet/metaPost/metaBatch bên dưới). Token thật ở Vercel env.
