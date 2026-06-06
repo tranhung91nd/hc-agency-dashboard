@@ -3973,8 +3973,7 @@ if(!needAuth())return;
 var el=document.getElementById('manual-spend-'+adId);
 var amount=parseInt(el.value)||0;
 if(!el.value.trim()){toast('Vui lòng nhập số tiền giao dịch.',false);return;}
-await sb2.from('daily_spend').delete().eq('ad_account_id',adId).eq('report_date',adViewDate).is('staff_id',null);
-var r=await sb2.from('daily_spend').insert({ad_account_id:adId,report_date:adViewDate,spend_amount:amount});
+var r=await sb2.from('daily_spend').upsert({ad_account_id:adId,report_date:adViewDate,spend_amount:amount,staff_id:null,matched_client_id:null},{onConflict:'ad_account_id,report_date,staff_id,matched_client_id'});
 if(!r.error){toast('Đã lưu chi tiêu: '+ff(amount),true);await loadAll();if(curPage===1){render();}else{var elAc=document.getElementById('ac');if(elAc)elAc.innerHTML=rat();}}
 else toast('Lỗi: '+r.error.message,false);}
 async function saveNewTk(btn){
@@ -4236,6 +4235,19 @@ await Promise.all(runners);
 return out;
 }
 function chunkArray(arr,size){var chunks=[];for(var i=0;i<arr.length;i+=size)chunks.push(arr.slice(i,i+size));return chunks;}
+function metaTimeRangeParam(since,until){return encodeURIComponent(JSON.stringify({since:since,until:until}));}
+function formatSyncErrorHint(sample){
+if(!sample)return'';
+var code=sample.code?Number(sample.code):0,phase=String(sample.phase||'lỗi'),msg=sample.msg?String(sample.msg):'',codeHint='';
+if(code===190)codeHint=' — Token hết hạn/thu hồi';
+else if(code===200||code===100)codeHint=' — Thiếu quyền ads_read';
+else if(code===17||code===4||code===32||code===613)codeHint=' — Rate limit, thử lại sau 1-2 phút';
+else if(code===803)codeHint=' — Tài khoản không truy cập được';
+else if(code===23505)codeHint=' — Trùng dữ liệu daily_spend';
+else if(phase.indexOf('db')===0)codeHint=' — Lỗi ghi Supabase';
+else if(msg&&!codeHint)codeHint=' — '+msg.substring(0,120);
+return' ('+phase+(code?' #'+code:'')+codeHint+')';
+}
 function buildSharedSpendRows(a,rows,date){
 var combo={};
 (rows||[]).forEach(function(c){var spend=Math.round(parseFloat(c.spend||0));if(!spend)return;
@@ -4248,47 +4260,59 @@ if(ms2){var key=ms2.id+'|'+(mc?mc.id:'');if(!combo[key])combo[key]={ad_account_i
 return Object.keys(combo).map(function(k){return combo[k];});
 }
 async function fetchSharedSpendRowsBatch(shared,date){
-var rows=[],errors=0;
+var rows=[],errors=0,errorSamples=[],timeRange=metaTimeRangeParam(date,date);
+function pushErr(accId,phase,msg,code){
+errors++;
+if(errorSamples.length<3)errorSamples.push({accId:accId,phase:phase,msg:msg,code:code});
+console.warn('[Shared spend sync]',date,phase,'acc='+accId,'code='+code,msg);
+}
 for(var b=0;b<shared.length;b+=50){
 var chunk=shared.slice(b,b+50);
-var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.fb_account_id+'/insights?level=campaign&fields=campaign_name,spend&time_range={"since":"'+date+'","until":"'+date+'"}&limit=500'};});
+var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.fb_account_id+'/insights?level=campaign&fields=campaign_name,spend&time_range='+timeRange+'&limit=500'};});
 try{
 var bResults=await metaBatch(batchReqs);
 if(!Array.isArray(bResults)){
 var em=(bResults&&bResults.error&&bResults.error.message)||'Batch không phải mảng';
-console.warn('[Shared spend sync]',date,'batch-level error:',em);
-errors+=chunk.length;continue;
+var ec=(bResults&&bResults.error&&bResults.error.code)||0;
+chunk.forEach(function(a){pushErr(a.fb_account_id,'batch',em,ec);});
+continue;
 }
 for(var j=0;j<chunk.length;j++){
 var accId=chunk[j].fb_account_id;
 try{
 var body=JSON.parse((bResults[j]&&bResults[j].body)||'{}');
-if(body.error){console.warn('[Shared spend sync]',date,'acc='+accId,'code='+body.error.code,body.error.message);errors++;continue;}
+if(body.error){pushErr(accId,'insights',body.error.message,body.error.code);continue;}
 rows=rows.concat(buildSharedSpendRows(chunk[j],body.data||[],date));
-}catch(e){errors++;}
+}catch(e){pushErr(accId,'parse',e.message,0);}
 }
-}catch(e){errors+=chunk.length;}
+}catch(e){chunk.forEach(function(a){pushErr(a.fb_account_id,'network',e.message,0);});}
 }
-return{rows:rows,errors:errors};
+return{rows:rows,errors:errors,errorSamples:errorSamples};
 }
 async function replaceSharedSpendRows(shared,date){
 var ids=shared.map(function(a){return a.id;});
-if(!ids.length)return{saved:0,errors:0};
-var oldShared=await sb2.from('daily_spend').select('*').in('ad_account_id',ids).eq('report_date',date).not('staff_id','is',null);
-var fetched=await fetchSharedSpendRowsBatch(shared,date),errors=fetched.errors,saved=0;
-var del=await sb2.from('daily_spend').delete().in('ad_account_id',ids).eq('report_date',date).not('staff_id','is',null);
-if(del.error){errors+=ids.length;return{saved:0,errors:errors};}
+if(!ids.length)return{saved:0,errors:0,errorSamples:[]};
+var fetched=await fetchSharedSpendRowsBatch(shared,date),errors=fetched.errors,saved=0,errorSamples=fetched.errorSamples||[];
 var batches=chunkArray(fetched.rows,500);
 for(var i=0;i<batches.length;i++){
-var ins=await sb2.from('daily_spend').insert(batches[i]);
-if(ins.error){errors+=batches[i].length;}
+var ins=await sb2.from('daily_spend').upsert(batches[i],{onConflict:'ad_account_id,report_date,staff_id,matched_client_id'});
+if(ins.error){errors+=batches[i].length;if(errorSamples.length<3)errorSamples.push({accId:'shared',phase:'db-upsert',msg:ins.error.message,code:ins.error.code});console.warn('[Shared spend upsert]',ins.error.message);}
 else saved+=batches[i].length;
 }
-if(errors&&oldShared.data&&oldShared.data.length){
-var restoreS=oldShared.data.map(function(row){var cp=Object.assign({},row);delete cp.id;return cp;});
-await sb2.from('daily_spend').insert(restoreS);
+// Chỉ xóa orphan khi Meta fetch sạch lỗi để tránh mất data cũ trong ngày API chập chờn.
+if(!fetched.errors){
+var validKeys=new Set(fetched.rows.map(function(r){return r.ad_account_id+'|'+r.staff_id+'|'+(r.matched_client_id||'');}));
+var existing=await sb2.from('daily_spend').select('id,ad_account_id,staff_id,matched_client_id').in('ad_account_id',ids).eq('report_date',date).not('staff_id','is',null);
+if(existing.error){errors+=ids.length;if(errorSamples.length<3)errorSamples.push({accId:'shared',phase:'db-select',msg:existing.error.message,code:existing.error.code});}
+else{
+var orphanIds=(existing.data||[]).filter(function(x){return!validKeys.has(x.ad_account_id+'|'+x.staff_id+'|'+(x.matched_client_id||''));}).map(function(x){return x.id;});
+if(orphanIds.length){
+var del=await sb2.from('daily_spend').delete().in('id',orphanIds);
+if(del.error){errors+=orphanIds.length;if(errorSamples.length<3)errorSamples.push({accId:'shared',phase:'db-delete',msg:del.error.message,code:del.error.code});console.warn('[Shared spend delete orphan]',del.error.message);}
 }
-return{saved:saved,errors:errors};
+}
+}
+return{saved:saved,errors:errors,errorSamples:errorSamples};
 }
 // Phân loại campaign theo optimization_goal + destination_type của ad set
 // Trả về: 'mess' | 'form' | 'engagement' | 'other'
@@ -4329,7 +4353,7 @@ return{ad_account_id:a.id,campaign_id:r.campaign_id,campaign_name:r.campaign_nam
 });
 }
 async function fetchCampaignMessBatch(accounts,d3,d1){
-var allRows=[],errors=0,errorSamples=[];
+var allRows=[],errors=0,errorSamples=[],timeRange=metaTimeRangeParam(d3,d1),activeFilter=encodeURIComponent(JSON.stringify([{field:'effective_status',operator:'IN',value:['ACTIVE']}]));
 function pushErr(accId,phase,msg,code){
 errors++;
 if(errorSamples.length<5)errorSamples.push({accId:accId,phase:phase,msg:msg,code:code});
@@ -4340,8 +4364,8 @@ for(var b=0;b<accounts.length;b+=8){
 var chunk=accounts.slice(b,b+8);
 var batchReqs=[];
 chunk.forEach(function(a){
-batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/campaigns?fields=id,effective_status&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=500'});
-batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/insights?level=campaign&fields=campaign_id,campaign_name,spend,actions&time_range={"since":"'+d3+'","until":"'+d1+'"}&time_increment=1&limit=500'});
+batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/campaigns?fields=id,effective_status&filtering='+activeFilter+'&limit=500'});
+batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/insights?level=campaign&fields=campaign_id,campaign_name,spend,actions&time_range='+timeRange+'&time_increment=1&limit=500'});
 batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/adsets?fields=campaign_id,optimization_goal,destination_type&limit=500'});
 });
 try{
@@ -4389,18 +4413,8 @@ var upsert=await sb2.from('campaign_daily_mess').upsert(batches[i],{onConflict:'
 if(upsert.error){errors+=batches[i].length;console.warn('[Mess sync upsert]',upsert.error.message);}
 else saved+=batches[i].length;
 }
-// Rút gọn lý do lỗi đầu tiên cho user (chi tiết đầy đủ ở console)
-var hint='';
-if(errors&&result.errorSamples&&result.errorSamples.length){
-var s0=result.errorSamples[0];
-var codeHint='';
-if(s0.code===190)codeHint=' — Token hết hạn/thu hồi';
-else if(s0.code===200||s0.code===100)codeHint=' — Thiếu quyền ads_read';
-else if(s0.code===17||s0.code===4||s0.code===32||s0.code===613)codeHint=' — Rate limit, thử lại sau 1-2 phút';
-else if(s0.code===803)codeHint=' — Tài khoản không truy cập được';
-hint=' ('+s0.phase+(s0.code?' #'+s0.code:'')+codeHint+')';
-console.warn('[Mess sync] Mẫu lỗi:',result.errorSamples);
-}
+var hint=errors&&result.errorSamples&&result.errorSamples.length?formatSyncErrorHint(result.errorSamples[0]):'';
+if(hint)console.warn('[Mess sync] Mẫu lỗi:',result.errorSamples);
 toast('Quét xong: '+saved+' dòng'+(errors?' · '+errors+' lỗi'+hint:''),!errors);
 if(!skipRefresh)await loadAll();
 }catch(e){toast('Lỗi quét giá Messenger: '+e.message,false);}
@@ -4416,6 +4430,7 @@ async function backfillAdPostsOnce(btn){
   if(btn){btn.disabled=true;btn.textContent='Đang backfill...';}
   try{
     var dFrom='2026-04-01',dTo=vnDateStr(0);
+    var timeRange=metaTimeRangeParam(dFrom,dTo);
     var mapped=adList.filter(function(a){return a.fb_account_id;});
     if(!mapped.length){toast('Không có TK nào ghép Meta',false);return;}
     var allRows=[],errors=0,errorSamples=[],failedAccs=[];
@@ -4424,7 +4439,7 @@ async function backfillAdPostsOnce(btn){
       if(btn)btn.textContent='Backfill: TK '+Math.min(b+12,mapped.length)+'/'+mapped.length;
       var batchReqs=[];
       chunk.forEach(function(a){
-        batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/insights?level=ad&fields=ad_id,ad_name,campaign_id,campaign_name,spend,actions&time_range={"since":"'+dFrom+'","until":"'+dTo+'"}&time_increment=1&limit=500'});
+        batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/insights?level=ad&fields=ad_id,ad_name,campaign_id,campaign_name,spend,actions&time_range='+timeRange+'&time_increment=1&limit=500'});
         batchReqs.push({method:'GET',relative_url:a.fb_account_id+'/ads?fields=id,name,status,creative{effective_object_story_id,thumbnail_url}&limit=500'});
       });
       try{
@@ -6551,13 +6566,16 @@ while(cur<=endD){var y=cur.getFullYear(),m=('0'+(cur.getMonth()+1)).slice(-2),d=
 if(!dateList.length){toast('Khoảng ngày không hợp lệ',false);return;}
 var origHTML=btn?btn.innerHTML:'';
 if(btn)btn.disabled=true;
-var totalSaved=0,totalErrors=0;
+var totalSaved=0,totalErrors=0,errorSamples=[];
 for(var i=0;i<dateList.length;i++){
 if(btn)btn.innerHTML='<span class="ad-toolbar-note-dot"></span><span class="sync-btn-label">Đang đồng bộ '+(i+1)+'/'+dateList.length+' · '+fd(dateList[i])+'…</span>';
 var r=await syncOneDate(dateList[i],mapped);
-totalSaved+=r.saved;totalErrors+=r.errors;}
+totalSaved+=r.saved;totalErrors+=r.errors;
+if(r.errorSamples&&r.errorSamples.length)errorSamples=errorSamples.concat(r.errorSamples);}
 if(btn){btn.disabled=false;btn.innerHTML=origHTML;}
-toast('Đã chốt '+dateList.length+' ngày ('+fd(range.start)+' → '+fd(range.end)+'): '+totalSaved+' OK'+(totalErrors?' · '+totalErrors+' lỗi':''),!totalErrors);
+var hint=totalErrors&&errorSamples.length?formatSyncErrorHint(errorSamples[0]):'';
+if(hint)console.warn('[Spend sync] Mẫu lỗi chốt range:',errorSamples);
+toast('Đã chốt '+dateList.length+' ngày ('+fd(range.start)+' → '+fd(range.end)+'): '+totalSaved+' OK'+(totalErrors?' · '+totalErrors+' lỗi'+hint:''),!totalErrors);
 await loadAll();stayPage();}
 async function loadMetaAccounts(force,silent){
 if(!force&&metaAccounts.length)return;
@@ -8736,13 +8754,16 @@ async function syncMetaForClient(clientId,month,btn){
     var today=td();
     var d1=new Date(Date.now()-86400000).toISOString().substring(0,10);
     var d2=new Date(Date.now()-2*86400000).toISOString().substring(0,10);
-    var totalSaved=0,totalErr=0;
+    var totalSaved=0,totalErr=0,errorSamples=[];
     for(var i=0;i<3;i++){
       var dateStr=[today,d1,d2][i];
       var r=await syncOneDate(dateStr,mapped);
       totalSaved+=r.saved||0;totalErr+=r.errors||0;
+      if(r.errorSamples&&r.errorSamples.length)errorSamples=errorSamples.concat(r.errorSamples);
     }
-    toast('Sync xong '+mapped.length+' TKQC × 3 ngày: '+totalSaved+' bản ghi'+(totalErr?' · '+totalErr+' lỗi':''),totalErr===0);
+    var hint=totalErr&&errorSamples.length?formatSyncErrorHint(errorSamples[0]):'';
+    if(hint)console.warn('[Spend sync] Mẫu lỗi theo khách:',errorSamples);
+    toast('Sync xong '+mapped.length+' TKQC × 3 ngày: '+totalSaved+' bản ghi'+(totalErr?' · '+totalErr+' lỗi'+hint:''),totalErr===0);
     await loadAll();
   }catch(e){toast('Lỗi sync: '+e.message,false);}
   finally{if(btn){btn.disabled=false;btn.textContent=oldText||'🔄 Sync Meta';}}
@@ -8789,15 +8810,18 @@ async function backfillClientMonth(clientId,monthStr){
   var y=parseInt(monthStr.split('-')[0]),m=parseInt(monthStr.split('-')[1]);
   var lastDay=new Date(y,m,0).getDate();
   console.log('[backfill] start | client='+clientId+' | tháng='+monthStr+' | '+lastDay+' ngày × '+mapped.length+' TKQC');
-  var totalSaved=0,totalErr=0;
+  var totalSaved=0,totalErr=0,errorSamples=[];
   for(var d=1;d<=lastDay;d++){
     var dateStr=monthStr+'-'+String(d).padStart(2,'0');
     var r=await syncOneDate(dateStr,mapped);
     totalSaved+=r.saved||0;totalErr+=r.errors||0;
+    if(r.errorSamples&&r.errorSamples.length)errorSamples=errorSamples.concat(r.errorSamples);
     console.log('[backfill] '+dateStr+' · saved='+r.saved+' · err='+r.errors);
   }
   console.log('[backfill] DONE: saved='+totalSaved+' · err='+totalErr);
-  toast('Backfill '+monthStr+' xong: '+totalSaved+' dòng'+(totalErr?' · '+totalErr+' lỗi':''),totalErr===0);
+  var hint=totalErr&&errorSamples.length?formatSyncErrorHint(errorSamples[0]):'';
+  if(hint)console.warn('[backfill] Mẫu lỗi:',errorSamples);
+  toast('Backfill '+monthStr+' xong: '+totalSaved+' dòng'+(totalErr?' · '+totalErr+' lỗi'+hint:''),totalErr===0);
   await loadAll();
 }
 // ═══ SHARE LINK CHO KHÁCH RENTAL ═══
@@ -10693,7 +10717,7 @@ function hideSyncBar(){var bar=document.getElementById('sync-bar');if(bar){bar.c
 async function syncOneDate(date,mapped){
 var normal=mapped.filter(function(a){return!a.is_shared;});
 var shared=mapped.filter(function(a){return a.is_shared;});
-var saved=0,errors=0,errorSamples=[];
+var saved=0,errors=0,errorSamples=[],timeRange=metaTimeRangeParam(date,date);
 function pushErr(accId,phase,msg,code){
 errors++;
 if(errorSamples.length<3)errorSamples.push({accId:accId,phase:phase,msg:msg,code:code});
@@ -10702,7 +10726,7 @@ console.warn('[Spend sync]',date,phase,'acc='+accId,'code='+code,msg);
 // Batch 50 Tài khoản thường
 for(var b=0;b<normal.length;b+=50){
 var chunk=normal.slice(b,b+50);
-var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.fb_account_id+'/insights?fields=spend&time_range={"since":"'+date+'","until":"'+date+'"}'};});
+var batchReqs=chunk.map(function(a){return{method:'GET',relative_url:a.fb_account_id+'/insights?fields=spend&time_range='+timeRange};});
 try{
 var bResults=await metaBatch(batchReqs);
 // Batch-level failure (token invalid, app block, …) — KHÔNG xoá data cũ
@@ -10719,16 +10743,21 @@ try{
 var body=JSON.parse((bResults[j]&&bResults[j].body)||'{}');
 if(body.error){pushErr(accId,'insights',body.error.message,body.error.code);continue;}
 var spend=0;if(body.data&&body.data.length)spend=Math.round(parseFloat(body.data[0].spend));
-upsertRows.push({ad_account_id:chunk[j].id,report_date:date,spend_amount:spend});
+upsertRows.push({ad_account_id:chunk[j].id,report_date:date,spend_amount:spend,staff_id:null,matched_client_id:null,_accId:accId});
 }catch(e){pushErr(accId,'parse',e.message,0);}}
 if(upsertRows.length){
-await sb2.from('daily_spend').delete().in('ad_account_id',upsertRows.map(function(r){return r.ad_account_id;})).eq('report_date',date).is('staff_id',null);
 var ubatches=chunkArray(upsertRows,200);
-for(var ub=0;ub<ubatches.length;ub++){var ur=await sb2.from('daily_spend').insert(ubatches[ub]);if(!ur.error)saved+=ubatches[ub].length;else errors+=ubatches[ub].length;}}
+for(var ub=0;ub<ubatches.length;ub++){
+var dbRows=ubatches[ub].map(function(r){return{ad_account_id:r.ad_account_id,report_date:r.report_date,spend_amount:r.spend_amount,staff_id:r.staff_id,matched_client_id:r.matched_client_id};});
+var ur=await sb2.from('daily_spend').upsert(dbRows,{onConflict:'ad_account_id,report_date,staff_id,matched_client_id'});
+if(!ur.error)saved+=ubatches[ub].length;
+else ubatches[ub].forEach(function(r){pushErr(r._accId||r.ad_account_id,'db-upsert',ur.error.message,ur.error.code);});
+}}
 }catch(e){chunk.forEach(function(a){pushErr(a.fb_account_id,'network',e.message,0);});}}
 // Tài khoản dùng chung: batch Meta API + insert DB theo lô
 var sharedResult=await replaceSharedSpendRows(shared,date);
 saved+=sharedResult.saved;errors+=sharedResult.errors;
+if(sharedResult.errorSamples&&sharedResult.errorSamples.length)errorSamples=errorSamples.concat(sharedResult.errorSamples).slice(0,3);
 return{saved:saved,errors:errors,errorSamples:errorSamples};}
 
 // Check xem cron 15p vừa sync xong chưa — nếu < 5p thì autoSync skip để khỏi gọi Meta thừa
@@ -10788,12 +10817,7 @@ var totalSaved=rToday.saved+rYest.saved,totalErrors=rToday.errors+rYest.errors;
 var spendHint='';
 var firstSample=(rToday.errorSamples&&rToday.errorSamples[0])||(rYest.errorSamples&&rYest.errorSamples[0]);
 if(totalErrors&&firstSample){
-var codeHint='';
-if(firstSample.code===190)codeHint=' — Token hết hạn/thu hồi';
-else if(firstSample.code===200||firstSample.code===100)codeHint=' — Thiếu quyền ads_read';
-else if(firstSample.code===17||firstSample.code===4||firstSample.code===32||firstSample.code===613)codeHint=' — Rate limit';
-else if(firstSample.code===803)codeHint=' — Tài khoản không truy cập được';
-spendHint=' ('+firstSample.phase+(firstSample.code?' #'+firstSample.code:'')+codeHint+')';
+spendHint=formatSyncErrorHint(firstSample);
 console.warn('[Spend sync] Mẫu lỗi today:',rToday.errorSamples,'yest:',rYest.errorSamples);
 }
 // 3. MESSENGER + form — chỉ 1 lần/ngày (lần đầu mở trang trong ngày)

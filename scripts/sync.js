@@ -51,6 +51,10 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function metaTimeRangeParam(since, until) {
+  return encodeURIComponent(JSON.stringify({ since, until }));
+}
+
 function isRetryableMetaError(message, code) {
   const msg = (message || '').toLowerCase();
   return [4, 17, 32, 613, 80004].includes(Number(code)) ||
@@ -148,13 +152,14 @@ function parseMessRows(a, campBody, insBody, adsetsBody) {
 // (combos staff/client đã không còn trong batch hiện tại).
 async function syncDailySpendForDate(syncDate, normal, shared, staff, clients) {
   let saved = 0, errors = 0;
+  const dayRange = metaTimeRangeParam(syncDate, syncDate);
   // ─── Normal accounts: 1 dòng/TK/ngày, staff_id=NULL, matched_client_id=NULL ───
   const normalRows = [];
   for (let b = 0; b < normal.length; b += 50) {
     const chunk = normal.slice(b, b + 50);
     const batchReqs = chunk.map(a => ({
       method: 'GET',
-      relative_url: `${a.fb_account_id}/insights?fields=spend&time_range={"since":"${syncDate}","until":"${syncDate}"}`
+      relative_url: `${a.fb_account_id}/insights?fields=spend&time_range=${dayRange}`
     }));
     try {
       const resp = await fetch('https://graph.facebook.com/v25.0/', {
@@ -182,7 +187,7 @@ async function syncDailySpendForDate(syncDate, normal, shared, staff, clients) {
   // Pull insights theo campaign, parse keyword → list combos hiện tại, xóa orphan, upsert mới
   const sharedFns = shared.map(a => async () => {
     try {
-      const url = `https://graph.facebook.com/v25.0/${a.fb_account_id}/insights?level=campaign&fields=campaign_name,spend&time_range={"since":"${syncDate}","until":"${syncDate}"}&limit=500&access_token=${META_TOKEN}`;
+      const url = `https://graph.facebook.com/v25.0/${a.fb_account_id}/insights?level=campaign&fields=campaign_name,spend&time_range=${dayRange}&limit=500&access_token=${META_TOKEN}`;
       const resp = await fetch(url);
       const data = await resp.json();
       if (data.error) { errors++; return; }
@@ -239,13 +244,15 @@ async function syncCampaignMess(adAccounts) {
   console.log(`[campaign_daily_mess] ${mapped.length} TK đã ghép Meta`);
   let saved = 0, errors = 0;
   const allRows = [];
+  const messRange = metaTimeRangeParam(MESS_SINCE, MESS_UNTIL);
+  const activeFilter = encodeURIComponent(JSON.stringify([{ field: 'effective_status', operator: 'IN', value: ['ACTIVE'] }]));
   // 3 requests/account; dùng batch nhỏ để hạn chế Meta timeout/rate-limit khi backfill nhiều TK.
   for (let b = 0; b < mapped.length; b += CAMPAIGN_MESS_BATCH_SIZE) {
     const chunk = mapped.slice(b, b + CAMPAIGN_MESS_BATCH_SIZE);
     const batchReqs = [];
     chunk.forEach(a => {
-      batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/campaigns?fields=id,effective_status&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=500` });
-      batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/insights?level=campaign&fields=campaign_id,campaign_name,spend,actions&time_range={"since":"${MESS_SINCE}","until":"${MESS_UNTIL}"}&time_increment=1&limit=500` });
+      batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/campaigns?fields=id,effective_status&filtering=${activeFilter}&limit=500` });
+      batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/insights?level=campaign&fields=campaign_id,campaign_name,spend,actions&time_range=${messRange}&time_increment=1&limit=500` });
       batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/adsets?fields=campaign_id,optimization_goal,destination_type&limit=500` });
     });
     try {
@@ -287,12 +294,13 @@ async function syncAdDailyPost(adAccounts) {
   console.log(`[ad_daily_post] ${mapped.length} TK, range ${MESS_SINCE} → ${MESS_UNTIL}`);
   let saved = 0, errors = 0;
   const allRows = [];
+  const postRange = metaTimeRangeParam(MESS_SINCE, MESS_UNTIL);
   // 2 reqs/account (insights/ad + ads metadata); batch nhỏ hơn giúp tránh Request aborted.
   for (let b = 0; b < mapped.length; b += AD_DAILY_POST_BATCH_SIZE) {
     const chunk = mapped.slice(b, b + AD_DAILY_POST_BATCH_SIZE);
     const batchReqs = [];
     chunk.forEach(a => {
-      batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/insights?level=ad&fields=ad_id,ad_name,campaign_id,campaign_name,spend,actions&time_range={"since":"${MESS_SINCE}","until":"${MESS_UNTIL}"}&time_increment=1&limit=500` });
+      batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/insights?level=ad&fields=ad_id,ad_name,campaign_id,campaign_name,spend,actions&time_range=${postRange}&time_increment=1&limit=500` });
       batchReqs.push({ method: 'GET', relative_url: `${a.fb_account_id}/ads?fields=id,name,status,creative{effective_object_story_id,thumbnail_url}&limit=500` });
     });
     try {
