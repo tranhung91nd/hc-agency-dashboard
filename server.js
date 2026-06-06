@@ -51,6 +51,7 @@ const omniPaymentWebhook = require('./api/omni/payment-webhook');
 const omniCron = require('./api/omni/cron');
 const omniAdminResend = require('./api/omni/admin/resend');
 const omniOrder = require('./api/omni/order/[order_code]');
+const localSupabase = require('./api/_lib/local-supabase');
 
 let chatgptChat;
 async function loadChatgptChat() {
@@ -59,6 +60,7 @@ async function loadChatgptChat() {
 }
 
 app.options('/api/*', (req, res) => res.status(200).end());
+app.use('/supabase', localSupabase);
 
 app.all('/api/meta', jsonParser, wrap(meta));
 app.all('/api/meta-sync', jsonParser, wrap(metaSync));
