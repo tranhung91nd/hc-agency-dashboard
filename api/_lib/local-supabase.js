@@ -17,6 +17,7 @@ function parsePgNumber(value) {
 }
 
 types.setTypeParser(20, parsePgNumber);
+types.setTypeParser(1082, value => value);
 types.setTypeParser(1700, parsePgNumber);
 
 const pool = new Pool({
