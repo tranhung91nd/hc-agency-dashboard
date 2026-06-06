@@ -6,7 +6,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { createSupabase, runMetaSync, vnDate, dateAdd } = require('./_lib/meta-sync');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 
 const MEMORY_JOBS = global.__hcMetaSyncJobs || new Map();
 global.__hcMetaSyncJobs = MEMORY_JOBS;
