@@ -20,6 +20,52 @@ async function metaApiCall(payload){
 async function metaGet(path){return await metaApiCall({op:'get',path:path});}
 async function metaPost(path,payload){return await metaApiCall({op:'post',path:path,payload:payload||null});}
 async function metaBatch(batchReqs){return await metaApiCall({op:'batch',batch:batchReqs});}
+function sleepMs(ms){return new Promise(function(resolve){setTimeout(resolve,ms);});}
+async function metaSyncApiCall(method,payload,query){
+  var auth=await _metaProxyAuthHeader();
+  if(!auth)return{error:{message:'Chưa đăng nhập'}};
+  var opts={method:method||'GET',headers:{Authorization:auth}};
+  if(opts.method==='POST'){
+    opts.headers['Content-Type']='application/json';
+    opts.body=JSON.stringify(payload||{});
+  }
+  try{
+    var resp=await fetch('/api/meta-sync'+(query||''),opts);
+    var data;try{data=await resp.json();}catch(e){data={error:{message:'Phản hồi sync không phải JSON (HTTP '+resp.status+')'}};}
+    if(!resp.ok&&data&&!data.error)data={error:{message:'HTTP '+resp.status}};
+    return data;
+  }catch(e){return{error:{message:'Lỗi mạng: '+(e.message||e)}};}
+}
+async function startMetaSyncJob(payload){return await metaSyncApiCall('POST',payload||{});}
+async function getMetaSyncJob(id,scope){
+  var q=id?'?id='+encodeURIComponent(id):(scope?'?scope='+encodeURIComponent(scope):'');
+  return await metaSyncApiCall('GET',null,q);
+}
+function isMetaSyncDone(job){return job&&['success','partial_error','failed'].indexOf(job.status)>=0;}
+function metaSyncJobText(job,label){
+  if(!job)return label||'Đang đồng bộ Meta...';
+  var st=job.status||'queued',name=label||'Đồng bộ Meta';
+  if(st==='queued')return name+' đã vào hàng đợi server...';
+  if(st==='running')return name+' đang chạy trên server... '+(job.saved_rows?job.saved_rows+' dòng':'');
+  var hint=(job.error_rows&&job.error_samples&&job.error_samples.length&&typeof formatSyncErrorHint==='function')?formatSyncErrorHint(job.error_samples[0]):'';
+  if(st==='success')return '✓ '+name+': '+(job.saved_rows||0)+' dòng · '+(job.ok_accounts||0)+' OK';
+  if(st==='partial_error')return '✓ '+name+': '+(job.saved_rows||0)+' dòng · '+(job.error_rows||0)+' lỗi'+hint;
+  return '⚠ '+name+' lỗi: '+(job.error_message||((job.error_rows||0)+' lỗi')||'không rõ nguyên nhân');
+}
+async function watchMetaSyncJob(id,opts){
+  opts=opts||{};
+  var timeoutMs=opts.timeoutMs||90000,intervalMs=opts.intervalMs||2500,label=opts.label||'Đồng bộ Meta';
+  var started=Date.now(),last=null;
+  while(Date.now()-started<timeoutMs){
+    await sleepMs(intervalMs);
+    var r=await getMetaSyncJob(id);
+    if(r.error)throw new Error(r.error.message||r.error);
+    last=r.job;
+    if(opts.onUpdate)opts.onUpdate(last,metaSyncJobText(last,label));
+    if(isMetaSyncDone(last))return last;
+  }
+  return last;
+}
 var CL={purple:{c:'var(--purple)',bg:'var(--purple-bg)',tx:'var(--purple-tx)'},teal:{c:'var(--teal)',bg:'var(--teal-bg)',tx:'var(--teal-tx)'},coral:{c:'var(--coral)',bg:'var(--coral-bg)',tx:'var(--coral-tx)'},pink:{c:'var(--pink)',bg:'var(--pink-bg)',tx:'var(--pink-tx)'},blue:{c:'var(--blue)',bg:'var(--blue-bg)',tx:'var(--blue-tx)'},green:{c:'var(--green)',bg:'var(--green-bg)',tx:'var(--green-tx)'},amber:{c:'var(--amber)',bg:'var(--amber-bg)',tx:'var(--amber-tx)'}};
 function sc(c){return CL[c]||CL.blue;}
 // ═══ SERVICES CATALOG (dịch vụ HC Agency cung cấp) ═══
@@ -4401,23 +4447,18 @@ if(btn){btn.disabled=true;btn.textContent='Đang quét...';}
 var d1=vnDateStr(0),d3=vnDateStr(-259200000);
 var mapped=adList.filter(function(a){return a.fb_account_id;});
 if(!mapped.length){if(btn){toast('Chưa có Tài khoản nào ghép Meta',false);btn.disabled=false;btn.textContent=oldText;}return;}
-var errors=0;
 try{
-if(btn)btn.textContent='Đang quét '+mapped.length+' Tài khoản...';
-var result=await fetchCampaignMessBatch(mapped,d3,d1);
-var rowsToSave=result.rows;errors=result.errors;
-var saved=0,batches=chunkArray(rowsToSave,500);
-for(var i=0;i<batches.length;i++){
-if(btn)btn.textContent='Đang lưu '+(i+1)+'/'+batches.length;
-var upsert=await sb2.from('campaign_daily_mess').upsert(batches[i],{onConflict:'ad_account_id,campaign_id,report_date'});
-if(upsert.error){errors+=batches[i].length;console.warn('[Mess sync upsert]',upsert.error.message);}
-else saved+=batches[i].length;
+if(btn)btn.textContent='Đang gửi job server...';
+var start=await startMetaSyncJob({scope:'campaign_mess',date_from:d3,date_to:d1,include_campaign_mess:true,include_ad_posts:false,update_accounts:false});
+if(start.error)throw new Error(start.error.message||start.error);
+var job=start.job;
+if(btn)btn.textContent=metaSyncJobText(job,'Quét giá Messenger & form');
+if(!isMetaSyncDone(job)){
+job=await watchMetaSyncJob(job.id,{timeoutMs:120000,label:'Quét giá Messenger & form',onUpdate:function(j,txt){if(btn)btn.textContent=txt.substring(0,60);}});
 }
-var hint=errors&&result.errorSamples&&result.errorSamples.length?formatSyncErrorHint(result.errorSamples[0]):'';
-if(hint)console.warn('[Mess sync] Mẫu lỗi:',result.errorSamples);
-toast('Quét xong: '+saved+' dòng'+(errors?' · '+errors+' lỗi'+hint:''),!errors);
-if(!skipRefresh)await loadAll();
-}catch(e){toast('Lỗi quét giá Messenger: '+e.message,false);}
+toast(metaSyncJobText(job,'Quét giá Messenger & form'),job&&job.status!=='failed');
+if(job&&job.status!=='failed'&&!skipRefresh)await loadAll();
+}catch(e){toast('Lỗi quét giá Messenger & form: '+e.message,false);}
 finally{if(btn){btn.disabled=false;btn.textContent=oldText;}}}
 
 // ═══ ONE-SHOT BACKFILL ad_daily_post (T4-T5 + debug) ═══
@@ -6560,23 +6601,30 @@ if(!needAuth())return;
 var range=getAdViewRange();
 var mapped=adList.filter(function(a){return a.fb_account_id;});
 if(!mapped.length){toast('Chưa có Tài khoản nào ghép Meta',false);return;}
-// Build danh sách ngày trong range
-var dateList=[],cur=new Date(range.start+'T00:00:00'),endD=new Date(range.end+'T00:00:00');
-while(cur<=endD){var y=cur.getFullYear(),m=('0'+(cur.getMonth()+1)).slice(-2),d=('0'+cur.getDate()).slice(-2);dateList.push(y+'-'+m+'-'+d);cur.setDate(cur.getDate()+1);}
-if(!dateList.length){toast('Khoảng ngày không hợp lệ',false);return;}
 var origHTML=btn?btn.innerHTML:'';
 if(btn)btn.disabled=true;
-var totalSaved=0,totalErrors=0,errorSamples=[];
-for(var i=0;i<dateList.length;i++){
-if(btn)btn.innerHTML='<span class="ad-toolbar-note-dot"></span><span class="sync-btn-label">Đang đồng bộ '+(i+1)+'/'+dateList.length+' · '+fd(dateList[i])+'…</span>';
-var r=await syncOneDate(dateList[i],mapped);
-totalSaved+=r.saved;totalErrors+=r.errors;
-if(r.errorSamples&&r.errorSamples.length)errorSamples=errorSamples.concat(r.errorSamples);}
+try{
+if(btn)btn.innerHTML='<span class="ad-toolbar-note-dot"></span><span class="sync-btn-label">Đang gửi job lên server...</span>';
+var start=await startMetaSyncJob({scope:'range',date_from:range.start,date_to:range.end,include_campaign_mess:false,include_ad_posts:false,update_accounts:false});
+if(start.error)throw new Error(start.error.message||start.error);
+var job=start.job;
+if(btn)btn.innerHTML='<span class="ad-toolbar-note-dot"></span><span class="sync-btn-label">'+esc(metaSyncJobText(job,'Chốt '+fd(range.start)+' → '+fd(range.end)))+'</span>';
+if(!isMetaSyncDone(job)){
+job=await watchMetaSyncJob(job.id,{timeoutMs:120000,label:'Chốt '+fd(range.start)+' → '+fd(range.end),onUpdate:function(j,txt){
+if(btn)btn.innerHTML='<span class="ad-toolbar-note-dot"></span><span class="sync-btn-label">'+esc(txt)+'</span>';
+}});
+}
 if(btn){btn.disabled=false;btn.innerHTML=origHTML;}
-var hint=totalErrors&&errorSamples.length?formatSyncErrorHint(errorSamples[0]):'';
-if(hint)console.warn('[Spend sync] Mẫu lỗi chốt range:',errorSamples);
-toast('Đã chốt '+dateList.length+' ngày ('+fd(range.start)+' → '+fd(range.end)+'): '+totalSaved+' OK'+(totalErrors?' · '+totalErrors+' lỗi'+hint:''),!totalErrors);
-await loadAll();stayPage();}
+if(isMetaSyncDone(job)){
+toast(metaSyncJobText(job,'Đã chốt '+fd(range.start)+' → '+fd(range.end)),job.status!=='failed');
+await loadAll();stayPage();
+}else{
+toast('Job chốt số đang chạy nền trên server. Bạn vẫn dùng UI bình thường, mở lại sau ít phút để thấy số mới.',true);
+}}
+catch(e){
+if(btn){btn.disabled=false;btn.innerHTML=origHTML;}
+toast('Lỗi tạo job đồng bộ: '+e.message,false);
+}}
 async function loadMetaAccounts(force,silent){
 if(!force&&metaAccounts.length)return;
 try{
@@ -8750,20 +8798,16 @@ async function syncMetaForClient(clientId,month,btn){
   var oldText=btn?btn.textContent:'';
   if(btn){btn.disabled=true;btn.textContent='Đang sync...';}
   try{
-    // Sync 3 ngày gần nhất (đủ cover lag từ Meta)
     var today=td();
-    var d1=new Date(Date.now()-86400000).toISOString().substring(0,10);
-    var d2=new Date(Date.now()-2*86400000).toISOString().substring(0,10);
-    var totalSaved=0,totalErr=0,errorSamples=[];
-    for(var i=0;i<3;i++){
-      var dateStr=[today,d1,d2][i];
-      var r=await syncOneDate(dateStr,mapped);
-      totalSaved+=r.saved||0;totalErr+=r.errors||0;
-      if(r.errorSamples&&r.errorSamples.length)errorSamples=errorSamples.concat(r.errorSamples);
+    var d2=vnDateStr(-2*86400000);
+    var start=await startMetaSyncJob({scope:'range',date_from:d2,date_to:today,client_id:clientId,include_campaign_mess:false,include_ad_posts:false,update_accounts:false});
+    if(start.error)throw new Error(start.error.message||start.error);
+    var job=start.job;
+    if(btn)btn.textContent=metaSyncJobText(job,'Sync Meta khách');
+    if(!isMetaSyncDone(job)){
+      job=await watchMetaSyncJob(job.id,{timeoutMs:120000,label:'Sync Meta khách',onUpdate:function(j,txt){if(btn)btn.textContent=txt.substring(0,60);}});
     }
-    var hint=totalErr&&errorSamples.length?formatSyncErrorHint(errorSamples[0]):'';
-    if(hint)console.warn('[Spend sync] Mẫu lỗi theo khách:',errorSamples);
-    toast('Sync xong '+mapped.length+' TKQC × 3 ngày: '+totalSaved+' bản ghi'+(totalErr?' · '+totalErr+' lỗi'+hint:''),totalErr===0);
+    toast(metaSyncJobText(job,'Sync Meta khách'),job&&job.status!=='failed');
     await loadAll();
   }catch(e){toast('Lỗi sync: '+e.message,false);}
   finally{if(btn){btn.disabled=false;btn.textContent=oldText||'🔄 Sync Meta';}}
@@ -8810,19 +8854,20 @@ async function backfillClientMonth(clientId,monthStr){
   var y=parseInt(monthStr.split('-')[0]),m=parseInt(monthStr.split('-')[1]);
   var lastDay=new Date(y,m,0).getDate();
   console.log('[backfill] start | client='+clientId+' | tháng='+monthStr+' | '+lastDay+' ngày × '+mapped.length+' TKQC');
-  var totalSaved=0,totalErr=0,errorSamples=[];
-  for(var d=1;d<=lastDay;d++){
-    var dateStr=monthStr+'-'+String(d).padStart(2,'0');
-    var r=await syncOneDate(dateStr,mapped);
-    totalSaved+=r.saved||0;totalErr+=r.errors||0;
-    if(r.errorSamples&&r.errorSamples.length)errorSamples=errorSamples.concat(r.errorSamples);
-    console.log('[backfill] '+dateStr+' · saved='+r.saved+' · err='+r.errors);
+  var dateFrom=monthStr+'-01',dateTo=monthStr+'-'+String(lastDay).padStart(2,'0');
+  var start=await startMetaSyncJob({scope:'range',date_from:dateFrom,date_to:dateTo,client_id:clientId,include_campaign_mess:false,include_ad_posts:false,update_accounts:false});
+  if(start.error)throw new Error(start.error.message||start.error);
+  var job=start.job;
+  console.log('[backfill] job='+job.id+' status='+job.status);
+  if(!isMetaSyncDone(job)){
+    job=await watchMetaSyncJob(job.id,{timeoutMs:180000,label:'Backfill '+monthStr,onUpdate:function(j,txt){console.log('[backfill]',txt);}});
   }
-  console.log('[backfill] DONE: saved='+totalSaved+' · err='+totalErr);
-  var hint=totalErr&&errorSamples.length?formatSyncErrorHint(errorSamples[0]):'';
-  if(hint)console.warn('[backfill] Mẫu lỗi:',errorSamples);
-  toast('Backfill '+monthStr+' xong: '+totalSaved+' dòng'+(totalErr?' · '+totalErr+' lỗi'+hint:''),totalErr===0);
-  await loadAll();
+  if(isMetaSyncDone(job)){
+    toast(metaSyncJobText(job,'Backfill '+monthStr),job.status!=='failed');
+    await loadAll();
+  }else{
+    toast('Backfill '+monthStr+' đang chạy nền trên server. Mở lại sau ít phút để thấy số mới.',true);
+  }
 }
 // ═══ SHARE LINK CHO KHÁCH RENTAL ═══
 function genShareToken(){var b=new Uint8Array(12);crypto.getRandomValues(b);return Array.from(b).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}
@@ -10763,76 +10808,46 @@ return{saved:saved,errors:errors,errorSamples:errorSamples};}
 // Check xem cron 15p vừa sync xong chưa — nếu < 5p thì autoSync skip để khỏi gọi Meta thừa
 async function isSyncFresh(){
   try{
-    var r=await sb2.from('ad_daily_post').select('synced_at').order('synced_at',{ascending:false}).limit(1);
-    if(r.error||!r.data||!r.data.length)return null;
-    var lastSync=new Date(r.data[0].synced_at);
+    var r=await getMetaSyncJob(null,'auto');
+    var job=r&&r.job;
+    if(!job||!job.finished_at||['success','partial_error'].indexOf(job.status)<0)return null;
+    var lastSync=new Date(job.finished_at);
     var minsAgo=Math.round((Date.now()-lastSync.getTime())/60000);
-    if(minsAgo<5)return{minsAgo:minsAgo};
+    if(minsAgo<5)return{minsAgo:minsAgo,job:job};
     return null;
   }catch(e){return null;}
 }
 async function autoSync(){
 try{
 if(authUser){
-// Smart sync: nếu cron mới chạy < 5p, skip toàn bộ Meta calls để đỡ tốn API
 var fresh=await isSyncFresh();
 if(fresh){
-showSyncBar('✓ Data mới (cron sync '+fresh.minsAgo+'p trước)',true);
+showSyncBar('✓ Data mới (server sync '+fresh.minsAgo+'p trước)',true);
 setTimeout(hideSyncBar,2500);
 return;
-}
-showSyncBar('Đang cập nhật Meta...');
-await loadMetaAndSync({silent:true,skipAuth:true,refreshAfter:false});
-}
+}}
 var mapped=adList.filter(function(a){return a.fb_account_id;});
 if(!mapped.length){
 console.log('[AutoSync] No mapped accounts');
 if(authUser){showSyncBar('✓ Đã cập nhật Meta',true);setTimeout(hideSyncBar,1800);}
 return;
 }
-// ═══ QUY TẮC ĐỒNG BỘ THÔNG MINH ═══
-// 1) HÔM NAY: luôn đồng bộ NGAY mỗi lần mở trang (data còn chạy, cần realtime)
-// 2) HÔM QUA: đồng bộ lại tối đa 4 lần/ngày — mỗi 6 tiếng (Meta vẫn cắn thêm tiền sau)
-// 3) MESSENGER + form: 1 lần/ngày — lần đầu mở trang trong ngày
-var today=td();
-var yest=yesterday();
-var now=Date.now();
-var SIX_HOURS=6*3600*1000;
-var lastYestTs=parseInt(localStorage.getItem('hc_last_yest_sync_ts')||'0',10);
-var lastMessDate=localStorage.getItem('hc_last_mess_sync_date')||'';
-var shouldSyncYest=(now-lastYestTs)>SIX_HOURS;
-var shouldSyncMess=lastMessDate!==today;
-// 1. HÔM NAY — luôn đồng bộ
-showSyncBar('Đang đồng bộ chi tiêu hôm nay...');
-var rToday=await syncOneDate(today,mapped);
-// 2. HÔM QUA — chỉ khi đã quá 6 tiếng từ lần đồng bộ trước
-var rYest={saved:0,errors:0,errorSamples:[]};
-if(shouldSyncYest){
-showSyncBar('Đang chốt lại chi tiêu hôm qua (chính xác hơn)...');
-rYest=await syncOneDate(yest,mapped);
-localStorage.setItem('hc_last_yest_sync_ts',String(now));
+showSyncBar('Đang yêu cầu server đồng bộ Meta...');
+var start=await startMetaSyncJob({scope:'auto'});
+if(start.error)throw new Error(start.error.message||start.error);
+var job=start.job;
+showSyncBar(metaSyncJobText(job,'Đồng bộ Meta'));
+if(!isMetaSyncDone(job)){
+job=await watchMetaSyncJob(job.id,{timeoutMs:30000,label:'Đồng bộ Meta',onUpdate:function(j,txt){showSyncBar(txt,j&&isMetaSyncDone(j)&&j.status!=='failed');}});
 }
-var totalSaved=rToday.saved+rYest.saved,totalErrors=rToday.errors+rYest.errors;
-// Nếu có lỗi, lấy mẫu đầu tiên để gợi ý nguyên nhân
-var spendHint='';
-var firstSample=(rToday.errorSamples&&rToday.errorSamples[0])||(rYest.errorSamples&&rYest.errorSamples[0]);
-if(totalErrors&&firstSample){
-spendHint=formatSyncErrorHint(firstSample);
-console.warn('[Spend sync] Mẫu lỗi today:',rToday.errorSamples,'yest:',rYest.errorSamples);
-}
-// 3. MESSENGER + form — chỉ 1 lần/ngày (lần đầu mở trang trong ngày)
-if(shouldSyncMess){
-showSyncBar('Đang quét giá Messenger + form (lần đầu trong ngày)...');
-await syncCampaignMess(null,true);
-localStorage.setItem('hc_last_mess_sync_date',today);
-}
-// Tóm tắt
-var skipNote='';
-if(!shouldSyncYest){var minsAgo=Math.round((now-lastYestTs)/60000);skipNote+=' · hôm qua đã sync '+minsAgo+'p trước';}
-if(!shouldSyncMess)skipNote+=' · Messenger đã sync hôm nay';
-showSyncBar('✓ Đồng bộ: '+totalSaved+' OK'+(totalErrors?', '+totalErrors+' lỗi'+spendHint:'')+skipNote,true);
-await loadAll();
+if(isMetaSyncDone(job)){
+showSyncBar(metaSyncJobText(job,'Đồng bộ Meta'),job.status!=='failed');
+if(job.status!=='failed')await loadAll();
 setTimeout(hideSyncBar,3500);
+}else{
+showSyncBar('Meta đang đồng bộ nền trên server. UI vẫn dùng bình thường.',true);
+setTimeout(hideSyncBar,3500);
+}
 }catch(e){showSyncBar('⚠ Lỗi đồng bộ: '+e.message);setTimeout(hideSyncBar,5000);}}
 
 async function init(){try{

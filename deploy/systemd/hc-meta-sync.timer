@@ -1,0 +1,12 @@
+[Unit]
+Description=Run HC Agency Meta sync every 10 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+RandomizedDelaySec=45s
+Persistent=true
+Unit=hc-meta-sync.service
+
+[Install]
+WantedBy=timers.target
