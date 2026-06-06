@@ -5,10 +5,19 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 
 const router = express.Router();
 const jsonParser = express.json({ limit: '50mb' });
+
+function parsePgNumber(value) {
+  if (value === null || value === undefined) return value;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : value;
+}
+
+types.setTypeParser(20, parsePgNumber);
+types.setTypeParser(1700, parsePgNumber);
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
