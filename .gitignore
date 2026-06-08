@@ -18,6 +18,10 @@ exports/
 audio-assets/
 video-assets/
 
+# Server runtime files/backups
+storage/
+*.bak-*
+
 # Node (nếu sau này thêm npm)
 node_modules/
 package-lock.json
