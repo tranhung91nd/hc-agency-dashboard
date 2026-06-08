@@ -111,6 +111,15 @@ function buildMessage(alert) {
   if (alert.adset_name) lines.push('<b>Nhom QC:</b> ' + escapeHtml(alert.adset_name));
   if (statuses) lines.push('<b>Trang thai:</b> <code>' + escapeHtml(statuses) + '</code>');
   if (alert.last_seen_at) lines.push('<b>Phat hien:</b> ' + escapeHtml(shortDateTime(alert.last_seen_at)));
+  const autoDelete = alert.raw && alert.raw.auto_delete;
+  if (autoDelete && autoDelete.action === 'delete_ad') {
+    if (autoDelete.success) {
+      lines.push('<b>Xu ly tu dong:</b> Da xoa quang cao vi pham o cap Quang cao');
+    } else {
+      const reason = autoDelete.error ? ' - ' + autoDelete.error : '';
+      lines.push('<b>Xu ly tu dong:</b> Chua xoa duoc quang cao vi pham' + escapeHtml(reason));
+    }
+  }
   if (url) lines.push('<a href="' + escapeHtml(url) + '">Mo dung bai trong Meta Ads Manager</a>');
   return lines.join('\n');
 }
