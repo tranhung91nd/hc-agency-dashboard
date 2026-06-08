@@ -1,7 +1,8 @@
-const { createDbClient, fetchMetaPath } = require('./meta-sync');
+const { createDbClient, deleteMetaPath, fetchMetaPath } = require('./meta-sync');
 const { notifyPolicyAlertTelegram, notifyRentalBalanceTelegram } = require('./policy-alert-telegram');
 
 const DEFAULT_POLICY_SCAN_BATCH_SIZE = Number(process.env.POLICY_ALERT_SCAN_BATCH_SIZE || 6);
+const AUTO_DELETE_DISAPPROVED_ADS = process.env.POLICY_ALERT_AUTO_DELETE_DISAPPROVED_ADS === '1';
 
 function nowIso() {
   return new Date().toISOString();
@@ -69,6 +70,52 @@ async function fetchRejectedAdsForAccount(account) {
   return rows;
 }
 
+async function deleteRejectedAd(row) {
+  if (!row || !row.ad_id) throw new Error('Missing ad_id for policy auto delete');
+  return deleteMetaPath(String(row.ad_id), 'policy_rejected_ad_delete');
+}
+
+async function autoDeleteRejectedAds(rows, result, scanTime) {
+  result.auto_delete_ads.enabled = AUTO_DELETE_DISAPPROVED_ADS;
+  if (!AUTO_DELETE_DISAPPROVED_ADS || !rows.length) return;
+  for (const row of rows) {
+    result.auto_delete_ads.attempted += 1;
+    try {
+      const data = await deleteRejectedAd(row);
+      result.auto_delete_ads.deleted += 1;
+      row.raw = Object.assign({}, row.raw || {}, {
+        auto_delete: {
+          action: 'delete_ad',
+          success: true,
+          at: scanTime,
+          response: data || null
+        }
+      });
+    } catch (e) {
+      result.auto_delete_ads.errors += 1;
+      row.raw = Object.assign({}, row.raw || {}, {
+        auto_delete: {
+          action: 'delete_ad',
+          success: false,
+          at: scanTime,
+          error: e.message || String(e),
+          code: e.code || null
+        }
+      });
+      if (result.errors.length < 20) {
+        result.errors.push({
+          account: row.account_name || row.fb_account_id,
+          fb_account_id: row.fb_account_id,
+          ad_id: row.ad_id,
+          phase: 'policy-auto-delete-ad',
+          message: e.message || String(e),
+          code: e.code || null
+        });
+      }
+    }
+  }
+}
+
 async function resolveMissingAlerts(sb, accountIds, seenKeys, scanTime) {
   if (!accountIds.length) return 0;
   const current = await sb.from('ad_policy_alert')
@@ -100,6 +147,7 @@ async function scanRejectedAds(options) {
     rejected_ads: 0,
     saved_alerts: 0,
     resolved_alerts: 0,
+    auto_delete_ads: { enabled: AUTO_DELETE_DISAPPROVED_ADS, attempted: 0, deleted: 0, errors: 0 },
     telegram_notifications: { enabled: false, candidates: 0, matched: 0, sent: 0, errors: [] },
     rental_balance_notifications: { enabled: false, threshold: 0, checked: 0, alerting: 0, sent: 0, errors: [] },
     error_accounts: 0,
@@ -157,6 +205,8 @@ async function scanRejectedAds(options) {
   }
 
   result.rejected_ads = allRows.length;
+  await autoDeleteRejectedAds(allRows, result, scanTime);
+
   for (let i = 0; i < allRows.length; i += 500) {
     const batch = allRows.slice(i, i + 500);
     const up = await sb.from('ad_policy_alert')
@@ -196,7 +246,9 @@ async function scanRejectedAds(options) {
   }
   result.finished_at = nowIso();
   result.duration_ms = Date.now() - startedAt;
-  if (result.error_accounts) result.status = result.saved_alerts || result.resolved_alerts ? 'partial_error' : 'failed';
+  if (result.error_accounts || result.auto_delete_ads.errors) {
+    result.status = result.saved_alerts || result.resolved_alerts || result.auto_delete_ads.deleted ? 'partial_error' : 'failed';
+  }
   return result;
 }
 

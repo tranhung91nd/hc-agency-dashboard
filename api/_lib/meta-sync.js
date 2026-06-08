@@ -105,6 +105,22 @@ async function fetchMetaPath(path, label) {
   return data;
 }
 
+async function deleteMetaPath(path, label) {
+  const { metaToken } = getEnv();
+  const p = String(path || '').replace(/^\/+/, '');
+  const sep = p.indexOf('?') >= 0 ? '&' : '?';
+  const resp = await fetch(GRAPH_BASE + p + sep + 'access_token=' + encodeURIComponent(metaToken), {
+    method: 'DELETE'
+  });
+  const data = await resp.json();
+  if (data && data.error) {
+    const err = new Error(data.error.message || (label || 'Meta API delete error'));
+    err.code = data.error.code;
+    throw err;
+  }
+  return data;
+}
+
 async function fetchMetaBatch(batchReqs, label) {
   const { metaToken } = getEnv();
   let lastError = null;
@@ -799,6 +815,7 @@ module.exports = {
   buildDailyDays,
   createDbClient,
   dateAdd,
+  deleteMetaPath,
   fetchMetaBatch,
   fetchMetaPath,
   metaTimeRangeParam,
