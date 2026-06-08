@@ -11,7 +11,7 @@
 -- Refresh: cron sync 15p sẽ chạy REFRESH CONCURRENTLY (không block read)
 --
 -- Cách chạy:
---   Supabase Dashboard → SQL Editor → New query → paste → Run
+--   SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 -- View 1: Spend theo (TKQC, tháng). Có cả staff_id (cho shared accounts)
@@ -38,7 +38,7 @@ GRANT SELECT ON ad_account_month_spend TO anon, authenticated;
 -- Refresh lần đầu (sau migration phải chạy thêm câu này 1 lần để có data)
 REFRESH MATERIALIZED VIEW ad_account_month_spend;
 
--- RPC wrapper cho cron sync gọi qua supabase-js (REST không hỗ trợ REFRESH MATERIALIZED VIEW raw)
+-- RPC wrapper cho cron sync gọi qua Local DB client.
 CREATE OR REPLACE FUNCTION refresh_ad_account_month_spend()
 RETURNS jsonb
 LANGUAGE plpgsql

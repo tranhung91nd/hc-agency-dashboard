@@ -29,15 +29,15 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: '22'  # Node 22+ có native WebSocket — supabase-js mới cần
+          node-version: '22'  # Node 22+ có fetch/WebSocket native cho cron sync
 
       - name: Install dependencies
         run: npm install   # đọc package.json (pin được version)
 
       - name: Run sync
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          LOCAL_DB_URL: ${{ secrets.LOCAL_DB_URL }}
+          LOCAL_DB_SERVICE_KEY: ${{ secrets.LOCAL_DB_SERVICE_KEY }}
           META_TOKEN: ${{ secrets.META_TOKEN }}
           BACKFILL_FROM: ${{ github.event.inputs.backfill_from }}
           BACKFILL_TO: ${{ github.event.inputs.backfill_to }}

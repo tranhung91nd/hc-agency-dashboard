@@ -16,4 +16,4 @@ create table if not exists oauth_tokens (
 
 alter table oauth_tokens enable row level security;
 -- Không tạo policy cho anon/authenticated → mặc định deny.
--- Service role bypass RLS nên backend (Vercel function) đọc/ghi bình thường.
+-- Service role bypass RLS nên backend API đọc/ghi bình thường.

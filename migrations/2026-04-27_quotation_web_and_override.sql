@@ -7,7 +7,7 @@
 --   giá theo bậc FANPAGE_PACKAGES gốc)
 --
 -- Cách chạy:
---   Vào Supabase Dashboard → SQL Editor → New query → paste → Run
+--   Chạy trong SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 ALTER TABLE quotation

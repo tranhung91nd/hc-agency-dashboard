@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { createClient } = require('@supabase/supabase-js');
+const { createDbClient } = require('./db');
 
 const PRODUCT = 'omni-ai-marketing';
 const PRODUCT_NAME = 'OMNI AI MARKETING';
@@ -35,11 +35,8 @@ function setCors(req, res, methods) {
   return false;
 }
 
-function supabase() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Thiếu SUPABASE_URL hoặc SUPABASE_SERVICE_ROLE_KEY');
-  return createClient(url, key, { auth: { persistSession: false } });
+function db() {
+  return createDbClient();
 }
 
 function cleanPhone(value) {
@@ -128,7 +125,7 @@ async function makeOrderCodes(sb) {
       .select('id')
       .or('order_code.eq.' + orderCode + ',payment_code.eq.' + paymentCode)
       .maybeSingle();
-    if (error) throw new Error('Supabase check order code: ' + error.message);
+    if (error) throw new Error('Local DB check order code: ' + error.message);
     if (!data) return { orderCode, paymentCode };
   }
   throw new Error('Không tạo được mã đơn duy nhất');
@@ -143,7 +140,7 @@ async function findOrderByLead(sb, lead) {
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (phoneResult.error) throw new Error('Supabase select order by phone: ' + phoneResult.error.message);
+  if (phoneResult.error) throw new Error('Local DB select order by phone: ' + phoneResult.error.message);
   if (phoneResult.data) return phoneResult.data;
 
   const emailResult = await sb
@@ -154,7 +151,7 @@ async function findOrderByLead(sb, lead) {
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (emailResult.error) throw new Error('Supabase select order by email: ' + emailResult.error.message);
+  if (emailResult.error) throw new Error('Local DB select order by email: ' + emailResult.error.message);
   return emailResult.data || null;
 }
 
@@ -169,7 +166,7 @@ async function getOrderByCode(sb, rawCode) {
     .eq('product', PRODUCT)
     .or('order_code.eq.' + extracted.orderCode + ',payment_code.eq.' + extracted.paymentCode)
     .maybeSingle();
-  if (error) throw new Error('Supabase select order: ' + error.message);
+  if (error) throw new Error('Local DB select order: ' + error.message);
   return data || null;
 }
 
@@ -180,7 +177,7 @@ async function updateOrder(sb, id, patch) {
     .eq('id', id)
     .select('*')
     .single();
-  if (error) throw new Error('Supabase update order: ' + error.message);
+  if (error) throw new Error('Local DB update order: ' + error.message);
   return data;
 }
 
@@ -457,7 +454,7 @@ function zaloFollowup(order) {
 
 async function createTrial(body) {
   const lead = validateLead(body || {});
-  const sb = supabase();
+  const sb = db();
   const existing = await findOrderByLead(sb, lead);
   if (existing) {
     let kind = 'renewal';
@@ -496,7 +493,7 @@ async function createTrial(body) {
     updated_at: nowIso(),
   };
   const created = await sb.from('omni_license_orders').insert(insert).select('*').single();
-  if (created.error) throw new Error('Supabase insert order: ' + created.error.message);
+  if (created.error) throw new Error('Local DB insert order: ' + created.error.message);
   let order = created.data;
   await syncPublicLead(sb, lead);
 
@@ -535,6 +532,7 @@ async function createTrial(body) {
 }
 
 async function readRawBody(req) {
+  if (typeof req.rawBody === 'string') return req.rawBody;
   if (Buffer.isBuffer(req.body)) return req.body.toString('utf8');
   if (typeof req.body === 'string') return req.body;
   if (req.body && typeof req.body === 'object') return JSON.stringify(req.body);
@@ -602,7 +600,7 @@ async function upsertPaymentEvent(sb, payload, rawBody, signatureStatus) {
     .eq('provider', 'sepay')
     .eq('provider_event_id', providerEventId)
     .maybeSingle();
-  if (existingErr) throw new Error('Supabase select payment event: ' + existingErr.message);
+  if (existingErr) throw new Error('Local DB select payment event: ' + existingErr.message);
   if (existing) return { event: existing, isNew: false };
 
   const amount = numberAmount(payload);
@@ -623,7 +621,7 @@ async function upsertPaymentEvent(sb, payload, rawBody, signatureStatus) {
     updated_at: nowIso(),
   };
   const { data, error } = await sb.from('omni_payment_events').insert(row).select('*').single();
-  if (error) throw new Error('Supabase insert payment event: ' + error.message);
+  if (error) throw new Error('Local DB insert payment event: ' + error.message);
   return { event: data, isNew: true };
 }
 
@@ -632,11 +630,11 @@ async function updatePaymentEvent(sb, id, patch) {
     .from('omni_payment_events')
     .update(Object.assign({}, patch, { updated_at: nowIso() }))
     .eq('id', id);
-  if (error) throw new Error('Supabase update payment event: ' + error.message);
+  if (error) throw new Error('Local DB update payment event: ' + error.message);
 }
 
 async function processPaymentWebhook(payload, rawBody, signatureStatus) {
-  const sb = supabase();
+  const sb = db();
   const { event } = await upsertPaymentEvent(sb, payload, rawBody, signatureStatus);
   if (!['received', 'license_failed', 'email_failed'].includes(event.processing_status)) {
     return { ok: true, duplicate: true, status: event.processing_status };
@@ -734,7 +732,7 @@ async function processPaymentWebhook(payload, rawBody, signatureStatus) {
 }
 
 async function runCron() {
-  const sb = supabase();
+  const sb = db();
   const summary = { reminders: 0, expired: 0, retries: 0, errors: [] };
   const now = new Date();
   const soon = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -748,7 +746,7 @@ async function runCron() {
     .gt('trial_license_expires_at', now.toISOString())
     .lte('trial_license_expires_at', soon)
     .limit(50);
-  if (reminderResult.error) throw new Error('Supabase reminders: ' + reminderResult.error.message);
+  if (reminderResult.error) throw new Error('Local DB reminders: ' + reminderResult.error.message);
   for (const order of reminderResult.data || []) {
     const sent = await sendOrderEmail(sb, order, 'reminder');
     if (sent.sent) summary.reminders++;
@@ -762,7 +760,7 @@ async function runCron() {
     .eq('status', 'trial_active')
     .lte('trial_license_expires_at', now.toISOString())
     .limit(100);
-  if (expiredResult.error) throw new Error('Supabase expired: ' + expiredResult.error.message);
+  if (expiredResult.error) throw new Error('Local DB expired: ' + expiredResult.error.message);
   for (const order of expiredResult.data || []) {
     const expiredOrder = await updateOrder(sb, order.id, { status: 'trial_expired', trial_expired_at: order.trial_expired_at || now.toISOString() });
     if (!expiredOrder.renewal_email_sent_at) await sendOrderEmail(sb, expiredOrder, 'renewal');
@@ -777,7 +775,7 @@ async function runCron() {
     .lt('attempt_count', 5)
     .lte('next_retry_at', now.toISOString())
     .limit(50);
-  if (retryResult.error) throw new Error('Supabase delivery retry: ' + retryResult.error.message);
+  if (retryResult.error) throw new Error('Local DB delivery retry: ' + retryResult.error.message);
   for (const log of retryResult.data || []) {
     const result = await retryDeliveryLog(sb, log);
     if (result.sent) summary.retries++;
@@ -814,7 +812,7 @@ module.exports = {
   sendJson,
   setCors,
   sendOrderEmail,
-  supabase,
+  db,
   getOrderByCode,
   verifySepay,
 };

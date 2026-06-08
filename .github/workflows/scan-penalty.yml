@@ -27,7 +27,7 @@ jobs:
       - run: npm install
       - name: Run scan
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          LOCAL_DB_URL: ${{ secrets.LOCAL_DB_URL }}
+          LOCAL_DB_SERVICE_KEY: ${{ secrets.LOCAL_DB_SERVICE_KEY }}
           SCAN_DATE: ${{ github.event.inputs.scan_date }}
         run: node scripts/scan-penalty.js

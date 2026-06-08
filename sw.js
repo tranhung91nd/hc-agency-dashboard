@@ -1,8 +1,8 @@
-// HC Agency SW v21 — network-first cho HTML/JS/CSS, stale-while-revalidate cho ảnh
+// HC Agency SW v24 — network-first cho HTML/JS/CSS, stale-while-revalidate cho ảnh
 // Code (HTML/JS/CSS): luôn fetch network → fallback cache nếu offline.
 //   → Deploy mới user thấy ngay lập tức, không cần reload 2 lần như SWR cũ.
 // Ảnh + assets tĩnh khác: stale-while-revalidate (load nhanh từ cache).
-var CACHE_NAME = 'hc-agency-v23';
+var CACHE_NAME = 'hc-agency-v24';
 
 self.addEventListener('install', function(e) {
   self.skipWaiting();
@@ -30,7 +30,8 @@ self.addEventListener('fetch', function(e) {
   var url = e.request.url;
 
   // Network-only cho mọi API call (data luôn cần fresh, không cache)
-  if (url.indexOf('supabase.co') >= 0 ||
+  if (url.indexOf('/db/') >= 0 ||
+      url.indexOf('/supabase/') >= 0 ||
       url.indexOf('graph.facebook.com') >= 0 ||
       url.indexOf('api.openai.com') >= 0 ||
       url.indexOf('api.anthropic.com') >= 0 ||

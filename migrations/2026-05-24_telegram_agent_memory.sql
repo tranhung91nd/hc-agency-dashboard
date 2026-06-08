@@ -5,7 +5,7 @@
 -- Trim còn 20 messages gần nhất để tránh context bloat.
 -- Tự xóa sau 24h không hoạt động (qua cron hoặc TTL trigger).
 --
--- Cách chạy: Supabase SQL Editor → paste → Run
+-- Cách chạy: SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS telegram_conversation (

@@ -10,7 +10,7 @@
 --   • Spend ngày Chủ nhật vẫn được dùng để tính trung bình cho T2/T3/T4 —
 --     chỉ riêng job 10h30 CN bị bỏ.
 --
--- Cách chạy: Supabase Dashboard → SQL Editor → New query → paste → Run
+-- Cách chạy: SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 -- ═══ BƯỚC 1: Cột chống trùng + index ═══

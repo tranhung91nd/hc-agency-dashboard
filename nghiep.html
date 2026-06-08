@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quản Trị Kết Quả – 8 Quy Luật Thành Công</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/local-db-client.js?v=20260607-local-db"></script>
 <style>
   :root {
     /* HC Agency theme — mapped từ gold/purple/cream → blue/navy/light */
@@ -1269,11 +1269,11 @@
 
 <script>
 // ============================================================
-// SUPABASE CLOUD SYNC (dùng chung project HC Agency)
+// LOCAL DB SYNC (VPS HC Agency)
 // ============================================================
-const SB_URL = 'https://eqsnohwymgmdvbqwflas.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxc25vaHd5bWdtZHZicXdmbGFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzU1NzUsImV4cCI6MjA5MTIxMTU3NX0.0cv-j9zJUfVAj9LBG8VFHNO0Jke4JjehBKSzDVd1nA0';
-const sb = supabase.createClient(SB_URL, SB_KEY);
+const DB_URL = (window.HC_DB_URL || window.location.origin + '/db');
+const DB_KEY = (window.HC_DB_KEY || '');
+const sb = localDb.createClient(DB_URL, DB_KEY, { auth: { storageKey: 'hc-karmic-local-db-auth' } });
 let authUser = null;
 let cloudReady = false;
 let cloudSaveTimer = null;
@@ -2658,7 +2658,7 @@ function checkDailyReminder() {
 
 window.addEventListener('load', () => {
   if (db.onboarded) checkDailyReminder();
-  initCloudSync(); // khởi động đồng bộ Supabase (async, không block UI)
+  initCloudSync(); // khởi động đồng bộ Local DB (async, không block UI)
 });
 </script>
 </body>

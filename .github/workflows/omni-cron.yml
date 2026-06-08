@@ -15,7 +15,7 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -euo pipefail
-          URL="${OMNI_CRON_URL:-https://hc-agency-dashboard.vercel.app/api/omni/cron}"
+          URL="${OMNI_CRON_URL:-http://147.93.158.199/api/omni/cron}"
           curl --fail --show-error --silent \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             "$URL"

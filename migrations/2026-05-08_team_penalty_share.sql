@@ -12,7 +12,7 @@
 -- - Token chung lưu trong app_settings, key='TEAM_PENALTY_TOKEN'.
 --   App sinh UUID khi admin bấm "Sao chép link" lần đầu.
 --
--- URL pattern: <vercel-url>/?team_penalty=<token>
+-- URL pattern: <app-url>/?team_penalty=<token>
 -- ═══════════════════════════════════════════════════════════════
 
 -- 1. Drop RPC cũ

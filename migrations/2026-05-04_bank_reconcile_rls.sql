@@ -1,14 +1,14 @@
 -- ═══════════════════════════════════════════════════════════════
 -- Migration phụ: Bật RLS + thêm policy cho 2 bảng đối soát VCB
 --
--- Vấn đề: Supabase project bật RLS mặc định cho table mới → admin
+-- Vấn đề: một số database bật RLS mặc định cho table mới → admin
 -- đã login vẫn bị chặn insert vì không có policy.
 --
 -- Fix: cho phép authenticated user (admin đã login dashboard) full
 -- quyền (select/insert/update/delete) trên 2 bảng này.
 --
 -- Cách chạy:
---   Supabase Dashboard → SQL Editor → New query → paste → Run
+--   SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 -- bank_reconcile

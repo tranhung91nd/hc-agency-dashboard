@@ -6,7 +6,7 @@
 -- (đã filter theo client) trong 90 ngày gần nhất.
 --
 -- Cách chạy:
---   Vào Supabase Dashboard → SQL Editor → New query → paste → Run
+--   Chạy trong SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION get_public_client_report(p_client_id uuid, p_token text)

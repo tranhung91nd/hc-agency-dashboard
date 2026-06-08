@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 // HC Agency — ChatGPT proxy chạy local trên máy anh
 //
-// Mục đích: Vercel datacenter IP bị Cloudflare WAF của ChatGPT chặn.
-// Proxy này chạy ở máy anh (IP nhà mạng pass CF), Vercel function gọi qua
-// tunnel ngrok/cloudflared/localtunnel. Token ChatGPT vẫn lưu Supabase,
+// Mục đích: IP datacenter của server có thể bị Cloudflare WAF của ChatGPT chặn.
+// Proxy này chạy ở máy anh (IP nhà mạng pass CF), API server gọi qua
+// tunnel ngrok/cloudflared/localtunnel. Token ChatGPT vẫn lưu trong Local DB,
 // chỉ luồng request /codex/responses đi qua máy anh.
 //
 // Cách chạy:
-//   HC_PROXY_SECRET=<chuỗi-bí-mật-trùng-với-env-Vercel> node scripts/chatgpt-proxy.js
+//   HC_PROXY_SECRET=<chuỗi-bí-mật-trùng-với-env-server> node scripts/chatgpt-proxy.js
 //
 // Sau đó expose port 8787 ra internet:
 //   ngrok http 8787
-// Copy URL ngrok (https://abc123.ngrok.io) → set env CHATGPT_PROXY_URL trên Vercel.
+// Copy URL ngrok (https://abc123.ngrok.io) → set env CHATGPT_PROXY_URL trên server.
 //
 // Bảo mật:
 //   - Header X-HC-Proxy-Secret phải khớp HC_PROXY_SECRET, nếu không trả 401
@@ -87,7 +87,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(' HC Agency ChatGPT proxy đang chạy ở http://0.0.0.0:' + PORT);
   console.log(' Health check:  curl http://localhost:' + PORT + '/healthz');
   console.log(' Bước tiếp:     ngrok http ' + PORT);
-  console.log(' Copy URL ngrok → set env CHATGPT_PROXY_URL trên Vercel');
-  console.log(' Set env HC_PROXY_SECRET trên Vercel = secret hiện tại');
+  console.log(' Copy URL ngrok → set env CHATGPT_PROXY_URL trên server');
+  console.log(' Set env HC_PROXY_SECRET trên server = secret hiện tại');
   console.log('────────────────────────────────────────────────────────────');
 });

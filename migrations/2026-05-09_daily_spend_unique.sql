@@ -13,7 +13,7 @@
 --      → chạy lại bao nhiêu lần cũng không trùng
 --
 -- Cách chạy:
---   Supabase Dashboard → SQL Editor → New query → paste → Run
+--   SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 -- ═══ BƯỚC 1: Dedupe ═══
@@ -34,7 +34,7 @@ WITH dups AS (
 DELETE FROM daily_spend WHERE id IN (SELECT id FROM dups WHERE rn > 1);
 
 -- ═══ BƯỚC 2: UNIQUE constraint với NULLS NOT DISTINCT ═══
--- Postgres 15+ syntax — Supabase đều >= 15
+-- Postgres 15+ syntax.
 ALTER TABLE daily_spend
   DROP CONSTRAINT IF EXISTS daily_spend_natural_uniq;
 

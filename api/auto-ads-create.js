@@ -1,8 +1,8 @@
 // HC Agency — Auto Ads create endpoint (cho UI web)
-// Vercel Serverless Function tại /api/auto-ads-create
+// API handler tại /api/auto-ads-create, được mount bởi server.js.
 //
 // Body: { acc_id (act_xxx), preset_name, post_input, budget }
-// Auth: Supabase JWT (Bearer token).
+// Auth: JWT local (Bearer token).
 //
 // Flow:
 //   1. Verify JWT
@@ -13,14 +13,14 @@
 //   6. Log vào auto_ads_log (source='web')
 //   7. Reply IDs hoặc lỗi
 
-const { createClient } = require('@supabase/supabase-js');
+const { createDbClient, verifyBearerUser } = require('./_lib/db');
 
 const META_TOKEN = process.env.META_TOKEN || '';
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const GRAPH_BASE = 'https://graph.facebook.com/v25.0/';
 
-const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
+const sb = {
+  from: (...args) => createDbClient().from(...args),
+};
 
 // ─── Meta API helper (form-urlencoded POST, chuẩn Meta) ───
 async function metaApi(method, path, payload) {
@@ -113,24 +113,13 @@ async function resolvePfbid(postUrl) {
   return null;
 }
 
-async function verifyAuth(req) {
-  const auth = req.headers && (req.headers.authorization || req.headers.Authorization) || '';
-  const token = String(auth).replace(/^Bearer\s+/i, '').trim();
-  if (!token) return null;
-  try {
-    const { data, error } = await sb.auth.getUser(token);
-    if (error || !data || !data.user) return null;
-    return data.user;
-  } catch (e) { return null; }
-}
-
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   if (!META_TOKEN) return res.status(500).json({ error: 'META_TOKEN chưa cấu hình' });
-  const user = await verifyAuth(req);
+  const user = await verifyBearerUser(req);
   if (!user) return res.status(401).json({ error: 'Unauthorized — đăng nhập lại' });
 
   const body = req.body || {};

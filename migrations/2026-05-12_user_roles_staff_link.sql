@@ -9,7 +9,7 @@
 -- staff_id = NULL → không restrict (default cho kế toán, viewer...).
 --
 -- Cách chạy:
---   Supabase Dashboard → SQL Editor → New query → paste → Run
+--   SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 ALTER TABLE user_roles

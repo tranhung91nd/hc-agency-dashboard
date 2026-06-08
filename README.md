@@ -2,7 +2,7 @@
 
 Hệ thống quản trị nội bộ cho HC Agency — Quảng cáo Facebook · Cho thuê TKQC · Lập trình Web App.
 
-🌐 **Production:** [hc-agency-dashboard.vercel.app](https://hc-agency-dashboard.vercel.app)
+🌐 **Production VPS:** [147.93.158.199](http://147.93.158.199)
 
 ---
 
@@ -20,7 +20,7 @@ hc-agency-dashboard/
 │   ├── demo-rental.html
 │   └── demo-prospect-table.html
 │
-├── migrations/              SQL migration theo ngày — chạy trên Supabase
+├── migrations/              SQL migration theo ngày — chạy trên PostgreSQL local
 │   └── YYYY-MM-DD_*.sql
 │
 ├── scripts/                 Dev / cron scripts
@@ -48,10 +48,10 @@ hc-agency-dashboard/
 
 ## Triển khai migration
 
-Mỗi file trong `/migrations/` chạy 1 lần trên Supabase:
+Mỗi file trong `/migrations/` chạy 1 lần trên database chính:
 
-1. Mở Supabase Dashboard → SQL Editor → New query
-2. Paste nội dung file → Run
+1. Kết nối PostgreSQL bằng `psql` hoặc SQL console đang dùng trên VPS.
+2. Paste nội dung file → Run.
 
 Thứ tự ngày trong tên file = thứ tự nên chạy.
 
@@ -67,8 +67,8 @@ GitHub Action `.github/workflows/sync.yml` chạy 2 lần/ngày:
 - **23:00 VN** — đồng bộ chi tiêu ngày hôm qua (chốt số chính xác)
 
 Cần secrets trong GitHub Settings:
-- `SUPABASE_URL`
-- `SUPABASE_KEY`
+- `LOCAL_DB_URL`
+- `LOCAL_DB_SERVICE_KEY`
 - `META_TOKEN`
 
 ---
@@ -78,17 +78,17 @@ Cần secrets trong GitHub Settings:
 Landing `zalo.hc-agency.online` gửi đăng ký dùng thử sang `/api/omni/trial`.
 Luồng này tạo license 3 ngày từ license server ở `https://ai.hc-agency.online/license-api`, gửi email qua Resend, đối soát chuyển khoản SePay tại `/api/omni/payment-webhook`, rồi tự tạo license 365 ngày khi khách chuyển khoản đủ `1.000.000đ`.
 
-Chạy migration Supabase:
+Chạy migration database:
 
 ```sql
 -- migrations/2026-05-31_omni_trial_license.sql
 ```
 
-Env cần cấu hình trên Vercel:
+Env cần cấu hình trên server/VPS:
 
 ```bash
-SUPABASE_URL=...
-SUPABASE_SERVICE_ROLE_KEY=...
+LOCAL_DB_URL=...
+LOCAL_DB_SERVICE_KEY=...
 OMNI_LICENSE_API_BASE=https://ai.hc-agency.online/license-api
 OMNI_LICENSE_ADMIN_TOKEN=...
 OMNI_LICENSE_APP_ID=hc-zalo-agent
@@ -106,7 +106,7 @@ OMNI_ADMIN_TOKEN=...
 CRON_SECRET=...
 ```
 
-Cron nhắc hạn/retry email chạy bằng GitHub Actions `.github/workflows/omni-cron.yml` mỗi giờ. Thêm GitHub secret `CRON_SECRET` trùng với env `CRON_SECRET` trên Vercel; nếu dùng domain khác, thêm `OMNI_CRON_URL`.
+Cron nhắc hạn/retry email chạy bằng GitHub Actions `.github/workflows/omni-cron.yml` mỗi giờ và gọi endpoint trên VPS. Thêm GitHub secret `CRON_SECRET` trùng với env `CRON_SECRET` trên server; nếu dùng domain khác, thêm `OMNI_CRON_URL`.
 
 SePay webhook:
 
@@ -131,27 +131,27 @@ Script tự sync `~/Downloads/{index,nghiep}.html` → repo → commit → push.
 ## Stack
 
 - **Frontend:** Vanilla HTML/CSS/JS — single-page (`index.html` ~5500 dòng, không build step)
-- **Backend:** Supabase (Postgres + Auth + Storage + RPC) + Vercel Serverless `/api/telegram` (bot) + `/api/meta` (Meta proxy)
-- **Hosting:** Vercel (auto-deploy từ GitHub main)
+- **Backend:** Express API (`server.js`) + PostgreSQL local qua DB bridge (`/db`) + các API handler trong `/api`
+- **Hosting:** VPS/Nginx/systemd
 - **Meta API:** Graph API v25.0 (insights + adaccounts + adsets) — gọi qua `/api/meta` proxy, token KHÔNG lộ ở client
 
 ---
 
 ## Meta API Proxy (`/api/meta`)
 
-Token Meta là secret — không bao giờ load vào browser nữa. Mọi call từ dashboard đi qua proxy serverless này.
+Token Meta là secret — không bao giờ load vào browser nữa. Mọi call từ dashboard đi qua API proxy này.
 
 ### Setup 1 lần
 
-**Env vars trên Vercel:**
+**Env vars trên server/VPS:**
 
 | Key | Value | Ghi chú |
 |---|---|---|
 | `META_TOKEN` | Meta access token (system user) | bắt buộc, **giữ kín** |
-| `SUPABASE_URL` | đã có sẵn | dùng để verify JWT |
-| `SUPABASE_SERVICE_ROLE_KEY` | đã có sẵn | dùng để verify JWT |
+| `LOCAL_DB_URL` | đã có sẵn | dùng để verify JWT |
+| `LOCAL_DB_SERVICE_KEY` | đã có sẵn | dùng để verify JWT |
 
-**Sau khi đổi token:** Vercel → Project → Deployments → Redeploy (env mới chỉ áp dụng cho deploy mới).
+**Sau khi đổi token:** cập nhật env trên server rồi restart service API để nạp biến mới.
 
 **Whitelist path** (sửa trong `api/meta.js` nếu cần thêm endpoint Meta mới):
 - `me/permissions`, `me/adaccounts`, `debug_token`
@@ -168,7 +168,7 @@ DELETE FROM app_settings WHERE key = 'META_TOKEN';
 
 ## Telegram Bot
 
-Webhook serverless tại `/api/telegram.js` — kết nối HC AI qua Telegram.
+Webhook API tại `/api/telegram` — kết nối HC AI qua Telegram.
 
 ### Setup 1 lần
 
@@ -180,30 +180,41 @@ Webhook serverless tại `/api/telegram.js` — kết nối HC AI qua Telegram.
 - Chat với bot 1 câu bất kỳ → mở `https://api.telegram.org/bot<BOT_TOKEN>/getUpdates` xem `chat.id` (số nguyên)
 - Hoặc chat với [@userinfobot](https://t.me/userinfobot)
 
-**3. Thêm env vars trên Vercel:**
+**3. Thêm env vars trên VPS:**
 | Key | Value | Ghi chú |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | từ BotFather | bắt buộc |
 | `TELEGRAM_ALLOWED_CHAT_IDS` | chat_id anh, ngăn cách dấu phẩy | whitelist |
 | `TELEGRAM_WEBHOOK_SECRET` | chuỗi random 32 ký tự | bảo vệ webhook |
-| `SUPABASE_URL` | URL Supabase project | đã có sẵn |
-| `SUPABASE_SERVICE_ROLE_KEY` | service role key (bypass RLS) | **giữ kín** |
+| `LOCAL_DB_URL` | URL DB bridge (`/db`) | đã có sẵn |
+| `LOCAL_DB_SERVICE_KEY` | service role key (bypass RLS) | **giữ kín** |
 | `OPENAI_API_KEY` | `sk-proj-...` | cho free-text AI |
 | `OPENAI_MODEL` | `gpt-4o-mini` (mặc định) | tuỳ chọn |
 
-**4. Deploy lên Vercel:**
+**4. Deploy lên VPS:**
 ```bash
-git push origin main
+rsync -az --delete ./ root@147.93.158.199:/opt/hc-agency-dashboard/current/
 ```
-Vercel tự build, endpoint thành `https://<your-domain>.vercel.app/api/telegram`.
+API chạy bằng systemd service `hc-agency-dashboard-api`, endpoint thành `http://147.93.158.199/api/telegram` hoặc domain đã trỏ về VPS.
 
 **5. Đăng ký webhook với Telegram:**
 ```bash
 curl "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
-  -d "url=https://<your-domain>.vercel.app/api/telegram" \
+  -d "url=http://147.93.158.199/api/telegram" \
   -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
 ```
 Trả về `{"ok":true,"result":true,"description":"Webhook was set"}` là OK.
+
+### Bot riêng: cảnh báo bài bị từ chối
+
+Bot này không dùng webhook và không chung token với HC AI bot. Job quét `policy-alert-sync` sẽ tự gửi tin nhắn khi phát hiện bài Meta bị từ chối mới của khách `1 Tabb`.
+
+| Key | Value | Ghi chú |
+|---|---|---|
+| `POLICY_ALERT_TELEGRAM_BOT_TOKEN` | token bot mới từ BotFather | bot chỉ gửi cảnh báo |
+| `POLICY_ALERT_TELEGRAM_CHAT_IDS` | chat_id nhóm, ngăn cách dấu phẩy | nhóm cần add bot vào trước |
+| `POLICY_ALERT_TELEGRAM_CLIENT_NAMES` | `1 Tabb,01 Tabb` | tuỳ chọn, mặc định như vậy |
+| `POLICY_ALERT_TELEGRAM_CLIENT_IDS` | UUID khách hàng | tuỳ chọn, chính xác hơn tên |
 
 ### Lệnh bot
 
@@ -217,5 +228,5 @@ Trả về `{"ok":true,"result":true,"description":"Webhook was set"}` là OK.
 
 ### Debug
 
-- Vercel Dashboard → Project → Deployments → click deployment → Functions → `api/telegram` → xem logs
+- Xem log service API trên VPS, ví dụ `journalctl -u hc-agency-dashboard-api -f`
 - Test webhook handshake: `curl https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo`

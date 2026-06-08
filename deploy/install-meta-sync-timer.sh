@@ -10,7 +10,7 @@ if [[ ! -d "$APP_DIR" ]]; then
 fi
 
 if [[ ! -f "$ENV_FILE" ]]; then
-  echo "Warning: $ENV_FILE not found. The service needs SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY, and META_TOKEN." >&2
+  echo "Warning: $ENV_FILE not found. The service needs LOCAL_DB_URL, LOCAL_DB_JWT_SECRET, LOCAL_DB_SERVICE_KEY, and META_TOKEN." >&2
 fi
 
 install -m 0644 "$APP_DIR/deploy/systemd/hc-meta-sync.service" /etc/systemd/system/hc-meta-sync.service

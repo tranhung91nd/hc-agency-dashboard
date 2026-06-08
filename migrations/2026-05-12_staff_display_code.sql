@@ -5,7 +5,7 @@
 -- để dễ đọc, dễ nhớ, dễ tham chiếu trong báo cáo / lương / phạt.
 --
 -- Cách chạy:
---   Supabase Dashboard → SQL Editor → New query → paste → Run
+--   SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 ALTER TABLE staff

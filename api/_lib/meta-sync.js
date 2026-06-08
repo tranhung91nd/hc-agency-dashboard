@@ -2,7 +2,7 @@ try {
   if (!global.WebSocket) global.WebSocket = require('ws');
 } catch (e) {}
 
-const { createClient } = require('@supabase/supabase-js');
+const db = require('./db');
 
 const GRAPH_BASE = 'https://graph.facebook.com/v25.0/';
 const DEFAULT_CAMPAIGN_MESS_BATCH_SIZE = Number(process.env.CAMPAIGN_MESS_BATCH_SIZE || 8);
@@ -11,18 +11,16 @@ const META_BATCH_MAX_ATTEMPTS = Number(process.env.META_BATCH_MAX_ATTEMPTS || 2)
 const META_BATCH_RETRY_DELAY_MS = Number(process.env.META_BATCH_RETRY_DELAY_MS || 2500);
 
 function getEnv() {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
   const metaToken = process.env.META_TOKEN;
-  if (!supabaseUrl || !supabaseKey || !metaToken) {
-    throw new Error('Missing env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY/SUPABASE_KEY, META_TOKEN');
+  if (!metaToken) {
+    throw new Error('Missing env var: META_TOKEN');
   }
-  return { supabaseUrl, supabaseKey, metaToken };
+  return { metaToken };
 }
 
-function createSupabase() {
-  const env = getEnv();
-  return createClient(env.supabaseUrl, env.supabaseKey, { auth: { persistSession: false } });
+function createDbClient() {
+  getEnv();
+  return db.createDbClient();
 }
 
 function sleep(ms) {
@@ -692,7 +690,7 @@ function normalizeScope(scope) {
 
 async function runMetaSync(options) {
   const opts = options || {};
-  const sb = opts.sb || createSupabase();
+  const sb = opts.sb || createDbClient();
   const scope = normalizeScope(opts.scope);
   const tracker = makeErrorTracker();
   const today = vnDate(0);
@@ -799,9 +797,10 @@ async function runMetaSync(options) {
 
 module.exports = {
   buildDailyDays,
-  createSupabase,
+  createDbClient,
   dateAdd,
   fetchMetaBatch,
+  fetchMetaPath,
   metaTimeRangeParam,
   runMetaSync,
   syncAdDailyPost,

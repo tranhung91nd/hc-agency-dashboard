@@ -6,7 +6,7 @@
 --     "🔗 Sao chép link" lần đầu cho khách đó
 --
 -- Cách chạy:
---   Vào Supabase Dashboard → SQL Editor → New query → paste → Run
+--   Chạy trong SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 ALTER TABLE client

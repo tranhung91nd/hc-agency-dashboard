@@ -41,6 +41,8 @@ async function sendWebResponse(res, webResponse) {
 
 const meta = require('./api/meta');
 const metaSync = require('./api/meta-sync');
+const policyAlertSync = require('./api/policy-alert-sync');
+const { scanRejectedAds } = require('./api/_lib/policy-alert-sync');
 const autoAdsCreate = require('./api/auto-ads-create');
 const chatgptAuth = require('./api/chatgpt-auth');
 const telegram = require('./api/telegram');
@@ -51,7 +53,7 @@ const omniPaymentWebhook = require('./api/omni/payment-webhook');
 const omniCron = require('./api/omni/cron');
 const omniAdminResend = require('./api/omni/admin/resend');
 const omniOrder = require('./api/omni/order/[order_code]');
-const localSupabase = require('./api/_lib/local-supabase');
+const localDb = require('./api/_lib/local-db');
 
 let chatgptChat;
 async function loadChatgptChat() {
@@ -60,10 +62,11 @@ async function loadChatgptChat() {
 }
 
 app.options('/api/*', (req, res) => res.status(200).end());
-app.use('/supabase', localSupabase);
+app.use('/db', localDb);
 
 app.all('/api/meta', jsonParser, wrap(meta));
 app.all('/api/meta-sync', jsonParser, wrap(metaSync));
+app.all('/api/policy-alert-sync', jsonParser, wrap(policyAlertSync));
 app.all('/api/auto-ads-create', jsonParser, wrap(autoAdsCreate));
 app.all('/api/chatgpt-auth', jsonParser, wrap(chatgptAuth));
 app.all('/api/telegram', jsonParser, wrap(telegram));
@@ -101,3 +104,35 @@ app.use((err, _req, res, _next) => {
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`HC Agency Dashboard API listening on 127.0.0.1:${PORT}`);
 });
+
+const POLICY_ALERT_SCAN_INTERVAL_MS = Number(process.env.POLICY_ALERT_SCAN_INTERVAL_MS || 10 * 60 * 1000);
+let policyAlertScanRunning = false;
+
+async function runPolicyAlertScanTick(source) {
+  if (process.env.POLICY_ALERT_SCAN_DISABLED === '1') return;
+  if (policyAlertScanRunning) return;
+  policyAlertScanRunning = true;
+  try {
+    const result = await scanRejectedAds({ source: source || 'cron' });
+    console.log('[policy-alert-scan]', JSON.stringify({
+      status: result.status,
+      watched_accounts: result.watched_accounts,
+      rejected_ads: result.rejected_ads,
+      saved_alerts: result.saved_alerts,
+      resolved_alerts: result.resolved_alerts,
+      policy_telegram_sent: result.telegram_notifications && result.telegram_notifications.sent || 0,
+      rental_balance_sent: result.rental_balance_notifications && result.rental_balance_notifications.sent || 0,
+      error_accounts: result.error_accounts,
+      duration_ms: result.duration_ms
+    }));
+  } catch (e) {
+    console.error('[policy-alert-scan]', e.message || e);
+  } finally {
+    policyAlertScanRunning = false;
+  }
+}
+
+if (POLICY_ALERT_SCAN_INTERVAL_MS > 0 && process.env.POLICY_ALERT_SCAN_DISABLED !== '1') {
+  setTimeout(() => runPolicyAlertScanTick('startup'), 15000);
+  setInterval(() => runPolicyAlertScanTick('cron'), POLICY_ALERT_SCAN_INTERVAL_MS);
+}

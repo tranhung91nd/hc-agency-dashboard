@@ -1,20 +1,16 @@
 // HC Agency Dashboard — TikTok Marketing API proxy
-// Vercel Serverless Function tại /api/tiktok
+// API handler tại /api/tiktok, được mount bởi server.js.
 //
-// ENV cần (Vercel project — điền sau khi TikTok duyệt app):
+// ENV cần trên server sau khi TikTok duyệt app:
 //   TIKTOK_APP_ID
 //   TIKTOK_APP_SECRET
 //   TIKTOK_ACCESS_TOKEN          — long-term token sau OAuth
-//   SUPABASE_URL                 — đã có sẵn
-//   SUPABASE_SERVICE_ROLE_KEY    — đã có sẵn
 
-const { createClient } = require('@supabase/supabase-js');
+const { verifyBearerUser } = require('./_lib/db');
 
 const TIKTOK_APP_ID = process.env.TIKTOK_APP_ID || '';
 const TIKTOK_APP_SECRET = process.env.TIKTOK_APP_SECRET || '';
 const TIKTOK_ACCESS_TOKEN = process.env.TIKTOK_ACCESS_TOKEN || '';
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const API_BASE = 'https://business-api.tiktok.com/open_api/v1.3/';
 
 // Whitelist path TikTok API được phép proxy
@@ -31,17 +27,6 @@ function isPathAllowed(rawPath) {
   return PATH_WHITELIST.some(re => re.test(path));
 }
 
-async function verifyAuth(req) {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return null;
-  const auth = req.headers.authorization || req.headers.Authorization || '';
-  const token = auth.replace(/^Bearer\s+/i, '').trim();
-  if (!token) return null;
-  const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  const { data, error } = await sb.auth.getUser(token);
-  if (error || !data || !data.user) return null;
-  return data.user;
-}
-
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'method_not_allowed' });
@@ -49,11 +34,11 @@ module.exports = async (req, res) => {
   }
 
   if (!TIKTOK_ACCESS_TOKEN) {
-    res.status(503).json({ error: 'tiktok_not_configured', message: 'TIKTOK_ACCESS_TOKEN chưa set trong Vercel env. App TikTok còn đang chờ duyệt.' });
+    res.status(503).json({ error: 'tiktok_not_configured', message: 'TIKTOK_ACCESS_TOKEN chưa set trên server. App TikTok còn đang chờ duyệt.' });
     return;
   }
 
-  const user = await verifyAuth(req);
+  const user = await verifyBearerUser(req);
   if (!user) {
     res.status(401).json({ error: 'unauthorized' });
     return;

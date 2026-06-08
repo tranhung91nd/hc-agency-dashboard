@@ -12,8 +12,8 @@
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.json">
 <link rel="stylesheet" href="/styles.css?v=20260522-email">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="/app.js?v=20260606-local-postgres-bridge" defer></script>
+<script src="/local-db-client.js?v=20260607-local-db-cachefix" defer></script>
+<script src="/app.js?v=20260608-mobile-login-reset" defer></script>
 </head>
 <body>
 <a href="#page" class="skip-link">Bỏ qua đến nội dung</a>
@@ -36,7 +36,7 @@
   <nav class="sb-nav" id="sb-nav" aria-label="Mục điều hướng"></nav>
   <div class="sb-footer" id="sb-footer"></div>
 </aside>
-<main class="main" id="page" tabindex="-1"><div class="loading">Đang kết nối Supabase</div></main>
+<main class="main" id="page" tabindex="-1"><div class="loading">Đang kết nối dữ liệu</div></main>
 </div>
 <button class="ai-fab" onclick="toggleAI()" title="HC AI"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>HC AI</button>
 <div class="ai-panel" id="ai-panel">

@@ -1,7 +1,7 @@
-// HC Agency Dashboard — ChatGPT proxy chat (Edge runtime)
-// Triển khai dưới dạng Vercel Edge Function tại /api/chatgpt-chat
+// HC Agency Dashboard — ChatGPT proxy chat
+// API handler tại /api/chatgpt-chat, được mount bởi server.js.
 //
-// Nhận messages từ client, đọc OAuth token từ Supabase (auto-refresh nếu sắp hết hạn),
+// Nhận messages từ client, đọc OAuth token từ Local DB (auto-refresh nếu sắp hết hạn),
 // POST lên https://chatgpt.com/backend-api/codex/responses (SSE stream),
 // gom output_text deltas, trả lại 1 JSON { content, usage } để client hiển thị
 // (giữ contract giống response của OpenAI/Anthropic chat hiện tại).
@@ -10,25 +10,19 @@
 //
 // Endpoint Codex chỉ chấp nhận stream=true. Default model: gpt-5.4 (theo Codex CLI).
 
-// Pin về Singapore — IP Asia datacenter ít bị Cloudflare WAF của ChatGPT flag hơn
-// IAD/SFO mặc định. Nếu vẫn lỗi, fallback proxy local qua ngrok.
-export const config = { runtime: 'edge', regions: ['sin1'] };
-
 const OPENAI_TOKEN_URL = 'https://auth.openai.com/oauth/token';
+const { createDbClient } = require('./_lib/db');
 const OPENAI_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 const CODEX_API_BASE = 'https://chatgpt.com/backend-api';
 const PROVIDER_KEY = 'openai-codex';
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // refresh nếu còn dưới 5 phút
 
 // Nếu set CHATGPT_PROXY_URL (e.g. https://abc.ngrok.io), forward qua proxy local
-// thay vì gọi chatgpt.com trực tiếp — bypass Cloudflare WAF chặn IP datacenter Vercel.
+// thay vì gọi chatgpt.com trực tiếp — bypass Cloudflare WAF chặn IP datacenter.
 // Xem scripts/chatgpt-proxy.js.
 const PROXY_URL = (process.env.CHATGPT_PROXY_URL || '').replace(/\/+$/, '');
 const PROXY_SECRET = process.env.HC_PROXY_SECRET || '';
 
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function jsonResp(code, body) {
   return new Response(JSON.stringify(body), {
@@ -37,34 +31,22 @@ function jsonResp(code, body) {
   });
 }
 
-// ── Supabase REST helpers (không dùng SDK để giữ Edge bundle nhẹ) ──
 async function sbSelect() {
-  const url = SUPABASE_URL + '/rest/v1/oauth_tokens?provider=eq.' + PROVIDER_KEY + '&select=*';
-  const resp = await fetch(url, {
-    headers: {
-      apikey: SUPABASE_SERVICE_KEY,
-      Authorization: 'Bearer ' + SUPABASE_SERVICE_KEY,
-      Accept: 'application/json'
-    }
-  });
-  if (!resp.ok) throw new Error('Supabase select HTTP ' + resp.status + ': ' + await resp.text());
-  const arr = await resp.json();
-  return arr[0] || null;
+  const { data, error } = await createDbClient()
+    .from('oauth_tokens')
+    .select('*')
+    .eq('provider', PROVIDER_KEY)
+    .maybeSingle();
+  if (error) throw new Error('Local DB select: ' + error.message);
+  return data || null;
 }
 
 async function sbUpdateTokens(patch) {
-  const url = SUPABASE_URL + '/rest/v1/oauth_tokens?provider=eq.' + PROVIDER_KEY;
-  const resp = await fetch(url, {
-    method: 'PATCH',
-    headers: {
-      apikey: SUPABASE_SERVICE_KEY,
-      Authorization: 'Bearer ' + SUPABASE_SERVICE_KEY,
-      'Content-Type': 'application/json',
-      Prefer: 'return=minimal'
-    },
-    body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() })
-  });
-  if (!resp.ok) throw new Error('Supabase patch HTTP ' + resp.status + ': ' + await resp.text());
+  const { error } = await createDbClient()
+    .from('oauth_tokens')
+    .update(Object.assign({}, patch, { updated_at: new Date().toISOString() }))
+    .eq('provider', PROVIDER_KEY);
+  if (error) throw new Error('Local DB patch: ' + error.message);
 }
 
 // ── OAuth refresh ──
@@ -176,7 +158,7 @@ async function consumeCodexStream(stream) {
   return { content, usage };
 }
 
-export default async function handler(req) {
+async function handler(req) {
   if (req.method !== 'POST') return jsonResp(405, { error: 'Method not allowed' });
 
   let body;
@@ -227,8 +209,8 @@ export default async function handler(req) {
     const snippet = fullText.slice(0, 400).replace(/\s+/g, ' ').trim();
     return jsonResp(upstream.status || 403, {
       error: isCF
-        ? ('Cloudflare WAF chặn request từ Vercel (status ' + upstream.status + ', cf-ray ' + (cfRay || 'n/a') +
-           '). IP datacenter bị flag — thử đổi Vercel region (sin1/hkg1), hoặc chạy proxy local.')
+        ? ('Cloudflare WAF chặn request từ server (status ' + upstream.status + ', cf-ray ' + (cfRay || 'n/a') +
+           '). IP datacenter bị flag — thử chạy proxy local.')
         : ('ChatGPT trả HTML status ' + upstream.status + ' (cf-ray ' + (cfRay || 'n/a') + '). Snippet: ' + snippet),
       debug: { status: upstream.status, content_type: ct, cf_ray: cfRay, snippet }
     });
@@ -246,3 +228,5 @@ export default async function handler(req) {
     return jsonResp(500, { error: 'Stream parse: ' + (e.message || e) });
   }
 }
+
+module.exports = handler;

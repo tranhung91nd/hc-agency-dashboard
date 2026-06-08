@@ -1,15 +1,13 @@
 // HC Agency Dashboard — Telegram bot webhook
-// Triển khai dưới dạng Vercel Serverless Function tại /api/telegram
+// API handler tại /api/telegram, được mount bởi server.js.
 
-const { createClient } = require('@supabase/supabase-js');
+const { createDbClient } = require('./_lib/db');
 
 // ═══ ENV ═══
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || '';
 const ALLOWED_CHAT_IDS = (process.env.TELEGRAM_ALLOWED_CHAT_IDS || '')
   .split(',').map(function(s){return s.trim();}).filter(Boolean);
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.4-mini';
 const META_TOKEN = process.env.META_TOKEN || '';
@@ -30,7 +28,9 @@ function shortMoney(n) {
   return String(n);
 }
 
-const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+const sb = {
+  from: (...args) => createDbClient().from(...args),
+};
 
 // ═══ TELEGRAM API ═══
 function normalizeTelegramHtml(text) {
@@ -1082,7 +1082,7 @@ async function askAI(question) {
 // customToken: dùng page access token thay vì META_TOKEN (cần cho /<page_id>/feed)
 async function metaApi(method, path, payload, customToken) {
   const token = customToken || META_TOKEN;
-  if (!token) throw new Error('META_TOKEN chưa cấu hình ở Vercel env');
+  if (!token) throw new Error('META_TOKEN chưa cấu hình trên server');
   const url = GRAPH_BASE + path.replace(/^\/+/, '');
   const init = {
     method: method,
@@ -1146,7 +1146,7 @@ async function getPageAccessToken(pageId) {
 }
 
 // ─── Resolve pfbid → numeric post ID bằng HTML scrape ───
-// Thử nhiều User-Agent + Mobile URL fallback để bypass Facebook anti-bot từ Vercel IP.
+// Thử nhiều User-Agent + Mobile URL fallback để bypass Facebook anti-bot từ IP server.
 async function resolvePfbidFromHtml(postUrl) {
   const tryFetch = async (url, ua) => {
     try {
@@ -2368,7 +2368,7 @@ async function route(text, chatId, ctx) {
   const tLower = rawText.toLowerCase();
   const compactText = normalizeLookupText(rawText);
   const cmd = rawText.split(/\s+/)[0].toLowerCase();
-  if (cmd === '/myid' || cmd === '/me' || cmd === '/chatid') return '🆔 Chat ID của bạn: <code>' + chatId + '</code>\n\n<i>Copy số trên paste vào Vercel env <b>TELEGRAM_ALLOWED_CHAT_IDS</b> để giới hạn ai dùng được bot.</i>';
+  if (cmd === '/myid' || cmd === '/me' || cmd === '/chatid') return '🆔 Chat ID của bạn: <code>' + chatId + '</code>\n\n<i>Copy số trên paste vào env server <b>TELEGRAM_ALLOWED_CHAT_IDS</b> để giới hạn ai dùng được bot.</i>';
   if (cmd === '/clear' || cmd === '/reset' || cmd === '/quenhet' || /^(quên\s*hết|xóa\s*lịch\s*sử)/i.test(tLower)) { await clearConversation(chatId); return '🧹 Đã xóa lịch sử conversation. AI sẽ không nhớ context cũ.'; }
   if (cmd === '/start' || cmd === '/help') return capabilitiesText();
   if (/(bot|bạn|ban|trợ\s*lý|tro\s*ly|mày|may|em|mình|minh).*(làm|lam|giúp|giup|hỗ\s*trợ|ho\s*tro).*(gì|gi|được|duoc|nào|nao)/i.test(tLower) || /(có\s*thể|co\s*the).*(làm|lam).*(gì|gi)/i.test(tLower)) return capabilitiesText();

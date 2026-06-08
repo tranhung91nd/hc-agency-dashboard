@@ -5,7 +5,7 @@
 -- bảng "Hiệu quả theo bài chạy × tuần", không chỉ admin.
 --
 -- Cách chạy:
---   Supabase Dashboard → SQL Editor → New query → paste → Run
+--   SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION get_public_client_report(p_client_id uuid, p_token text)

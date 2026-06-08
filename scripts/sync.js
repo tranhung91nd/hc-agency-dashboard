@@ -1,4 +1,4 @@
-const { createSupabase, runMetaSync, vnDate } = require('../api/_lib/meta-sync');
+const { createDbClient, runMetaSync, vnDate } = require('../api/_lib/meta-sync');
 
 const D0 = vnDate(0);
 const BACKFILL_FROM = process.env.BACKFILL_FROM || null;
@@ -9,7 +9,7 @@ const DATE_TO = BACKFILL_TO || DATE_FROM;
 
 async function main() {
   console.log('[HC Sync] window = ' + DATE_FROM + ' -> ' + DATE_TO + (IS_BACKFILL ? ' (BACKFILL mode)' : ' (D0 only)'));
-  const sb = createSupabase();
+  const sb = createDbClient();
   const result = await runMetaSync({
     sb,
     scope: IS_BACKFILL ? 'full' : 'cron',

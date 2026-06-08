@@ -11,7 +11,7 @@
 --   - "Trễ hạn"   = task_date < today AND status != 'done'
 --
 -- Cách chạy:
---   Supabase Dashboard → SQL Editor → New query → paste → Run
+--   SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS team_task (

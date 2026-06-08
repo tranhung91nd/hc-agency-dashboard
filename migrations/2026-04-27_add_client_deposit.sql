@@ -7,7 +7,7 @@
 -- Số dư = Σ deposits − Σ spend − Σ phí thuê
 --
 -- Cách chạy:
---   Vào Supabase Dashboard → SQL Editor → New query → paste → Run
+--   Chạy trong SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS client_deposit (

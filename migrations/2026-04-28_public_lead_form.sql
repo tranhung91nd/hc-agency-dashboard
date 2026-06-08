@@ -8,13 +8,13 @@
 --   chống trùng phone, gắn nguồn lead.
 --
 -- Sau khi chạy migration này, mở URL:
---   <vercel-url>/index.html?form=lead
---   <vercel-url>/index.html?form=lead&source=fbpage
+--   <app-url>/index.html?form=lead
+--   <app-url>/index.html?form=lead&source=fbpage
 -- → form công khai hiện ra cho khách điền.
 -- Nguồn (source) sẽ được lưu vào lead_source để biết kênh nào hiệu quả.
 --
 -- Cách chạy:
---   Vào Supabase Dashboard → SQL Editor → New query → paste → Run
+--   Chạy trong SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 -- 1. Cột lead_source

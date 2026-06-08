@@ -2,11 +2,8 @@
 // UI calls this endpoint to start/poll sync without doing heavy Meta fanout in browser.
 
 const crypto = require('crypto');
-const { createClient } = require('@supabase/supabase-js');
-const { createSupabase, runMetaSync, vnDate, dateAdd } = require('./_lib/meta-sync');
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+const { verifyBearerUser } = require('./_lib/db');
+const { createDbClient, runMetaSync, vnDate, dateAdd } = require('./_lib/meta-sync');
 
 const MEMORY_JOBS = global.__hcMetaSyncJobs || new Map();
 global.__hcMetaSyncJobs = MEMORY_JOBS;
@@ -52,19 +49,7 @@ function publicJob(row) {
 }
 
 async function verifyAuth(req) {
-  const auth = req.headers && (req.headers.authorization || req.headers.Authorization) || '';
-  const token = String(auth).replace(/^Bearer\s+/i, '').trim();
-  if (!token) return null;
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return null;
-  try {
-    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
-    const { data, error } = await sb.auth.getUser(token);
-    if (error || !data || !data.user) return null;
-    return data.user;
-  } catch (e) {
-    console.error('[meta-sync] verifyAuth:', e.message);
-    return null;
-  }
+  return verifyBearerUser(req);
 }
 
 function memoryInsert(row) {
@@ -168,7 +153,7 @@ async function persistUpdate(sb, id, patch) {
 }
 
 async function runJobInBackground(job, payload) {
-  const sb = createSupabase();
+  const sb = createDbClient();
   await persistUpdate(sb, job.id, {
     status: 'running',
     started_at: new Date().toISOString(),
@@ -243,12 +228,11 @@ module.exports = async (req, res) => {
   jsonNoStore(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed' });
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return res.status(500).json({ error: 'Supabase env chua day du' });
 
   const user = await verifyAuth(req);
   if (!user) return res.status(401).json({ error: 'Unauthorized - vui long dang nhap lai' });
 
-  const sb = createSupabase();
+  const sb = createDbClient();
 
   if (req.method === 'GET') {
     const id = req.query && req.query.id;

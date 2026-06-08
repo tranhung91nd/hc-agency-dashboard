@@ -16,7 +16,7 @@
 --   - penalties response trả thêm field excluded_from_fund để FE hiện badge
 --
 -- Cách chạy:
---   Supabase Dashboard → SQL Editor → New query → paste → Run
+--   SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 ALTER TABLE penalty ADD COLUMN IF NOT EXISTS excluded_from_fund boolean NOT NULL DEFAULT false;

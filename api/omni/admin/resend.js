@@ -4,7 +4,7 @@ const {
   sendJson,
   sendOrderEmail,
   setCors,
-  supabase,
+  db,
 } = require('../../_lib/omni');
 
 function resolveKind(order, requested) {
@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
   try {
     requireAdmin(req);
     const body = req.body || {};
-    const sb = supabase();
+    const sb = db();
     const order = await getOrderByCode(sb, body.order_code || body.payment_code);
     if (!order) return sendJson(res, 404, { ok: false, error: 'order_not_found' });
     const kind = resolveKind(order, body.kind);

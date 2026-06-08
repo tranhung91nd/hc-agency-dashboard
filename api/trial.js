@@ -1,18 +1,13 @@
 // HC Agency — Public lead form receiver
-// Vercel Serverless Function tại /api/trial
+// API handler tại /api/trial, được mount bởi server.js.
 //
 // Nhận POST từ landing page (zalo.hc-agency.online, v.v.) → gọi RPC
 // submit_public_lead (SECURITY DEFINER, anti-dup theo phone) → ghi client
 // vào DB với status='prospect', care_status='new'.
 //
-// ENV cần (đã có sẵn cho /api/telegram, /api/meta):
-//   SUPABASE_URL
-//   SUPABASE_SERVICE_ROLE_KEY
+// ENV DB local cần có trên server.
 
-const { createClient } = require('@supabase/supabase-js');
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const { createDbClient } = require('./_lib/db');
 
 module.exports = async (req, res) => {
   // CORS — form có thể chạy ở subdomain khác (zalo.hc-agency.online)
@@ -22,11 +17,6 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    console.error('[trial] Supabase env chưa đầy đủ');
-    return res.status(500).json({ error: 'server_misconfigured' });
-  }
 
   const body = req.body || {};
   const name = (body.name || '').trim();
@@ -50,7 +40,7 @@ module.exports = async (req, res) => {
   };
 
   try {
-    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
+    const sb = createDbClient();
     const { data, error } = await sb.rpc('submit_public_lead', { p_data: payload });
     if (error) {
       console.error('[trial] RPC error:', error.message);

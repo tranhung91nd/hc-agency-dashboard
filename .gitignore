@@ -10,6 +10,14 @@
 # Claude Code workspace
 .claude/
 
+# Local code index/cache
+.codegraph/
+
+# Generated media outputs
+exports/
+audio-assets/
+video-assets/
+
 # Node (nếu sau này thêm npm)
 node_modules/
 package-lock.json

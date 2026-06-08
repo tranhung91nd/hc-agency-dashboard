@@ -8,7 +8,7 @@
 -- Khánh Linh sẽ bắt đầu nhập từ 2026-05-11. Các nhân sự khác để trống.
 --
 -- Cách chạy:
---   Supabase Dashboard → SQL Editor → New query → paste → Run
+--   SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS staff_post_schedule (

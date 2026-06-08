@@ -6,7 +6,7 @@
 -- offsite_conversion.fb_pixel_initiate_checkout.
 --
 -- Cách chạy:
---   Vào Supabase Dashboard → SQL Editor → New query → paste → Run
+--   Chạy trong SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 ALTER TABLE campaign_daily_mess

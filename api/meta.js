@@ -1,19 +1,15 @@
 // HC Agency Dashboard — Meta Graph API proxy
-// Triển khai dưới dạng Vercel Serverless Function tại /api/meta
+// API handler tại /api/meta, được mount bởi server.js.
 //
 // Mục đích: META_TOKEN không bao giờ rời server. Client gửi POST {op,path,...}
-// kèm Supabase JWT, server verify auth → whitelist path → proxy đến Graph API.
+// kèm JWT local, server verify auth → whitelist path → proxy đến Graph API.
 //
-// ENV cần (Vercel project):
+// ENV cần trên server:
 //   META_TOKEN                    — Meta access token (system user, scope ads_*)
-//   SUPABASE_URL                  — đã có sẵn cho /api/telegram
-//   SUPABASE_SERVICE_ROLE_KEY     — đã có sẵn cho /api/telegram
 
-const { createClient } = require('@supabase/supabase-js');
+const { verifyBearerUser } = require('./_lib/db');
 
 const META_TOKEN = process.env.META_TOKEN || '';
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const GRAPH_BASE = 'https://graph.facebook.com/v25.0/';
 
 // ═══ Whitelist các path được phép gọi ═══
@@ -38,22 +34,6 @@ function isPathAllowed(rawPath) {
   return PATH_WHITELIST.some(function(re){ return re.test(bare); });
 }
 
-// ═══ Verify Supabase JWT ═══
-async function verifyAuth(req) {
-  var auth = req.headers && (req.headers.authorization || req.headers.Authorization) || '';
-  var token = String(auth).replace(/^Bearer\s+/i, '').trim();
-  if (!token) return null;
-  try {
-    var sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
-    var { data, error } = await sb.auth.getUser(token);
-    if (error || !data || !data.user) return null;
-    return data.user;
-  } catch (e) {
-    console.error('[meta proxy] verifyAuth error:', e.message);
-    return null;
-  }
-}
-
 // ═══ Build URL với access_token (và input_token cho debug_token) ═══
 function buildUrl(path) {
   var p = String(path || '').replace(/^\/+/, '');
@@ -70,15 +50,13 @@ function buildUrl(path) {
 
 // ═══ ENTRY ═══
 module.exports = async (req, res) => {
-  // CORS headers (cùng origin Vercel nên thường không cần, nhưng để chắc)
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  if (!META_TOKEN) return res.status(500).json({ error: { message: 'META_TOKEN chưa cấu hình ở Vercel env' } });
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return res.status(500).json({ error: { message: 'Supabase env chưa đầy đủ' } });
+  if (!META_TOKEN) return res.status(500).json({ error: { message: 'META_TOKEN chưa cấu hình trên server' } });
 
-  var user = await verifyAuth(req);
+  var user = await verifyBearerUser(req);
   if (!user) return res.status(401).json({ error: { message: 'Unauthorized — vui lòng đăng nhập lại' } });
 
   var body = req.body || {};

@@ -14,7 +14,7 @@
 -- → bot tự chạy
 --
 -- Cách chạy:
---   Supabase Dashboard → SQL Editor → New query → paste → Run
+--   SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 -- 1. auto_ads_preset

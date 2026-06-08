@@ -1,5 +1,5 @@
 // HC Agency Dashboard — ChatGPT OAuth (PKCE) auth endpoint
-// Triển khai dưới dạng Vercel Serverless Function tại /api/chatgpt-auth
+// API handler tại /api/chatgpt-auth, được mount bởi server.js.
 //
 // Cơ chế: copy luồng OAuth của Codex CLI (xem goclaw/internal/oauth/openai.go).
 // Vì client_id của Codex chỉ accept redirect_uri=http://localhost:1455/auth/callback,
@@ -12,11 +12,8 @@
 //   GET  ?action=status   → trả về { connected, plan_type, account_id, expires_at }
 //   POST ?action=logout   → xoá token
 
-const { createClient } = require('@supabase/supabase-js');
+const { createDbClient } = require('./_lib/db');
 const crypto = require('crypto');
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const OPENAI_AUTH_URL = 'https://auth.openai.com/oauth/authorize';
 const OPENAI_TOKEN_URL = 'https://auth.openai.com/oauth/token';
@@ -26,7 +23,9 @@ const OPENAI_SCOPES = 'openid profile email offline_access api.connectors.read a
 
 const PROVIDER_KEY = 'openai-codex';
 
-const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+const sb = {
+  from: (...args) => createDbClient().from(...args),
+};
 
 function b64url(buf) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -113,7 +112,7 @@ async function saveToken(tokenResp) {
     updated_at: new Date().toISOString()
   };
   const { error } = await sb.from('oauth_tokens').upsert(row, { onConflict: 'provider' });
-  if (error) throw new Error('Supabase upsert: ' + error.message);
+  if (error) throw new Error('Local DB upsert: ' + error.message);
   return row;
 }
 
@@ -123,7 +122,7 @@ async function getStatus() {
     .select('provider,expires_at,account_id,plan_type,scopes,updated_at')
     .eq('provider', PROVIDER_KEY)
     .maybeSingle();
-  if (error) throw new Error('Supabase select: ' + error.message);
+  if (error) throw new Error('Local DB select: ' + error.message);
   if (!data) return { connected: false };
   return {
     connected: true,
@@ -137,7 +136,7 @@ async function getStatus() {
 
 async function deleteToken() {
   const { error } = await sb.from('oauth_tokens').delete().eq('provider', PROVIDER_KEY);
-  if (error) throw new Error('Supabase delete: ' + error.message);
+  if (error) throw new Error('Local DB delete: ' + error.message);
 }
 
 function send(res, code, body) {

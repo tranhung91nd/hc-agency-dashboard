@@ -5,7 +5,7 @@
 --   3. care_status   — TEXT    → trạng thái CSKH (new, contacting, sent_quote, negotiating, won, lost)
 --
 -- Cách chạy:
---   1) Vào Supabase Dashboard → SQL Editor → New query
+--   1) Chạy trong SQL console hoặc psql
 --   2) Paste toàn bộ file này → Run
 --   3) Reload app, mở khách hàng bất kỳ và bấm ✏️ để sửa
 -- ═══════════════════════════════════════════════════════════════

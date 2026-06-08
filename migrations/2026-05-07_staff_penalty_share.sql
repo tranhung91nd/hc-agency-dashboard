@@ -7,9 +7,9 @@
 --   verify token rồi trả về JSON gồm tên nhân sự + danh sách phạt + tổng.
 --   KHÔNG trả lương/hoa hồng/thưởng (chỉ phạt — đúng như user yêu cầu).
 --
--- URL pattern: <vercel-url>/?penalty=<staff_id>&token=<share_token>
+-- URL pattern: <app-url>/?penalty=<staff_id>&token=<share_token>
 --
--- Cách chạy: Supabase Dashboard → SQL Editor → New query → paste → Run
+-- Cách chạy: SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 -- 1. Cột staff.share_token

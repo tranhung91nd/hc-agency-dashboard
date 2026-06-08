@@ -10,7 +10,7 @@
 --   - ad_daily_post:       1 dòng = 1 ad      × ngày (chi tiết hơn)
 --
 -- Cách chạy:
---   Supabase Dashboard → SQL Editor → New query → paste → Run
+--   SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS ad_daily_post (

@@ -9,7 +9,7 @@
 -- UI hiển thị live_status thay vì bot status (success/failed).
 -- Nút action thay đổi theo: ACTIVE → "Tắt", PAUSED → "Bật".
 --
--- Cách chạy: Supabase SQL Editor → paste → Run
+-- Cách chạy: SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 ALTER TABLE auto_ads_log ADD COLUMN IF NOT EXISTS live_status text;

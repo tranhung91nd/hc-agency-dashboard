@@ -20,7 +20,7 @@
 -- Yêu cầu: materialized view ad_account_month_spend đã có (migration trước).
 --
 -- Cách chạy:
---   Supabase SQL Editor → paste → Run
+--   SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION get_dashboard_overview(p_month text)

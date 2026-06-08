@@ -1,7 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════
 -- Omni AI Marketing trial + paid license automation
 --
--- Chạy 1 lần trên Supabase trước khi bật /api/omni/*:
+-- Chạy 1 lần trên PostgreSQL local trước khi bật /api/omni/*:
 --   1. omni_license_orders  — lead/order/license/payment state
 --   2. omni_payment_events   — raw SePay webhook + idempotency
 --   3. omni_delivery_log     — email/Zalo/manual delivery audit + retry

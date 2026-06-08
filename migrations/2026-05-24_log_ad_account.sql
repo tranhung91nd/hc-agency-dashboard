@@ -10,7 +10,7 @@
 -- Row cũ → ad_account_id = NULL, UI fallback lookup từ preset.
 -- Row mới (từ api/telegram.js + api/auto-ads-create.js) sẽ lưu trực tiếp.
 --
--- Cách chạy: Supabase SQL Editor → paste → Run
+-- Cách chạy: SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 ALTER TABLE auto_ads_log ADD COLUMN IF NOT EXISTS ad_account_id text;

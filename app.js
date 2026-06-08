@@ -1,8 +1,7 @@
-// ⚠ WARNING: SB_KEY (anon) is designed to be public but should be paired with RLS policies.
-var SB_URL=(window.HC_SUPABASE_URL||window.location.origin+'/supabase'),SB_KEY=(window.HC_SUPABASE_KEY||'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxc25vaHd5bWdtZHZicXdmbGFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzU1NzUsImV4cCI6MjA5MTIxMTU3NX0.0cv-j9zJUfVAj9LBG8VFHNO0Jke4JjehBKSzDVd1nA0');
-var sb2=supabase.createClient(SB_URL,SB_KEY,{auth:{storageKey:'hc-agency-local-pg-auth'}});
+var DB_URL=(window.HC_DB_URL||window.location.origin+'/db'),DB_KEY=(window.HC_DB_KEY||'');
+var sb2=localDb.createClient(DB_URL,DB_KEY,{auth:{storageKey:'hc-agency-local-db-auth'}});
 // Meta access token KHÔNG còn ở client. Tất cả call Meta API đi qua /api/meta proxy
-// (xem helper metaGet/metaPost/metaBatch bên dưới). Token thật ở Vercel env.
+// (xem helper metaGet/metaPost/metaBatch bên dưới). Token thật ở env server.
 var META_BUSINESS_ID='';
 var META_GLOBAL_SCOPE_ID='';
 // ═══ META API PROXY HELPERS ═══
@@ -37,6 +36,21 @@ async function metaSyncApiCall(method,payload,query){
   }catch(e){return{error:{message:'Lỗi mạng: '+(e.message||e)}};}
 }
 async function startMetaSyncJob(payload){return await metaSyncApiCall('POST',payload||{});}
+async function policyAlertSyncApiCall(method,payload,query){
+  var auth=await _metaProxyAuthHeader();
+  if(!auth)return{error:{message:'Chưa đăng nhập'}};
+  var opts={method:method||'POST',headers:{Authorization:auth}};
+  if(opts.method==='POST'){
+    opts.headers['Content-Type']='application/json';
+    opts.body=JSON.stringify(payload||{});
+  }
+  try{
+    var resp=await fetch('/api/policy-alert-sync'+(query||''),opts);
+    var data;try{data=await resp.json();}catch(e){data={error:{message:'Phản hồi cảnh báo không phải JSON (HTTP '+resp.status+')'}};}
+    if(!resp.ok&&data&&!data.error)data={error:{message:'HTTP '+resp.status}};
+    return data;
+  }catch(e){return{error:{message:'Lỗi mạng: '+(e.message||e)}};}
+}
 async function getMetaSyncJob(id,scope){
   var q=id?'?id='+encodeURIComponent(id):(scope?'?scope='+encodeURIComponent(scope):'');
   return await metaSyncApiCall('GET',null,q);
@@ -161,7 +175,7 @@ function renderZaloBtn(c){
 // Khi balance (spend_cap - amount_spent) < giá trị này → hiện cảnh báo ở P6.
 // Chỉnh tại đây để thay đổi ngưỡng cho toàn hệ thống.
 var BALANCE_ALERT_THRESHOLD=1000000;
-var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],adPostData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],teamFundData=[],teamTaskData=[],postScheduleData=[],clientDepositData=[],bankReconcileData=[],bankImportLog=[];
+var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],adPostData=[],adPolicyAlertData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],teamFundData=[],teamTaskData=[],postScheduleData=[],clientDepositData=[],bankReconcileData=[],bankImportLog=[];
 var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,currentUserRoleRecord=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,newActiveClientModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc',finTab='thuchi',reconcileMonth='',reconcileSearch='',editingUserRoleId=null,pendingNewUserRoleStaffId=null,ovMonth='';
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
@@ -460,6 +474,12 @@ function td(){return vnDateStr(0);}
 function gm(){return td().substring(0,7);}
 function lm(){return dates.length?dates[dates.length-1].substring(0,7):gm();}
 function yesterday(){return vnDateStr(-86400000);}
+function addDaysIso(ds,n){
+var p=String(ds||'').split('-').map(function(x){return parseInt(x,10);});
+if(p.length!==3||!p[0]||!p[1]||!p[2])return ds;
+var d=new Date(Date.UTC(p[0],p[1]-1,p[2]+(n||0)));
+return d.getUTCFullYear()+'-'+('0'+(d.getUTCMonth()+1)).slice(-2)+'-'+('0'+d.getUTCDate()).slice(-2);
+}
 function toggleSidebar(){var sb=document.getElementById('sidebar');var ov=document.getElementById('overlay');if(sb)sb.classList.toggle('open');if(ov)ov.classList.toggle('show');}
 function metaNum(v){var n=parseInt(v,10);return isNaN(n)?0:n;}
 function hasComparableSpendCap(a){return !!(a&&a.spend_cap&&a.amount_spent>=0&&a.amount_spent<=a.spend_cap);}
@@ -569,8 +589,9 @@ function buildRentalMatrix(clientId,month){
     if(accMap[ag.ad_account_id])return;
     var acc=adList.find(function(x){return x.id===ag.ad_account_id;});
     if(acc){
-      // Ưu tiên snapshot tên TKQC tại thời điểm assignment (giữ tên cũ trong báo cáo lịch sử). Fallback về tên hiện tại nếu chưa có snapshot.
-      var nm=ag.account_name_snapshot||acc.account_name||acc.fb_account_id||acc.id;
+      // Tháng hiện tại dùng tên TKQC mới nhất; snapshot chỉ giữ cho các tháng đã qua.
+      var isHistorical=lastDay<td();
+      var nm=(isHistorical?ag.account_name_snapshot:null)||acc.account_name||acc.fb_account_id||acc.id;
       accMap[acc.id]={id:acc.id,name:nm,daily:new Array(daysInMonth).fill(0)};
     }
   });
@@ -777,7 +798,7 @@ var errs=[];
  rebuildAssignIndex();
  monthlyFeeData=mf.error?[]:(mf.data||[]);
  // Defer empty defaults — wave 2 sẽ ghi đè
- salaryData=salaryData||[];monthlyRevData=monthlyRevData||[];campaignMessData=campaignMessData||[];adPostData=adPostData||[];
+ salaryData=salaryData||[];monthlyRevData=monthlyRevData||[];campaignMessData=campaignMessData||[];adPostData=adPostData||[];adPolicyAlertData=adPolicyAlertData||[];
  contractList=contractList||[];quotationList=quotationList||[];penaltyData=penaltyData||[];teamFundData=teamFundData||[];teamTaskData=teamTaskData||[];postScheduleData=postScheduleData||[];clientDepositData=clientDepositData||[];
  var ds2=new Set();dailyData.forEach(function(d){ds2.add(d.report_date);});
 dates=Array.from(ds2).sort();if(dates.length)cDay=dates.length-1;
@@ -794,7 +815,7 @@ subscribeAutoAdsLogRealtime();
 }catch(e){document.getElementById('page').innerHTML='<div class="error-box">Lỗi: '+esc(e.message)+'</div>';}}
 
 // ═══ REALTIME: lắng nghe thay đổi table client ═══
-// Yêu cầu migration 2026-05-22_realtime_client.sql đã chạy (ALTER PUBLICATION supabase_realtime).
+// Local DB client hiện không cần publication realtime; fallback UI vẫn reload/poll theo thao tác.
 // Khi insert/update/delete client từ ngoài (form công khai /api/trial, RPC, admin khác...) → đồng bộ
 // clientList global + toast cho lead mới + re-render nếu user đang ở trang Khách hàng (curPage===3).
 var _clientRtChannel=null;
@@ -826,14 +847,15 @@ async function loadDeferred(){try{
  var minDate60=new Date(Date.now()-60*86400000).toISOString().substring(0,10);
  var minDate90=new Date(Date.now()-90*86400000).toISOString().substring(0,10);
  var minDate180=new Date(Date.now()-180*86400000).toISOString().substring(0,10);
- var[sal,mr,cmess,adp,ctr,qt,pnl,tfw,tt,pss,dep,dsExt,brec,blog]=await Promise.all([
+ var[sal,mr,cmess,adp,pal,ctr,qt,pnl,tfw,tt,pss,dep,dsExt,brec,blog]=await Promise.all([
 sb2.from('salary').select('*,staff(short_name)').order('month',{ascending:false}),
 sb2.from('monthly_revenue').select('*,staff(short_name,code)').order('month'),
 // P1.2: giới hạn campaign_daily_mess 90 ngày (alerts dùng window 3 ngày, không cần lịch sử dài).
 // Trước: load FULL ~10700 rows → 11 round-trips. Sau: ~1000-2000 rows → 1-2 round-trips.
-fetchPaged(sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,max_lead_cost,client(name))').gte('report_date',minDate90).order('report_date',{ascending:false})),
-fetchPaged(sb2.from('ad_daily_post').select('*').gte('report_date','2026-04-01').order('report_date',{ascending:false})),
-sb2.from('contract').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
+	fetchPaged(sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,max_lead_cost,client(name))').gte('report_date',minDate90).order('report_date',{ascending:false})),
+	fetchPaged(sb2.from('ad_daily_post').select('*').gte('report_date','2026-04-01').order('report_date',{ascending:false})),
+	fetchPaged(sb2.from('ad_policy_alert').select('*').order('last_seen_at',{ascending:false})),
+	sb2.from('contract').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
 sb2.from('quotation').select('*,client(name,company_full_name)').order('created_at',{ascending:false}),
 sb2.from('penalty').select('*').order('penalty_date',{ascending:false}),
 sb2.from('team_fund_withdrawal').select('*').order('withdrawal_date',{ascending:false}),
@@ -846,8 +868,9 @@ sb2.from('bank_import_log').select('*').order('uploaded_at',{ascending:false}).l
  ]);
  if(sal&&!sal.error)salaryData=sal.data||[];
  if(mr&&!mr.error)monthlyRevData=mr.data||[];
- if(cmess&&!cmess.error)campaignMessData=cmess.data||[];
- if(adp&&!adp.error)adPostData=adp.data||[];
+	 if(cmess&&!cmess.error)campaignMessData=cmess.data||[];
+	 if(adp&&!adp.error)adPostData=adp.data||[];
+	 if(pal&&!pal.error)adPolicyAlertData=pal.data||[];
  if(ctr&&!ctr.error)contractList=ctr.data||[];
  if(qt&&!qt.error)quotationList=qt.data||[];
  if(pnl&&!pnl.error)penaltyData=pnl.data||[];
@@ -986,10 +1009,11 @@ var SUBNAV_CONFIG={
     {key:'adm3',label:'Cài đặt',route:'admin/settings',action:"sat(3)",match:function(){return curPage===5&&adminTab===3;}}
   ]}]},
   6:{title:'Cảnh báo',sections:[{label:'LOẠI CẢNH BÁO',items:[
-    {key:'p6-mess',label:'Cảnh báo Messenger',route:'alert/mess',action:"setP6Tab(0)",permKey:'p6.mess',match:function(){return curPage===6&&p6Tab===0;},badgeFn:function(){try{return getMessAlerts().length;}catch(e){return 0;}}},
-    {key:'p6-form',label:'Cảnh báo Form',route:'alert/form',action:"setP6Tab(1)",permKey:'p6.form',match:function(){return curPage===6&&p6Tab===1;},badgeFn:function(){try{return getLeadAlerts().length;}catch(e){return 0;}}},
-    {key:'p6-bal',label:'Số dư thấp',route:'alert/balance',action:"setP6Tab(2)",permKey:'p6.balance',match:function(){return curPage===6&&p6Tab===2;},badgeFn:function(){try{return getBalanceAlerts().length;}catch(e){return 0;}}}
-  ]}]},
+	    {key:'p6-mess',label:'Cảnh báo Messenger',route:'alert/mess',action:"setP6Tab(0)",permKey:'p6.mess',match:function(){return curPage===6&&p6Tab===0;},badgeFn:function(){try{return getMessAlerts().length;}catch(e){return 0;}}},
+	    {key:'p6-form',label:'Cảnh báo Form',route:'alert/form',action:"setP6Tab(1)",permKey:'p6.form',match:function(){return curPage===6&&p6Tab===1;},badgeFn:function(){try{return getLeadAlerts().length;}catch(e){return 0;}}},
+	    {key:'p6-bal',label:'Số dư thấp',route:'alert/balance',action:"setP6Tab(2)",permKey:'p6.balance',match:function(){return curPage===6&&p6Tab===2;},badgeFn:function(){try{return getBalanceAlerts().length;}catch(e){return 0;}}},
+	    {key:'p6-policy',label:'Bài bị từ chối',route:'alert/rejected',action:"setP6Tab(3)",permKey:'p6.policy',match:function(){return curPage===6&&p6Tab===3;},badgeFn:function(){try{return getRejectedAdAlerts().length;}catch(e){return 0;}}}
+	  ]}]},
   7:{title:'Quản trị công việc',sections:[{label:'',items:[
     {key:'p7-main',label:'Bảng điều hành đội ngũ',route:'team',action:"pg(7)",match:function(){return curPage===7;},badgeFn:function(){try{return getOpenTaskCount();}catch(e){return 0;}},badgeAlert:true}
   ]}]},
@@ -1226,7 +1250,7 @@ if(curPage===1&&spendTab===0)restoreAdFilters();
 // Restore focus + caret cho input có id (vd #client-search) để gõ liền mạch
 if(prevFocusId){var nf=document.getElementById(prevFocusId);if(nf){try{nf.focus();if(prevSelStart!==null&&nf.setSelectionRange)nf.setSelectionRange(prevSelStart,prevSelEnd);}catch(e){}}}
 var aiFab=document.querySelector('.ai-fab');if(aiFab){aiFab.style.display=(curPage===3&&expandedClientId)?'none':'';}
-var adot=document.getElementById('alert-dot');if(adot){var ac=getMessAlerts().length+getLeadAlerts().length+getBalanceAlerts().length;if(ac){adot.hidden=false;adot.style.background='var(--red)';}else{adot.hidden=true;}}}
+var adot=document.getElementById('alert-dot');if(adot){var ac=getMessAlerts().length+getLeadAlerts().length+getBalanceAlerts().length+getRejectedAdAlerts().length;if(ac){adot.hidden=false;adot.style.background='var(--red)';}else{adot.hidden=true;}}}
 
 // ═══ P0: TỔNG QUAN ═══
 function p0(){
@@ -1843,7 +1867,7 @@ h+='<td style="text-align:right;" class="mono" colspan="'+(authUser&&isAdmin()?'
 h+='</tr>';
 h+='</tbody></table></div>';
 if(extraNames.length){
-h+='<div style="margin-top:10px;padding:8px 12px;background:var(--amber-bg);color:var(--amber-tx);border-radius:6px;font-size:11px;">⚠ Có '+extraNames.length+' tên chưa gán được vào Nhân sự trong hệ thống: <b>'+esc(extraNames.join(', '))+'</b>. Vào Supabase → table <code>penalty</code> → set cột <code>staff_id</code> để khớp, hoặc thêm nhân sự mới (nếu đó là nhân sự đang hoạt động).</div>';
+h+='<div style="margin-top:10px;padding:8px 12px;background:var(--amber-bg);color:var(--amber-tx);border-radius:6px;font-size:11px;">⚠ Có '+extraNames.length+' tên chưa gán được vào Nhân sự trong hệ thống: <b>'+esc(extraNames.join(', '))+'</b>. Vào SQL local → table <code>penalty</code> → set cột <code>staff_id</code> để khớp, hoặc thêm nhân sự mới (nếu đó là nhân sự đang hoạt động).</div>';
 }
 return h;
 }
@@ -3383,8 +3407,8 @@ async function runVcbImport(btn){
     if(errors&&!saved){
       // Toàn bộ fail — thường do migration chưa chạy hoặc RLS chặn
       var hint=firstErrMsg;
-      if(/relation.*does not exist/i.test(firstErrMsg))hint='⚠ Bảng <code>bank_reconcile</code> chưa được tạo. Chạy migration <code>2026-05-04_bank_reconcile.sql</code> trên Supabase trước.';
-      else if(/permission denied|row.level security|row-level security/i.test(firstErrMsg))hint='⚠ RLS policy đang chặn insert. Chạy migration <code>2026-05-04_bank_reconcile_rls.sql</code> trên Supabase để cấp quyền cho admin.';
+      if(/relation.*does not exist/i.test(firstErrMsg))hint='⚠ Bảng <code>bank_reconcile</code> chưa được tạo. Chạy migration <code>2026-05-04_bank_reconcile.sql</code> trên SQL local trước.';
+      else if(/permission denied|row.level security|row-level security/i.test(firstErrMsg))hint='⚠ Quyền ghi DB đang chặn insert. Kiểm tra quyền PostgreSQL local cho user API.';
       if(status)status.innerHTML='<span style="color:var(--red);">Lỗi '+errors+'/'+rows.length+' dòng:</span><br>'+hint;
       // Vẫn log thất bại
       await sb2.from('bank_import_log').insert({file_name:fileName,file_size:fileSize,total_rows:0,ads_rows:0,verified_rows:0,status:'failed',error_message:firstErrMsg.substring(0,200),uploaded_by:authUser&&authUser.email||null});
@@ -3423,7 +3447,7 @@ async function showMetaSyncStatus(btn){
 if(btn){btn.disabled=true;btn.textContent='Đang đọc...';}
 var el=document.getElementById('meta-sync-status');
 if(!el){if(btn){btn.disabled=false;btn.textContent='Trạng thái đồng bộ Meta';}return;}
-el.innerHTML='<div style="padding:12px;color:var(--tx3);font-size:12px;">Đang đọc Supabase...</div>';
+el.innerHTML='<div style="padding:12px;color:var(--tx3);font-size:12px;">Đang đọc dữ liệu...</div>';
 try{
 var logQ=await sb2.from('meta_sync_log').select('*').order('started_at',{ascending:false}).limit(5);
 var countQ=await sb2.from('meta_billing_transactions').select('transaction_id',{count:'exact',head:true});
@@ -3431,7 +3455,7 @@ var latestQ=await sb2.from('meta_billing_transactions').select('synced_at,date_i
 var h='<div style="margin-top:14px;padding:16px;border:1px solid var(--bd1);border-radius:var(--radius-lg);background:var(--bg1);font-size:12px;">';
 h+='<div style="font-weight:600;font-size:13px;margin-bottom:10px;">Trạng thái đồng bộ Meta Billing</div>';
 if(logQ.error&&/relation.*does not exist/i.test(logQ.error.message||'')){
-h+='<div style="color:var(--amber);padding:8px;background:var(--amber-bg);border-radius:6px;">Chưa tạo bảng <code>meta_billing_transactions</code>. Chạy <code>schema.sql</code> trong Supabase SQL Editor trước.</div>';
+h+='<div style="color:var(--amber);padding:8px;background:var(--amber-bg);border-radius:6px;">Chưa tạo bảng <code>meta_billing_transactions</code>. Chạy <code>schema.sql</code> trong SQL console trước.</div>';
 h+='</div>';el.innerHTML=h;if(btn){btn.disabled=false;btn.textContent='Trạng thái đồng bộ Meta';}return;}
 var total=countQ.count||0;
 var latest=(latestQ.data&&latestQ.data[0])||null;
@@ -3534,12 +3558,17 @@ return'<div style="display:flex;align-items:center;justify-content:center;min-he
 +'<div class="form-group" style="margin-bottom:20px;"><label>Mật khẩu</label><input type="password" id="login-pass" placeholder="••••••••" style="width:100%;" onkeydown="if(event.key===\'Enter\')doLogin(this)"></div>'
 +'<button class="btn btn-primary" style="width:100%;padding:12px;font-size:14px;" onclick="doLogin(this)">Đăng nhập</button>'
 +'<div class="login-err" id="login-err" style="margin-top:10px;text-align:center;color:var(--red);font-size:12px;"></div>'
++'<button type="button" onclick="resetInstalledApp()" style="width:100%;margin-top:14px;background:none;border:0;color:var(--tx3);font-size:12px;text-decoration:underline;cursor:pointer;">Làm mới app / xóa phiên cũ</button>'
 +'</div>'
 +'<div style="text-align:center;margin-top:16px;font-size:11px;color:var(--tx3);">HC Agency &copy; 2026</div>'
 +'</div></div>';}
-async function doLogin(btn){btn.disabled=true;var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});btn.disabled=false;if(error){document.getElementById('login-err').textContent='Sai email hoặc mật khẩu';}else{authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){curPage=permKeyToPage(userAllowedPages[0]);}else{curPage=0;}applyRouteFromUrl();toast('Đăng nhập thành công! ('+userRole+')',true);autoSync();render();}}
-async function doLogout(){await sb2.auth.signOut();authUser=null;userRole='guest';userAllowedPages=null;currentUserRoleRecord=null;curPage=0;toast('Đã đăng xuất',true);render();}
-async function checkAuth(){var{data}=await sb2.auth.getSession();if(data.session){authUser=data.session.user;await loadUserRole();}}
+function clearAuthState(){authUser=null;userRole='guest';userAllowedPages=null;currentUserRoleRecord=null;curPage=0;}
+function isStoredSessionExpired(session){var exp=Number(session&&session.expires_at||0);return !!(exp&&exp<=Math.floor(Date.now()/1000)+30);}
+async function clearStoredAuthSession(){try{await sb2.auth.signOut();}catch(e){}clearAuthState();}
+async function resetInstalledApp(){try{await clearStoredAuthSession();}catch(e){}try{['hc-agency-local-db-auth','hc-agency-local-pg-auth','hc-local-db-auth'].forEach(function(k){localStorage.removeItem(k);});}catch(e){}try{if(window.caches){var ks=await caches.keys();await Promise.all(ks.map(function(k){return caches.delete(k);}));}}catch(e){}try{if(navigator.serviceWorker){var regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(function(r){return r.unregister();}));}}catch(e){}location.href='/?reset_app='+Date.now();}
+async function doLogin(btn){var oldText=btn&&btn.textContent;if(btn){btn.disabled=true;if(btn.tagName==='BUTTON')btn.textContent='Đang đăng nhập...';}var errEl=document.getElementById('login-err');try{var email=document.getElementById('login-email').value,pass=document.getElementById('login-pass').value;var{data,error}=await sb2.auth.signInWithPassword({email:email,password:pass});if(error){if(errEl)errEl.textContent='Sai email hoặc mật khẩu';return;}authUser=data.user;await loadUserRole();await loadAppSettings();if(isAdmin())await loadAllUserRoles();await loadAll();if(userAllowedPages&&userAllowedPages.length){curPage=permKeyToPage(userAllowedPages[0]);}else{curPage=0;}applyRouteFromUrl();toast('Đăng nhập thành công! ('+userRole+')',true);autoSync();render();}catch(e){if(errEl)errEl.textContent='Không đăng nhập được: '+(e.message||e);}finally{if(btn){btn.disabled=false;if(oldText&&btn.tagName==='BUTTON')btn.textContent=oldText;}}}
+async function doLogout(){await clearStoredAuthSession();toast('Đã đăng xuất',true);render();}
+async function checkAuth(){var{data}=await sb2.auth.getSession();var session=data&&data.session;if(!session||!session.access_token||isStoredSessionExpired(session)){await clearStoredAuthSession();return;}var u=await sb2.auth.getUser(session.access_token);if(u.error||!u.data||!u.data.user){await clearStoredAuthSession();return;}authUser=u.data.user;await loadUserRole();}
 async function loadUserRole(){
 if(!authUser){userRole='guest';userAllowedPages=null;currentUserRoleRecord=null;return;}
 try{
@@ -3625,11 +3654,12 @@ var PERMISSION_TREE=[
     {key:'p4.thuchi',label:'Thu chi'},
     {key:'p4.reconcile',label:'Đối soát VCB'}
   ]},
-  {key:'p6',label:'Cảnh báo',sub:[
-    {key:'p6.mess',label:'Mess'},
-    {key:'p6.form',label:'Form'},
-    {key:'p6.balance',label:'Số dư'}
-  ]},
+	  {key:'p6',label:'Cảnh báo',sub:[
+	    {key:'p6.mess',label:'Mess'},
+	    {key:'p6.form',label:'Form'},
+	    {key:'p6.balance',label:'Số dư'},
+	    {key:'p6.policy',label:'Bài bị từ chối'}
+	  ]},
   {key:'p7',label:'Quản trị công việc'},
   {key:'p8',label:'Set Ads'}
 ];
@@ -3826,7 +3856,17 @@ var directClient=a.client_id?clientList.find(function(c2){return c2.id===a.clien
 var searchHay=[a.account_name,a.fb_account_id,searchStaffNames,searchClientNames,directClient?directClient.name:''].join(' ').toLowerCase();
 h+='<tr class="ad-row'+(a.is_shared?' shared-row':'')+'" data-staff="'+staffStrs.join(',')+'" data-client="'+allClientIds.join(',')+'" data-status="'+status+'" data-name="'+esc(searchHay)+'" data-spend="'+ds+'" style="'+(status===2?'opacity:.3;':(!hasAssign&&status===1?'opacity:.6;':''))+'">';
 h+='<td><input type="checkbox" class="ad-check" value="'+a.id+'" aria-label="Chọn Tài khoản '+esc(a.account_name||a.fb_account_id||'')+'"></td>';
-h+='<td><div class="ad-account-cell"><div class="ad-account-top"><span class="state-pill '+(status===2?'off':(status===3?'warn':''))+'"><span class="dot '+(stDot[status]||'dot-ok')+'"></span>'+(stLabel[status]||'—')+'</span><div class="ad-account-name" onclick="toggleExpand(\''+a.id+'\')">'+esc(a.account_name)+'</div>'+(a.fb_account_id?'<button class="kh-edit-btn" onclick="event.stopPropagation();editAdAccountName(\''+a.id+'\')" title="Đổi tên TKQC trên Meta" aria-label="Đổi tên TKQC"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button><a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+a.fb_account_id.replace('act_','')+'" target="_blank" rel="noopener" title="Mở Meta Ads Manager" style="flex-shrink:0;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;background:var(--blue-bg);color:var(--blue);text-decoration:none;font-size:11px;transition:all .15s;" onmouseover="this.style.background=\'var(--blue)\';this.style.color=\'#fff\';" onmouseout="this.style.background=\'var(--blue-bg)\';this.style.color=\'var(--blue)\';">↗</a>':'')+'</div><div class="ad-account-meta">'+(a.fb_account_id?esc(a.fb_account_id):'<span style="color:var(--amber);">chưa ghép Meta</span>')+'<span class="account-type-pill '+(a.is_shared?'shared':'')+'" onclick="toggleShared(\''+a.id+'\','+!a.is_shared+')" title="Bấm để đổi loại">'+(a.is_shared?'Dùng chung':'Riêng')+'</span></div></div></td>';
+h+='<td><div class="ad-account-cell"><div class="ad-account-top">';
+h+='<span class="state-pill '+(status===2?'off':(status===3?'warn':''))+'"><span class="dot '+(stDot[status]||'dot-ok')+'"></span>'+(stLabel[status]||'—')+'</span>';
+h+='<div class="ad-account-name" onclick="toggleExpand(\''+a.id+'\')">'+esc(a.account_name)+'</div>';
+if(a.fb_account_id){
+  h+='<button class="kh-edit-btn" onclick="event.stopPropagation();editAdAccountName(\''+a.id+'\')" title="Đổi tên TKQC trên Meta" aria-label="Đổi tên TKQC"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>';
+  h+='<a href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+a.fb_account_id.replace('act_','')+'" target="_blank" rel="noopener" title="Mở Meta Ads Manager" style="flex-shrink:0;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;background:var(--blue-bg);color:var(--blue);text-decoration:none;font-size:11px;transition:all .15s;" onmouseover="this.style.background=\'var(--blue)\';this.style.color=\'#fff\';" onmouseout="this.style.background=\'var(--blue-bg)\';this.style.color=\'var(--blue)\';">↗</a>';
+}
+h+='</div><div class="ad-account-meta">';
+h+=(a.fb_account_id?esc(a.fb_account_id):'<span style="color:var(--amber);">chưa ghép Meta</span>');
+h+='<span class="account-type-pill '+(a.is_shared?'shared':'')+'" onclick="toggleShared(\''+a.id+'\','+!a.is_shared+')" title="Bấm để đổi loại">'+(a.is_shared?'Dùng chung':'Riêng')+'</span>';
+h+='</div></div></td>';
 // Staff column
 h+='<td class="ad-select-cell">';
 if(a.is_shared){
@@ -4046,33 +4086,74 @@ if(staffId&&r.data){
 await _insertAssignment(_assignSnapshot(r.data.id,{ad_account_id:r.data.id,staff_id:staffId,client_id:clientId,start_date:td(),end_date:null}));}
 toast('Đã thêm Tài khoản: '+name,true);
 document.getElementById('new-tk-name').value='';document.getElementById('new-tk-fbid').value='';
-toggleAddTk();await loadAll();stayPage();}async function quickAssignStaff(adId,staffId){
+toggleAddTk();await loadAll();stayPage();}
+function _activeAssignmentOnDate(adId,date){
+return assignData.find(function(a){return a.ad_account_id===adId&&a.start_date<=date&&(!a.end_date||a.end_date>=date);})||null;
+}
+async function _saveQuickAssignment(adId,patch){
+var effectiveDate=td();
+var existing=_activeAssignmentOnDate(adId,effectiveDate);
+var ad=adList.find(function(a){return a.id===adId;});
+if(existing&&existing.start_date===effectiveDate){
+  return await sb2.from('assignment').update(patch).eq('id',existing.id);
+}
+if(existing){
+  var closeDate=addDaysIso(effectiveDate,-1);
+  if(closeDate>=existing.start_date){
+    var close=await sb2.from('assignment').update({end_date:closeDate}).eq('id',existing.id);
+    if(close.error)return close;
+  }
+}
+var payload={
+  ad_account_id:adId,
+  staff_id:existing?existing.staff_id:null,
+  client_id:existing?existing.client_id:(ad?ad.client_id:null),
+  start_date:effectiveDate,
+  end_date:null
+};
+Object.keys(patch||{}).forEach(function(k){payload[k]=patch[k];});
+return await _insertAssignment(_assignSnapshot(adId,payload));
+}
+async function quickAssignStaff(adId,staffId){
 if(!needAuth())return;
 if(!staffId){toast('Vui lòng chọn nhân sự phụ trách.',false);return;}
-var existing=assignData.find(function(a){return a.ad_account_id===adId&&a.start_date<=adViewDate&&(!a.end_date||a.end_date>=adViewDate);});
-if(existing){
-var r=await sb2.from('assignment').update({staff_id:staffId}).eq('id',existing.id);
-if(!r.error){toast('Đã cập nhật Nhân sự',true);await loadAll();stayPage();}else toast('Lỗi',false);
-}else{
-var ad=adList.find(function(a){return a.id===adId;});
-var r2=await _insertAssignment(_assignSnapshot(adId,{ad_account_id:adId,staff_id:staffId,client_id:ad?ad.client_id:null,start_date:adViewDate,end_date:null}));
-if(!r2.error){toast('Đã gán Nhân sự',true);await loadAll();stayPage();}else toast('Lỗi: '+r2.error.message,false);}}
+var r=await _saveQuickAssignment(adId,{staff_id:staffId});
+if(!r.error){toast('Đã tạo/cập nhật phân công Nhân sự từ hôm nay',true);await loadAll();stayPage();}else toast('Lỗi: '+(r.error.message||'Không lưu được phân công'),false);}
 async function quickAssignClient(adId,clientId){
 if(!needAuth())return;
 if(!clientId){return;}
-var existing=assignData.find(function(a){return a.ad_account_id===adId&&a.start_date<=adViewDate&&(!a.end_date||a.end_date>=adViewDate);});
-if(existing){
-var r=await sb2.from('assignment').update({client_id:clientId}).eq('id',existing.id);
-if(!r.error){toast('Đã cập nhật Khách hàng',true);await loadAll();stayPage();}else toast('Lỗi',false);
-}else{
-var r2=await _insertAssignment(_assignSnapshot(adId,{ad_account_id:adId,staff_id:null,client_id:clientId,start_date:adViewDate,end_date:null}));
-if(!r2.error){toast('Đã gán Khách hàng',true);await loadAll();stayPage();}else toast('Lỗi: '+r2.error.message,false);}
-// Also update ad_account.client_id
-await sb2.from('ad_account').update({client_id:clientId}).eq('id',adId);}
+var r=await _saveQuickAssignment(adId,{client_id:clientId});
+if(!r.error){
+await sb2.from('ad_account').update({client_id:clientId}).eq('id',adId);
+toast('Đã tạo/cập nhật phân công Khách hàng từ hôm nay',true);await loadAll();stayPage();
+}else toast('Lỗi: '+(r.error.message||'Không lưu được phân công'),false);}
 function toggleExpand(id){expandTabIdx=0;expandedAd=(expandedAd===id)?null:id;if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}
 function switchExpandTab(i){expandTabIdx=i;if(curPage===1){render();}else{var el=document.getElementById('ac');if(el)el.innerHTML=rat();}}
 function stayPage(){if(curPage===1){render();}else{pg(5);}}
 async function toggleShared(id,val){if(!needAuth())return;var r=await sb2.from('ad_account').update({is_shared:val}).eq('id',id);if(!r.error){toast(val?'Đánh dấu dùng chung':'Đánh dấu riêng',true);await loadAll();stayPage();}else toast('Lỗi',false);}
+async function togglePolicyRejectWatch(id,val){
+if(!needAuth())return;
+var el=arguments.length>2?arguments[2]:null;
+if(el)el.disabled=true;
+var r=await sb2.from('ad_account').update({policy_reject_watch:val}).eq('id',id);
+if(!r.error){
+  var acc=adList.find(function(a){return a.id===id;});
+  if(acc)acc.policy_reject_watch=val;
+  var row=el&&el.closest?el.closest('.policy-watch-row'):null;
+  if(row){
+    row.dataset.watch=val?'1':'0';
+    var badge=row.querySelector('.policy-watch-status');
+    if(badge){badge.className='badge policy-watch-status '+(val?'b-red':'b-gray');badge.textContent=val?'Đang theo dõi':'Tắt';}
+  }
+  toast(val?'Đã bật theo dõi bài bị từ chối':'Đã tắt theo dõi bài bị từ chối',true);
+  if(curPage===6&&p6Tab===3){updatePolicyWatchSummary();}
+  else {await loadAll();stayPage();}
+}else{
+  if(el)el.checked=!val;
+  toast('Lỗi: '+r.error.message,false);
+}
+if(el)el.disabled=false;
+}
 function editMaxMess(adId,curVal){
 var v=prompt('Nhập giá Messenger tối đa (VNĐ):',curVal||'');if(v===null)return;
 var num=parseInt(String(v).replace(/[^0-9]/g,''))||0;
@@ -4180,7 +4261,7 @@ var r=await sb2.from('assignment').delete().eq('id',id);
 if(!r.error){toast('Đã xóa',true);await loadAll();stayPage();}else toast('Lỗi: '+r.error.message,false);}
 
 // ═══ CAMPAIGN ALERTS (MESS + FORM) ═══
-// Quét cửa sổ 3 ngày D-3, D-2, D-1 (không gồm hôm nay) — data đã chốt, chính xác hơn
+// Quét cửa sổ 3 ngày D-3, D-2, D-1 (không gồm hôm nay) để khớp range Meta đã chốt.
 function buildCampAggregates(){
 var today=td();
 var d1=vnDateStr(-86400000),d2=vnDateStr(-172800000),d3=vnDateStr(-259200000);
@@ -4219,7 +4300,7 @@ var acc=adList.find(function(a){return a.id===c.aid;});
 var ca=acc?getAssign(acc.id,today):[];
 var staffId=ca.length?ca[0].staff_id:null;
 var staff=staffId?allStaff.find(function(s){return s.id===staffId;}):null;
-alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_mess:costPerMess,max_cost:c.ad.max_mess_cost,spend_4d:c.spend,mess_4d:c.mess,staff:staff,days:c.days,type:'mess'});}});
+alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_mess:costPerMess,max_cost:c.ad.max_mess_cost,spend_3d:c.spend,mess_3d:c.mess,spend_4d:c.spend,mess_4d:c.mess,staff:staff,days:c.days,type:'mess'});}});
 alerts.sort(function(a,b){return b.cost_per_mess-a.cost_per_mess;});
 return filterAlertsForCurrentUser(alerts);}
 function getLeadAlerts(){
@@ -4238,7 +4319,7 @@ var acc=adList.find(function(a){return a.id===c.aid;});
 var ca=acc?getAssign(acc.id,today):[];
 var staffId=ca.length?ca[0].staff_id:null;
 var staff=staffId?allStaff.find(function(s){return s.id===staffId;}):null;
-alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_lead:costPerLead,max_cost:c.ad.max_lead_cost,spend_4d:c.spend,leads_4d:c.leads,staff:staff,days:c.days,type:'lead'});}});
+alerts.push({campaign_name:c.name,campaign_id:c.cid,ad_account_id:c.aid,account_name:acc?acc.account_name:'',client_name:c.ad.client?c.ad.client.name:'',cost_per_lead:costPerLead,max_cost:c.ad.max_lead_cost,spend_3d:c.spend,leads_3d:c.leads,spend_4d:c.spend,leads_4d:c.leads,staff:staff,days:c.days,type:'lead'});}});
 alerts.sort(function(a,b){return b.cost_per_lead-a.cost_per_lead;});
 return filterAlertsForCurrentUser(alerts);}
 
@@ -4272,6 +4353,107 @@ alerts.push({ad_account_id:a.id,fb_account_id:a.fb_account_id,account_name:a.acc
 alerts.sort(function(a,b){return a.balance-b.balance;});
 return filterAlertsForCurrentUser(alerts);}
 
+function getRejectedAdAlerts(){
+var today=td();
+var alerts=(adPolicyAlertData||[]).filter(function(row){return(row.status||'open')==='open';}).map(function(row){
+var acc=adList.find(function(a){return a.id===row.ad_account_id;})||{};
+var ca=acc.id?getAssign(acc.id,today):[];
+var staffId=ca.length?ca[0].staff_id:null;
+var staff=staffId?allStaff.find(function(s){return s.id===staffId;}):null;
+var clientId=ca.length?ca[0].client_id:acc.client_id;
+var client=clientId?clientList.find(function(c){return c.id===clientId;}):null;
+var raw=row.raw||{};
+return Object.assign({},row,{
+  account_name:acc.account_name||row.fb_account_id||'',
+  fb_account_id:row.fb_account_id||acc.fb_account_id||'',
+  client_id:clientId||'',
+  client_name:client?client.name:'',
+  staff_id:staffId||'',
+  staff:staff,
+  ads_manager_url:raw.ads_manager_url||buildRejectedAdUrl(row.fb_account_id||acc.fb_account_id,row.ad_id)
+});
+});
+alerts.sort(function(a,b){return String(b.last_seen_at||'').localeCompare(String(a.last_seen_at||''));});
+return filterAlertsForCurrentUser(alerts);}
+
+function buildRejectedAdUrl(fbAccountId,adId){
+var act=String(fbAccountId||'').replace(/^act_/,'');
+if(!act||!adId)return'';
+return'https://adsmanager.facebook.com/adsmanager/manage/ads?act='+encodeURIComponent(act)+'&selected_ad_ids='+encodeURIComponent(adId);
+}
+
+function formatDateTimeShort(iso){
+if(!iso)return'—';
+try{
+  var d=new Date(iso);
+  if(isNaN(d.getTime()))return String(iso).substring(0,16);
+  return d.toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}catch(e){return String(iso).substring(0,16);}
+}
+
+async function refreshPolicyAlertData(){
+var r=await fetchPaged(sb2.from('ad_policy_alert').select('*').order('last_seen_at',{ascending:false}));
+if(r&&!r.error)adPolicyAlertData=r.data||[];
+else if(r&&r.error)console.warn('[policy alerts refresh]',r.error.message||r.error);
+}
+
+async function runPolicyAlertScan(btn){
+if(!needAuth())return;
+var oldText=btn?btn.textContent:'Quét bài bị từ chối';
+if(btn){btn.disabled=true;btn.textContent='Đang quét...';}
+try{
+  var data=await policyAlertSyncApiCall('POST',{});
+  if(data.error)throw new Error(data.error.message||data.error);
+  var result=data.result||{};
+  await refreshPolicyAlertData();
+  var ok=result.status!=='failed';
+  toast('Quét xong: '+(result.watched_accounts||0)+' TK theo dõi · '+(result.rejected_ads||0)+' bài bị từ chối · '+(result.resolved_alerts||0)+' đã xử lý',ok);
+  render();
+}catch(e){toast('Lỗi quét bài bị từ chối: '+e.message,false);}
+finally{if(btn){btn.disabled=false;btn.textContent=oldText;}}
+}
+
+function getPolicyAlertChecks(){
+return Array.from(document.querySelectorAll('.policy-alert-check'));
+}
+
+function updatePolicyAlertSelection(){
+var checks=getPolicyAlertChecks();
+var selected=checks.filter(function(ch){return ch.checked;}).length;
+var allBox=document.getElementById('policy-alert-all');
+if(allBox){
+  allBox.checked=!!checks.length&&selected===checks.length;
+  allBox.indeterminate=selected>0&&selected<checks.length;
+  allBox.disabled=!checks.length;
+}
+var count=document.getElementById('policy-alert-selected-count');
+if(count)count.textContent=selected+' bài đã chọn';
+var btn=document.getElementById('policy-alert-dismiss-btn');
+if(btn)btn.disabled=!selected;
+}
+
+function togglePolicyAlertsAll(val){
+getPolicyAlertChecks().forEach(function(ch){ch.checked=val;});
+updatePolicyAlertSelection();
+}
+
+async function dismissSelectedPolicyAlerts(btn){
+if(!needAuth())return;
+var ids=getPolicyAlertChecks().filter(function(ch){return ch.checked;}).map(function(ch){return ch.value;}).filter(Boolean);
+if(!ids.length){toast('Vui lòng chọn ít nhất một bài bị từ chối.',false);return;}
+if(!confirm('Xóa '+ids.length+' bài khỏi danh sách cảnh báo? Thao tác này không xóa quảng cáo trên Meta.'))return;
+if(btn){btn.disabled=true;btn.textContent='Đang xóa...';}
+var r=await sb2.from('ad_policy_alert').delete().in('id',ids);
+if(!r.error){
+  var idSet=new Set(ids);
+  adPolicyAlertData=(adPolicyAlertData||[]).filter(function(row){return !idSet.has(row.id);});
+  toast('Đã xóa '+ids.length+' bài khỏi UI cảnh báo',true);
+  render();
+}else{
+  toast('Lỗi: '+r.error.message,false);
+  if(btn){btn.disabled=false;btn.textContent='Xóa';}
+}}
+
 async function runLimited(items,limit,worker){
 var out=new Array(items.length),next=0,count=Math.min(limit,items.length);
 var runners=Array.from({length:count},async function(){
@@ -4290,7 +4472,7 @@ else if(code===200||code===100)codeHint=' — Thiếu quyền ads_read';
 else if(code===17||code===4||code===32||code===613)codeHint=' — Rate limit, thử lại sau 1-2 phút';
 else if(code===803)codeHint=' — Tài khoản không truy cập được';
 else if(code===23505)codeHint=' — Trùng dữ liệu daily_spend';
-else if(phase.indexOf('db')===0)codeHint=' — Lỗi ghi Supabase';
+else if(phase.indexOf('db')===0)codeHint=' — Lỗi ghi Local DB';
 else if(msg&&!codeHint)codeHint=' — '+msg.substring(0,120);
 return' ('+phase+(code?' #'+code:'')+codeHint+')';
 }
@@ -4443,7 +4625,7 @@ async function syncCampaignMess(btn,skipRefresh){
 var oldText=btn?btn.textContent:'Quét giá Messenger';
 if(btn){btn.disabled=true;btn.textContent='Đang quét...';}
 // Quét cửa sổ D-3 → D0 (gồm hôm nay) để báo cáo khách thấy realtime.
-// Cảnh báo Mess/Form vẫn chỉ tính D-3..D-1 (xem buildCampAggregates) — D0 không trigger noti.
+// Cảnh báo Mess/Form tính 3 ngày đã chốt D-3..D-1 (xem buildCampAggregates).
 var d1=vnDateStr(0),d3=vnDateStr(-259200000);
 var mapped=adList.filter(function(a){return a.fb_account_id;});
 if(!mapped.length){if(btn){toast('Chưa có Tài khoản nào ghép Meta',false);btn.disabled=false;btn.textContent=oldText;}return;}
@@ -4552,43 +4734,57 @@ async function backfillAdPostsOnce(btn){
 }
 
 // ═══ P6: CẢNH BÁO GIÁ CHIẾN DỊCH ═══
-var p6Tab=0;
+var p6Tab=0,p6PolicySearch='',p6PolicyAccountFilter='',p6PolicyClientFilter='',p6PolicyStaffFilter='';
 function setP6Tab(i){p6Tab=i;syncSidebarNav();render();}
 function p6(){
-var messAlerts=getMessAlerts(),leadAlerts=getLeadAlerts(),balAlerts=getBalanceAlerts();
-var canMess=canAccessKey('p6.mess'),canForm=canAccessKey('p6.form'),canBal=canAccessKey('p6.balance');
-var totalAlerts=messAlerts.length+leadAlerts.length+balAlerts.length;
+var messAlerts=getMessAlerts(),leadAlerts=getLeadAlerts(),balAlerts=getBalanceAlerts(),policyAlerts=getRejectedAdAlerts();
+var canMess=canAccessKey('p6.mess'),canForm=canAccessKey('p6.form'),canBal=canAccessKey('p6.balance'),canPolicy=canAccessKey('p6.policy');
+var totalAlerts=messAlerts.length+leadAlerts.length+balAlerts.length+policyAlerts.length;
 var d1Label=fd(vnDateStr(-86400000)),d3Label=fd(vnDateStr(-259200000));
-var h='<div class="page-title">Cảnh báo</div><div class="page-sub">Giá trung bình 3 ngày ('+d3Label+' – '+d1Label+') · Số dư Tài khoản dưới '+ff(BALANCE_ALERT_THRESHOLD)+'đ</div>';
-h+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">';
-if(canMess||canForm){
-h+='<button class="btn btn-primary" onclick="syncCampaignMess(this)">Quét giá Messenger & form</button>';
-}
-h+='<span style="font-size:11px;color:var(--tx3);">Bài chạy đã quét: '+adPostData.length+' dòng (cron mỗi 15p)</span>';
-h+='</div>';
+var h='<div class="page-title">Cảnh báo</div><div class="page-sub">Giá trung bình 3 ngày ('+d3Label+' – '+d1Label+') · Số dư Tài khoản dưới '+ff(BALANCE_ALERT_THRESHOLD)+'đ · Bài Meta bị từ chối</div>';
 // KPI
 var tkMess=adList.filter(function(a){return a.max_mess_cost;}).length;
 var tkLead=adList.filter(function(a){return a.max_lead_cost;}).length;
 var tkActive=adList.filter(function(a){return a.account_status===1&&hasComparableSpendCap(a);}).length;
+var tkPolicy=adList.filter(function(a){return a.policy_reject_watch;}).length;
 h+='<div class="kpi-grid kpi-4">';
 h+='<div class="kpi"><div class="kpi-label">Vượt ngưỡng Messenger</div><div class="kpi-value" style="color:'+(messAlerts.length?'var(--red)':'var(--green)')+';">'+messAlerts.length+'</div><div class="kpi-note">'+tkMess+' Tài khoản đặt ngưỡng Messenger</div></div>';
 h+='<div class="kpi"><div class="kpi-label">Vượt ngưỡng Form</div><div class="kpi-value" style="color:'+(leadAlerts.length?'var(--red)':'var(--green)')+';">'+leadAlerts.length+'</div><div class="kpi-note">'+tkLead+' Tài khoản đặt ngưỡng form</div></div>';
 h+='<div class="kpi"><div class="kpi-label">Tài khoản sắp hết tiền</div><div class="kpi-value" style="color:'+(balAlerts.length?'var(--red)':'var(--green)')+';">'+balAlerts.length+'</div><div class="kpi-note">Dưới '+ff(BALANCE_ALERT_THRESHOLD)+'đ · '+tkActive+' Tài khoản đang chạy</div></div>';
-h+='<div class="kpi"><div class="kpi-label">Lần quét gần nhất</div><div class="kpi-value" style="font-size:14px;">'+(campaignMessData.length?campaignMessData[0].report_date:'Chưa quét')+'</div></div></div>';
+h+='<div class="kpi"><div class="kpi-label">Bài bị từ chối</div><div class="kpi-value" style="color:'+(policyAlerts.length?'var(--red)':'var(--green)')+';">'+policyAlerts.length+'</div><div class="kpi-note">'+tkPolicy+' Tài khoản đang theo dõi</div></div></div>';
 // Auto-redirect nếu user không có quyền tab hiện tại
-if(p6Tab===0&&!canMess){if(canForm)p6Tab=1;else if(canBal)p6Tab=2;}
-else if(p6Tab===1&&!canForm){if(canMess)p6Tab=0;else if(canBal)p6Tab=2;}
-else if(p6Tab===2&&!canBal){if(canMess)p6Tab=0;else if(canForm)p6Tab=1;}
+if(p6Tab===0&&!canMess){if(canForm)p6Tab=1;else if(canBal)p6Tab=2;else if(canPolicy)p6Tab=3;}
+else if(p6Tab===1&&!canForm){if(canMess)p6Tab=0;else if(canBal)p6Tab=2;else if(canPolicy)p6Tab=3;}
+else if(p6Tab===2&&!canBal){if(canMess)p6Tab=0;else if(canForm)p6Tab=1;else if(canPolicy)p6Tab=3;}
+else if(p6Tab===3&&!canPolicy){if(canMess)p6Tab=0;else if(canForm)p6Tab=1;else if(canBal)p6Tab=2;}
 // Tab điều khiển từ subnav
-if(p6Tab===0&&canMess)h+=p6AlertList(messAlerts,'mess');
-else if(p6Tab===1&&canForm)h+=p6AlertList(leadAlerts,'lead');
+if(p6Tab===0&&canMess)h+=p6MessFormActionBar('mess')+p6AlertList(messAlerts,'mess');
+else if(p6Tab===1&&canForm)h+=p6MessFormActionBar('form')+p6AlertList(leadAlerts,'lead');
 else if(p6Tab===2&&canBal)h+=p6BalanceList(balAlerts);
+else if(p6Tab===3&&canPolicy)h+=p6PolicyActionBar()+p6PolicyWatchSelector()+p6PolicyList(policyAlerts);
 return h;}
+function p6MessFormActionBar(type){
+var isMess=type==='mess';
+var label=isMess?'Messenger':'Form';
+var d1Label=fd(vnDateStr(-86400000)),d3Label=fd(vnDateStr(-259200000));
+var h='<div style="display:flex;gap:10px;margin:16px 0;flex-wrap:wrap;align-items:center;">';
+h+='<button class="btn btn-primary" onclick="syncCampaignMess(this)">Quét giá Messenger &amp; Form</button>';
+h+='<span style="font-size:12px;color:var(--tx3);">Đang xem cảnh báo '+label+' · ngưỡng tính trung bình '+d3Label+' – '+d1Label+' · dữ liệu Mess/Form: '+campaignMessData.length+' dòng</span>';
+h+='</div>';
+return h;
+}
+function p6PolicyActionBar(){
+var h='<div style="display:flex;gap:10px;margin:16px 0;flex-wrap:wrap;align-items:center;">';
+h+='<button class="btn btn-red" onclick="runPolicyAlertScan(this)">Quét bài bị từ chối</button>';
+h+='<span style="font-size:12px;color:var(--tx3);">Bài chạy đã quét: '+adPostData.length+' dòng · Alert từ chối: '+adPolicyAlertData.length+' dòng</span>';
+h+='</div>';
+return h;
+}
 function p6AlertList(alerts,type){
 var isMess=type==='mess';
 var resultLabel=isMess?'Mess':'Form';
 var costKey=isMess?'cost_per_mess':'cost_per_lead';
-var countKey=isMess?'mess_4d':'leads_4d';
+var countKey=isMess?'mess_3d':'leads_3d';
 var h='';
 if(!alerts.length){
 h+='<div style="text-align:center;padding:40px;color:var(--tx3);"><div style="font-size:36px;margin-bottom:8px;">✓</div><div style="font-size:15px;font-weight:500;color:var(--green);">Không có chiến dịch '+resultLabel+' nào vượt ngưỡng</div><div style="font-size:12px;margin-top:4px;">Tất cả chiến dịch đang trong mức cho phép</div></div>';
@@ -4628,10 +4824,211 @@ var camBtn=camUrl?'<a href="'+camUrl+'" target="_blank" rel="noopener" title="M�
 var accBtn=accUrl?'<a href="'+accUrl+'" target="_blank" rel="noopener" title="Mở Tài khoản trong Meta Ads Manager" class="alert-open-btn alert-open-btn-sm" onclick="event.stopPropagation()">↗</a>':'';
 h+='<div style="display:grid;grid-template-columns:1fr 110px 70px 110px 90px;gap:6px;align-items:center;padding:8px 20px 8px 48px;border-bottom:1px solid var(--bd1);font-size:12px;background:var(--red-bg);">';
 h+='<div><div style="font-weight:500;font-size:13px;display:flex;align-items:center;gap:6px;">'+esc(al.campaign_name)+camBtn+'</div><div style="font-size:11px;color:var(--tx3);margin-top:1px;display:flex;align-items:center;gap:4px;">'+esc(al.account_name)+accBtn+'</div></div>';
-h+='<div class="mono" style="text-align:right;">'+ff(al.spend_4d)+'</div>';
+h+='<div class="mono" style="text-align:right;">'+ff(al.spend_3d)+'</div>';
 h+='<div class="mono" style="text-align:right;">'+(al[countKey]||'0')+'</div>';
 h+='<div class="mono" style="text-align:right;font-weight:600;color:var(--red);">'+(costVal===Infinity?'∞':ff(costVal))+'</div>';
 h+='<div class="mono" style="text-align:right;color:var(--tx3);">'+ff(al.max_cost)+'</div></div>';});
+h+='</div>';});
+h+='</div>';});
+return h;}
+
+function p6PolicyWatchSelector(){
+var mapped=adList.filter(function(a){return a.fb_account_id;}).slice().sort(function(a,b){
+  if(!!b.policy_reject_watch!==!!a.policy_reject_watch)return b.policy_reject_watch?1:-1;
+  return String(a.account_name||'').localeCompare(String(b.account_name||''));
+});
+var watched=mapped.filter(function(a){return a.policy_reject_watch;}).length;
+var h='<div style="border:1px solid var(--bd1);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px;background:var(--bg1);">';
+h+='<div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--bd1);flex-wrap:wrap;">';
+h+='<div><div style="font-size:14px;font-weight:700;color:var(--tx1);">TKQC theo dõi bài bị từ chối</div><div id="policy-watch-summary" style="font-size:12px;color:var(--tx3);margin-top:2px;">'+watched+'/'+mapped.length+' tài khoản đang bật · job quét mỗi 10 phút</div></div>';
+h+='<input id="policy-watch-search" class="fi" type="text" name="policy_watch_search" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Tìm TKQC hoặc khách hàng..." oninput="filterPolicyWatchRows()" style="width:260px;max-width:100%;font-size:12px;">';
+h+='</div>';
+if(!mapped.length){
+  h+='<div style="padding:22px 18px;color:var(--tx3);font-size:13px;text-align:center;">Chưa có TKQC nào ghép Meta.</div></div>';
+  return h;
+}
+h+='<div class="table-wrap" style="margin:0;border:0;border-radius:0;background:transparent;"><table style="margin:0;font-size:12px;min-width:760px;"><thead><tr><th style="width:110px;text-align:center;"><label style="display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;"><input id="policy-watch-all" type="checkbox" onchange="togglePolicyWatchVisible(this.checked,this)" aria-label="Chọn tất cả TKQC đang lọc"><span>Chọn tất cả</span></label></th><th>Tài khoản</th><th>Khách hàng</th><th style="text-align:right;">Trạng thái</th></tr></thead><tbody>';
+mapped.forEach(function(a){
+  var ca=getAssign(a.id,td());
+  var cid=ca.length?ca[0].client_id:a.client_id;
+  var cli=cid?clientList.find(function(c){return c.id===cid;}):null;
+  var hay=[a.account_name,a.fb_account_id,cli?cli.name:''].join(' ').toLowerCase();
+  h+='<tr class="policy-watch-row" data-id="'+esc(a.id)+'" data-name="'+esc(hay)+'" data-watch="'+(a.policy_reject_watch?'1':'0')+'">';
+  h+='<td style="text-align:center;"><input class="policy-watch-check" type="checkbox" '+(a.policy_reject_watch?'checked ':'')+'onchange="togglePolicyRejectWatch(\''+a.id+'\',this.checked,this)" aria-label="Theo dõi bài bị từ chối cho '+esc(a.account_name||a.fb_account_id||'')+'"></td>';
+  h+='<td><div style="font-weight:600;color:var(--tx1);">'+esc(a.account_name||'—')+'</div><div style="font-size:11px;color:var(--tx3);">'+esc(a.fb_account_id||'')+'</div></td>';
+  h+='<td>'+(cli?esc(cli.name):'<span style="color:var(--tx3);">Chưa phân loại</span>')+'</td>';
+  h+='<td style="text-align:right;">'+(a.policy_reject_watch?'<span class="badge policy-watch-status b-red">Đang theo dõi</span>':'<span class="badge policy-watch-status b-gray">Tắt</span>')+'</td>';
+  h+='</tr>';
+});
+h+='</tbody></table></div>';
+h+='<div id="policy-watch-count" style="padding:8px 18px;border-top:1px solid var(--bd1);font-size:11px;color:var(--tx3);">'+mapped.length+' tài khoản hiển thị</div>';
+h+='</div>';
+return h;}
+
+function filterPolicyWatchRows(){
+var input=document.getElementById('policy-watch-search'),q=(input&&input.value||'').toLowerCase(),shown=0,total=0;
+document.querySelectorAll('.policy-watch-row').forEach(function(row){
+  total++;
+  var ok=!q||String(row.dataset.name||'').indexOf(q)>=0;
+  row.style.display=ok?'':'none';
+  if(ok)shown++;
+});
+updatePolicyWatchSummary(shown,total);
+}
+
+function getVisiblePolicyWatchRows(){
+return Array.from(document.querySelectorAll('.policy-watch-row')).filter(function(row){return row.style.display!=='none';});
+}
+
+function updatePolicyWatchSummary(shown,total){
+var rows=Array.from(document.querySelectorAll('.policy-watch-row'));
+var watched=rows.filter(function(row){return row.dataset.watch==='1';}).length;
+var visibleRows=getVisiblePolicyWatchRows();
+var visible=typeof shown==='number'?shown:visibleRows.length;
+var all=typeof total==='number'?total:rows.length;
+var s=document.getElementById('policy-watch-summary');
+if(s)s.textContent=watched+'/'+rows.length+' tài khoản đang bật · job quét mỗi 10 phút';
+var c=document.getElementById('policy-watch-count');
+if(c)c.textContent=visible+'/'+all+' tài khoản hiển thị';
+var allBox=document.getElementById('policy-watch-all');
+if(allBox){
+  var checks=visibleRows.map(function(row){return row.querySelector('.policy-watch-check');}).filter(Boolean);
+  var checked=checks.filter(function(ch){return ch.checked;}).length;
+  allBox.disabled=!checks.length;
+  allBox.checked=!!checks.length&&checked===checks.length;
+  allBox.indeterminate=checked>0&&checked<checks.length;
+}
+}
+
+async function togglePolicyWatchVisible(val,el){
+if(!needAuth())return;
+var rows=getVisiblePolicyWatchRows();
+var targets=rows.map(function(row){return{row:row,check:row.querySelector('.policy-watch-check'),id:row.dataset.id};}).filter(function(x){return x.check&&x.id&&x.check.checked!==val;});
+if(!targets.length){updatePolicyWatchSummary();return;}
+if(el)el.disabled=true;
+targets.forEach(function(x){x.check.disabled=true;});
+var ids=targets.map(function(x){return x.id;});
+var r=await sb2.from('ad_account').update({policy_reject_watch:val}).in('id',ids);
+if(!r.error){
+  ids.forEach(function(id){var acc=adList.find(function(a){return a.id===id;});if(acc)acc.policy_reject_watch=val;});
+  targets.forEach(function(x){
+    x.check.checked=val;
+    x.row.dataset.watch=val?'1':'0';
+    var badge=x.row.querySelector('.policy-watch-status');
+    if(badge){badge.className='badge policy-watch-status '+(val?'b-red':'b-gray');badge.textContent=val?'Đang theo dõi':'Tắt';}
+  });
+  toast((val?'Đã bật ':'Đã tắt ')+ids.length+' tài khoản đang lọc',true);
+}else{
+  toast('Lỗi: '+r.error.message,false);
+}
+targets.forEach(function(x){x.check.disabled=false;});
+if(el)el.disabled=false;
+updatePolicyWatchSummary();
+}
+
+function setP6PolicyFilter(key,val){
+if(key==='q')p6PolicySearch=val||'';
+else if(key==='account')p6PolicyAccountFilter=val||'';
+else if(key==='client')p6PolicyClientFilter=val||'';
+else if(key==='staff')p6PolicyStaffFilter=val||'';
+render();
+}
+
+function resetP6PolicyFilters(){
+p6PolicySearch='';p6PolicyAccountFilter='';p6PolicyClientFilter='';p6PolicyStaffFilter='';
+render();
+}
+
+function policyAlertSearchText(al){
+return [al.ad_name,al.ad_id,al.campaign_name,al.adset_name,al.account_name,al.fb_account_id,al.client_name,al.staff&&al.staff.short_name].join(' ').toLowerCase();
+}
+
+function getFilteredPolicyAlerts(alerts){
+var q=(p6PolicySearch||'').toLowerCase().trim();
+return (alerts||[]).filter(function(al){
+  if(q&&policyAlertSearchText(al).indexOf(q)<0)return false;
+  if(p6PolicyAccountFilter&&String(al.ad_account_id||'')!==p6PolicyAccountFilter)return false;
+  if(p6PolicyClientFilter&&String(al.client_id||'none')!==p6PolicyClientFilter)return false;
+  if(p6PolicyStaffFilter&&String(al.staff_id||'none')!==p6PolicyStaffFilter)return false;
+  return true;
+});
+}
+
+function p6PolicyFilterBar(allAlerts,filteredAlerts){
+var accountMap={},clientMap={},staffMap={};
+(allAlerts||[]).forEach(function(al){
+  var aid=String(al.ad_account_id||'');
+  if(aid&&!accountMap[aid])accountMap[aid]=al.account_name||al.fb_account_id||'TKQC';
+  var cid=String(al.client_id||'none');
+  if(!clientMap[cid])clientMap[cid]=al.client_name||'Chưa phân loại';
+  var sid=String(al.staff_id||'none');
+  if(!staffMap[sid])staffMap[sid]=(al.staff&&al.staff.short_name)||'Chưa gán nhân sự';
+});
+function opt(map,val){
+  return Object.keys(map).sort(function(a,b){return String(map[a]).localeCompare(String(map[b]));}).map(function(k){return'<option value="'+esc(k)+'" '+(String(val)===String(k)?'selected':'')+'>'+esc(map[k])+'</option>';}).join('');
+}
+var active=!!(p6PolicySearch||p6PolicyAccountFilter||p6PolicyClientFilter||p6PolicyStaffFilter);
+var h='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px 0;padding:12px 14px;border:1px solid var(--bd1);border-radius:var(--radius-md);background:var(--bg1);">';
+h+='<input id="policy-alert-search" class="fi" type="text" name="policy_alert_search" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Tìm tên bài, ID, campaign..." value="'+esc(p6PolicySearch||'')+'" oninput="setP6PolicyFilter(\'q\',this.value)" style="min-width:260px;flex:1 1 260px;font-size:12px;">';
+h+='<select class="fi" onchange="setP6PolicyFilter(\'account\',this.value)" style="width:190px;font-size:12px;"><option value="">Tất cả TKQC</option>'+opt(accountMap,p6PolicyAccountFilter)+'</select>';
+h+='<select class="fi" onchange="setP6PolicyFilter(\'client\',this.value)" style="width:180px;font-size:12px;"><option value="">Tất cả khách hàng</option>'+opt(clientMap,p6PolicyClientFilter)+'</select>';
+h+='<select class="fi" onchange="setP6PolicyFilter(\'staff\',this.value)" style="width:170px;font-size:12px;"><option value="">Tất cả nhân sự</option>'+opt(staffMap,p6PolicyStaffFilter)+'</select>';
+h+='<button class="btn btn-sm" onclick="resetP6PolicyFilters()" '+(!active?'disabled':'')+'>Xóa lọc</button>';
+h+='<span style="margin-left:auto;font-size:12px;color:var(--tx3);">'+filteredAlerts.length+'/'+allAlerts.length+' bài</span>';
+h+='</div>';
+return h;
+}
+
+function p6PolicyList(alerts){
+var allAlerts=alerts||[],filteredAlerts=getFilteredPolicyAlerts(allAlerts);
+var h=allAlerts.length?p6PolicyFilterBar(allAlerts,filteredAlerts):'';
+if(!allAlerts.length){
+h+='<div style="text-align:center;padding:40px;color:var(--tx3);"><div style="font-size:36px;margin-bottom:8px;">✓</div><div style="font-size:15px;font-weight:500;color:var(--green);">Không có bài quảng cáo nào đang bị từ chối</div><div style="font-size:12px;margin-top:4px;">Chỉ các TKQC đã bật "Theo dõi từ chối" mới được quét</div></div>';
+return h;}
+if(!filteredAlerts.length){
+h+='<div style="text-align:center;padding:34px;color:var(--tx3);border:1px dashed var(--bd1);border-radius:var(--radius-lg);background:var(--bg1);"><div style="font-size:15px;font-weight:600;color:var(--tx2);">Không có bài nào khớp bộ lọc</div><div style="font-size:12px;margin-top:4px;">Thử đổi từ khóa, TKQC, khách hàng hoặc nhân sự.</div></div>';
+return h;}
+h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px 0;padding:10px 14px;border:1px solid var(--bd1);border-radius:var(--radius-md);background:var(--bg1);flex-wrap:wrap;">';
+h+='<label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--tx1);cursor:pointer;"><input id="policy-alert-all" type="checkbox" onchange="togglePolicyAlertsAll(this.checked)">Chọn tất cả</label>';
+h+='<div style="display:flex;align-items:center;gap:10px;"><span id="policy-alert-selected-count" style="font-size:12px;color:var(--tx3);">0 bài đã chọn</span><button id="policy-alert-dismiss-btn" class="btn btn-sm btn-red" onclick="dismissSelectedPolicyAlerts(this)" disabled>Xóa</button></div>';
+h+='</div>';
+var byStaff={};filteredAlerts.forEach(function(al){
+var sk=al.staff?al.staff.id:'none';
+if(!byStaff[sk])byStaff[sk]={staff:al.staff,clients:{}};
+var ck=al.client_name||'Chưa phân loại';
+if(!byStaff[sk].clients[ck])byStaff[sk].clients[ck]=[];
+byStaff[sk].clients[ck].push(al);});
+var staffKeys=Object.keys(byStaff).sort(function(a,b){
+var ac=Object.values(byStaff[a].clients).reduce(function(t,arr){return t+arr.length;},0);
+var bc=Object.values(byStaff[b].clients).reduce(function(t,arr){return t+arr.length;},0);
+return bc-ac;});
+staffKeys.forEach(function(sk){
+var g=byStaff[sk],sObj=g.staff;
+var sCol=sObj?sc(sObj.color_code):{bg:'var(--bg3)',tx:'var(--tx3)',c:'var(--tx3)'};
+var clientKeys=Object.keys(g.clients).sort(function(a,b){return g.clients[b].length-g.clients[a].length;});
+var totalAds=clientKeys.reduce(function(t,k){return t+g.clients[k].length;},0);
+h+='<div style="border:1px solid var(--bd1);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px;">';
+h+='<div style="padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bd1);">';
+h+='<div style="display:flex;align-items:center;gap:10px;"><div class="avatar" style="background:'+sCol.bg+';color:'+sCol.tx+';">'+(sObj?esc(sObj.avatar_initials):'?')+'</div><div><div style="font-size:15px;font-weight:600;">'+(sObj?esc(sObj.short_name):'Chưa gán Nhân sự')+'</div><div style="font-size:12px;color:var(--tx3);">'+clientKeys.length+' khách hàng · '+totalAds+' bài bị từ chối</div></div></div>';
+h+='<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--red-bg);color:var(--red-tx);font-weight:500;">'+totalAds+'</span></div>';
+clientKeys.forEach(function(cname){
+var ads=g.clients[cname];
+h+='<div style="border-bottom:1px solid var(--bd1);">';
+h+='<div style="padding:10px 20px 10px 48px;background:var(--bg2);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bd1);"><div style="font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;"><span style="width:6px;height:6px;border-radius:50%;background:'+sCol.c+';"></span>'+esc(cname)+'</div><span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--red-bg);color:var(--red-tx);font-weight:500;">'+ads.length+' bài</span></div>';
+h+='<div style="display:grid;grid-template-columns:28px 1fr 150px 130px 90px;gap:8px;padding:4px 20px 4px 48px;font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px;"><span></span><span>Quảng cáo</span><span>Tài khoản</span><span style="text-align:right">Lần thấy gần nhất</span><span style="text-align:right">Thao tác</span></div>';
+ads.sort(function(a,b){return String(b.last_seen_at||'').localeCompare(String(a.last_seen_at||''));}).forEach(function(al){
+var openBtn=al.ads_manager_url?'<a href="'+esc(al.ads_manager_url)+'" target="_blank" rel="noopener" title="Mở đúng quảng cáo trong Meta Ads Manager" class="alert-open-btn">↗</a>':'';
+var statusTxt=[al.effective_status,al.configured_status,al.meta_status].filter(Boolean).join(' / ')||'DISAPPROVED';
+h+='<div class="policy-alert-row" data-alert-id="'+esc(al.id||'')+'" style="display:grid;grid-template-columns:28px 1fr 150px 130px 90px;gap:8px;align-items:center;padding:10px 20px 10px 48px;border-bottom:1px solid var(--bd1);font-size:12px;background:var(--red-bg);">';
+h+='<div style="text-align:center;"><input class="policy-alert-check" type="checkbox" value="'+esc(al.id||'')+'" onchange="updatePolicyAlertSelection()" aria-label="Chọn bài '+esc(al.ad_name||al.ad_id||'')+'"></div>';
+h+='<div><div style="font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;">'+esc(al.ad_name||('Ad '+(al.ad_id||'')))+openBtn+'</div>';
+h+='<div style="font-size:11px;color:var(--tx3);margin-top:2px;">'+esc(al.campaign_name||'Không rõ campaign')+(al.adset_name?' · '+esc(al.adset_name):'')+'</div>';
+h+='<div class="mono" style="font-size:11px;color:var(--tx2);margin-top:2px;">ID bài: '+esc(al.ad_id||'—')+'</div>';
+h+='<div style="font-size:10px;color:var(--red-tx);margin-top:3px;font-weight:600;">'+esc(statusTxt)+'</div></div>';
+h+='<div><div style="font-weight:500;">'+esc(al.account_name||'—')+'</div><div style="font-size:11px;color:var(--tx3);">'+esc(al.fb_account_id||'')+'</div></div>';
+h+='<div class="mono" style="text-align:right;color:var(--tx2);">'+formatDateTimeShort(al.last_seen_at)+'</div>';
+h+='<div style="text-align:right;">'+(al.ads_manager_url?'<a href="'+esc(al.ads_manager_url)+'" target="_blank" rel="noopener" style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--red);color:#fff;text-decoration:none;font-weight:500;">Mở Meta ↗</a>':'<span style="color:var(--tx3);font-size:11px;">—</span>')+'</div>';
+h+='</div>';});
 h+='</div>';});
 h+='</div>';});
 return h;}
@@ -6906,7 +7303,7 @@ async function ensureHtml2Pdf(){
   if(typeof html2pdf==='undefined')await loadScript('https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js');
 }
 
-// ═══ TẢI TEMPLATE .DOCX TỪ SUPABASE STORAGE ═══
+// ═══ TẢI TEMPLATE .DOCX TỪ LOCAL STORAGE ═══
 var _contractTemplateBuf=null;
 async function loadContractTemplate(){
   if(_contractTemplateBuf)return _contractTemplateBuf;
@@ -10133,7 +10530,7 @@ await loadLight();}
 // ═══ A6: CÀI ĐẶT ═══
 function a6Settings(){
 var h='<div class="form-card"><h3>Cấu hình Meta API</h3>';
-h+='<div style="padding:10px 14px;background:var(--green-bg);color:var(--green-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;"><b>Meta access token đã được chuyển ra Vercel env</b> — không còn lộ ở trình duyệt. Mọi call Meta API đi qua proxy <code>/api/meta</code> (whitelist + JWT auth). Để đổi token, sửa biến <code>META_TOKEN</code> trong Vercel Project Settings → Environment Variables → Redeploy.</div>';
+h+='<div style="padding:10px 14px;background:var(--green-bg);color:var(--green-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;"><b>Meta access token đã được chuyển ra env server</b> — không còn lộ ở trình duyệt. Mọi call Meta API đi qua proxy <code>/api/meta</code> (whitelist + JWT auth). Để đổi token, sửa biến <code>META_TOKEN</code> trên server rồi restart service.</div>';
 h+='<div class="form-row"><div class="form-group"><label>Business ID</label><input type="text" id="set-business-id" value="'+esc(META_BUSINESS_ID)+'" placeholder="906359547034707" style="font-family:monospace;font-size:12px;"></div><div class="form-group"><label>Global scope ID</label><input type="text" id="set-global-scope" value="'+esc(META_GLOBAL_SCOPE_ID)+'" placeholder="5673838172639075" style="font-family:monospace;font-size:12px;"></div></div>';
 h+='<div class="btn-row"><button class="btn btn-primary" onclick="saveMetaSettings(this)">Lưu cài đặt</button><button class="btn btn-ghost" onclick="checkMetaTokenPermissions(this)">Kiểm tra quyền token</button></div>';
 h+='<div id="token-check-result"></div>';
@@ -10149,7 +10546,7 @@ h+='<div class="btn-row"><button class="btn btn-primary" onclick="saveAIKeys(thi
 h+='</div>';
 // Kết nối ChatGPT Plus qua OAuth (PKCE) — dùng subscription thay vì trả tiền API
 h+='<div class="form-card"><h3>Kết nối ChatGPT Plus (OAuth — miễn phí)</h3>';
-h+='<div style="padding:10px 14px;background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;">Dùng subscription ChatGPT Plus của anh để gọi GPT-5.4 mà không tốn token API. Token lưu server-side (Supabase), tự động refresh. <b>Lưu ý:</b> đây là endpoint nội bộ của ChatGPT, không chính thức — có rủi ro nhỏ về ToS. Cần đã login ChatGPT Plus trên trình duyệt máy local.</div>';
+h+='<div style="padding:10px 14px;background:var(--blue-bg);color:var(--blue-tx);border-radius:var(--radius);font-size:12px;line-height:1.6;margin-bottom:14px;">Dùng subscription ChatGPT Plus của anh để gọi GPT-5.4 mà không tốn token API. Token lưu server-side trong Local DB, tự động refresh. <b>Lưu ý:</b> đây là endpoint nội bộ của ChatGPT, không chính thức — có rủi ro nhỏ về ToS. Cần đã login ChatGPT Plus trên trình duyệt máy local.</div>';
 h+='<div id="chatgpt-oauth-status" style="margin-bottom:14px;padding:10px 14px;background:var(--bg3);border-radius:var(--radius);font-size:12px;color:var(--tx2);">Đang kiểm tra trạng thái…</div>';
 h+='<div id="chatgpt-oauth-actions"></div>';
 h+='</div>';
@@ -10185,7 +10582,7 @@ h+='<div class="form-row"><div class="form-group"><label>Mật khẩu '+(editing
 var urStaffOpts=(allStaff.length?allStaff:staffList).slice().sort(function(a,b){var an=parseInt(a.display_code||'9999'),bn=parseInt(b.display_code||'9999');return an-bn;}).map(function(s){var codePrefix=s.display_code?'['+s.display_code+'] ':'';return{value:s.id,label:codePrefix+(s.full_name||s.short_name)+(s.short_name&&s.full_name!==s.short_name?' — '+s.short_name:'')};});
 h+='<div class="form-row"><div class="form-group" style="grid-column:1/-1;"><label>Gán với nhân sự (nếu có)</label>'+searchableSelect({id:'ur-staff',options:urStaffOpts,value:staffIdVal||'',placeholder:'— Không gán (full view trang Nhân sự) —'})+'<div style="font-size:11px;color:var(--tx3);margin-top:4px;">Nếu gán, user này chỉ xem được Lương / Sổ phạt / Công việc của chính nhân sự được gán. Admin/Kế toán giữ full view → để trống.</div></div></div>';
 if(editingUR){
-  h+='<div style="font-size:11px;color:var(--tx3);margin:4px 0 10px;background:var(--bg2);padding:8px 12px;border-radius:6px;border-left:3px solid var(--blue);">⚠ Supabase không cho admin đổi mật khẩu user khác từ trình duyệt. Để user quên/đổi mật khẩu, bấm nút bên dưới — Supabase sẽ gửi email link đặt lại password cho user đó.</div>';
+  h+='<div style="font-size:11px;color:var(--tx3);margin:4px 0 10px;background:var(--bg2);padding:8px 12px;border-radius:6px;border-left:3px solid var(--blue);">⚠ Local DB auth không cho admin đổi mật khẩu user khác từ trình duyệt. Để user quên/đổi mật khẩu, bấm nút bên dưới để tạo luồng reset mật khẩu.</div>';
   h+='<div class="btn-row" style="margin-bottom:14px;"><button class="btn btn-ghost btn-sm" onclick="sendPasswordResetLink(this,\''+esc(editingUR.email)+'\')">📧 Gửi link đặt lại mật khẩu cho '+esc(editingUR.email)+'</button></div>';
 }
 h+='<div style="font-size:12px;font-weight:500;color:var(--tx2);margin:8px 0 6px;">Quyền truy cập</div>';
@@ -10406,13 +10803,13 @@ if(!email){toast('Vui lòng nhập email.',false);return;}
 var pages=[];document.querySelectorAll('.ur-perm-cb:checked').forEach(function(cb){pages.push(cb.dataset.key);});
 if(!pages.length){toast('Vui lòng chọn ít nhất 1 quyền truy cập.',false);return;}
 btn.disabled=true;btn.textContent=isEdit?'Đang lưu...':'Đang tạo...';
-// Tạo tài khoản đăng nhập nếu có mật khẩu (cả Add lẫn Edit có pass mới đều signup; nếu user đã tồn tại Supabase báo lỗi và mình bỏ qua)
+// Tạo tài khoản đăng nhập nếu có mật khẩu (cả Add lẫn Edit có pass mới đều signup; nếu user đã tồn tại thì bỏ qua)
 if(pass){
 if(pass.length<6){toast('Mật khẩu phải có ít nhất 6 ký tự.',false);btn.disabled=false;btn.textContent=origLabel;return;}
 var{data:signData,error:signErr}=await sb2.auth.signUp({email:email,password:pass,options:{data:{display_name:name}}});
 if(signErr){
 if(signErr.message.indexOf('already registered')>=0||signErr.message.indexOf('already been registered')>=0){
-// User đã tồn tại → OK, chỉ cần lưu role. Lưu ý: Supabase không cho update mật khẩu user khác qua client SDK — anh phải reset trong Supabase Dashboard nếu muốn đổi pass user cũ.
+// User đã tồn tại → OK, chỉ cần lưu role. Lưu ý: client SDK không cho update mật khẩu user khác — anh reset trong Auth admin console nếu muốn đổi pass user cũ.
 }else{toast('Lỗi tạo tài khoản: '+signErr.message,false);btn.disabled=false;btn.textContent=origLabel;return;}}
 }
 // Lưu/cập nhật phân quyền
@@ -10636,10 +11033,10 @@ summary+='\n== TÀI CHÍNH ==\nDoanh thu phí Dịch vụ: '+ff(inc)+'\nChi phí
 summary+='Tổng Tài khoản: '+adList.length+' ('+adList.filter(function(a){return a.account_status===1;}).length+' hoạt động)\n';
 var messAlerts=getMessAlerts(),leadAlerts=getLeadAlerts();
 if(messAlerts.length){summary+='\n== CẢNH BÁO GIÁ MESS (trung bình 3 ngày D-3..D-1) ==\n';
-messAlerts.forEach(function(al){summary+=al.campaign_name+' ('+al.client_name+'): giá Messenger '+ff(al.cost_per_mess)+'đ, ngưỡng '+ff(al.max_cost)+'đ, Nhân sự '+(al.staff?al.staff.short_name:'—')+', spend 3 ngày '+ff(al.spend_4d)+', '+al.mess_4d+' mess\n';});}
+messAlerts.forEach(function(al){summary+=al.campaign_name+' ('+al.client_name+'): giá Messenger '+ff(al.cost_per_mess)+'đ, ngưỡng '+ff(al.max_cost)+'đ, Nhân sự '+(al.staff?al.staff.short_name:'—')+', spend 3 ngày '+ff(al.spend_3d)+', '+al.mess_3d+' mess\n';});}
 else{summary+='\n== GIÁ MESS ==\nKhông có chiến dịch nào vượt ngưỡng giá Messenger.\n';}
 if(leadAlerts.length){summary+='\n== CẢNH BÁO GIÁ FORM (trung bình 3 ngày D-3..D-1) ==\n';
-leadAlerts.forEach(function(al){summary+=al.campaign_name+' ('+al.client_name+'): giá form '+ff(al.cost_per_lead)+'đ, ngưỡng '+ff(al.max_cost)+'đ, Nhân sự '+(al.staff?al.staff.short_name:'—')+', spend 3 ngày '+ff(al.spend_4d)+', '+al.leads_4d+' form\n';});}
+leadAlerts.forEach(function(al){summary+=al.campaign_name+' ('+al.client_name+'): giá form '+ff(al.cost_per_lead)+'đ, ngưỡng '+ff(al.max_cost)+'đ, Nhân sự '+(al.staff?al.staff.short_name:'—')+', spend 3 ngày '+ff(al.spend_3d)+', '+al.leads_3d+' form\n';});}
 else{summary+='\n== GIÁ FORM ==\nKhông có chiến dịch nào vượt ngưỡng giá form.\n';}
 // Bảng lương tháng hiện tại
 var smo=lm();
@@ -10666,6 +11063,10 @@ var balAlerts=getBalanceAlerts();
 if(balAlerts.length){summary+='\n== CẢNH BÁO Tài khoản SẮP HẾT TIỀN (số dư < '+ff(BALANCE_ALERT_THRESHOLD)+'đ) ==\n';
 balAlerts.forEach(function(al){var dl=al.days_left===null?'chưa xác định':(al.days_left<1?'<1 ngày':'~'+al.days_left.toFixed(1)+' ngày');summary+=al.account_name+' ('+(al.client_name||'chưa gán Khách hàng')+'): còn '+ff(al.balance)+'đ, chi TB '+ff(Math.round(al.avg_daily))+'đ/ngày → còn chạy '+dl+', Nhân sự '+(al.staff?al.staff.short_name:'—')+'\n';});}
 else{summary+='\n== SỐ DƯ Tài khoản ==\nKhông có Tài khoản nào sắp hết tiền.\n';}
+var rejectedAlerts=getRejectedAdAlerts();
+if(rejectedAlerts.length){summary+='\n== CẢNH BÁO BÀI META BỊ TỪ CHỐI ==\n';
+rejectedAlerts.forEach(function(al){summary+=(al.ad_name||('Ad '+al.ad_id))+' / '+(al.account_name||al.fb_account_id||'TKQC')+' ('+(al.client_name||'chưa gán Khách hàng')+'): '+(al.effective_status||'DISAPPROVED')+', campaign '+(al.campaign_name||'—')+', Nhân sự '+(al.staff?al.staff.short_name:'—')+', thấy lần cuối '+formatDateTimeShort(al.last_seen_at)+'\n';});}
+else{summary+='\n== BÀI META BỊ TỪ CHỐI ==\nKhông có bài quảng cáo nào đang bị từ chối trong danh sách theo dõi.\n';}
 return summary;}
 
 function addAIMsg(role,html){
@@ -10692,7 +11093,7 @@ aiMessages.push({role:'user',content:userMsg});
 var model=getAIModel();
 try{
 if(isChatGPTOAuth(model)){
-// ChatGPT Plus qua OAuth — proxy qua serverless function. Không gửi model name,
+// ChatGPT Plus qua OAuth — proxy qua API server. Không gửi model name,
 // để server tự pick model tương thích Codex (gpt-5-codex hoặc model mới hơn).
 var resp=await fetch('/api/chatgpt-chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:aiMessages})});
 var data=await resp.json();

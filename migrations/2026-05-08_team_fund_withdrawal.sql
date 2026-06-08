@@ -12,7 +12,7 @@
 --   - withdrawals (toàn bộ lịch sử)
 --
 -- Cách chạy:
---   Supabase Dashboard → SQL Editor → New query → paste → Run
+--   SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 -- 1. Bảng trích quỹ

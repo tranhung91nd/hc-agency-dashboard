@@ -8,7 +8,7 @@
 -- Preset cũ có ad_account_id → vẫn giữ làm metadata (source clone).
 -- Preset mới có thể tạo không cần TKQC.
 --
--- Cách chạy: Supabase SQL Editor → paste → Run
+-- Cách chạy: SQL console hoặc psql → paste → Run
 -- ═══════════════════════════════════════════════════════════════
 
 ALTER TABLE auto_ads_preset ALTER COLUMN ad_account_id DROP NOT NULL;

@@ -5,7 +5,7 @@
 --   - Chỉ tính khi services chứa 'tkqc_rental' VÀ rental_fee_pct > 0
 --
 -- Cách chạy:
---   1) Vào Supabase Dashboard → SQL Editor → New query
+--   1) Chạy trong SQL console hoặc psql
 --   2) Paste toàn bộ file này → Run
 --   3) Reload app, mở Modal sửa khách hàng → tick "Cho thuê TKQC"
 --      → ô % Phí thuê hiện ra → nhập 3 hoặc 4 → Lưu

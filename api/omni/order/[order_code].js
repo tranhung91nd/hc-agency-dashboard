@@ -1,4 +1,4 @@
-const { getOrderByCode, requireAdmin, sendJson, setCors, supabase } = require('../../_lib/omni');
+const { getOrderByCode, requireAdmin, sendJson, setCors, db } = require('../../_lib/omni');
 
 module.exports = async (req, res) => {
   if (setCors(req, res, 'GET, OPTIONS')) return;
@@ -6,7 +6,7 @@ module.exports = async (req, res) => {
   try {
     requireAdmin(req);
     const orderCode = req.query && req.query.order_code;
-    const order = await getOrderByCode(supabase(), orderCode);
+    const order = await getOrderByCode(db(), orderCode);
     if (!order) return sendJson(res, 404, { ok: false, error: 'order_not_found' });
     return sendJson(res, 200, { ok: true, order });
   } catch (e) {
