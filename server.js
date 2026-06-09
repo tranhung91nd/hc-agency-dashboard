@@ -105,7 +105,7 @@ app.listen(PORT, '127.0.0.1', () => {
   console.log(`HC Agency Dashboard API listening on 127.0.0.1:${PORT}`);
 });
 
-const POLICY_ALERT_SCAN_INTERVAL_MS = Number(process.env.POLICY_ALERT_SCAN_INTERVAL_MS || 5 * 60 * 1000);
+const POLICY_ALERT_SCAN_INTERVAL_MS = Number(process.env.POLICY_ALERT_SCAN_INTERVAL_MS || 3 * 60 * 1000);
 let policyAlertScanRunning = false;
 
 async function runPolicyAlertScanTick(source) {
