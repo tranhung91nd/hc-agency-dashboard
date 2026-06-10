@@ -23,6 +23,12 @@ function fmtDate(value) {
   return parts[2] + '/' + parts[1] + '/' + parts[0];
 }
 
+function fmtDay(month, day) {
+  const parts = String(month || '').split('-');
+  if (parts.length !== 2) return String(day);
+  return String(day) + '/' + Number(parts[1]);
+}
+
 function csvEscape(value) {
   const s = value === null || value === undefined ? '' : String(value);
   return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -99,6 +105,17 @@ function getDepositTotal(data, month) {
   return (data.deposits || [])
     .filter(row => String(row.deposit_date || '').substring(0, 7) === month)
     .reduce((sum, row) => sum + metaNum(row.amount), 0);
+}
+
+function getDailyDeposits(data, month, daysInMonth) {
+  const totals = new Array(daysInMonth).fill(0);
+  (data.deposits || [])
+    .filter(row => String(row.deposit_date || '').substring(0, 7) === month)
+    .forEach(row => {
+      const day = Number(String(row.deposit_date || '').substring(8, 10)) - 1;
+      if (day >= 0 && day < daysInMonth) totals[day] += metaNum(row.amount);
+    });
+  return totals;
 }
 
 function getOpeningBalance(data, month) {
@@ -195,6 +212,93 @@ function buildMatrix(data, month) {
   return { accounts, dayTotals, grandTotal, daysInMonth };
 }
 
+function feeAmount(value, pct) {
+  return Math.round(metaNum(value) * (1 + pct));
+}
+
+function accountOwner(account) {
+  const text = String((account && (account.name || account.fb_account_id || account.id)) || '').toLowerCase();
+  if (/\b0?1\b/.test(text) || text.includes(' 01') || text.includes('_01')) return 'Đoàn';
+  if (/\b0?2\b/.test(text) || text.includes(' 02') || text.includes('_02')) return 'Toàn';
+  if (/\b0?3\b/.test(text) || text.includes(' 03') || text.includes('_03')) return 'Quân';
+  return '';
+}
+
+function buildOwnerLedgerRows(data, month, matrix, summary) {
+  const client = data.client || {};
+  const pct = summary.pct;
+  const dailyDeposits = getDailyDeposits(data, month, matrix.daysInMonth);
+  const feeDayTotals = matrix.dayTotals.map(value => feeAmount(value, pct));
+  const feeGrandTotal = feeDayTotals.reduce((sum, value) => sum + value, 0);
+  const balance = summary.opening + summary.deposit - feeGrandTotal;
+  const ownerDaily = new Map();
+  const ownerTotals = new Map();
+
+  matrix.accounts.forEach(account => {
+    const owner = accountOwner(account);
+    if (!ownerDaily.has(owner)) ownerDaily.set(owner, new Array(matrix.daysInMonth).fill(0));
+    const daily = ownerDaily.get(owner);
+    account.daily.forEach((value, index) => {
+      daily[index] += feeAmount(value, pct);
+    });
+    ownerTotals.set(owner, (ownerTotals.get(owner) || 0) + account.daily.reduce((sum, value) => sum + feeAmount(value, pct), 0));
+  });
+
+  const dayHeaders = [];
+  for (let day = 1; day <= matrix.daysInMonth; day++) dayHeaders.push(fmtDay(month, day));
+
+  const rows = [
+    ['', '', '', 'Số dư = (1) - (2)', balance, monthLabel(month), ...dailyDeposits],
+    ['', '', '', 'Tiền đã nhận (1)', summary.deposit, '', ...dailyDeposits],
+    ['', '', '', 'Tổng thanh toán (2)', feeGrandTotal, '', ...feeDayTotals],
+    ['', '', '', 'Tổng chi tiêu đã gồm phí', feeGrandTotal, '', ...feeDayTotals],
+    [],
+    [client.name || '', 'ID TKQC', 'Ghi chú', 'Tên TKQC', 'Tổng Tiêu', monthLabel(month), ...dayHeaders]
+  ];
+
+  matrix.accounts.forEach(account => {
+    const daily = account.daily.map(value => feeAmount(value, pct));
+    rows.push([
+      accountOwner(account),
+      account.fb_account_id || '',
+      '',
+      account.name || '',
+      daily.reduce((sum, value) => sum + value, 0),
+      '',
+      ...daily
+    ]);
+  });
+
+  rows.push([]);
+  rows.push(['', '', '', 'Có tính phí', '', '', ...new Array(matrix.daysInMonth).fill('')]);
+
+  ['Đoàn', 'Toàn', 'Quân', ''].forEach(owner => {
+    if (!ownerDaily.has(owner)) return;
+    const daily = ownerDaily.get(owner);
+    rows.push([
+      '',
+      '',
+      '',
+      owner || 'Khác',
+      ownerTotals.get(owner) || 0,
+      '',
+      ...daily
+    ]);
+  });
+
+  rows.push([
+    '',
+    '',
+    '',
+    'Tổng',
+    feeGrandTotal,
+    '',
+    ...feeDayTotals
+  ]);
+
+  return rows;
+}
+
 function buildRows(payload, month, view) {
   const data = Object.assign({}, payload || {});
   data.ad_accounts = data.ad_accounts || [];
@@ -212,6 +316,7 @@ function buildRows(payload, month, view) {
   const spend = matrix.grandTotal;
   const rentalFee = Math.round(spend * pct / 1000) * 1000;
   const balance = opening + deposit - spend - rentalFee;
+  const summary = { pct, opening, deposit, spend, rentalFee, balance };
 
   const summaryRows = [
       ['Chỉ số', 'Giá trị'],
@@ -271,6 +376,10 @@ function buildRows(payload, month, view) {
     ];
   }
 
+  if (view === 'owner-ledger') {
+    return buildOwnerLedgerRows(data, month, matrix, summary);
+  }
+
   return matrixRows;
 }
 
@@ -283,7 +392,7 @@ module.exports = async (req, res) => {
   const clientId = String(req.query.client_id || req.query.ledger || '').trim();
   const token = String(req.query.token || '').trim();
   const month = monthKey(req.query.month);
-  const view = ['summary', 'matrix', 'deposits', 'accounts', 'month'].includes(req.query.view) ? req.query.view : 'matrix';
+  const view = ['summary', 'matrix', 'deposits', 'accounts', 'month', 'owner-ledger'].includes(req.query.view) ? req.query.view : 'matrix';
   const format = String(req.query.format || 'csv').toLowerCase();
 
   if (!clientId || !token) return res.status(400).json({ error: 'Missing client_id or token' });
