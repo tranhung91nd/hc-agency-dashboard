@@ -248,7 +248,8 @@ function buildOwnerLedgerRows(data, month, matrix, summary) {
   for (let day = 1; day <= matrix.daysInMonth; day++) dayHeaders.push(fmtDay(month, day));
 
   const rows = [
-    ['', '', '', 'Số dư = (1) - (2)', balance, monthLabel(month), ...dailyDeposits],
+    ['', '', '', 'Số dư cuối kỳ = Đầu kỳ + (1) - (2)', balance, monthLabel(month), ...dailyDeposits],
+    ['', '', '', 'Số dư đầu kỳ', summary.opening, '', ...new Array(matrix.daysInMonth).fill('')],
     ['', '', '', 'Tiền đã nhận (1)', summary.deposit, '', ...dailyDeposits],
     ['', '', '', 'Tổng thanh toán (2)', feeGrandTotal, '', ...feeDayTotals],
     ['', '', '', 'Tổng chi tiêu đã gồm phí', feeGrandTotal, '', ...feeDayTotals],
