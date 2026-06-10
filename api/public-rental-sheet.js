@@ -6,6 +6,12 @@ function monthKey(value) {
   return new Date().toISOString().substring(0, 7);
 }
 
+function monthLabel(month) {
+  const parts = String(month || '').split('-');
+  if (parts.length !== 2) return month || '';
+  return 'T' + Number(parts[1]) + '/' + parts[0];
+}
+
 function metaNum(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -210,7 +216,7 @@ function buildRows(payload, month, view) {
   const summaryRows = [
       ['Chỉ số', 'Giá trị'],
       ['Khách hàng', client.name || ''],
-      ['Kỳ', month],
+      ['Kỳ', monthLabel(month)],
       ['Số tài khoản', matrix.accounts.length],
       ['Phí thuê', pct ? (Math.round(pct * 1000) / 10) + '%' : ''],
       ['Số dư đầu kỳ', opening],
@@ -251,7 +257,7 @@ function buildRows(payload, month, view) {
 
   if (view === 'month') {
     return [
-      ['TỔNG QUAN ' + month],
+      ['TỔNG QUAN ' + monthLabel(month)],
       ...summaryRows,
       [],
       ['CHI TIÊU THEO TKQC x NGÀY'],
