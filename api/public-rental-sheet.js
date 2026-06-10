@@ -207,8 +207,7 @@ function buildRows(payload, month, view) {
   const rentalFee = Math.round(spend * pct / 1000) * 1000;
   const balance = opening + deposit - spend - rentalFee;
 
-  if (view === 'summary') {
-    return [
+  const summaryRows = [
       ['Chỉ số', 'Giá trị'],
       ['Khách hàng', client.name || ''],
       ['Kỳ', month],
@@ -221,30 +220,52 @@ function buildRows(payload, month, view) {
       ['Số dư cuối kỳ', balance],
       ['Cập nhật lúc', payload.fetched_at || new Date().toISOString()]
     ];
+
+  const accountRows = [['TKQC', 'Facebook account ID', 'Tổng chi tiêu']];
+  matrix.accounts.forEach(account => accountRows.push([account.name, account.fb_account_id, account.total || 0]));
+  accountRows.push(['Tổng cộng', '', matrix.grandTotal]);
+
+  const depositRows = [['Ngày nạp', 'Số tiền', 'Ghi chú']];
+  data.deposits
+    .filter(row => String(row.deposit_date || '').substring(0, 7) === month)
+    .sort((a, b) => String(a.deposit_date || '').localeCompare(String(b.deposit_date || '')))
+    .forEach(row => depositRows.push([fmtDate(row.deposit_date), metaNum(row.amount), row.note || '']));
+
+  const matrixRows = [['TKQC']];
+  for (let day = 1; day <= matrix.daysInMonth; day++) matrixRows[0].push(String(day));
+  matrixRows[0].push('Tổng tháng');
+  matrix.accounts.forEach(account => matrixRows.push([account.name, ...account.daily, account.total || 0]));
+  matrixRows.push(['Tổng cộng', ...matrix.dayTotals, matrix.grandTotal]);
+
+  if (view === 'summary') {
+    return summaryRows;
   }
 
   if (view === 'deposits') {
-    const rows = [['Ngày nạp', 'Số tiền', 'Ghi chú']];
-    data.deposits
-      .filter(row => String(row.deposit_date || '').substring(0, 7) === month)
-      .sort((a, b) => String(a.deposit_date || '').localeCompare(String(b.deposit_date || '')))
-      .forEach(row => rows.push([fmtDate(row.deposit_date), metaNum(row.amount), row.note || '']));
-    return rows;
+    return depositRows;
   }
 
   if (view === 'accounts') {
-    const rows = [['TKQC', 'Facebook account ID', 'Tổng chi tiêu']];
-    matrix.accounts.forEach(account => rows.push([account.name, account.fb_account_id, account.total || 0]));
-    rows.push(['Tổng cộng', '', matrix.grandTotal]);
-    return rows;
+    return accountRows;
   }
 
-  const rows = [['TKQC']];
-  for (let day = 1; day <= matrix.daysInMonth; day++) rows[0].push(String(day));
-  rows[0].push('Tổng tháng');
-  matrix.accounts.forEach(account => rows.push([account.name, ...account.daily, account.total || 0]));
-  rows.push(['Tổng cộng', ...matrix.dayTotals, matrix.grandTotal]);
-  return rows;
+  if (view === 'month') {
+    return [
+      ['TỔNG QUAN ' + month],
+      ...summaryRows,
+      [],
+      ['CHI TIÊU THEO TKQC x NGÀY'],
+      ...matrixRows,
+      [],
+      ['CHI TIÊU THEO TÀI KHOẢN'],
+      ...accountRows,
+      [],
+      ['LỊCH SỬ NẠP TIỀN'],
+      ...depositRows
+    ];
+  }
+
+  return matrixRows;
 }
 
 module.exports = async (req, res) => {
@@ -256,7 +277,7 @@ module.exports = async (req, res) => {
   const clientId = String(req.query.client_id || req.query.ledger || '').trim();
   const token = String(req.query.token || '').trim();
   const month = monthKey(req.query.month);
-  const view = ['summary', 'matrix', 'deposits', 'accounts'].includes(req.query.view) ? req.query.view : 'matrix';
+  const view = ['summary', 'matrix', 'deposits', 'accounts', 'month'].includes(req.query.view) ? req.query.view : 'matrix';
   const format = String(req.query.format || 'csv').toLowerCase();
 
   if (!clientId || !token) return res.status(400).json({ error: 'Missing client_id or token' });
