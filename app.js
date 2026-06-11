@@ -177,6 +177,7 @@ function renderZaloBtn(c){
 var BALANCE_ALERT_THRESHOLD=1000000;
 var allStaff=[],staffList=[],clientList=[],adList=[],dailyData=[],salaryData=[],txnData=[],monthlyRevData=[],assignData=[],scData=[],metaAccounts=[],campaignMessData=[],adPostData=[],adPolicyAlertData=[],monthlyFeeData=[],contractList=[],quotationList=[],penaltyData=[],teamFundData=[],teamTaskData=[],postScheduleData=[],clientDepositData=[],bankReconcileData=[],bankImportLog=[];
 var curPage=0,cDay=null,cStaff=null,dates=[],adminTab=0,finMonth='',authUser=null,expandedAd=null,expandTabIdx=0,adViewDate='',adViewMode='today',adRangeStart='',adRangeEnd='',adSortCol='spend',adSortDir='desc',adSearchText='',adFilterStaff='',adFilterClient='',adFilterStatus='',clientSearchText='',clientFilterPayment='',clientFilterVat='',clientFilterStatus='',clientFilterSpend='',clientFilterService='',clientFilterCare='',clientSortMode='spend_desc',rptMonth='',spendTab=0,clientMonth='',expandedClientId=null,userRole='guest',userAllowedPages=null,currentUserRoleRecord=null,allUserRoles=[],salaryMonth='',expandedSalaryStaffId=null,salarySaveTimers={},clientTab='active',clientActiveSubTab='overview',contractModalClientId=null,newProspectModalOpen=false,newActiveClientModalOpen=false,contractHistoryClientId=null,quotationModalId=null,quotationFilterStatus='',quotationFilterClient='',quotationSearchText='',quotationPreviewId=null,quotationSortCol='issued_date',quotationSortDir='desc',quotationPage=1,QT_PAGE_SIZE=20,clientEditModalId=null,penaltyMonth='',depositModalCtx=null,publicLedgerMode=false,publicLedgerClientId=null,publicLedgerToken=null,publicLedgerMonth=null,publicLeadFormMode=false,publicLeadFormSource='web_form',publicLeadFormCaptcha=0,publicLeadFormCurrentStep=1,cliSpendSearch='',cliSpendType='',cliSpendStaff='',cliSpendHas='',cliSpendSort='spend_desc',finTab='thuchi',reconcileMonth='',reconcileSearch='',editingUserRoleId=null,pendingNewUserRoleStaffId=null,ovMonth='';
+var zaloChatState={accounts:[],ownId:null,threads:[],currentThread:null,messages:[],search:'',loadingAccounts:false,loadingThreads:false,loadingMessages:false,lastError:'',loginSid:null,loginTimer:null,refreshTimer:null};
 /* ===== SORT HELPER ===== */
 function sortQuotations(rows,col,dir){
   var mul=dir==='asc'?1:-1;
@@ -987,7 +988,8 @@ var SUBNAV_CONFIG={
     {key:'spend0',label:'Tài khoản quảng cáo',route:'ads/tkqc',action:"setSpendTab(0)",permKey:'p1.tkqc',match:function(){return curPage===1&&spendTab===0;}},
     {key:'spend1',label:'Chi tiêu theo nhân sự',route:'ads/staff',action:"setSpendTab(1)",permKey:'p1.staff',match:function(){return curPage===1&&spendTab===1;}},
     {key:'spend2',label:'Chi tiêu theo khách hàng',route:'ads/client',action:"setSpendTab(2)",permKey:'p1.client',match:function(){return curPage===1&&spendTab===2;}},
-    {key:'auto',label:'Quảng cáo tự động',route:'ads/auto',action:"pg(8)",permKey:'p8',match:function(){return curPage===8;}}
+    {key:'auto',label:'Quảng cáo tự động',route:'ads/auto',action:"pg(8)",permKey:'p8',match:function(){return curPage===8;}},
+    {key:'zalo-chat',label:'Chat Zalo',route:'ads/zalo-chat',action:"setSpendTab(3)",permKey:'p1.zalo',match:function(){return curPage===1&&spendTab===3;}}
   ]}]},
   2:{title:'Nhân sự',sections:[{label:'',items:[
     {key:'p2-task',label:'Công việc',route:'staff/task',action:"setP2Tab(2)",permKey:'p2.task',match:function(){return curPage===2&&p2Tab===2;}},
@@ -1339,6 +1341,7 @@ return h;}
 
 // ═══ P1: CHI TIÊU Quảng cáo ═══
 function p1(){
+if(spendTab===3)return p1ZaloChat();
 var ms=rptMonth||lm();
 var mDates=dates.filter(function(d){return d.substring(0,7)===ms;}).sort();
 var nd=mDates.length||1;
@@ -1362,6 +1365,352 @@ h+='</select></div><div style="font-size:12px;color:var(--tx3);">'+nd+' ngày c�
 if(spendTab===1) h+=p1Staff(ms,mDates,nd,dim);
 else h+=p1Client(ms,mDates,nd,dim);
 return h;}
+
+function p1ZaloChat(){
+setTimeout(initZaloChatPage,0);
+var h='<style>';
+h+='.zalo-hc-shell{display:grid;grid-template-columns:minmax(280px,360px) minmax(0,1fr);gap:14px;min-height:680px;}';
+h+='.zalo-hc-card{background:var(--bg1);border:1px solid var(--bd1);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;}';
+h+='.zalo-hc-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--bd1);background:linear-gradient(180deg,var(--bg1),var(--bg2));}';
+h+='.zalo-hc-title{font-size:14px;font-weight:700;color:var(--tx1);}';
+h+='.zalo-hc-muted{font-size:12px;color:var(--tx3);line-height:1.45;}';
+h+='.zalo-hc-dot{width:8px;height:8px;border-radius:50%;background:var(--bd2);display:inline-block;flex-shrink:0;}';
+h+='.zalo-hc-dot.on{background:var(--green);}';
+h+='.zalo-hc-avatar{width:38px;height:38px;border-radius:12px;background:var(--blue-bg);color:var(--blue-tx);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;background-size:cover;background-position:center;}';
+h+='.zalo-hc-account,.zalo-hc-thread{width:100%;display:flex;align-items:center;gap:10px;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--bd1);padding:12px 14px;cursor:pointer;color:var(--tx1);font-family:inherit;}';
+h+='.zalo-hc-account:hover,.zalo-hc-thread:hover{background:var(--bg2);}';
+h+='.zalo-hc-account.active,.zalo-hc-thread.active{background:var(--blue-bg);box-shadow:inset 3px 0 0 var(--blue);}';
+h+='.zalo-hc-thread.read{opacity:.82;}';
+h+='.zalo-hc-thread-main{min-width:0;flex:1;}';
+h+='.zalo-hc-thread-top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;font-weight:650;}';
+h+='.zalo-hc-thread-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}';
+h+='.zalo-hc-thread-last{font-size:12px;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px;}';
+h+='.zalo-hc-pill{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 6px;border-radius:999px;background:var(--red);color:#fff;font-size:10px;font-weight:700;}';
+h+='.zalo-hc-chat{display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-height:680px;}';
+h+='.zalo-hc-messages{padding:16px;background:linear-gradient(180deg,var(--bg2),var(--bg1));overflow:auto;display:flex;flex-direction:column;gap:10px;}';
+h+='.zalo-hc-msg{display:flex;max-width:74%;flex-direction:column;align-self:flex-start;}';
+h+='.zalo-hc-msg.self{align-self:flex-end;align-items:flex-end;}';
+h+='.zalo-hc-bubble{padding:10px 12px;border:1px solid var(--bd1);border-radius:14px;background:var(--bg1);font-size:13px;line-height:1.5;color:var(--tx1);box-shadow:0 6px 18px rgba(15,23,42,.06);word-break:break-word;}';
+h+='.zalo-hc-msg.self .zalo-hc-bubble{background:var(--blue);border-color:var(--blue);color:#fff;}';
+h+='.zalo-hc-msg-name{font-size:11px;color:var(--tx3);margin:0 0 3px 4px;font-weight:600;}';
+h+='.zalo-hc-msg-time{font-size:10px;color:var(--tx3);margin-top:3px;}';
+h+='.zalo-hc-empty{padding:28px 18px;text-align:center;color:var(--tx3);font-size:13px;line-height:1.6;}';
+h+='.zalo-hc-composer{display:flex;gap:8px;padding:12px;border-top:1px solid var(--bd1);background:var(--bg1);}';
+h+='.zalo-hc-composer textarea{min-height:44px;max-height:130px;resize:vertical;}';
+h+='.zalo-hc-qr{width:180px;height:180px;border:1px solid var(--bd1);border-radius:12px;background:var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden;}';
+h+='.zalo-hc-qr img{width:100%;height:100%;object-fit:contain;}';
+h+='@media(max-width:980px){.zalo-hc-shell{grid-template-columns:1fr;}.zalo-hc-chat{min-height:620px;}.zalo-hc-msg{max-width:88%;}}';
+h+='</style>';
+h+='<div class="page-title">Chat Zalo</div>';
+h+='<div class="page-sub">Quản lý hội thoại Zalo ngay trong giao diện HC Agency. Dữ liệu lấy từ Zalo Agent hiện có.</div>';
+h+='<div id="zalo-chat-root">';
+h+='<div class="zalo-hc-card" style="margin-bottom:14px;">';
+h+='<div class="zalo-hc-head" style="align-items:flex-start;flex-wrap:wrap;">';
+h+='<div><div class="zalo-hc-title">Trung tâm Chat Zalo</div><div id="zalo-status" class="zalo-hc-muted">Đang kiểm tra kết nối Zalo Agent...</div></div>';
+h+='<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+h+='<button type="button" class="btn btn-ghost btn-sm" onclick="zaloLoadAccounts(false)">Tải tài khoản</button>';
+h+='<button type="button" class="btn btn-ghost btn-sm" onclick="zaloSyncThreads(this)">Đồng bộ hội thoại</button>';
+h+='<button type="button" class="btn btn-primary btn-sm" onclick="zaloToggleLoginPanel()">Thêm tài khoản</button>';
+h+='</div></div>';
+h+='<div id="zalo-login-panel" style="display:none;border-top:1px solid var(--bd1);padding:14px 16px;background:var(--bg2);">';
+h+='<div style="display:grid;grid-template-columns:minmax(240px,1fr) 200px;gap:14px;align-items:start;">';
+h+='<div><div class="zalo-hc-title" style="margin-bottom:8px;">Đăng nhập tài khoản Zalo</div><div class="zalo-hc-muted" style="margin-bottom:10px;">Nhập tên gợi nhớ rồi quét QR bằng app Zalo điện thoại. Khi đăng nhập xong, tài khoản sẽ tự xuất hiện trong danh sách.</div><input id="zalo-login-name" class="fi" placeholder="VD: Zalo CSKH HC" style="margin-bottom:8px;"><div style="display:flex;gap:8px;"><button type="button" class="btn btn-primary btn-sm" onclick="zaloStartLogin(this)">Tạo mã QR</button><button type="button" class="btn btn-ghost btn-sm" onclick="zaloStopLogin()">Dừng</button></div><div id="zalo-login-note" class="zalo-hc-muted" style="margin-top:8px;"></div></div>';
+h+='<div><div class="zalo-hc-qr" id="zalo-login-qr"><span class="zalo-hc-muted">Chưa có QR</span></div></div>';
+h+='</div></div></div>';
+h+='<div class="zalo-hc-shell">';
+h+='<div class="zalo-hc-card"><div class="zalo-hc-head"><div><div class="zalo-hc-title">Tài khoản & hội thoại</div><div id="zalo-account-summary" class="zalo-hc-muted">Chưa tải tài khoản</div></div></div><div id="zalo-account-list"></div><div style="padding:12px;border-bottom:1px solid var(--bd1);"><input id="zalo-thread-search" class="fi" placeholder="Tìm hội thoại..." oninput="zaloChatState.search=this.value;zaloRenderThreads();" autocomplete="off"></div><div id="zalo-thread-list" style="max-height:520px;overflow:auto;"></div></div>';
+h+='<div class="zalo-hc-card zalo-hc-chat"><div class="zalo-hc-head" id="zalo-chat-header"><div><div class="zalo-hc-title">Chưa chọn hội thoại</div><div class="zalo-hc-muted">Chọn một hội thoại ở bên trái để xem và gửi tin nhắn.</div></div></div><div class="zalo-hc-messages" id="zalo-message-list"><div class="zalo-hc-empty">Chưa có hội thoại nào được chọn.</div></div><div class="zalo-hc-composer"><textarea id="zalo-message-input" class="fi" placeholder="Nhập tin nhắn..." onkeydown="zaloComposerKeydown(event)"></textarea><button type="button" class="btn btn-primary" onclick="zaloSendMessage(this)" style="min-width:96px;">Gửi</button></div></div>';
+h+='</div></div>';
+return h;
+}
+
+function zaloSetStatus(msg,ok){
+var el=document.getElementById('zalo-status');if(!el)return;
+el.textContent=msg||'';
+el.style.color=ok===false?'var(--red)':(ok===true?'var(--green)':'var(--tx3)');
+}
+function zaloApi(path,opts){
+opts=opts||{};
+var req={method:opts.method||'GET',headers:{'Content-Type':'application/json'}};
+if(opts.body!==undefined)req.body=typeof opts.body==='string'?opts.body:JSON.stringify(opts.body);
+return fetch('/api/zalo-agent'+path,req).then(function(resp){
+  return resp.text().then(function(text){
+    var data=null;try{data=text?JSON.parse(text):{};}catch(e){data={ok:false,error:text||('HTTP '+resp.status)};}
+    if(!resp.ok)throw new Error((data&&data.error)||('Zalo Agent HTTP '+resp.status));
+    if(data&&data.licenseRequired)throw new Error(data.error||'Zalo Agent cần kích hoạt license.');
+    return data;
+  });
+});
+}
+function zaloAvatarText(name){var s=String(name||'?').trim();return (s.slice(0,2)||'?').toUpperCase();}
+function zaloAvatarStyle(url){return url?'background-image:url(&quot;'+esc(url)+'&quot;);':'';}
+function zaloTimeAgo(ts){
+if(!ts)return'';
+if(ts>1e12)ts=Math.floor(ts/1000);
+var sec=Math.max(0,Math.floor(Date.now()/1000-ts));
+if(sec<60)return'vừa xong';
+if(sec<3600)return Math.floor(sec/60)+' phút';
+if(sec<86400)return Math.floor(sec/3600)+' giờ';
+return new Date(ts*1000).toLocaleDateString('vi-VN');
+}
+function zaloMsgTime(ts){
+if(!ts)return'';
+var n=Number(ts);if(n&&n<1e12)n=n*1000;
+var d=n?new Date(n):new Date(ts);
+if(isNaN(d.getTime()))return'';
+return d.toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});
+}
+function zaloMsgHtml(m){
+var c=m&&m.content;
+if(typeof c==='string'){
+  var s=c.trim(),obj=null;
+  if(s.charAt(0)==='{'||s.charAt(0)==='['){try{obj=JSON.parse(s);}catch(e){}}
+  if(!obj)return esc(c).replace(/\n/g,'<br>');
+  c=obj;
+}
+if(c&&typeof c==='object'){
+  var href=c.href||c.url||c.staticUrl||c.image||'';
+  if(href&&/\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(href))return'<a href="'+esc(href)+'" target="_blank" rel="noopener"><img src="'+esc(c.thumb||href)+'" style="max-width:240px;max-height:260px;border-radius:10px;display:block;" alt="Ảnh Zalo"></a>';
+  if(href&&/\.(mp4|mov|webm)(\?|$)/i.test(href))return'<a href="'+esc(href)+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">Video Zalo<br><span style="font-size:11px;opacity:.8;">'+esc(href)+'</span></a>';
+  if(c.fileName)return'Tệp: <a href="'+esc(href||'#')+'" target="_blank" rel="noopener">'+esc(c.fileName)+'</a>';
+  if(c.msg)return esc(c.msg).replace(/\n/g,'<br>');
+  if(c.title)return esc(c.title);
+  if(c.description)return esc(c.description);
+  return'<span style="opacity:.75;">Nội dung đính kèm</span>';
+}
+return esc(String(c||''));
+}
+function initZaloChatPage(){
+var root=document.getElementById('zalo-chat-root');if(!root)return;
+zaloRenderAccounts();
+zaloRenderThreads();
+zaloRenderChat();
+zaloEnsureRefreshTimer();
+if(!zaloChatState.accounts.length&&!zaloChatState.loadingAccounts)zaloLoadAccounts(true);
+else if(zaloChatState.ownId&&!zaloChatState.threads.length&&!zaloChatState.loadingThreads)zaloLoadThreads(true);
+}
+function zaloEnsureRefreshTimer(){
+if(zaloChatState.refreshTimer)return;
+zaloChatState.refreshTimer=setInterval(function(){
+  if(!(curPage===1&&spendTab===3)){clearInterval(zaloChatState.refreshTimer);zaloChatState.refreshTimer=null;return;}
+  if(zaloChatState.ownId)zaloLoadThreads(true);
+},15000);
+}
+async function zaloLoadAccounts(silent){
+zaloChatState.loadingAccounts=true;
+zaloSetStatus('Đang tải danh sách tài khoản Zalo...');
+try{
+  var r=await zaloApi('/api/chat/accounts');
+  zaloChatState.accounts=r.data||[];
+  var last=null;try{last=localStorage.getItem('hc_zalo_own_id');}catch(e){}
+  if(!zaloChatState.ownId||!zaloChatState.accounts.some(function(a){return String(a.ownId)===String(zaloChatState.ownId);})){
+    var preferred=(last&&zaloChatState.accounts.find(function(a){return String(a.ownId)===String(last);}))||zaloChatState.accounts.find(function(a){return a.connected;})||zaloChatState.accounts[0];
+    zaloChatState.ownId=preferred?preferred.ownId:null;
+  }
+  zaloRenderAccounts();
+  if(zaloChatState.ownId)await zaloLoadThreads(true);else{zaloChatState.threads=[];zaloRenderThreads();zaloRenderChat();}
+  zaloSetStatus(zaloChatState.accounts.length?'Đã kết nối dữ liệu Zalo Agent.':'Chưa có tài khoản Zalo. Bấm Thêm tài khoản để quét QR.',true);
+  if(!silent)toast('Đã tải tài khoản Zalo',true);
+}catch(e){
+  zaloChatState.lastError=e.message||String(e);
+  zaloSetStatus(zaloChatState.lastError,false);
+  if(!silent)toast('Không tải được Zalo: '+zaloChatState.lastError,false);
+}finally{zaloChatState.loadingAccounts=false;}
+}
+function zaloRenderAccounts(){
+var list=document.getElementById('zalo-account-list');var sum=document.getElementById('zalo-account-summary');if(!list||!sum)return;
+var accs=zaloChatState.accounts||[];
+var connected=accs.filter(function(a){return a.connected;}).length;
+sum.textContent=accs.length?(accs.length+' tài khoản · '+connected+' đang kết nối'):'Chưa có tài khoản';
+if(!accs.length){list.innerHTML='<div class="zalo-hc-empty">Chưa có tài khoản Zalo. Bấm Thêm tài khoản để đăng nhập bằng QR.</div>';return;}
+list.innerHTML=accs.map(function(a){
+  var active=String(a.ownId)===String(zaloChatState.ownId);
+  return'<button type="button" class="zalo-hc-account'+(active?' active':'')+'" onclick="zaloSelectAccount('+safeJsString(a.ownId)+')"><span class="zalo-hc-dot '+(a.connected?'on':'')+'"></span><div class="zalo-hc-avatar">'+esc(zaloAvatarText(a.name||a.ownId))+'</div><div style="min-width:0;flex:1;"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(a.name||'Tài khoản Zalo')+'</div><div class="zalo-hc-muted">'+esc(a.ownId||'')+(a.proxy?' · proxy '+esc(a.proxy):'')+'</div></div></button>';
+}).join('');
+}
+async function zaloSelectAccount(ownId){
+zaloChatState.ownId=ownId;
+zaloChatState.currentThread=null;
+zaloChatState.messages=[];
+try{localStorage.setItem('hc_zalo_own_id',ownId);}catch(e){}
+zaloRenderAccounts();zaloRenderThreads();zaloRenderChat();
+await zaloLoadThreads(false);
+}
+function zaloCurrentAccount(){return(zaloChatState.accounts||[]).find(function(a){return String(a.ownId)===String(zaloChatState.ownId);})||null;}
+async function zaloConnectCurrent(btn){
+var acc=zaloCurrentAccount();if(!acc)return toast('Chưa chọn tài khoản Zalo',false);
+var old=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='Đang kết nối...';}
+try{var r=await zaloApi('/api/chat/account-connect/'+encodeURIComponent(acc.ownId),{method:'POST'});if(!r.ok)throw new Error(r.error||'Không kết nối được');toast('Đã kết nối Zalo',true);await zaloLoadAccounts(true);}
+catch(e){toast('Kết nối thất bại: '+(e.message||e),false);}
+finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+async function zaloDisconnectCurrent(btn){
+var acc=zaloCurrentAccount();if(!acc)return toast('Chưa chọn tài khoản Zalo',false);
+var old=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='Đang ngắt...';}
+try{await zaloApi('/api/chat/account-disconnect/'+encodeURIComponent(acc.ownId),{method:'POST'});toast('Đã ngắt kết nối Zalo',true);await zaloLoadAccounts(true);}
+catch(e){toast('Không ngắt được: '+(e.message||e),false);}
+finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+async function zaloLoadThreads(silent){
+if(!zaloChatState.ownId)return;
+zaloChatState.loadingThreads=true;
+if(!silent)zaloSetStatus('Đang tải hội thoại...');
+try{
+  var r=await zaloApi('/api/chat/threads/'+encodeURIComponent(zaloChatState.ownId)+'?limit=300');
+  var arr=(r.data||[]).map(function(t){if(t.lastMsgAt&&t.lastMsgAt>1e12)t.lastMsgAt=Math.floor(t.lastMsgAt/1000);return t;});
+  arr.sort(function(a,b){return(b.pinned||0)-(a.pinned||0)||(b.unread||0)-(a.unread||0)||(b.lastMsgAt||0)-(a.lastMsgAt||0);});
+  zaloChatState.threads=arr;
+  if(zaloChatState.currentThread){
+    var updated=arr.find(function(t){return String(t.id)===String(zaloChatState.currentThread.id);});
+    if(updated)zaloChatState.currentThread=updated;
+  }
+  if(!zaloChatState.currentThread&&arr.length)zaloChatState.currentThread=arr[0];
+  zaloRenderThreads();zaloRenderChat();
+  if(zaloChatState.currentThread&&!zaloChatState.loadingMessages)await zaloLoadMessages(true);
+  if(!silent)zaloSetStatus('Đã tải '+arr.length+' hội thoại.',true);
+}catch(e){
+  zaloSetStatus(e.message||String(e),false);
+  if(!silent)toast('Không tải được hội thoại: '+(e.message||e),false);
+}finally{zaloChatState.loadingThreads=false;}
+}
+async function zaloSyncThreads(btn){
+if(!zaloChatState.ownId)return toast('Chưa chọn tài khoản Zalo',false);
+var old=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='Đang đồng bộ...';}
+try{
+  var r=await zaloApi('/api/chat/sync-threads/'+encodeURIComponent(zaloChatState.ownId),{method:'POST'});
+  if(!r.ok)throw new Error(r.error||'Đồng bộ thất bại');
+  await zaloApi('/api/chat/enrich-unknown-threads/'+encodeURIComponent(zaloChatState.ownId),{method:'POST'}).catch(function(){});
+  await zaloLoadThreads(true);
+  toast('Đã đồng bộ '+(r.syncedFriends||0)+' bạn bè, '+(r.syncedGroups||0)+' nhóm',true);
+}catch(e){toast('Đồng bộ thất bại: '+(e.message||e),false);}
+finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+function zaloRenderThreads(){
+var list=document.getElementById('zalo-thread-list');if(!list)return;
+var q=String(zaloChatState.search||'').toLowerCase();
+var rows=(zaloChatState.threads||[]).filter(function(t){
+  if(!q)return true;
+  return String(t.name||'').toLowerCase().indexOf(q)>=0||String(t.lastMsg||'').toLowerCase().indexOf(q)>=0||String(t.id||'').indexOf(q)>=0;
+});
+if(!zaloChatState.ownId){list.innerHTML='<div class="zalo-hc-empty">Chọn hoặc thêm một tài khoản Zalo để xem hội thoại.</div>';return;}
+if(zaloChatState.loadingThreads&&!rows.length){list.innerHTML='<div class="zalo-hc-empty">Đang tải hội thoại...</div>';return;}
+if(!rows.length){list.innerHTML='<div class="zalo-hc-empty">Chưa có hội thoại phù hợp.</div>';return;}
+list.innerHTML=rows.map(function(t){
+  var active=zaloChatState.currentThread&&String(zaloChatState.currentThread.id)===String(t.id);
+  var unread=parseInt(t.unread||0,10);
+  var type=parseInt(t.type||0,10);
+  var avatar=zaloAvatarStyle(t.avatar);
+  return'<button type="button" class="zalo-hc-thread '+(!unread?'read':'')+(active?' active':'')+'" onclick="zaloSelectThread('+safeJsString(t.id)+','+type+')"><div class="zalo-hc-avatar" style="'+avatar+'">'+(t.avatar?'':esc(zaloAvatarText(t.name||t.id)))+'</div><div class="zalo-hc-thread-main"><div class="zalo-hc-thread-top"><span class="zalo-hc-thread-name">'+esc(t.name||(type===1?'Nhóm Zalo':'Người dùng Zalo'))+'</span><span class="zalo-hc-muted" style="white-space:nowrap;">'+esc(zaloTimeAgo(t.lastMsgAt))+'</span></div><div class="zalo-hc-thread-last">'+esc(t.lastMsg||(type===1?'Nhóm':'Cá nhân'))+'</div></div>'+(unread?'<span class="zalo-hc-pill">'+unread+'</span>':'')+'</button>';
+}).join('');
+}
+async function zaloSelectThread(threadId,threadType){
+var t=(zaloChatState.threads||[]).find(function(x){return String(x.id)===String(threadId);})||{id:threadId,type:threadType,name:'Hội thoại'};
+zaloChatState.currentThread=t;
+zaloChatState.messages=[];
+zaloRenderThreads();zaloRenderChat();
+try{await zaloApi('/api/chat/mark-read/'+encodeURIComponent(zaloChatState.ownId)+'/'+encodeURIComponent(threadId),{method:'POST'});t.unread=0;}catch(e){}
+await zaloLoadMessages(true);
+}
+async function zaloLoadMessages(silent){
+if(!zaloChatState.ownId||!zaloChatState.currentThread)return;
+zaloChatState.loadingMessages=true;
+try{
+  var r=await zaloApi('/api/chat/messages/'+encodeURIComponent(zaloChatState.ownId)+'/'+encodeURIComponent(zaloChatState.currentThread.id)+'?limit=80&offset=0');
+  zaloChatState.messages=r.data||[];
+  zaloRenderChat();
+  if(!silent)zaloSetStatus('Đã tải tin nhắn.',true);
+}catch(e){
+  zaloRenderChat();
+  if(!silent)toast('Không tải được tin nhắn: '+(e.message||e),false);
+}finally{zaloChatState.loadingMessages=false;}
+}
+function zaloRenderChat(){
+var head=document.getElementById('zalo-chat-header');var box=document.getElementById('zalo-message-list');if(!head||!box)return;
+var acc=zaloCurrentAccount(),t=zaloChatState.currentThread;
+if(!t){
+  head.innerHTML='<div><div class="zalo-hc-title">Chưa chọn hội thoại</div><div class="zalo-hc-muted">'+(acc?'Chọn hội thoại ở bên trái để bắt đầu.':'Thêm hoặc chọn tài khoản Zalo trước.')+'</div></div>';
+  box.innerHTML='<div class="zalo-hc-empty">Chưa có hội thoại nào được chọn.</div>';
+  return;
+}
+head.innerHTML='<div style="display:flex;align-items:center;gap:10px;min-width:0;"><div class="zalo-hc-avatar" style="'+zaloAvatarStyle(t.avatar)+'">'+(t.avatar?'':esc(zaloAvatarText(t.name||t.id)))+'</div><div style="min-width:0;"><div class="zalo-hc-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(t.name||'Hội thoại Zalo')+'</div><div class="zalo-hc-muted">'+(parseInt(t.type||0,10)===1?'Nhóm':'Cá nhân')+' · '+esc(t.id||'')+'</div></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button type="button" class="btn btn-ghost btn-sm" onclick="zaloConnectCurrent(this)">Kết nối lại</button><button type="button" class="btn btn-ghost btn-sm" onclick="zaloDisconnectCurrent(this)">Ngắt</button><button type="button" class="btn btn-ghost btn-sm" onclick="zaloSyncHistory(this)">Tải lịch sử</button></div>';
+if(zaloChatState.loadingMessages&&!zaloChatState.messages.length){box.innerHTML='<div class="zalo-hc-empty">Đang tải tin nhắn...</div>';return;}
+if(!zaloChatState.messages.length){
+  box.innerHTML='<div class="zalo-hc-empty">'+(parseInt(t.type||0,10)===1?'Chưa có tin nhắn lưu sẵn. Bấm Tải lịch sử để kéo tin gần nhất của nhóm.':'Zalo không cho phép lấy lịch sử chat 1-1 cũ qua API. Hệ thống sẽ lưu các tin nhắn mới từ lúc tài khoản được kết nối.')+'</div>';
+  return;
+}
+box.innerHTML=zaloChatState.messages.map(function(m){
+  var self=!!m.isSelf;
+  return'<div class="zalo-hc-msg '+(self?'self':'')+'">'+(!self&&t.type===1&&m.fromName?'<div class="zalo-hc-msg-name">'+esc(m.fromName)+'</div>':'')+'<div class="zalo-hc-bubble">'+zaloMsgHtml(m)+'</div><div class="zalo-hc-msg-time">'+esc(zaloMsgTime(m.ts))+'</div></div>';
+}).join('');
+box.scrollTop=box.scrollHeight;
+}
+async function zaloSyncHistory(btn){
+var t=zaloChatState.currentThread;if(!zaloChatState.ownId||!t)return;
+if(parseInt(t.type||0,10)!==1)return toast('Zalo chỉ cho tải lịch sử nhóm qua API. Chat 1-1 chỉ lưu tin mới.',false);
+var old=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='Đang tải...';}
+try{
+  var r=await zaloApi('/api/chat/sync-history/'+encodeURIComponent(zaloChatState.ownId)+'/'+encodeURIComponent(t.id)+'?threadType='+encodeURIComponent(t.type||1)+'&count=500',{method:'POST'});
+  if(!r.ok)throw new Error(r.error||'Không tải được lịch sử');
+  await zaloLoadMessages(true);
+  toast('Đã tải thêm '+(r.inserted||0)+' tin nhắn',true);
+}catch(e){toast('Không tải được lịch sử: '+(e.message||e),false);}
+finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+function zaloComposerKeydown(e){
+if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();zaloSendMessage();}
+}
+async function zaloSendMessage(btn){
+var input=document.getElementById('zalo-message-input');var text=input?input.value.trim():'';var t=zaloChatState.currentThread;
+if(!zaloChatState.ownId||!t)return toast('Chưa chọn hội thoại Zalo',false);
+if(!text)return;
+var old=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='Đang gửi...';}
+if(input)input.value='';
+try{
+  var r=await zaloApi('/api/chat/send-msg',{method:'POST',body:{ownId:zaloChatState.ownId,threadId:t.id,threadType:t.type||0,content:text}});
+  if(!r.ok)throw new Error(r.error||'Gửi thất bại');
+  await zaloLoadMessages(true);
+  await zaloLoadThreads(true);
+}catch(e){
+  if(input)input.value=text;
+  toast('Gửi tin nhắn thất bại: '+(e.message||e),false);
+}finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+function zaloToggleLoginPanel(){
+var p=document.getElementById('zalo-login-panel');if(!p)return;
+p.style.display=p.style.display==='none'||!p.style.display?'block':'none';
+}
+async function zaloStartLogin(btn){
+var nameEl=document.getElementById('zalo-login-name');var name=nameEl?nameEl.value.trim():'';
+var old=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='Đang tạo...';}
+try{
+  var r=await zaloApi('/api/chat/login-start',{method:'POST',body:{name:name}});
+  if(!r.ok)throw new Error(r.error||'Không tạo được phiên QR');
+  zaloChatState.loginSid=r.sid;
+  var note=document.getElementById('zalo-login-note');if(note)note.textContent='Đã tạo phiên đăng nhập. Mở app Zalo trên điện thoại để quét mã QR.';
+  if(zaloChatState.loginTimer)clearInterval(zaloChatState.loginTimer);
+  zaloChatState.loginTimer=setInterval(zaloPollLogin,2000);
+  await zaloPollLogin();
+}catch(e){toast('Không tạo được QR: '+(e.message||e),false);}
+finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+async function zaloPollLogin(){
+if(!zaloChatState.loginSid)return;
+try{
+  var r=await zaloApi('/api/chat/login-poll/'+encodeURIComponent(zaloChatState.loginSid));
+  var qr=document.getElementById('zalo-login-qr'),note=document.getElementById('zalo-login-note');
+  if(qr&&r.qr){var src=String(r.qr);if(src.indexOf('data:')!==0)src='data:image/png;base64,'+src;qr.innerHTML='<img src="'+esc(src)+'" alt="QR đăng nhập Zalo">';}
+  if(note)note.textContent=r.status==='scanned'?'Đã quét QR, đang xác nhận trên điện thoại...':(r.status==='success'?'Đăng nhập thành công.':'Chờ quét QR...');
+  if(r.status==='success'){zaloStopLogin(false);await zaloLoadAccounts(false);var p=document.getElementById('zalo-login-panel');if(p)p.style.display='none';toast('Đã thêm tài khoản Zalo',true);}
+  if(r.status==='error')throw new Error(r.error||'Đăng nhập thất bại');
+}catch(e){zaloStopLogin(false);toast('Đăng nhập Zalo lỗi: '+(e.message||e),false);}
+}
+function zaloStopLogin(showToast){
+if(zaloChatState.loginTimer){clearInterval(zaloChatState.loginTimer);zaloChatState.loginTimer=null;}
+zaloChatState.loginSid=null;
+var qr=document.getElementById('zalo-login-qr');if(qr)qr.innerHTML='<span class="zalo-hc-muted">Chưa có QR</span>';
+var note=document.getElementById('zalo-login-note');if(note)note.textContent='';
+if(showToast!==false)toast('Đã dừng phiên đăng nhập Zalo',true);
+}
 
 // Tab 1: Theo nhân sự
 function p1Staff(ms,mDates,nd,dim){
@@ -3639,7 +3988,8 @@ var PERMISSION_TREE=[
   {key:'p1',label:'Tài khoản Quảng cáo',sub:[
     {key:'p1.tkqc',label:'Tài khoản quảng cáo'},
     {key:'p1.staff',label:'Chi tiêu theo nhân sự'},
-    {key:'p1.client',label:'Chi tiêu theo khách hàng'}
+    {key:'p1.client',label:'Chi tiêu theo khách hàng'},
+    {key:'p1.zalo',label:'Chat Zalo'}
   ]},
   {key:'p2',label:'Nhân sự',sub:[
     {key:'p2.salary',label:'Lương + Hoa hồng'},
