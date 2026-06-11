@@ -4734,9 +4734,10 @@ async function backfillAdPostsOnce(btn){
 }
 
 // ═══ P6: CẢNH BÁO GIÁ CHIẾN DỊCH ═══
-var p6Tab=0,p6PolicySearch='',p6PolicyAccountFilter='',p6PolicyClientFilter='',p6PolicyStaffFilter='';
+var p6Tab=0,p6PolicySearch='',p6PolicyAccountFilter='',p6PolicyClientFilter='',p6PolicyStaffFilter='',campaignMessRefreshTimer=null,campaignMessRefreshRunning=false,campaignMessLastRefreshAt=0,campaignMessRecentSig='';
 function setP6Tab(i){p6Tab=i;syncSidebarNav();render();}
 function p6(){
+ensureCampaignMessAutoRefresh();
 var messAlerts=getMessAlerts(),leadAlerts=getLeadAlerts(),balAlerts=getBalanceAlerts(),policyAlerts=getRejectedAdAlerts();
 var canMess=canAccessKey('p6.mess'),canForm=canAccessKey('p6.form'),canBal=canAccessKey('p6.balance'),canPolicy=canAccessKey('p6.policy');
 var totalAlerts=messAlerts.length+leadAlerts.length+balAlerts.length+policyAlerts.length;
@@ -4763,13 +4764,43 @@ else if(p6Tab===1&&canForm)h+=p6MessFormActionBar('form')+p6AlertList(leadAlerts
 else if(p6Tab===2&&canBal)h+=p6BalanceList(balAlerts);
 else if(p6Tab===3&&canPolicy)h+=p6PolicyActionBar()+p6PolicyWatchSelector()+p6PolicyList(policyAlerts);
 return h;}
+function campaignMessKey(r){return String(r.ad_account_id||'')+'|'+String(r.campaign_id||'')+'|'+String(r.report_date||'');}
+async function refreshRecentCampaignMess(force){
+if(campaignMessRefreshRunning)return;
+var now=Date.now();
+if(!force&&now-campaignMessLastRefreshAt<60000)return;
+campaignMessRefreshRunning=true;
+try{
+var minDate14=new Date(Date.now()-14*86400000).toISOString().substring(0,10);
+var q=await fetchPaged(sb2.from('campaign_daily_mess').select('*,ad_account(id,account_name,client_id,max_mess_cost,max_lead_cost,client(name))').gte('report_date',minDate14).order('report_date',{ascending:false}));
+if(q&&q.error)throw q.error;
+var recent=q&&q.data||[];
+var nextSig=recent.map(function(r){return campaignMessKey(r)+':'+(r.spend||0)+':'+(r.mess_count||0)+':'+(r.lead_count||0)+':'+(r.campaign_status||'');}).join(';');
+var recentKeys={};
+recent.forEach(function(r){recentKeys[campaignMessKey(r)]=true;});
+var older=campaignMessData.filter(function(r){return String(r.report_date||'')<minDate14&&!recentKeys[campaignMessKey(r)];});
+var oldLen=campaignMessData.length;
+var changed=nextSig!==campaignMessRecentSig;
+campaignMessData=older.concat(recent);
+campaignMessRecentSig=nextSig;
+campaignMessLastRefreshAt=Date.now();
+if(curPage===6&&(force||changed||campaignMessData.length!==oldLen))render();
+}catch(e){console.warn('[campaignMess refresh]',e.message||e);}
+finally{campaignMessRefreshRunning=false;}
+}
+function ensureCampaignMessAutoRefresh(){
+if(!campaignMessRefreshTimer){
+campaignMessRefreshTimer=setInterval(function(){if(curPage===6)refreshRecentCampaignMess(false);},60000);
+}
+refreshRecentCampaignMess(false);
+}
 function p6MessFormActionBar(type){
 var isMess=type==='mess';
 var label=isMess?'Messenger':'Form';
 var d1Label=fd(vnDateStr(-86400000)),d3Label=fd(vnDateStr(-259200000));
 var h='<div style="display:flex;gap:10px;margin:16px 0;flex-wrap:wrap;align-items:center;">';
 h+='<button class="btn btn-primary" onclick="syncCampaignMess(this)">Quét giá Messenger &amp; Form</button>';
-h+='<span style="font-size:12px;color:var(--tx3);">Đang xem cảnh báo '+label+' · ngưỡng tính trung bình '+d3Label+' – '+d1Label+' · dữ liệu Mess/Form: '+campaignMessData.length+' dòng</span>';
+h+='<span style="font-size:12px;color:var(--tx3);">Đang xem cảnh báo '+label+' · ngưỡng tính trung bình '+d3Label+' – '+d1Label+' · dữ liệu Mess/Form: '+campaignMessData.length+' dòng'+(campaignMessLastRefreshAt?' · cập nhật '+new Date(campaignMessLastRefreshAt).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}):'')+'</span>';
 h+='</div>';
 return h;
 }
