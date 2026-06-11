@@ -56,8 +56,6 @@ const omniAdminResend = require('./api/omni/admin/resend');
 const omniOrder = require('./api/omni/order/[order_code]');
 const localDb = require('./api/_lib/local-db');
 
-const ZALO_AGENT_BASE_URL = (process.env.ZALO_AGENT_BASE_URL || 'http://127.0.0.1:3333').replace(/\/+$/, '');
-
 let chatgptChat;
 async function loadChatgptChat() {
   if (!chatgptChat) chatgptChat = require('./api/chatgpt-chat');
@@ -67,41 +65,6 @@ async function loadChatgptChat() {
 app.options('/api/*', (req, res) => res.status(200).end());
 app.use('/db', localDb);
 
-async function zaloAgentProxy(req, res) {
-  const tail = String(req.params[0] || '').replace(/^\/+/, '');
-  const queryIndex = req.url.indexOf('?');
-  const query = queryIndex >= 0 ? req.url.slice(queryIndex) : '';
-  const targetUrl = `${ZALO_AGENT_BASE_URL}/${tail}${query}`;
-  const headers = {
-    accept: req.headers.accept || 'application/json',
-    'x-forwarded-host': req.headers.host || '',
-    'x-forwarded-proto': req.headers['x-forwarded-proto'] || req.protocol || 'http',
-  };
-  if (req.headers.authorization) headers.authorization = req.headers.authorization;
-  let body;
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    headers['content-type'] = req.headers['content-type'] || 'application/json';
-    if (req.body !== undefined) body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {});
-  }
-  let upstream;
-  try {
-    upstream = await fetch(targetUrl, { method: req.method, headers, body });
-  } catch (err) {
-    res.status(502).json({
-      ok: false,
-      error: `Không kết nối được Zalo Agent tại ${ZALO_AGENT_BASE_URL}. Kiểm tra service Zalo hoặc biến ZALO_AGENT_BASE_URL.`,
-      detail: err.message || String(err),
-    });
-    return;
-  }
-  const contentType = upstream.headers.get('content-type');
-  if (contentType) res.setHeader('content-type', contentType);
-  res.status(upstream.status);
-  const buf = Buffer.from(await upstream.arrayBuffer());
-  res.send(buf);
-}
-
-app.all('/api/zalo-agent/*', jsonParser, wrap(zaloAgentProxy));
 app.all('/api/meta', jsonParser, wrap(meta));
 app.all('/api/meta-sync', jsonParser, wrap(metaSync));
 app.all('/api/policy-alert-sync', jsonParser, wrap(policyAlertSync));
