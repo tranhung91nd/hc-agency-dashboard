@@ -988,8 +988,10 @@ var SUBNAV_CONFIG={
     {key:'spend0',label:'Tài khoản quảng cáo',route:'ads/tkqc',action:"setSpendTab(0)",permKey:'p1.tkqc',match:function(){return curPage===1&&spendTab===0;}},
     {key:'spend1',label:'Chi tiêu theo nhân sự',route:'ads/staff',action:"setSpendTab(1)",permKey:'p1.staff',match:function(){return curPage===1&&spendTab===1;}},
     {key:'spend2',label:'Chi tiêu theo khách hàng',route:'ads/client',action:"setSpendTab(2)",permKey:'p1.client',match:function(){return curPage===1&&spendTab===2;}},
-    {key:'auto',label:'Quảng cáo tự động',route:'ads/auto',action:"pg(8)",permKey:'p8',match:function(){return curPage===8;}},
-    {key:'zalo-chat',label:'Chat Zalo',route:'ads/zalo-chat',action:"setSpendTab(3)",permKey:'p1.zalo',match:function(){return curPage===1&&spendTab===3;}}
+    {key:'auto',label:'Quảng cáo tự động',route:'ads/auto',action:"pg(8)",permKey:'p8',match:function(){return curPage===8;}}
+  ]}]},
+  9:{title:'Quản lý hội thoại',forceSection:true,sections:[{label:'',items:[
+    {key:'zalo-chat',label:'Chat Zalo',route:'conversations/zalo',legacyRoutes:['ads/zalo-chat'],action:"pg(9)",permKey:'p9.zalo',match:function(){return curPage===9;}}
   ]}]},
   2:{title:'Nhân sự',sections:[{label:'',items:[
     {key:'p2-task',label:'Công việc',route:'staff/task',action:"setP2Tab(2)",permKey:'p2.task',match:function(){return curPage===2&&p2Tab===2;}},
@@ -1047,6 +1049,7 @@ var PAGE_ICONS={
   6:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>',
   7:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/><path d="M9 18l1.5 1.5L13 17"/></svg>',
   8:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><circle cx="12" cy="12" r="4"/></svg>',
+  9:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 9h8M8 13h5"/></svg>',
   ceo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="12" cy="10" r="3"/><path d="M6.5 19.5c0-2.8 2.5-5 5.5-5s5.5 2.2 5.5 5"/></svg>'
 };
 function renderSidebarV2(){
@@ -1057,7 +1060,7 @@ function renderSidebarV2(){
   var isCollapsed=app&&app.classList.contains('sidebar-collapsed');
   var html='';
   // Iterate qua các page có config (theo thứ tự PERMISSION_TREE)
-  var pageOrder=[0,7,1,2,3,4,6,5]; // Quản trị công việc ngay sau Tổng quan, Admin cuối (page 8 nằm trong P1)
+  var pageOrder=[0,7,1,9,2,3,4,6,5]; // Quản trị công việc ngay sau Tổng quan, Admin cuối (page 8 nằm trong P1)
   if(isCollapsed){
     // Mode thu gọn: chỉ icon đại diện cho mỗi page (giống rail cũ)
     pageOrder.forEach(function(pNum){
@@ -1088,7 +1091,7 @@ function renderSidebarV2(){
         return 'pg('+pNum+');'+action;
       };
       // Page chỉ có 1 sub item (vd Tổng quan) → render 1 dòng đơn không section header
-      if(allItems.length===1){
+      if(allItems.length===1&&!cfg.forceSection){
         var only=Object.assign({},allItems[0]);
         if(only.key==='main')only.label=cfg.title;
         only.action=wrapAction(only.action);
@@ -1135,6 +1138,7 @@ function _findRouteItem(slug){
       var items=cfg.sections[s].items;
       for(var i=0;i<items.length;i++){
         if(items[i].route!==undefined&&items[i].route===slug)return{pNum:parseInt(pNum,10),item:items[i]};
+        if(items[i].legacyRoutes&&items[i].legacyRoutes.indexOf(slug)>=0)return{pNum:parseInt(pNum,10),item:items[i]};
       }
     }
   }
@@ -1241,7 +1245,7 @@ return;}
 if(sb)sb.style.display='';
 if(appEl)appEl.style.gridTemplateColumns='';
 syncSidebarNav();
-if(curPage===0)el.innerHTML=p0();else if(curPage===1)el.innerHTML=p1();else if(curPage===2)el.innerHTML=p2();else if(curPage===3)el.innerHTML=p3();else if(curPage===4)el.innerHTML=p4();else if(curPage===5)el.innerHTML=p5();else if(curPage===6)el.innerHTML=p6();else if(curPage===7)el.innerHTML=p7();else if(curPage===8)el.innerHTML=p8();
+if(curPage===0)el.innerHTML=p0();else if(curPage===1)el.innerHTML=p1();else if(curPage===2)el.innerHTML=p2();else if(curPage===3)el.innerHTML=p3();else if(curPage===4)el.innerHTML=p4();else if(curPage===5)el.innerHTML=p5();else if(curPage===6)el.innerHTML=p6();else if(curPage===7)el.innerHTML=p7();else if(curPage===8)el.innerHTML=p8();else if(curPage===9)el.innerHTML=p1ZaloChat();
 // Inject contract/prospect modals (ngoài page content để không bị cắt)
 var modalRoot=document.getElementById('hc-modal-root');
 if(!modalRoot){modalRoot=document.createElement('div');modalRoot.id='hc-modal-root';document.body.appendChild(modalRoot);}
@@ -1341,7 +1345,6 @@ return h;}
 
 // ═══ P1: CHI TIÊU Quảng cáo ═══
 function p1(){
-if(spendTab===3)return p1ZaloChat();
 var ms=rptMonth||lm();
 var mDates=dates.filter(function(d){return d.substring(0,7)===ms;}).sort();
 var nd=mDates.length||1;
@@ -3988,8 +3991,10 @@ var PERMISSION_TREE=[
   {key:'p1',label:'Tài khoản Quảng cáo',sub:[
     {key:'p1.tkqc',label:'Tài khoản quảng cáo'},
     {key:'p1.staff',label:'Chi tiêu theo nhân sự'},
-    {key:'p1.client',label:'Chi tiêu theo khách hàng'},
-    {key:'p1.zalo',label:'Chat Zalo'}
+    {key:'p1.client',label:'Chi tiêu theo khách hàng'}
+  ]},
+  {key:'p9',label:'Quản lý hội thoại',sub:[
+    {key:'p9.zalo',label:'Chat Zalo'}
   ]},
   {key:'p2',label:'Nhân sự',sub:[
     {key:'p2.salary',label:'Lương + Hoa hồng'},
@@ -4030,6 +4035,7 @@ function permissionLabel(k){
 // Normalize user permission từ DB: chấp nhận cả số (legacy) lẫn string
 function normalizePermKey(p){
   var s=String(p);
+  if(s==='p1.zalo')return'p9.zalo';
   if(/^\d+(\.\d+)?$/.test(s)){
     // Legacy: 4 → "p4". Bỏ qua phần thập phân (vd 4.1 → "p4")
     return 'p'+parseInt(s);
